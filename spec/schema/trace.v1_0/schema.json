@@ -1,0 +1,953 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasoning-traces.dev/schema/trace.v1.json",
+  "title": "Imandra CodeLogician Trace v1.0",
+  "$ref": "#/$defs/Trace",
+  "$defs": {
+    "Trace": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "trace_id",
+        "assistant",
+        "model",
+        "timestamp",
+        "trigger",
+        "actions",
+        "outcome"
+      ],
+      "properties": {
+        "trace_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "assistant": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "description": "ISO 8601 timestamp",
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/Event"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Action"
+          }
+        },
+        "outcome": {
+          "$ref": "#/$defs/Event"
+        },
+        "files_modified": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "process_properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessProperty"
+          }
+        },
+        "total_actions": {
+          "type": "integer"
+        },
+        "decision_points": {
+          "type": "integer"
+        },
+        "parallel_blocks": {
+          "type": "integer"
+        },
+        "loops": {
+          "type": "integer"
+        },
+        "max_loop_iterations": {
+          "type": "integer"
+        }
+      }
+    },
+    "Event": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "const": "TaskReceived",
+              "type": "string"
+            },
+            {
+              "const": "TriggeredByEvent",
+              "type": "string"
+            },
+            {
+              "const": "ProcessCompleted",
+              "type": "string"
+            },
+            {
+              "const": "ProcessAborted",
+              "type": "string"
+            },
+            {
+              "const": "ProcessInterrupted",
+              "type": "string"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "from_user": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "Action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ActivityAction"
+        },
+        {
+          "$ref": "#/$defs/GatewayAction"
+        },
+        {
+          "$ref": "#/$defs/ReasoningAction"
+        }
+      ]
+    },
+    "ActivityAction": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "rationale",
+        "category",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "category": {
+          "const": "activity",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "ReadFile",
+              "type": "string"
+            },
+            {
+              "const": "SearchCode",
+              "type": "string"
+            },
+            {
+              "const": "SearchWeb",
+              "type": "string"
+            },
+            {
+              "const": "AnalyzeCode",
+              "type": "string"
+            },
+            {
+              "const": "ExploreDirectory",
+              "type": "string"
+            },
+            {
+              "const": "ReadDocumentation",
+              "type": "string"
+            },
+            {
+              "const": "EditFile",
+              "type": "string"
+            },
+            {
+              "const": "CreateFile",
+              "type": "string"
+            },
+            {
+              "const": "DeleteFile",
+              "type": "string"
+            },
+            {
+              "const": "RenameFile",
+              "type": "string"
+            },
+            {
+              "const": "RunCommand",
+              "type": "string"
+            },
+            {
+              "const": "RunTests",
+              "type": "string"
+            },
+            {
+              "const": "TypeCheck",
+              "type": "string"
+            },
+            {
+              "const": "Lint",
+              "type": "string"
+            },
+            {
+              "const": "ManualVerification",
+              "type": "string"
+            },
+            {
+              "const": "GitCommit",
+              "type": "string"
+            },
+            {
+              "const": "GitStatus",
+              "type": "string"
+            },
+            {
+              "const": "GitDiff",
+              "type": "string"
+            },
+            {
+              "const": "AskUser",
+              "type": "string"
+            },
+            {
+              "const": "ReportProgress",
+              "type": "string"
+            },
+            {
+              "const": "Explain",
+              "type": "string"
+            },
+            {
+              "const": "FormulatePlan",
+              "type": "string"
+            },
+            {
+              "const": "DecomposeTask",
+              "type": "string"
+            },
+            {
+              "const": "EstimateImpact",
+              "type": "string"
+            }
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        }
+      }
+    },
+    "GatewayAction": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "rationale",
+        "category",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "category": {
+          "const": "gateway",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "ExclusiveDecision",
+              "type": "string"
+            },
+            {
+              "const": "ParallelSplit",
+              "type": "string"
+            },
+            {
+              "const": "EventBasedDecision",
+              "type": "string"
+            },
+            {
+              "const": "LoopGateway",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DecisionOption"
+          }
+        }
+      }
+    },
+    "ReasoningAction": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "label",
+            "rationale",
+            "category",
+            "type",
+            "formalization"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "label": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "category": {
+              "const": "reasoning",
+              "type": "string"
+            },
+            "type": {
+              "const": "Formalize",
+              "type": "string"
+            },
+            "formalization": {
+              "$ref": "#/$defs/Formalization"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "label",
+            "rationale",
+            "category",
+            "type",
+            "vg_defined"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "label": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "category": {
+              "const": "reasoning",
+              "type": "string"
+            },
+            "type": {
+              "const": "DefineVG",
+              "type": "string"
+            },
+            "vg_defined": {
+              "$ref": "#/$defs/VGDefined"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "label",
+            "rationale",
+            "category",
+            "type",
+            "vg_result"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "label": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "category": {
+              "const": "reasoning",
+              "type": "string"
+            },
+            "type": {
+              "const": "Verify",
+              "type": "string"
+            },
+            "vg_result": {
+              "$ref": "#/$defs/VGResult"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "label",
+            "rationale",
+            "category",
+            "type",
+            "decomposition"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "label": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "category": {
+              "const": "reasoning",
+              "type": "string"
+            },
+            "type": {
+              "const": "Decompose",
+              "type": "string"
+            },
+            "decomposition": {
+              "$ref": "#/$defs/Decomposition"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "label",
+            "rationale",
+            "category",
+            "type",
+            "generated_tests"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "label": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "category": {
+              "const": "reasoning",
+              "type": "string"
+            },
+            "type": {
+              "const": "GenerateTests",
+              "type": "string"
+            },
+            "generated_tests": {
+              "$ref": "#/$defs/GeneratedTests"
+            }
+          }
+        }
+      ]
+    },
+    "DecisionOption": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "label",
+        "chosen"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "chosen": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Evidence": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "type",
+        "ref"
+      ],
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "const": "FileRef",
+              "type": "string"
+            },
+            {
+              "const": "UrlRef",
+              "type": "string"
+            },
+            {
+              "const": "CommandOutput",
+              "type": "string"
+            },
+            {
+              "const": "SearchResult",
+              "type": "string"
+            }
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      }
+    },
+    "Formalization": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "status",
+        "src_lang",
+        "src_code",
+        "iml_code"
+      ],
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "const": "transparent",
+              "type": "string"
+            },
+            {
+              "const": "opaque",
+              "type": "string"
+            },
+            {
+              "const": "failed",
+              "type": "string"
+            }
+          ]
+        },
+        "src_lang": {
+          "type": "string"
+        },
+        "src_code": {
+          "type": "string"
+        },
+        "iml_code": {
+          "type": "string"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PropertyItem": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "name",
+        "status",
+        "src"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "pending",
+              "type": "string"
+            },
+            {
+              "const": "proved",
+              "type": "string"
+            },
+            {
+              "const": "refuted",
+              "type": "string"
+            },
+            {
+              "const": "unknown",
+              "type": "string"
+            }
+          ]
+        },
+        "src": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "VGDefined": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "goal_id",
+        "kind",
+        "description",
+        "src"
+      ],
+      "properties": {
+        "goal_id": {
+          "type": "integer"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "const": "verify",
+              "type": "string"
+            },
+            {
+              "const": "instance",
+              "type": "string"
+            },
+            {
+              "const": "theorem",
+              "type": "string"
+            },
+            {
+              "const": "lemma",
+              "type": "string"
+            },
+            {
+              "const": "axiom",
+              "type": "string"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PropertyItem"
+          }
+        }
+      }
+    },
+    "VGResult": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "goal_id",
+        "status",
+        "result"
+      ],
+      "properties": {
+        "goal_id": {
+          "type": "integer"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "proved",
+              "type": "string"
+            },
+            {
+              "const": "refuted",
+              "type": "string"
+            },
+            {
+              "const": "sat",
+              "type": "string"
+            },
+            {
+              "const": "unknown",
+              "type": "string"
+            }
+          ]
+        },
+        "result": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "Region": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "constraints",
+        "invariant",
+        "model",
+        "model_eval"
+      ],
+      "properties": {
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invariant": {
+          "type": "string"
+        },
+        "model": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "model_eval": {
+          "type": "string"
+        }
+      }
+    },
+    "Decomposition": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "target_function",
+        "complete",
+        "regions"
+      ],
+      "properties": {
+        "target_function": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Region"
+          }
+        }
+      }
+    },
+    "GeneratedTest": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "name",
+        "region_index",
+        "code"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "region_index": {
+          "type": "integer"
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "expected": {},
+        "code": {
+          "type": "string"
+        }
+      }
+    },
+    "GeneratedTests": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "function",
+        "language",
+        "tests"
+      ],
+      "properties": {
+        "function": {
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "const": "python",
+              "type": "string"
+            },
+            {
+              "const": "typescript",
+              "type": "string"
+            }
+          ]
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneratedTest"
+          }
+        }
+      }
+    },
+    "ProcessProperty": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "name",
+        "passed"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

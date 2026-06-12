@@ -1317,6 +1317,7 @@
   <button class="artifact-btn" onclick="openModal('props')">Properties <span class="ab-count" id="propsCount">0</span></button>
   <button class="artifact-btn" id="refModelsBtn" style="display:none" onclick="openModal('refmodels')">Reference Models <span class="ab-count" id="refModelsCount">0</span></button>
   <button class="artifact-btn" id="policiesBtn" style="display:none" onclick="openModal('policies')">Policies <span class="ab-count" id="policiesCount">0</span></button>
+  <button class="artifact-btn" id="residualsBtn" style="display:none" onclick="openModal('residuals')">Residuals <span class="ab-count" id="residualsCount">0</span></button>
 </div>
 
 <div class="top-view main-area active" id="view-flow">
@@ -1716,6 +1717,12 @@ function loadTrace(data) {
     document.getElementById('policyViewBtn').style.display = '';
   }
 
+  // Show residuals button (v1.5 residual surface)
+  if (data.residuals?.length) {
+    document.getElementById('residualsBtn').style.display = '';
+    document.getElementById('residualsCount').textContent = data.residuals.length;
+  }
+
   // Show DAG view for v1.1 traces with artifacts
   if (data.artifacts?.length) {
     document.getElementById('dagViewBtn').style.display = '';
@@ -1741,8 +1748,8 @@ function openModal(kind, focusId) {
   const title = document.getElementById('modalTitle');
   const body = document.getElementById('modalBody');
 
-  const renderers = { vg: renderVGModal, decomp: renderDecompModal, formal: renderFormalModal, tests: renderTestsModal, props: renderPropsModal, policies: renderPoliciesModal, refmodels: renderRefModelsModal };
-  const titles = { vg: 'Verification Goals', decomp: 'Edge Cases (Region Decomposition)', formal: 'Formalizations', tests: 'Generated Tests', props: 'Process Properties', policies: 'Policies', refmodels: 'Reference Models' };
+  const renderers = { vg: renderVGModal, decomp: renderDecompModal, formal: renderFormalModal, tests: renderTestsModal, props: renderPropsModal, policies: renderPoliciesModal, refmodels: renderRefModelsModal, residuals: renderResidualsModal };
+  const titles = { vg: 'Verification Goals', decomp: 'Edge Cases (Region Decomposition)', formal: 'Formalizations', tests: 'Generated Tests', props: 'Process Properties', policies: 'Policies', refmodels: 'Reference Models', residuals: 'Residual Surface' };
 
   title.textContent = titles[kind] || kind;
   body.innerHTML = renderers[kind] ? renderers[kind]() : '';
@@ -3176,6 +3183,47 @@ function renderPoliciesModal() {
     }
 
     html += `</div>`;
+  }
+  return html;
+}
+
+// ============================================================
+// Residual Surface Modal (v1.5 negative space)
+// ============================================================
+function renderResidualsModal() {
+  const residuals = traceData?.residuals || [];
+  if (!residuals.length) return '<p style="color:var(--text-dim)">No residuals declared — empty negative space.</p>';
+
+  const sevColor = { critical: 'var(--red)', high: '#f59e0b', medium: '#eab308', low: 'var(--text-muted)', info: 'var(--text-dim)' };
+  const sevRank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+  const kindLabel = { assumption: 'Assumption', unverified: 'Unverified', out_of_scope: 'Out of scope', limitation: 'Limitation', open_question: 'Open question' };
+  const statusIcon = { open: '⚠️', acknowledged: '\u{1F441}️', addressed: '✅', waived: '➖' };
+
+  const ordered = [...residuals].sort((a, b) => (sevRank[b.severity] || 0) - (sevRank[a.severity] || 0));
+  const openCount = residuals.filter(r => (r.status || 'open') === 'open').length;
+
+  let html = `<div class="mprop-summary" style="margin:0 0 6px;">${residuals.length} declared · ${openCount} open</div>
+    <p style="color:var(--text-dim);font-size:11px;margin:0 0 16px;">What the trace did <b>not</b> establish &mdash; assumptions, unverified claims, out-of-scope items, limitations, and open questions.</p>`;
+
+  for (const r of ordered) {
+    const sev = r.severity || 'info';
+    const color = sevColor[sev] || 'var(--text-dim)';
+    const status = r.status || 'open';
+    const icon = statusIcon[status] || '❓';
+    const loc = [];
+    if (r.target) loc.push('target: ' + esc((r.target.target_type || '') + ':' + (r.target.target_id || '')));
+    if (r.related_artifact_ids?.length) loc.push('related: ' + esc(r.related_artifact_ids.join(', ')));
+
+    html += `<div class="mpolicy-row">
+      <div class="mpolicy-icon">${icon}</div>
+      <div class="mpolicy-body">
+        <div class="mpolicy-name">${esc(kindLabel[r.kind] || r.kind || 'residual')} <span style="font-size:9px;color:var(--text-dim);font-weight:400;font-family:inherit;">· ${esc(status)}</span></div>
+        ${r.statement ? `<div class="mpolicy-desc">${esc(r.statement)}</div>` : ''}
+        ${loc.length ? `<div class="mpolicy-note">${loc.join('&nbsp;&nbsp;&nbsp;')}</div>` : ''}
+        ${r.suggested_check ? `<div class="mpolicy-note">check: ${esc(r.suggested_check)}</div>` : ''}
+      </div>
+      <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:${color};border:1px solid ${color};border-radius:4px;padding:2px 6px;white-space:nowrap;height:fit-content;">${esc(sev)}</span>
+    </div>`;
   }
   return html;
 }

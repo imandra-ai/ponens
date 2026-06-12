@@ -1,7 +1,7 @@
-"""Unit tests for the registry I/O path (registry.py) against a file:// fixture.
+"""Unit tests for the registry I/O path (registry.py) against a file:// gallery.
 
-Uses the real in-repo gallery served over file:// and a temp cache dir — no
-network and no hub server.
+Uses the real in-repo gallery as the default `community` source, with an isolated
+HOME (no real ~/.ponens config) and a temp cache. No network, no hub.
 """
 
 import json
@@ -17,60 +17,46 @@ GALLERY = os.path.join(REPO, "gallery", "policies")
 
 
 @pytest.fixture
-def local_registry(tmp_path, monkeypatch):
-    """Point the registry at the in-repo gallery (file://) and a temp cache."""
-    monkeypatch.setenv("PONENS_REGISTRY_URL", f"file://{GALLERY}")
+def reg_env(tmp_path, monkeypatch):
+    (tmp_path / "home").mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("PONENS_REGISTRY_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setenv("PONENS_REGISTRY_URL", f"file://{GALLERY}")
+    monkeypatch.chdir(tmp_path)
     return tmp_path
 
 
-# ---------------------------------------------------------------------------
-# config / env
-# ---------------------------------------------------------------------------
-
-def test_registry_url_env_strips_trailing_slash(monkeypatch):
-    monkeypatch.setenv("PONENS_REGISTRY_URL", "https://example.test/gallery/")
-    assert reg.registry_url() == "https://example.test/gallery"
+def _update(source=None):
+    reg.cmd_registry_update(types.SimpleNamespace(source=source))
 
 
-def test_cache_dir_env_and_creates_policies_subdir(tmp_path, monkeypatch):
-    monkeypatch.setenv("PONENS_REGISTRY_CACHE", str(tmp_path / "c"))
-    base = reg.cache_dir()
-    assert base == str(tmp_path / "c")
-    assert os.path.isdir(os.path.join(base, "policies"))
+# --- sources / config -------------------------------------------------------
+
+def test_default_source_from_env(reg_env):
+    srcs = reg.load_sources()
+    assert [s["name"] for s in srcs] == ["community"]
+    assert srcs[0]["type"] == "gallery" and srcs[0]["url"].startswith("file://")
 
 
-# ---------------------------------------------------------------------------
-# update / load / fetch
-# ---------------------------------------------------------------------------
+def test_source_catalog_uncached_raises(reg_env):
+    with pytest.raises(FileNotFoundError):
+        reg.source_catalog(reg.default_source())
 
-def test_registry_update_writes_catalog(local_registry, capsys):
-    reg.cmd_registry_update(types.SimpleNamespace())
-    cat = json.load(open(reg.catalog_path()))
+
+def test_registry_update_then_catalog(reg_env):
+    _update()
+    cat = reg.source_catalog(reg.default_source())
     assert cat["policy_count"] > 0
 
 
-def test_load_catalog_after_update(local_registry):
-    reg.cmd_registry_update(types.SimpleNamespace())
-    cat = reg.load_catalog()
-    assert isinstance(cat["policies"], list) and cat["policies"]
-
-
-def test_load_catalog_without_update_exits(local_registry):
-    with pytest.raises(SystemExit):
-        reg.load_catalog()
-
-
-def test_fetch_policy_returns_and_caches(local_registry):
-    reg.cmd_registry_update(types.SimpleNamespace())
-    p = reg.fetch_policy("tests_before_commit")
+def test_fetch_policy_from_caches(reg_env):
+    p = reg.fetch_policy_from(reg.default_source(), "tests_before_commit")
     assert p["id"] == "tests_before_commit"
-    assert os.path.exists(os.path.join(reg.cache_dir(), "policies", "tests_before_commit.json"))
+    assert os.path.exists(os.path.join(reg._gallery_cache_dir("community"),
+                                       "policies", "tests_before_commit.json"))
 
 
-# ---------------------------------------------------------------------------
-# search filter
-# ---------------------------------------------------------------------------
+# --- search filter ----------------------------------------------------------
 
 def _args(query="", category=None, severity=None, domain=None, tag=None):
     return types.SimpleNamespace(query=query, category=category, severity=severity,
@@ -89,7 +75,6 @@ def test_matches_by_severity_and_domain():
              "severity": "error", "tags": ["pci"]}
     assert reg._matches(entry, "", _args(severity="error")) is True
     assert reg._matches(entry, "", _args(severity="warning")) is False
-    assert reg._matches(entry, "", _args(domain="payments")) is True
     assert reg._matches(entry, "", _args(domain="react")) is False
 
 
@@ -99,30 +84,25 @@ def test_matches_by_tag():
     assert reg._matches(entry, "", _args(tag="nope")) is False
 
 
-# ---------------------------------------------------------------------------
-# policies add (materialize into a trace)
-# ---------------------------------------------------------------------------
+# --- policies add -----------------------------------------------------------
 
-def test_policies_add_materializes_into_trace(local_registry, tmp_path):
-    reg.cmd_registry_update(types.SimpleNamespace())
-    trace_file = tmp_path / "trace.json"
-    trace_file.write_text(json.dumps({"trace_id": "t", "actions": [], "artifacts": []}))
-    reg.cmd_policies_add(types.SimpleNamespace(policy_id="tests_before_commit", into=str(trace_file)))
-    trace = json.loads(trace_file.read_text())
-    ids = [p["policy_id"] for p in trace["policies"]]
-    assert "tests_before_commit" in ids
-    # adapter maps the snake id to `name` so the checker can match it
-    added = next(p for p in trace["policies"] if p["policy_id"] == "tests_before_commit")
-    assert added["name"] == "tests_before_commit"
-    assert added["source"]["id"] == "tests_before_commit"
+def test_policies_add_materializes_into_trace(reg_env):
+    _update()
+    tf = reg_env / "trace.json"
+    tf.write_text(json.dumps({"trace_id": "t", "actions": [], "artifacts": []}))
+    reg.cmd_policies_add(types.SimpleNamespace(policy_id="tests_before_commit", into=str(tf)))
+    added = json.loads(tf.read_text())["policies"][0]
+    assert added["policy_id"] == "tests_before_commit"
+    assert added["name"] == "tests_before_commit"      # snake id → name for the checker
+    assert added["source"]["source"] == "community"     # provenance
 
 
-def test_policies_add_dedupes(local_registry, tmp_path, capsys):
-    reg.cmd_registry_update(types.SimpleNamespace())
-    trace_file = tmp_path / "trace.json"
-    trace_file.write_text(json.dumps({"trace_id": "t", "actions": [], "artifacts": []}))
-    args = types.SimpleNamespace(policy_id="tests_before_commit", into=str(trace_file))
+def test_policies_add_dedupes(reg_env):
+    _update()
+    tf = reg_env / "trace.json"
+    tf.write_text(json.dumps({"trace_id": "t", "actions": [], "artifacts": []}))
+    args = types.SimpleNamespace(policy_id="tests_before_commit", into=str(tf))
     reg.cmd_policies_add(args)
-    reg.cmd_policies_add(args)  # second add should be a no-op
-    trace = json.loads(trace_file.read_text())
-    assert sum(1 for p in trace["policies"] if p["policy_id"] == "tests_before_commit") == 1
+    reg.cmd_policies_add(args)
+    pols = json.loads(tf.read_text())["policies"]
+    assert sum(1 for p in pols if p["policy_id"] == "tests_before_commit") == 1

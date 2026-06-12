@@ -39,7 +39,7 @@ import Layout from "../layouts/Layout.astro";
       grid.innerHTML = items
         .map(
           (p) => `
-        <article class="policy-card">
+        <a class="policy-card" href="/policies/${p.id}">
           <div class="policy-top">
             <code class="pid">${p.id}</code>
             <span class="${sevClass(p.severity)}">${p.severity}</span>
@@ -50,7 +50,7 @@ import Layout from "../layouts/Layout.astro";
             <span class="dom">${p.domain ?? ""}</span>
             ${(p.tags || []).map((t) => `<span class="tag">${t}</span>`).join("")}
           </div>
-        </article>`
+        </a>`
         )
         .join("");
     }

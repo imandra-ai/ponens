@@ -1,0 +1,91 @@
+{
+  "trace_id": "example-001",
+  "assistant": "claude-code",
+  "model": "claude-opus-4-6",
+  "timestamp": "2026-04-01T12:00:00Z",
+  "trigger": { "type": "TaskReceived", "description": "fix login bug" },
+  "actions": [
+    {
+      "id": 1,
+      "category": "activity",
+      "type": "ReadFile",
+      "label": "Read login.py",
+      "rationale": "Understand current login behavior",
+      "inputs": [],
+      "outputs": ["login_source"]
+    },
+    {
+      "id": 2,
+      "category": "reasoning",
+      "type": "Formalize",
+      "label": "Formalize login handler",
+      "rationale": "Model the login logic in IML",
+      "inputs": ["login_source"],
+      "outputs": ["login_iml"],
+      "formalization": {
+        "status": "transparent",
+        "src_lang": "python",
+        "src_code": "def login(email, stored): return email == stored",
+        "iml_code": "let login (email : string) (stored : string) : bool = String.equal email stored",
+        "symbols": ["login"]
+      }
+    },
+    {
+      "id": 3,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define case-insensitive login goal",
+      "rationale": "Check whether login handles case differences",
+      "inputs": ["login_iml"],
+      "outputs": ["vg1_defined"],
+      "vg_defined": {
+        "goal_id": 1,
+        "kind": "instance",
+        "description": "Find inputs where case difference causes login to fail",
+        "src": "let vg1 (email : string) (stored : string) = String.lowercase email = String.lowercase stored && not (login email stored)"
+      }
+    },
+    {
+      "id": 4,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Run verification goal 1",
+      "rationale": "Check if case-insensitive mismatch is possible",
+      "inputs": ["vg1_defined"],
+      "outputs": ["vg1_result"],
+      "vg_result": {
+        "goal_id": 1,
+        "status": "sat",
+        "result": {
+          "sat": {
+            "model": {
+              "m_type": "Instance",
+              "src": "module M = struct\n  let email = \"User@Example.COM\"\n  let stored = \"user@example.com\"\nend"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "category": "activity",
+      "type": "EditFile",
+      "label": "Fix login to be case-insensitive",
+      "rationale": "Verification found a case-sensitivity bug; apply fix",
+      "inputs": ["vg1_result"],
+      "outputs": ["login_fixed"],
+      "evidence": [{ "type": "FileRef", "ref": "login.py" }]
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Confirmed case-sensitivity bug via formal instance; applied fix"
+  },
+  "files_modified": ["login.py"],
+  "process_properties": [
+    { "name": "research_before_edit", "passed": true },
+    { "name": "all_actions_have_rationale", "passed": true }
+  ],
+  "total_actions": 5,
+  "decision_points": 0
+}

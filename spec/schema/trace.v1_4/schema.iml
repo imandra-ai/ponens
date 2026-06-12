@@ -1,0 +1,1107 @@
+(* extracted from POLICY_SPEC_v0_1.md:123 *)
+type policy_severity =
+  | Info
+  | Warning
+  | ErrorSeverity
+
+and policy_scope =
+  | TraceScope
+  | ActionScope
+  | ArtifactScope
+  | ModuleScope
+
+and policy_kind =
+  | TraceInvariant
+  | ApprovalRequirement
+  | ReasoningRequirement
+  | LineageRequirement
+  | ReferenceIntegrity
+  | ConformanceRequirement
+
+and policy_selector =
+  { action_type : string option
+  ; artifact_type : string option
+  ; artifact_role : string option
+  ; category : string option
+  ; path_matches : string option
+  ; path_matches_any : string list
+  }
+
+and policy =
+  { policy_id : string
+  ; name : string
+  ; description : string option
+  ; severity : policy_severity
+  ; scope : policy_scope
+  ; kind : policy_kind
+  ; applies_when : policy_selector option
+  ; formula : policy_formula
+  ; reference_artifact_id : string option
+  }
+
+(* extracted from POLICY_SPEC_v0_1.md:186 *)
+and policy_evaluation_status =
+  | Passed
+  | Failed
+  | UnknownEvaluation
+  | NotApplicable
+
+and policy_evaluation =
+  { policy_id : string
+  ; status : policy_evaluation_status
+  ; checked_at_action_id : int option
+  ; evidence_action_ids : int list
+  ; evidence_artifact_ids : string list
+  ; violating_action_ids : int list
+  ; violating_artifact_ids : string list
+  ; note : string option
+  }
+
+(* extracted from POLICY_SPEC_v0_1.md:273 *)
+and action_id = int
+and artifact_id = string
+and reference_id = string
+and symbol = string
+and path_pattern = string
+
+(* extracted from POLICY_SPEC_v0_1.md:283 *)
+and value =
+  | VString of string
+  | VInt of int
+  | VBool of bool
+  | VFloat of float
+
+(* extracted from POLICY_SPEC_v0_1.md:293 *)
+and cmp_op =
+  | Eq
+  | Neq
+  | Lt
+  | Le
+  | Gt
+  | Ge
+  | In
+
+(* extracted from POLICY_SPEC_v0_1.md:306 *)
+and temporal_unary =
+  | G      (* globally *)
+  | F      (* finally *)
+  | X      (* next *)
+  | P      (* previously *)
+  | H      (* historically *)
+  | PTarget
+  | PChain
+  | HTarget
+  | HChain
+
+and temporal_binary =
+  | U      (* until *)
+  | S      (* since *)
+  | SLast  (* since last *)
+
+(* extracted from POLICY_SPEC_v0_1.md:326 *)
+and var = string
+
+(* extracted from POLICY_SPEC_v0_1.md:336 *)
+and action_field =
+  | ActionIdField
+  | ActionLabelField
+  | ActionRationaleField
+  | ActionDetailField
+  | ActionCategoryField
+  | ActionTypeField
+  | ActionToolField
+  | ActionVersionField
+  | ActionMethodField
+  | ActionTargetArtifactIdField
+  | ActionTargetPathField
+  | ActionInputCountField
+  | ActionOutputCountField
+
+and artifact_field =
+  | ArtifactIdField
+  | ArtifactTypeField
+  | ArtifactFormatField
+  | ArtifactSummaryField
+  | ArtifactProducerActionIdField
+  | ArtifactRevisionField
+  | ArtifactStatusField
+  | ArtifactAnalysisKindField
+  | ArtifactTargetArtifactIdField
+  | ArtifactReferenceArtifactIdField
+
+(* extracted from POLICY_SPEC_v0_1.md:365 *)
+and term =
+  | Var of var
+  | Val of value
+  | ActionField of term * action_field
+  | ArtifactField of term * artifact_field
+  | Inputs of term
+  | Outputs of term
+  | Target of term
+  | AncestorsOf of term
+  | Count of set_expr
+  | SetLiteral of term list
+
+(* extracted from POLICY_SPEC_v0_1.md:381 *)
+and set_expr =
+  | TermSet of term
+  | SetComprehension of
+      { binder : var
+      ; source : set_expr
+      ; guard : policy_formula option
+      ; body : term
+      }
+
+(* extracted from POLICY_SPEC_v0_1.md:394 *)
+and quantifier =
+  | Forall
+  | Exists
+  | ExistsUnique
+
+(* extracted from POLICY_SPEC_v0_1.md:405 *)
+and atomic_predicate =
+  | ActionTypeIs of term * string
+  | ActionCategoryIs of term * string
+  | ArtifactTypeIs of term * string
+  | ArtifactRoleIs of term * string
+  | StatusIs of term * string
+  | StartEvent
+  | EndEvent
+  | HighStakesPath of term
+  | HasRationale of term
+  | Completed of term
+  | FailedAction of term
+  | FormalModelArtifactPred of term
+  | ApprovedReferenceArtifactPred of term
+  | ReasoningActionPred of term
+  | VerificationActionPred of term
+  | StateSpaceAnalysisActionPred of term
+  | StateSpaceAnalysisResultPred of term
+  | AncestorOfPred of term * term
+  | DerivedFromPred of term * term
+  | UpstreamOfPred of term * term
+  | PredicateApp of string * term list
+
+(* extracted from POLICY_SPEC_v0_1.md:432 *)
+and policy_formula =
+  | True
+  | False
+  | Atom of atomic_predicate
+  | Not of policy_formula
+  | And of policy_formula list
+  | Or of policy_formula list
+  | Implies of policy_formula * policy_formula
+  | Iff of policy_formula * policy_formula
+  | Compare of term * cmp_op * term
+  | Temporal1 of temporal_unary * policy_formula
+  | Temporal2 of temporal_binary * policy_formula * policy_formula
+  | Quantified of
+      { quantifier : quantifier
+      ; binder : var
+      ; source : set_expr
+      ; body : policy_formula
+      }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:177 *)
+and review_case =
+  { review_case_id : string
+  ; spec_version : string
+  ; title : string
+  ; description : string option
+  ; status : review_case_status
+  ; audit_status : review_case_audit_status option
+  ; problem_statement : problem_statement
+  ; acceptance_criteria : string list
+  ; active_trace_id : string option
+  ; trace_ids : string list
+  ; trace_links : review_case_trace_link list
+  ; latest_snapshot_id : snapshot_id option
+  ; snapshot_ids : snapshot_id list
+  ; comments : case_comment list
+  ; review_items : case_review_item list
+  ; approvals : approval_record list
+  ; audits : audit_record list
+  ; anchor : case_anchor option
+  ; repo_context : case_repo_context option
+  ; explanation_status : explanation_status option
+  ; summary : review_case_summary option
+  ; remote : remote_linkage option
+  ; sync_state : sync_state option
+  ; created_at : string
+  ; updated_at : string
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:217 *)
+and problem_statement =
+  { problem_id : string
+  ; title : string
+  ; description : string
+  ; acceptance_criteria : string list
+  ; scope_hints : string list
+  ; created_by : string option
+  ; created_at : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:249 *)
+and review_case_status =
+  | RcDraft
+  | RcUnderReview
+  | RcChangesRequired
+  | RcReadyForApproval
+  | RcApproved
+  | RcRejected
+  | RcArchived
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:272 *)
+and review_case_audit_status =
+  | RcNotAuditable
+  | RcAuditable
+  | RcAuditPending
+  | RcAudited
+  | RcAuditFailed
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:304 *)
+and review_case_trace_relationship =
+  | RcSupersedes
+  | RcReruns
+  | RcDerivedFrom
+  | RcPolicyRecheckOf
+  | RcConformanceRecheckOf
+  | RcForkedFrom
+  | RcRelatedTo
+
+and review_case_trace_link =
+  { from_trace_id : string
+  ; to_trace_id : string
+  ; relationship : review_case_trace_relationship
+  ; note : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:346 *)
+and snapshot_id
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:360 *)
+and case_target_type =
+  | CaseReviewCaseTarget
+  | CaseTraceTarget
+  | CaseSnapshotTarget
+  | CaseApprovalTarget
+  | CaseAuditTarget
+
+and case_target_ref =
+  { target_type : case_target_type
+  ; target_id : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:376 *)
+and case_comment_status =
+  | CommentOpen
+  | CommentResolved
+
+and case_comment =
+  { comment_id : string
+  ; author : string
+  ; created_at : string
+  ; body : string
+  ; target : case_target_ref
+  ; thread_parent_id : string option
+  ; status : case_comment_status option
+  ; resolved_at : string option
+  ; tags : string list
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:396 *)
+and case_review_item_status =
+  | ItemOpen
+  | ItemAcknowledged
+  | ItemResolved
+  | ItemWaived
+
+and case_review_item =
+  { review_item_id : string
+  ; author : string
+  ; created_at : string
+  ; title : string
+  ; body : string option
+  ; target : case_target_ref
+  ; assignee : string option
+  ; status : case_review_item_status
+  ; blocking : bool option
+  ; acknowledged_at : string option
+  ; acknowledged_by : string option
+  ; resolved_at : string option
+  ; resolved_by : string option
+  ; resolution_note : string option
+  ; tags : string list
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:434 *)
+and approval_status =
+  | ApprovalApproved
+  | ApprovalRejected
+  | ApprovalRescinded
+
+and approval_target_type =
+  | ApprovalReviewCaseTarget
+  | ApprovalSnapshotTarget
+  | ApprovalTraceTarget
+
+and approval_record =
+  { approval_id : string
+  ; approved_by : string
+  ; approved_at : string
+  ; status : approval_status
+  ; target_type : approval_target_type
+  ; target_id : string
+  ; note : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:458 *)
+and audit_record_status =
+  | AuditPassed
+  | AuditRecordFailed
+  | AuditPartial
+
+and audit_target_type =
+  | AuditReviewCaseTarget
+  | AuditSnapshotTarget
+  | AuditTraceTarget
+
+and audit_record =
+  { audit_id : string
+  ; audited_by : string
+  ; audited_at : string
+  ; status : audit_record_status
+  ; target_type : audit_target_type
+  ; target_id : string
+  ; note : string option
+  ; evidence_snapshot_id : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:489 *)
+and case_anchor_type =
+  | PrRef
+  | TaskRef
+  | BranchRef
+  | TicketRef
+  | Standalone
+
+and case_anchor =
+  { typ : case_anchor_type
+  ; key : string
+  ; provider : string option
+  ; url : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:507 *)
+and case_repo_context =
+  { vcs : string option
+  ; repo_name : string option
+  ; repo_root : string option
+  ; base_branch : string option
+  ; head_branch : string option
+  ; head_commit_sha : string option
+  ; base_commit_sha : string option
+  ; merge_base_sha : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:535 *)
+and explanation_state =
+  | Explained
+  | PartiallyExplained
+  | Stale
+  | Diverged
+  | NoReviewCase
+
+and explanation_status =
+  { status : explanation_state
+  ; trace_id : string option
+  ; head_commit_sha : string option
+  ; trace_head_commit_sha : string option
+  ; explained_files : string list
+  ; unexplained_files : string list
+  ; note : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:570 *)
+and review_case_summary =
+  { counterexample_count : int option
+  ; proof_count : int option
+  ; state_space_analysis_count : int option
+  ; generated_test_count : int option
+  ; policy_status : string option
+  ; open_review_item_count : int option
+  ; open_blocking_review_item_count : int option
+  ; approval_ready : bool option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:596 *)
+and remote_linkage =
+  { remote_name : string option
+  ; remote_review_case_id : string option
+  ; published : bool option
+  ; remote_url : string option
+  ; last_pushed_at : string option
+  ; last_pulled_at : string option
+  }
+
+(* extracted from REVIEW_CASE_SPEC_v0_2.md:609 *)
+and review_case_sync_status =
+  | LocalOnly
+  | AheadLocal
+  | AheadRemote
+  | SyncDiverged
+  | InSync
+
+and sync_state =
+  { review_case_sync_status : review_case_sync_status option
+  ; active_trace_sync_status : string option
+  ; snapshot_sync_status : string option
+  ; note : string option
+  }
+
+(* extracted from TRACE_POLICY_REVIEWCASE_SEMANTICS_v0_2.md:347 *)
+and runtime_value =
+  | RVString of string
+  | RVInt of int
+  | RVBool of bool
+  | RVFloat of float
+  | RVActionId of int
+  | RVArtifactId of string
+  | RVActionIds of int list
+  | RVArtifactIds of string list
+  | RVValues of runtime_value list
+  | RVUnknown
+
+and binding =
+  { name : string
+  ; value : runtime_value
+  }
+
+and env =
+  { current_pos : int
+  ; bindings : binding list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:162 *)
+and trace =
+  { trace_id : string
+  ; spec_version : string
+  ; assistant : string
+  ; model : string
+  ; timestamp : string
+  ; trigger : event
+  ; actions : action list
+  ; outcome : event
+  ; artifacts : artifact list
+  ; reference_artifacts : reference_artifact list
+  ; policies : policy list
+  ; policy_evaluations : policy_evaluation list
+  ; execution_environments : execution_environment list
+  ; reproducibility : trace_reproducibility option
+  ; comments : comment list
+  ; review_items : review_item list
+  ; trace_links : trace_link list
+  ; trace_lineage : trace_lineage option
+  ; files_modified : string list
+  ; metrics : metrics option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:189 *)
+and metrics =
+  { total_actions : int option
+  ; decision_points : int option
+  ; parallel_blocks : int option
+  ; loops : int option
+  ; max_loop_iterations : int option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:209 *)
+and event_type =
+  | TaskReceived
+  | TriggeredByEvent
+  | ProcessCompleted
+  | ProcessAborted
+  | ProcessInterrupted
+
+and event =
+  { typ : event_type
+  ; description : string option
+  ; summary : string option
+  ; from_user : string option
+  ; reason : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:246 *)
+and artifact_metadata
+
+and artifact_common =
+  { artifact_id : string
+  ; artifact_role : artifact_role option
+  ; name : string option
+  ; format : string option
+  ; revision : int option
+  ; producer_action_id : int option
+  ; derived_from : string list
+  ; supersedes : string option
+  ; content_ref : string option
+  ; summary : string option
+  ; metadata : artifact_metadata option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:268 *)
+and artifact_role =
+  | FormalModelRole
+  | ApprovedReferenceRole
+  | ReasoningGoalRole
+  | ReasoningResultRole
+  | ProofRole
+  | CounterexampleRole
+  | StateSpaceAnalysisRole
+  | GeneratedTestRole
+  | AuditEvidenceRole
+  | CustomArtifactRole of string
+
+(* extracted from TRACE_SPEC_v1_4.md:284 *)
+and artifact =
+  | UserInstructionArtifact of artifact_common
+  | SourceCodeArtifact of artifact_common
+  | DocumentationArtifact of artifact_common
+  | SearchResultsArtifact of artifact_common
+  | AnalysisNoteArtifact of artifact_common
+  | PlanArtifact of artifact_common
+  | FormalizationArtifact of artifact_common * formalization_payload
+  | FormalModelArtifact of artifact_common * formal_model_payload
+  | VerificationGoalArtifact of artifact_common * verification_goal_payload
+  | VerificationResultArtifact of artifact_common * verification_result_payload
+  | StateSpaceAnalysisResultArtifact of artifact_common * state_space_analysis_result_payload
+  | ConformanceResultArtifact of artifact_common * conformance_result_payload
+  | CoSimulationResultArtifact of artifact_common * cosimulation_result_payload
+  | GeneratedTestsArtifact of artifact_common * generated_tests_payload
+  | CommandResultArtifact of artifact_common * command_result_payload
+  | DiffArtifact of artifact_common
+  | UserApprovalArtifact of artifact_common
+  | CommitArtifact of artifact_common
+  | ReproductionBundleArtifact of artifact_common * reproduction_bundle_payload
+
+(* extracted from TRACE_SPEC_v1_4.md:335 *)
+and action_common =
+  { id : int
+  ; label : string
+  ; rationale : string
+  ; detail : string option
+  ; inputs : string list
+  ; outputs : string list
+  ; evidence : evidence list
+  ; observations : observation list
+  ; execution : execution_metadata option
+  ; reproducibility : action_reproducibility option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:352 *)
+and activity_action_type =
+  | ReadFile
+  | SearchCode
+  | SearchWeb
+  | AnalyzeCode
+  | ExploreDirectory
+  | ReadDocumentation
+  | EditFile
+  | CreateFile
+  | DeleteFile
+  | RenameFile
+  | RunCommand
+  | RunTests
+  | TypeCheck
+  | Lint
+  | ManualVerification
+  | GitStatus
+  | GitDiff
+  | GitCommit
+  | AskUser
+  | ReportProgress
+  | Explain
+  | FormulatePlan
+  | DecomposeTask
+  | EstimateImpact
+
+(* extracted from TRACE_SPEC_v1_4.md:382 *)
+and gateway_action_type =
+  | ExclusiveDecision
+  | ParallelSplit
+  | EventBasedDecision
+  | LoopGateway
+
+and decision_option =
+  { label : string
+  ; chosen : bool
+  ; rejected_because : string option
+  ; next_action_id : int option
+  }
+
+and gateway_payload =
+  { decision_basis : string option
+  ; supporting_inputs : string list
+  ; options : decision_option list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:405 *)
+and reasoning_action_type =
+  | Formalize
+  | DefineVerificationGoal
+  | Verify
+  | StateSpaceAnalysis
+  | ConformanceCheck
+  | CoSimulate
+  | GenerateTests
+
+(* extracted from TRACE_SPEC_v1_4.md:418 *)
+and governance_action_type =
+  | EvaluatePolicy
+  | CreateReviewItem
+  | AcknowledgeReviewItem
+  | ResolveReviewItem
+  | AddComment
+  | RequestApproval
+  | Approve
+  | Reject
+  | CreateSnapshot
+  | RecordAudit
+  | LinkTrace
+
+(* extracted from TRACE_SPEC_v1_4.md:435 *)
+and action =
+  | ActivityAction of action_common * activity_action_type * action_payload option
+  | GatewayAction of action_common * gateway_action_type * gateway_payload
+  | ReasoningAction of action_common * reasoning_action_type * action_payload option
+  | GovernanceAction of action_common * governance_action_type * action_payload option
+
+(* extracted from TRACE_SPEC_v1_4.md:449 *)
+and action_payload
+
+(* extracted from TRACE_SPEC_v1_4.md:457 *)
+and determinism =
+  | Deterministic
+  | Mixed
+  | Nondeterministic
+
+and execution_metadata =
+  { tool : string option
+  ; version : string option
+  ; method_ : string option
+  ; determinism : determinism option
+  ; duration_ms : int option
+  ; cost : float option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:481 *)
+and evidence_type =
+  | FileRef
+  | UrlRef
+  | CommandOutput
+  | SearchResult
+
+and evidence =
+  { typ : evidence_type
+  ; ref_ : string
+  ; exit_code : int option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:497 *)
+and confidence =
+  | High
+  | Medium
+  | Low
+
+and observation =
+  { observation_id : string option
+  ; derived_from : string list
+  ; statement : string
+  ; confidence : confidence option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:519 *)
+and formalization_status =
+  | Transparent
+  | Opaque
+  | FailedFormalization
+
+and formalization_payload =
+  { status : formalization_status
+  ; src_lang : string
+  ; src_code : string
+  ; formal_code : string
+  ; model_language : string option
+  ; symbols : string list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:537 *)
+and formal_model_payload =
+  { model_language : string
+  ; formal_code : string
+  ; symbols : string list
+  ; scope : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:548 *)
+and verification_goal_kind =
+  | VerifyGoal
+  | Instance
+  | Theorem
+  | Lemma
+  | Axiom
+
+and property_status =
+  | Pending
+  | Proved
+  | Refuted
+  | UnknownProperty
+
+and property_item =
+  { name : string
+  ; status : property_status
+  ; src : string
+  ; note : string option
+  }
+
+and verification_goal_payload =
+  { goal_id : int
+  ; goal_revision : int option
+  ; kind : verification_goal_kind
+  ; description : string
+  ; src : string
+  ; target_artifact_id : string
+  ; target_symbol : string option
+  ; properties : property_item list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:583 *)
+and verification_result_status =
+  | VrProved
+  | VrRefuted
+  | VrSat
+  | VrUnknown
+
+and sat_model_type =
+  | InstanceModel
+  | CounterexampleModel
+
+and sat_model =
+  { m_type : sat_model_type
+  ; src : string
+  }
+
+and verification_result_variant =
+  | ProvedResult of
+      { proof_pp : string
+      ; properties : property_item list
+      }
+  | RefutedResult of
+      { counterexample : string
+      }
+  | SatResult of
+      { model : sat_model
+      }
+  | UnknownResult of
+      { note : string option
+      }
+
+and verification_result_payload =
+  { goal_id : int
+  ; goal_artifact_id : string
+  ; status : verification_result_status
+  ; engine : string option
+  ; completed_at : string option
+  ; result : verification_result_variant
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:626 *)
+and witness_model
+
+and region =
+  { constraints : string list
+  ; invariant : string option
+  ; model : witness_model option
+  ; model_eval : string option
+  }
+
+and state_space_analysis_result_payload =
+  { target_artifact_id : string
+  ; target_symbol : string option
+  ; analysis_kind : string
+  ; analysis_revision : int option
+  ; description : string option
+  ; complete : bool option
+  ; regions : region list
+  ; coverage_summary : string option
+  ; notes : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:657 *)
+and conformance_status =
+  | ConformancePassed
+  | ConformanceFailed
+  | ConformancePartial
+  | ConformanceUnknown
+
+and conformance_result_payload =
+  { reference_artifact_id : string
+  ; target_artifact_id : string
+  ; status : conformance_status
+  ; engine : string option
+  ; findings : string list
+  ; note : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:676 *)
+and divergence_point
+
+and cosimulation_status =
+  | Matched
+  | Mismatched
+  | Partial
+  | ErrorStatus
+
+and cosimulation_result_payload =
+  { target_artifact_id : string
+  ; input_artifact_ids : string list
+  ; status : cosimulation_status
+  ; engine : string option
+  ; replayed_steps : int option
+  ; divergence_points : divergence_point list
+  ; summary : string option
+  ; observations : string list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:699 *)
+and generated_test =
+  { name : string
+  ; region_index : int option
+  ; constraints : string list
+  ; inputs : witness_model option
+  ; expected : witness_model option
+  ; code : string
+  }
+
+and generated_tests_payload =
+  { function_ : string
+  ; language : string
+  ; source_analysis_artifact_id : string
+  ; tests : generated_test list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:719 *)
+and command_result_payload
+
+(* extracted from TRACE_SPEC_v1_4.md:727 *)
+and reproduction_bundle_payload =
+  { entry_action_ids : int list
+  ; artifact_ids : string list
+  ; environment_ids : string list
+  ; notes : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:744 *)
+and reference_artifact_type =
+  | RefFormalModel
+  | RefDocumentation
+  | RefContractModel
+  | RefProtocolSpec
+  | RefOther of string
+
+and reference_vg_kind =
+  | Conformance
+  | Invariant
+  | Refinement
+
+and reference_vg =
+  { vg_id : string
+  ; description : string
+  ; kind : reference_vg_kind
+  ; src : string
+  }
+
+and reference_payload 
+
+and reference_artifact =
+  { reference_artifact_id : string
+  ; name : string
+  ; description : string option
+  ; domain : string
+  ; version : string option
+  ; source : string option
+  ; artifact_type : reference_artifact_type
+  ; format : string option
+  ; content_ref : string option
+  ; payload : reference_payload option
+  ; verification_goals : reference_vg list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:787 *)
+and reproducibility_status =
+  | NotReproducible
+  | PartiallyReproducible
+  | Reproducible
+
+and trace_reproducibility =
+  { status : reproducibility_status
+  ; entrypoints : string list
+  ; required_artifact_ids : string list
+  ; required_environment_ids : string list
+  ; limitations : string list
+  ; notes : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:805 *)
+and reproduction_kind =
+  | DeterministicReplay
+  | ToolReexecution
+  | ProceduralReplay
+  | ManualReproduction
+  | NotReproducibleKind
+
+and reproduction_procedure_kind =
+  | CommandProcedure
+  | WorkflowProcedure
+  | ReferenceProcedure
+  | ManualProcedure
+
+and reproduction_procedure =
+  { kind : reproduction_procedure_kind
+  ; command : string option
+  ; working_directory : string option
+  ; arguments : string list
+  ; steps : string list
+  ; reference : string option
+  }
+
+and expected_output =
+  { artifact_ids : string list
+  ; result_summary : string option
+  }
+
+and action_reproducibility =
+  { status : reproducibility_status
+  ; reproduction_kind : reproduction_kind
+  ; input_artifact_ids : string list
+  ; environment_id : string option
+  ; procedure : reproduction_procedure
+  ; expected_output : expected_output option
+  ; limitations : string list
+  ; notes : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:847 *)
+and execution_environment_kind =
+  | Toolchain
+  | Container
+  | Service
+  | ExternalSystem
+
+and environment_component =
+  { name : string
+  ; version : string option
+  }
+
+and environment_configuration
+
+and execution_environment =
+  { environment_id : string
+  ; kind : execution_environment_kind
+  ; name : string
+  ; components : environment_component list
+  ; configuration : environment_configuration option
+  ; notes : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:879 *)
+and target_type =
+  | TraceTarget
+  | ActionTarget
+  | ArtifactTarget
+  | PolicyTarget
+  | PolicyEvaluationTarget
+  | ReferenceArtifactTarget
+
+and target_ref =
+  { target_type : target_type
+  ; target_id : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:896 *)
+and comment_status =
+  | Open
+  | Resolved
+
+and comment =
+  { comment_id : string
+  ; author : string
+  ; created_at : string
+  ; body : string
+  ; target : target_ref
+  ; thread_parent_id : string option
+  ; status : comment_status option
+  ; resolved_at : string option
+  ; tags : string list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:916 *)
+and review_item_status =
+  | ReviewOpen
+  | Acknowledged
+  | ReviewResolved
+  | Waived
+
+and review_item =
+  { review_item_id : string
+  ; author : string
+  ; created_at : string
+  ; title : string
+  ; body : string option
+  ; target : target_ref
+  ; assignee : string option
+  ; status : review_item_status
+  ; blocking : bool option
+  ; acknowledged_at : string option
+  ; acknowledged_by : string option
+  ; resolved_at : string option
+  ; resolved_by : string option
+  ; resolution_note : string option
+  ; tags : string list
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:948 *)
+and trace_relationship =
+  | Supersedes
+  | Reruns
+  | DerivedFrom
+  | SameTask
+  | SamePr
+  | PolicyRecheckOf
+  | ConformanceRecheckOf
+  | ForkedFrom
+  | RelatedTo
+
+and trace_link =
+  { link_id : string
+  ; from_trace_id : string
+  ; to_trace_id : string
+  ; relationship : trace_relationship
+  ; created_at : string option
+  ; created_by : string option
+  ; note : string option
+  }
+
+(* extracted from TRACE_SPEC_v1_4.md:973 *)
+and chain_status =
+  | Active
+  | Superseded
+  | Archived
+
+and trace_lineage =
+  { parent_trace_id : string option
+  ; root_trace_id : string option
+  ; chain_position : int option
+  ; chain_status : chain_status option
+  ; latest_descendant_trace_id : string option
+  }

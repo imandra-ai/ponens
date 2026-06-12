@@ -156,6 +156,19 @@ class LessThan:
     right: str
 
 @dataclass
+class FieldAccess:
+    """field access on a bound quantifier variable: r.severity, r.status, ..."""
+    var: str
+    field: str
+
+@dataclass
+class Compare:
+    """comparison of a field access against a value: r.severity >= High, r.kind = Assumption."""
+    left: 'Formula'   # FieldAccess
+    op: str           # '=', '!=', '>=', '>', '<=', '<'
+    right: 'Formula'  # Atom (value name) or Atom('EMPTY')
+
+@dataclass
 class FuncApp:
     """function application: inputs(a), outputs(b), target(a)"""
     func: str
@@ -175,6 +188,7 @@ Formula = Union[
     Atom, FieldNeEmpty, AtomWithArgs, StartEvent, EndEvent,
     MemberOf, Ancestors, SetComprehension, SetLiteral,
     Equals, ForAll, Exists, ExistsUnique, LessThan, FuncApp,
+    FieldAccess, Compare,
     RawStructural,
 ]
 
@@ -220,6 +234,7 @@ UNICODE_MAP = {
     '\u2192': '->', '\u2227': '&&', '\u2228': '||', '\u00ac': '!',
     '\u2200': 'FORALL', '\u2203': 'EXISTS',
     '\u2208': 'IN', '\u2260': '!=', '\u2205': 'EMPTY',
+    '\u2265': '>=', '\u2264': '<=',
 }
 
 @dataclass
@@ -310,14 +325,18 @@ def tokenize(formula: str) -> list[Token]:
             i += 1
             continue
 
-        # Less than / greater than
+        # Less than / greater than (and <=, >=)
         if c == '<':
-            tokens.append(Token('OP', '<', i))
-            i += 1
+            if i + 1 < n and formula[i + 1] == '=':
+                tokens.append(Token('OP', '<=', i)); i += 2
+            else:
+                tokens.append(Token('OP', '<', i)); i += 1
             continue
         if c == '>':
-            tokens.append(Token('OP', '>', i))
-            i += 1
+            if i + 1 < n and formula[i + 1] == '=':
+                tokens.append(Token('OP', '>=', i)); i += 2
+            else:
+                tokens.append(Token('OP', '>', i)); i += 1
             continue
 
         # Exclamation (NOT or EXISTS_UNIQUE part)
@@ -540,6 +559,17 @@ class Parser:
         if name == 'end_event':
             return EndEvent()
 
+        # field access on a bound variable: r.severity = Critical, r.suggested_check != EMPTY
+        if self.at('DOT'):
+            self.advance()
+            field = self.advance().value
+            left = FieldAccess(name, field)
+            for op in ('!=', '>=', '<=', '=', '>', '<'):
+                if self.at('OP', op):
+                    self.advance()
+                    return Compare(left, op, self._parse_value())
+            return left
+
         # field != empty
         if self.at('OP', '!='):
             self.advance()
@@ -607,12 +637,29 @@ class Parser:
             parts.append(t.value)
         return SetLiteral(' '.join(parts))
 
+    def _parse_value(self) -> Formula:
+        """Parse the right-hand side of a field comparison: a value name or EMPTY."""
+        if self.at('OP', 'EMPTY') or self.at('IDENT', 'EMPTY'):
+            self.advance()
+            return Atom('EMPTY')
+        return Atom(self.advance().value)
+
+    def _quant_separator(self):
+        """A quantifier body is separated by '.' (math) or '->' (implication sugar)."""
+        if self.at('DOT'):
+            self.advance()
+        elif self.at('OP', '->'):
+            self.advance()
+        else:
+            t = self.peek()
+            raise ParseError(f"Expected '.' or '->' after quantifier set, got {t.kind}:{t.value} at pos {t.pos}")
+
     def parse_forall(self) -> Formula:
         self.advance()  # FORALL
         var = self.advance().value
         self.expect('OP', 'IN')
         set_name = self.parse_func_or_ident()
-        self.expect('OP', '->')
+        self._quant_separator()
         body = self.parse_implies()
         return ForAll(var, set_name, body)
 
@@ -620,11 +667,15 @@ class Parser:
         t = self.advance()  # EXISTS or EXISTS_UNIQUE
         is_unique = t.value == 'EXISTS_UNIQUE'
         var = self.advance().value
-        self.expect('DOT')
+        set_name = ''
+        if self.at('OP', 'IN'):
+            self.advance()
+            set_name = self.parse_func_or_ident()
+        self._quant_separator()
         body = self.parse_implies()
         if is_unique:
-            return ExistsUnique(var, '', body)
-        return Exists(var, '', body)
+            return ExistsUnique(var, set_name, body)
+        return Exists(var, set_name, body)
 
     def parse_func_or_ident(self) -> str:
         name = self.advance().value

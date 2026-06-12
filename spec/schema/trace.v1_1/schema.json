@@ -1,0 +1,1254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasoning-traces.dev/schema/trace.v1_1.json",
+  "title": "Imandra CodeLogician Trace v1.1",
+  "$ref": "#/$defs/Trace",
+  "$defs": {
+    "Trace": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "trace_id",
+        "spec_version",
+        "assistant",
+        "model",
+        "timestamp",
+        "trigger",
+        "actions",
+        "outcome",
+        "artifacts"
+      ],
+      "properties": {
+        "trace_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "spec_version": {
+          "type": "string"
+        },
+        "assistant": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "description": "ISO 8601 timestamp",
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/Event"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Action"
+          }
+        },
+        "outcome": {
+          "$ref": "#/$defs/Event"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          }
+        },
+        "reference_models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReferenceModel"
+          }
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Policy"
+          }
+        },
+        "policy_evaluations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PolicyEvaluation"
+          }
+        },
+        "files_modified": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "metrics": {
+          "$ref": "#/$defs/Metrics"
+        }
+      }
+    },
+    "Event": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "const": "TaskReceived",
+              "type": "string"
+            },
+            {
+              "const": "TriggeredByEvent",
+              "type": "string"
+            },
+            {
+              "const": "ProcessCompleted",
+              "type": "string"
+            },
+            {
+              "const": "ProcessAborted",
+              "type": "string"
+            },
+            {
+              "const": "ProcessInterrupted",
+              "type": "string"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "from_user": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "Artifact": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "artifact_type"
+      ],
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "artifact_type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "producer_action_id": {
+          "type": "integer"
+        },
+        "derived_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supersedes": {
+          "type": "string"
+        },
+        "content_ref": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "Action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ActivityAction"
+        },
+        {
+          "$ref": "#/$defs/GatewayAction"
+        },
+        {
+          "$ref": "#/$defs/ReasoningAction"
+        }
+      ]
+    },
+    "ActivityAction": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "rationale",
+        "category",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "request": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "result": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "result_summary": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Observation"
+          }
+        },
+        "execution": {
+          "$ref": "#/$defs/Execution"
+        },
+        "category": {
+          "const": "activity",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "ReadFile",
+              "type": "string"
+            },
+            {
+              "const": "SearchCode",
+              "type": "string"
+            },
+            {
+              "const": "SearchWeb",
+              "type": "string"
+            },
+            {
+              "const": "AnalyzeCode",
+              "type": "string"
+            },
+            {
+              "const": "ExploreDirectory",
+              "type": "string"
+            },
+            {
+              "const": "ReadDocumentation",
+              "type": "string"
+            },
+            {
+              "const": "EditFile",
+              "type": "string"
+            },
+            {
+              "const": "CreateFile",
+              "type": "string"
+            },
+            {
+              "const": "DeleteFile",
+              "type": "string"
+            },
+            {
+              "const": "RenameFile",
+              "type": "string"
+            },
+            {
+              "const": "RunCommand",
+              "type": "string"
+            },
+            {
+              "const": "RunTests",
+              "type": "string"
+            },
+            {
+              "const": "TypeCheck",
+              "type": "string"
+            },
+            {
+              "const": "Lint",
+              "type": "string"
+            },
+            {
+              "const": "ManualVerification",
+              "type": "string"
+            },
+            {
+              "const": "GitStatus",
+              "type": "string"
+            },
+            {
+              "const": "GitDiff",
+              "type": "string"
+            },
+            {
+              "const": "GitCommit",
+              "type": "string"
+            },
+            {
+              "const": "AskUser",
+              "type": "string"
+            },
+            {
+              "const": "ReportProgress",
+              "type": "string"
+            },
+            {
+              "const": "Explain",
+              "type": "string"
+            },
+            {
+              "const": "FormulatePlan",
+              "type": "string"
+            },
+            {
+              "const": "DecomposeTask",
+              "type": "string"
+            },
+            {
+              "const": "EstimateImpact",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "GatewayAction": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "rationale",
+        "category",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "request": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "result": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "result_summary": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Observation"
+          }
+        },
+        "execution": {
+          "$ref": "#/$defs/Execution"
+        },
+        "category": {
+          "const": "gateway",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "ExclusiveDecision",
+              "type": "string"
+            },
+            {
+              "const": "ParallelSplit",
+              "type": "string"
+            },
+            {
+              "const": "EventBasedDecision",
+              "type": "string"
+            },
+            {
+              "const": "LoopGateway",
+              "type": "string"
+            }
+          ]
+        },
+        "decision_basis": {
+          "type": "string"
+        },
+        "supporting_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DecisionOption"
+          }
+        }
+      }
+    },
+    "ReasoningAction": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "rationale",
+        "category",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "request": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "result": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "result_summary": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Observation"
+          }
+        },
+        "execution": {
+          "$ref": "#/$defs/Execution"
+        },
+        "category": {
+          "const": "reasoning",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "Formalize",
+              "type": "string"
+            },
+            {
+              "const": "DefineVG",
+              "type": "string"
+            },
+            {
+              "const": "Verify",
+              "type": "string"
+            },
+            {
+              "const": "Decompose",
+              "type": "string"
+            },
+            {
+              "const": "GenerateTests",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "DecisionOption": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "label",
+        "chosen"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "chosen": {
+          "type": "boolean"
+        },
+        "rejected_because": {
+          "type": "string"
+        },
+        "next_action_id": {
+          "type": "integer"
+        }
+      }
+    },
+    "Evidence": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "type",
+        "ref"
+      ],
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "const": "FileRef",
+              "type": "string"
+            },
+            {
+              "const": "UrlRef",
+              "type": "string"
+            },
+            {
+              "const": "CommandOutput",
+              "type": "string"
+            },
+            {
+              "const": "SearchResult",
+              "type": "string"
+            }
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      }
+    },
+    "Observation": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "statement"
+      ],
+      "properties": {
+        "observation_id": {
+          "type": "string"
+        },
+        "derived_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "statement": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        }
+      }
+    },
+    "Execution": {
+      "additionalProperties": true,
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "determinism": {
+          "anyOf": [
+            {
+              "const": "deterministic",
+              "type": "string"
+            },
+            {
+              "const": "mixed",
+              "type": "string"
+            },
+            {
+              "const": "nondeterministic",
+              "type": "string"
+            }
+          ]
+        },
+        "duration_ms": {
+          "type": "integer"
+        },
+        "cost": {
+          "type": "number"
+        }
+      }
+    },
+    "ReferenceModel": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "reference_model_id",
+        "name",
+        "domain",
+        "iml"
+      ],
+      "properties": {
+        "reference_model_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "iml": {
+          "type": "string"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification_goals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReferenceVG"
+          }
+        }
+      }
+    },
+    "ReferenceVG": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "vg_id",
+        "description",
+        "kind",
+        "iml"
+      ],
+      "properties": {
+        "vg_id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "const": "conformance",
+              "type": "string"
+            },
+            {
+              "const": "invariant",
+              "type": "string"
+            },
+            {
+              "const": "refinement",
+              "type": "string"
+            }
+          ]
+        },
+        "iml": {
+          "type": "string"
+        }
+      }
+    },
+    "Policy": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "policy_id",
+        "name",
+        "severity",
+        "scope",
+        "kind",
+        "formula"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "const": "info",
+              "type": "string"
+            },
+            {
+              "const": "warning",
+              "type": "string"
+            },
+            {
+              "const": "error",
+              "type": "string"
+            }
+          ]
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "const": "trace",
+              "type": "string"
+            },
+            {
+              "const": "action",
+              "type": "string"
+            },
+            {
+              "const": "artifact",
+              "type": "string"
+            },
+            {
+              "const": "module",
+              "type": "string"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "applies_when": {
+          "$ref": "#/$defs/PolicySelector"
+        },
+        "formula": {
+          "type": "string"
+        },
+        "reference_model_id": {
+          "type": "string"
+        }
+      }
+    },
+    "PolicySelector": {
+      "additionalProperties": true,
+      "type": "object",
+      "properties": {
+        "action_type": {
+          "type": "string"
+        },
+        "artifact_type": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "path_matches": {
+          "type": "string"
+        },
+        "path_matches_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PolicyEvaluation": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "policy_id",
+        "status"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "passed",
+              "type": "string"
+            },
+            {
+              "const": "failed",
+              "type": "string"
+            },
+            {
+              "const": "unknown",
+              "type": "string"
+            },
+            {
+              "const": "not_applicable",
+              "type": "string"
+            }
+          ]
+        },
+        "checked_at_action_id": {
+          "type": "integer"
+        },
+        "evidence_action_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "evidence_artifact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "violating_action_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "violating_artifact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "Metrics": {
+      "additionalProperties": true,
+      "type": "object",
+      "properties": {
+        "total_actions": {
+          "type": "integer"
+        },
+        "decision_points": {
+          "type": "integer"
+        },
+        "parallel_blocks": {
+          "type": "integer"
+        },
+        "loops": {
+          "type": "integer"
+        },
+        "max_loop_iterations": {
+          "type": "integer"
+        }
+      }
+    },
+    "FormalizationPayload": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "status",
+        "src_lang",
+        "src_code",
+        "iml_code"
+      ],
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "const": "transparent",
+              "type": "string"
+            },
+            {
+              "const": "opaque",
+              "type": "string"
+            },
+            {
+              "const": "failed",
+              "type": "string"
+            }
+          ]
+        },
+        "src_lang": {
+          "type": "string"
+        },
+        "src_code": {
+          "type": "string"
+        },
+        "iml_code": {
+          "type": "string"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "VerificationGoalPayload": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "goal_id",
+        "kind",
+        "description",
+        "src",
+        "target_artifact_id"
+      ],
+      "properties": {
+        "goal_id": {
+          "type": "integer"
+        },
+        "goal_revision": {
+          "type": "integer"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "const": "verify",
+              "type": "string"
+            },
+            {
+              "const": "instance",
+              "type": "string"
+            },
+            {
+              "const": "theorem",
+              "type": "string"
+            },
+            {
+              "const": "lemma",
+              "type": "string"
+            },
+            {
+              "const": "axiom",
+              "type": "string"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string"
+        },
+        "target_artifact_id": {
+          "type": "string"
+        },
+        "target_symbol": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PropertyItem"
+          }
+        }
+      }
+    },
+    "VerificationResultPayload": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "goal_id",
+        "goal_artifact_id",
+        "status",
+        "result"
+      ],
+      "properties": {
+        "goal_id": {
+          "type": "integer"
+        },
+        "goal_artifact_id": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "proved",
+              "type": "string"
+            },
+            {
+              "const": "refuted",
+              "type": "string"
+            },
+            {
+              "const": "sat",
+              "type": "string"
+            },
+            {
+              "const": "unknown",
+              "type": "string"
+            }
+          ]
+        },
+        "engine": {
+          "type": "string"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "description": "ISO 8601 timestamp",
+          "type": "string"
+        },
+        "result": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "DecompositionPayload": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "target_artifact_id",
+        "target_symbol",
+        "complete",
+        "regions"
+      ],
+      "properties": {
+        "target_artifact_id": {
+          "type": "string"
+        },
+        "target_symbol": {
+          "type": "string"
+        },
+        "decomposition_revision": {
+          "type": "integer"
+        },
+        "description": {
+          "type": "string"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Region"
+          }
+        }
+      }
+    },
+    "GeneratedTestsPayload": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "function",
+        "language",
+        "source_decomposition_artifact_id",
+        "tests"
+      ],
+      "properties": {
+        "function": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "source_decomposition_artifact_id": {
+          "type": "string"
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneratedTest"
+          }
+        }
+      }
+    },
+    "PropertyItem": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "name",
+        "status",
+        "src"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "pending",
+              "type": "string"
+            },
+            {
+              "const": "proved",
+              "type": "string"
+            },
+            {
+              "const": "refuted",
+              "type": "string"
+            },
+            {
+              "const": "unknown",
+              "type": "string"
+            }
+          ]
+        },
+        "src": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "Region": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "constraints",
+        "invariant",
+        "model",
+        "model_eval"
+      ],
+      "properties": {
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invariant": {
+          "type": "string"
+        },
+        "model": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "model_eval": {
+          "type": "string"
+        }
+      }
+    },
+    "GeneratedTest": {
+      "additionalProperties": true,
+      "type": "object",
+      "required": [
+        "name",
+        "region_index",
+        "code"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "region_index": {
+          "type": "integer"
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "type": "object",
+          "properties": {}
+        },
+        "expected": {},
+        "code": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

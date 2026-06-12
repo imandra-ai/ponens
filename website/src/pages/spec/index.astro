@@ -1,0 +1,22 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+const mods = import.meta.glob("./*.md", { eager: true });
+const specs = Object.values(mods)
+  .map((m) => ({ title: m.frontmatter.title, file: m.frontmatter.file, url: m.url }))
+  .sort((a, b) => a.title.localeCompare(b.title));
+---
+
+<Layout title="Specifications — ponens">
+  <section class="page-head">
+    <h1>Specifications</h1>
+    <p>The open standards behind ponens — the trace, policy, and review-case models, the
+      CLI sync model, and the IML/ImandraX formal model. JSON Schemas live alongside them in
+      <a href="https://github.com/imandra-ai/ponens/tree/main/spec/schema"><code>spec/schema</code></a>.</p>
+  </section>
+  <ul class="spec-list">
+    {specs.map((s) => (
+      <li><a href={s.url}>{s.title}</a><code>{s.file}</code></li>
+    ))}
+  </ul>
+</Layout>

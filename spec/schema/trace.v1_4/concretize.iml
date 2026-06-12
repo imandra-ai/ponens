@@ -1,0 +1,28 @@
+(* Concrete definitions for types left abstract in schema.iml.*)
+
+type value =
+  | VString of string
+  | VInt of int
+  | VBool of bool
+  | VFloat of float
+
+type kv_pair = {
+  k : string;
+  v : value;
+}
+
+type artifact_metadata = kv_pair list
+type reference_payload = kv_pair list
+type environment_configuration = kv_pair list
+type command_result_payload = kv_pair list
+type witness_model = kv_pair list
+type divergence_point = kv_pair list
+
+type snapshot_id = string
+
+type action_payload = {
+  target_artifact_id : string option;
+  target_path : string option;
+  request_fields : kv_pair list;
+  result_fields : kv_pair list;
+}

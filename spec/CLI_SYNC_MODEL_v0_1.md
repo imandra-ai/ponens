@@ -165,9 +165,12 @@ This yields three invariants the CLI enforces:
 All commands operate on the trace bound to the current working tree / `HEAD` unless given an
 explicit target. All read commands accept `--json`.
 
-> **Status.** Of the verbs below, the gate exists today as `ponens trace check`, and the registry
-> verbs (`registry update`, `policies search/show/add`) ship in the CLI. `bind`, `push`, `pull`, and
-> `status` are **proposed** in this specification and not yet implemented.
+> **Status.** All verbs below are implemented in the CLI: the gate (`ponens trace check`), the
+> registry verbs (`registry update`, `policies search/show/add`), and the sync verbs (`bind`, `push`,
+> `pull`, `status`). `bind` and `status` work fully offline against local git; `push` and `pull`
+> require a reachable TraceHub backend. By default `bind` records the binding as a **git note**
+> (`refs/notes/ponens`, non-mutating; §5.2), and the local↔hub mapping is kept in a `.sync` sidecar
+> beside the trace file.
 
 ### 7.1 `ponens bind`
 

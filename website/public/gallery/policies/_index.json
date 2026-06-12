@@ -39,7 +39,11 @@
     "regulated_change_audit_trail",
     "database_migration_verified",
     "api_breaking_change_flagged",
-    "plaid_token_lifecycle_conformance"
+    "plaid_token_lifecycle_conformance",
+    "no_open_critical_residuals",
+    "high_severity_residuals_acknowledged_before_commit",
+    "unverified_residuals_have_suggested_check",
+    "assumptions_are_located"
   ],
   "categories": [
     "auditability",

@@ -1,5 +1,7 @@
 ---
 const { title = "ponens", description = "Author, govern, and validate the reasoning of AI coding agents." } = Astro.props;
+const path = Astro.url.pathname;
+const active = (p) => (path === p || (p !== "/" && path.startsWith(p)) ? "active" : "");
 ---
 
 <!doctype html>
@@ -15,9 +17,10 @@ const { title = "ponens", description = "Author, govern, and validate the reason
     <header class="site-header">
       <a href="/" class="brand">∴ ponens</a>
       <nav>
-        <a href="/gallery">Gallery</a>
-        <a href="https://github.com/imandra-ai/ponens/tree/main/spec">Spec</a>
-        <a href="https://github.com/imandra-ai/ponens/tree/main/cli">CLI</a>
+        <a href="/gallery" class={active("/gallery")}>Gallery</a>
+        <a href="/docs" class={active("/docs")}>Docs</a>
+        <a href="/spec" class={active("/spec")}>Spec</a>
+        <a href="/viewer" class={active("/viewer")}>Viewer</a>
         <a href="https://github.com/imandra-ai/ponens">GitHub</a>
       </nav>
     </header>

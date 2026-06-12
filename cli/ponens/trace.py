@@ -18,6 +18,7 @@ from .policy_compiler import (
     PTarget, PChain, SinceLast, Since, Until,
     Implies, And, Or, Not,
     Atom, AtomWithArgs, FieldNeEmpty, StartEvent, EndEvent,
+    ForAll, Exists, ExistsUnique, FieldAccess, Compare,
     RawStructural, FuncApp, SetLiteral, Ancestors,
     ACTION_TYPES, ARTIFACT_TYPES, PREDICATES,
     STRUCTURAL_POLICIES,
@@ -149,7 +150,59 @@ def in_dependency_chain(earlier_action, current_action, trace):
 # Runtime Policy Evaluator
 # ================================================================
 
+_SEVERITY_RANK = {'info': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+
+
+def _field_value(node, ctx):
+    """Resolve a comparison operand to a concrete value."""
+    if isinstance(node, FieldAccess):
+        obj = (ctx or {}).get(node.var)
+        return obj.get(node.field) if isinstance(obj, dict) else None
+    if isinstance(node, Atom):
+        return node.name
+    return None
+
+
+def _eval_compare(node, ctx):
+    left = _field_value(node.left, ctx)
+    right = node.right.name if isinstance(node.right, Atom) else None
+    op = node.op
+
+    if right == 'EMPTY':
+        empty = left in (None, '', [], {}) or (isinstance(left, str) and not left.strip())
+        return empty if op == '=' else (not empty)
+
+    lval = left.lower() if isinstance(left, str) else left
+    rval = right.lower() if isinstance(right, str) else right
+    if op == '=':
+        return lval == rval
+    if op == '!=':
+        return lval != rval
+    # ordered comparison (severity ranking)
+    lr, rr = _SEVERITY_RANK.get(lval), _SEVERITY_RANK.get(rval)
+    if lr is None or rr is None:
+        return False
+    return {'>=': lr >= rr, '>': lr > rr, '<=': lr <= rr, '<': lr < rr}.get(op, False)
+
+
 def evaluate_formula(node, trace, ctx=None):
+    if isinstance(node, (ForAll, Exists, ExistsUnique)):
+        coll = trace.get(node.set_name, []) if node.set_name else []
+        base = dict(ctx) if ctx else {}
+        results = [evaluate_formula(node.body, trace, {**base, node.var: item}) for item in coll]
+        if isinstance(node, ForAll):
+            return all(results)
+        if isinstance(node, ExistsUnique):
+            return sum(1 for r in results if r) == 1
+        return any(results)
+
+    if isinstance(node, Compare):
+        return _eval_compare(node, ctx)
+
+    if isinstance(node, FieldAccess):
+        obj = (ctx or {}).get(node.var)
+        return bool(obj.get(node.field)) if isinstance(obj, dict) else False
+
     if isinstance(node, Globally):
         return all(evaluate_formula(node.body, trace, {'action': a}) for a in trace['actions'])
 
@@ -639,6 +692,8 @@ def cmd_check(args):
 
 def cmd_status(args):
     trace = load_trace(args.trace_file)
+    if getattr(args, 'web', False):
+        return launch_viewer(trace, args.trace_file)
     print(f"Trace: {trace.get('trace_id', 'N/A')}")
     print(f"  Spec:      v{trace.get('spec_version', '?')}")
     print(f"  Model:     {trace.get('model', 'N/A')}")
@@ -674,68 +729,139 @@ def cmd_status(args):
     return 0
 
 
-def cmd_view(args):
+def cmd_residuals(args):
+    """List the trace's residual surface — its declared negative space (Trace Spec §13)."""
     trace = load_trace(args.trace_file)
-    trace_json = json.dumps(trace, ensure_ascii=False)
-    viz_paths = [
-        os.path.join(os.path.dirname(__file__), '..', '..', 'visualizer.html'),
-        os.path.join(os.path.dirname(__file__), 'visualizer.html'),
+    residuals = trace.get('residuals', [])
+
+    if getattr(args, 'web', False):
+        return launch_viewer(trace, args.trace_file)
+    if getattr(args, 'json', False):
+        print(json.dumps(residuals, indent=2, ensure_ascii=False))
+        return 0
+
+    if not residuals:
+        print("No residuals declared (empty negative space).")
+        return 0
+
+    rank = {'critical': 4, 'high': 3, 'medium': 2, 'low': 1, 'info': 0}
+    ordered = sorted(residuals, key=lambda r: rank.get(r.get('severity', 'info'), 0), reverse=True)
+
+    counts = {}
+    for r in residuals:
+        counts[r.get('severity', 'info')] = counts.get(r.get('severity', 'info'), 0) + 1
+    summary = "  ".join(f"{counts[s]} {s}" for s in ['critical', 'high', 'medium', 'low', 'info'] if s in counts)
+
+    print(f"Residual surface: {trace.get('trace_id', '?')}   ({len(residuals)} declared)")
+    print(f"  {summary}\n")
+    for r in ordered:
+        print(f"  [{r.get('severity', 'info').upper()}] {r.get('residual_id', '?')}  "
+              f"{r.get('kind', '?')} · {r.get('status', 'open')}")
+        if r.get('statement'):
+            print(f"      {r['statement']}")
+        loc = []
+        tgt = r.get('target')
+        if tgt:
+            loc.append(f"target: {tgt.get('target_type', '?')}:{tgt.get('target_id', '?')}")
+        if r.get('related_artifact_ids'):
+            loc.append(f"related: {', '.join(r['related_artifact_ids'])}")
+        if loc:
+            print(f"      {'   '.join(loc)}")
+        if r.get('suggested_check'):
+            print(f"      check:  {r['suggested_check']}")
+        print()
+    return 0
+
+
+def _find_visualizer():
+    here = os.path.dirname(__file__)
+    candidates = [
+        os.path.join(here, '..', '..', 'viewer', 'vscode-plugin', 'media', 'visualizer.html'),
+        os.path.join(here, '..', '..', 'visualizer.html'),
+        os.path.join(here, 'visualizer.html'),
         'visualizer.html',
     ]
-    viz_path = None
-    for p in viz_paths:
+    for p in candidates:
         if os.path.exists(p):
-            viz_path = os.path.abspath(p)
-            break
-    if not viz_path:
-        print("Error: visualizer.html not found. Place it in the current directory or package.", file=sys.stderr)
-        return 1
-    with open(viz_path) as f:
+            return os.path.abspath(p)
+    return None
+
+
+def _render_viewer_html(trace):
+    viz = _find_visualizer()
+    if not viz:
+        return None
+    with open(viz) as f:
         html = f.read()
-    loader = f"""
+    trace_json = json.dumps(trace, ensure_ascii=False)
+    loader = """
 <script>
-(function() {{
-  var _cliTrace = {trace_json};
-  function _tryLoad() {{
-    if (typeof loadTrace === 'function') {{
+(function() {
+  var _cliTrace = __PONENS_TRACE__;
+  function _tryLoad() {
+    if (typeof loadTrace === 'function') {
       loadTrace(_cliTrace);
       var badge = document.getElementById('demoBadge');
       if (badge) badge.style.display = 'none';
       var sel = document.getElementById('demoSelect');
       if (sel) sel.value = '';
-    }} else {{
-      setTimeout(_tryLoad, 50);
-    }}
-  }}
+    } else { setTimeout(_tryLoad, 50); }
+  }
   setTimeout(_tryLoad, 200);
-}})();
+})();
 </script>
-"""
-    html = html.replace('</body>', loader + '\n</body>')
-    port = 18924
+""".replace('__PONENS_TRACE__', trace_json)
+    return html.replace('</body>', loader + '\n</body>')
 
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html; charset=utf-8')
-            self.end_headers()
-            self.wfile.write(html.encode('utf-8'))
-        def log_message(self, *a):
+
+def _can_open_browser():
+    """Heuristic: can we usefully open a browser here, or are we headless?"""
+    if os.environ.get('PONENS_NO_BROWSER'):
+        return False
+    if sys.platform == 'darwin' or sys.platform.startswith('win'):
+        return True
+    return bool(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
+
+
+def launch_viewer(trace, trace_file=None):
+    """Escalate to the rich view: the collaborative hub page if the trace has been
+    pushed, otherwise the local self-contained visualizer. Headless-safe — never
+    blocks, and prints the URL/path when no browser can be opened."""
+    # Smart target: a pushed trace opens the hub's collaborative view.
+    if trace_file:
+        try:
+            from .sync import load_sidecar
+            from .client import hub_url
+            side = load_sidecar(trace_file)
+            if side and side.get('hub_trace_id'):
+                url = f"{hub_url()}/traces/{side['hub_trace_id']}"
+                print(f"Hub view: {url}")
+                if _can_open_browser():
+                    webbrowser.open(url)
+                return 0
+        except Exception:
             pass
 
-    server = http.server.HTTPServer(('127.0.0.1', port), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    url = f'http://127.0.0.1:{port}'
-    print(f"Visualizer at {url}")
-    print("Press Ctrl+C to stop.")
-    webbrowser.open(url)
-    try:
-        thread.join()
-    except KeyboardInterrupt:
-        server.shutdown()
-        print("\nStopped.")
+    html = _render_viewer_html(trace)
+    if html is None:
+        print("Error: visualizer.html not found (expected under viewer/vscode-plugin/media/).",
+              file=sys.stderr)
+        return 1
+    fd, path = tempfile.mkstemp(suffix='.html', prefix='ponens-trace-')
+    with os.fdopen(fd, 'w') as f:
+        f.write(html)
+    url = 'file://' + path
+    if _can_open_browser():
+        print(f"Opening trace viewer: {url}")
+        webbrowser.open(url)
+    else:
+        print(f"Trace viewer written to {path}")
+        print("  (headless environment — open this file in a browser)")
     return 0
+
+
+def cmd_view(args):
+    return launch_viewer(load_trace(args.trace_file), args.trace_file)
 
 
 # ================================================================
@@ -804,7 +930,15 @@ def register(subparsers):
     # status
     p = trace_sub.add_parser("status", help="Show trace summary")
     p.add_argument("trace_file")
+    p.add_argument("--web", action="store_true", help="Open the rich view in a browser")
     p.set_defaults(func=cmd_status)
+
+    # residuals
+    p = trace_sub.add_parser("residuals", help="List the residual surface (declared negative space)")
+    p.add_argument("trace_file")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.add_argument("--web", action="store_true", help="Open the rich view in a browser")
+    p.set_defaults(func=cmd_residuals)
 
     # view
     p = trace_sub.add_parser("view", help="Open trace in the visualizer")

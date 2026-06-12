@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "sync-gallery": "node scripts/sync-gallery.mjs",
-    "predev": "npm run sync-gallery",
+    "prepare-site": "node scripts/prepare.mjs",
+    "predev": "npm run prepare-site",
     "dev": "astro dev",
-    "prebuild": "npm run sync-gallery",
+    "prebuild": "npm run prepare-site",
     "build": "astro build",
     "preview": "astro preview"
   },

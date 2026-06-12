@@ -1,0 +1,55 @@
+---
+import fs from "node:fs";
+import path from "node:path";
+import Layout from "../../layouts/Layout.astro";
+
+export function getStaticPaths() {
+  const dir = path.resolve("../gallery/policies");
+  return fs.readdirSync(dir)
+    .filter((f) => f.endsWith(".json") && !f.startsWith("_"))
+    .map((f) => {
+      const policy = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+      return { params: { id: policy.id }, props: { policy } };
+    });
+}
+
+const { policy } = Astro.props;
+const sevClass = `sev sev-${policy.severity}`;
+const ex = policy.examples || {};
+---
+
+<Layout title={`${policy.name} — ponens policy`} description={policy.description}>
+  <article class="policy-detail">
+    <p class="spec-back"><a href="/gallery">← Policy gallery</a></p>
+    <div class="pd-head">
+      <h1>{policy.name}</h1>
+      <span class={sevClass}>{policy.severity}</span>
+    </div>
+    <p class="pd-id"><code>{policy.id}</code></p>
+    <p class="pd-meta">
+      <span class="dom">{policy.domain}</span>
+      <span class="cat">{policy.category}</span>
+      <span class="lvl">{policy.language_level}</span>
+      {(policy.tags || []).map((t) => <span class="tag">{t}</span>)}
+    </p>
+
+    <p class="pd-desc">{policy.description}</p>
+
+    <h2>Formula</h2>
+    <pre class="formula"><code>{policy.formula}</code></pre>
+
+    {policy.rationale && (<><h2>Why it matters</h2><p>{policy.rationale}</p></>)}
+
+    {(ex.passes || ex.fails) && (
+      <>
+        <h2>Examples</h2>
+        {ex.passes && <p class="ex ex-pass"><strong>passes</strong> {ex.passes}</p>}
+        {ex.fails && <p class="ex ex-fail"><strong>fails</strong> {ex.fails}</p>}
+      </>
+    )}
+
+    <h2>Use it</h2>
+    <pre class="usage"><code>ponens policies add {policy.id} --into ./trace.json
+ponens trace check ./trace.json</code></pre>
+  </article>
+</Layout>

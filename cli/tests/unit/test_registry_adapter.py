@@ -1,7 +1,4 @@
-"""Unit tests for the gallery->trace policy schema adapter (registry.py).
-
-No hub server required.
-"""
+"""Unit tests for the gallery->trace policy schema adapter (registry.py)."""
 
 from ponens.registry import gallery_to_trace_policy
 from ponens.policy_compiler import STRUCTURAL_POLICIES
@@ -26,7 +23,6 @@ def test_defaults_scope_and_kind():
 
 
 def test_structural_id_preserved_as_name():
-    # the adapter must keep the snake id as `name` so STRUCTURAL_POLICIES matches
     gp = {"id": "no_open_critical_residuals", "name": "No Open Critical Residuals",
           "severity": "error", "formula": "..."}
     p = gallery_to_trace_policy(gp)
@@ -34,18 +30,22 @@ def test_structural_id_preserved_as_name():
 
 
 def test_ltl_formula_fallback():
-    p = gallery_to_trace_policy({"id": "y", "name": "Y", "severity": "info",
-                                 "ltl_formula": "G(a)"})
+    p = gallery_to_trace_policy({"id": "y", "name": "Y", "severity": "info", "ltl_formula": "G(a)"})
     assert p["formula"] == "G(a)"
 
 
-def test_source_provenance_from_catalog_entry():
+def test_provenance_records_source_and_hash():
     gp = {"id": "z", "name": "Z", "severity": "info", "formula": "f"}
     entry = {"hash": "sha256:abc", "version": "1.0.0"}
-    p = gallery_to_trace_policy(gp, entry)
-    assert p["source"]["registry"] == "reasoning-policies"
+    p = gallery_to_trace_policy(gp, "acme", entry)
+    assert p["source"]["source"] == "acme"
     assert p["source"]["id"] == "z"
     assert p["source"]["hash"] == "sha256:abc"
+
+
+def test_provenance_defaults_to_community():
+    p = gallery_to_trace_policy({"id": "z", "name": "Z", "severity": "info", "formula": "f"})
+    assert p["source"]["source"] == "community"
 
 
 def test_applies_when_passed_through():

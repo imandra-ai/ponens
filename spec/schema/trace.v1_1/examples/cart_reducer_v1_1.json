@@ -1,0 +1,641 @@
+{
+  "trace_id": "trace-cart-reducer-001",
+  "spec_version": "1.1",
+  "assistant": "claude-code + codelogician",
+  "model": "claude-opus-4-6",
+  "timestamp": "2026-04-06T16:45:00Z",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Add discount code support to the shopping cart reducer",
+    "from_user": "developer"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "a1",
+      "artifact_type": "SourceCode",
+      "name": "cart_reducer_source",
+      "format": "typescript",
+      "revision": 1,
+      "producer_action_id": 1,
+      "summary": "useReducer cart with ADD_ITEM, REMOVE_ITEM, UPDATE_QUANTITY, CLEAR"
+    },
+    {
+      "artifact_id": "a2",
+      "artifact_type": "IMLModel",
+      "name": "cart_model",
+      "format": "iml",
+      "revision": 1,
+      "producer_action_id": 10,
+      "derived_from": [
+        "a1"
+      ],
+      "summary": "IML formalization of cart reducer with discount support",
+      "payload": {
+        "status": "transparent",
+        "src_lang": "typescript",
+        "src_code": "type CartAction =\n  | { type: 'ADD_ITEM'; item: Item }\n  | { type: 'REMOVE_ITEM'; id: string }\n  | { type: 'UPDATE_QUANTITY'; id: string; qty: number }\n  | { type: 'CLEAR' }\n  | { type: 'APPLY_DISCOUNT'; code: string; percent: number }\n  | { type: 'REMOVE_DISCOUNT' };\n\nfunction cartReducer(state: CartState, action: CartAction): CartState { ... }",
+        "iml_code": "type cart_action =\n  | AddItem of item\n  | RemoveItem of string\n  | UpdateQuantity of string * int\n  | Clear\n  | ApplyDiscount of string * int  (* code, percent 0-100 *)\n  | RemoveDiscount\n\ntype cart_state = {\n  items : (string * item * int) list;  (* id, item, qty *)\n  discount : (string * int) option;    (* code, percent *)\n  total : int;\n}\n\nlet cart_reducer (state : cart_state) (action : cart_action) : cart_state =\n  match action with\n  | AddItem item -> { state with items = (item.id, item, 1) :: state.items; total = recalc state }\n  | RemoveItem id -> { state with items = List.filter (fun (i,_,_) -> i <> id) state.items; total = recalc state }\n  | UpdateQuantity (id, qty) ->\n    if qty <= 0 then cart_reducer state (RemoveItem id)\n    else { state with items = List.map (fun (i,it,q) -> if i = id then (i,it,qty) else (i,it,q)) state.items; total = recalc state }\n  | Clear -> { items = []; discount = None; total = 0 }\n  | ApplyDiscount (code, pct) ->\n    if 0 < pct && pct <= 100 then { state with discount = Some (code, pct); total = recalc state }\n    else state\n  | RemoveDiscount -> { state with discount = None; total = recalc state }",
+        "symbols": [
+          "cart_action",
+          "cart_state",
+          "cart_reducer",
+          "recalc"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a3",
+      "artifact_type": "VerificationGoal",
+      "name": "total_non_negative_vg",
+      "producer_action_id": 11,
+      "derived_from": [
+        "a2"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "kind": "verify",
+        "description": "Cart total is always non-negative after any action",
+        "target_artifact_id": "a2",
+        "target_symbol": "cart_reducer",
+        "src": "let total_non_negative (state : cart_state) (action : cart_action) =\n  state.total >= 0 ==> (cart_reducer state action).total >= 0"
+      }
+    },
+    {
+      "artifact_id": "a4",
+      "artifact_type": "VerificationResult",
+      "name": "total_non_negative_proved",
+      "producer_action_id": 12,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "goal_artifact_id": "a3",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "total_non_negative: proved for all cart_action variants"
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a5",
+      "artifact_type": "VerificationGoal",
+      "name": "discount_bounds_vg",
+      "producer_action_id": 13,
+      "derived_from": [
+        "a2"
+      ],
+      "payload": {
+        "goal_id": 2,
+        "kind": "verify",
+        "description": "Discount percentage is always 0-100 when present",
+        "target_artifact_id": "a2",
+        "target_symbol": "cart_reducer",
+        "src": "let discount_bounded (state : cart_state) (action : cart_action) =\n  match (cart_reducer state action).discount with\n  | None -> true\n  | Some (_, pct) -> 0 < pct && pct <= 100"
+      }
+    },
+    {
+      "artifact_id": "a6",
+      "artifact_type": "VerificationResult",
+      "name": "discount_bounds_proved",
+      "producer_action_id": 14,
+      "derived_from": [
+        "a5"
+      ],
+      "payload": {
+        "goal_id": 2,
+        "goal_artifact_id": "a5",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "discount_bounded: proved — ApplyDiscount guards 0 < pct <= 100"
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a7",
+      "artifact_type": "Decomposition",
+      "name": "cart_decomposition",
+      "producer_action_id": 20,
+      "derived_from": [
+        "a2"
+      ],
+      "summary": "18 regions of cart_reducer",
+      "payload": {
+        "target_artifact_id": "a2",
+        "target_function": "cart_reducer",
+        "target_symbol": "cart_reducer",
+        "complete": true,
+        "regions": [
+          {
+            "constraints": [
+              "action = AddItem",
+              "item not in cart"
+            ],
+            "invariant": "item added with qty=1, total updated",
+            "model": {
+              "action": "AddItem(widget)",
+              "items": "[]"
+            },
+            "model_eval": "items=[(widget,1)], total=10"
+          },
+          {
+            "constraints": [
+              "action = AddItem",
+              "item already in cart"
+            ],
+            "invariant": "duplicate added (new entry), total updated",
+            "model": {
+              "action": "AddItem(widget)",
+              "items": "[(widget,1)]"
+            },
+            "model_eval": "items=[(widget,1),(widget,1)], total=20"
+          },
+          {
+            "constraints": [
+              "action = RemoveItem",
+              "item exists"
+            ],
+            "invariant": "item removed, total updated",
+            "model": {
+              "action": "RemoveItem(widget)",
+              "items": "[(widget,2)]"
+            },
+            "model_eval": "items=[], total=0"
+          },
+          {
+            "constraints": [
+              "action = RemoveItem",
+              "item not in cart"
+            ],
+            "invariant": "state unchanged",
+            "model": {
+              "action": "RemoveItem(unknown)",
+              "items": "[(widget,1)]"
+            },
+            "model_eval": "unchanged"
+          },
+          {
+            "constraints": [
+              "action = UpdateQuantity",
+              "qty > 0"
+            ],
+            "invariant": "quantity updated, total recalculated",
+            "model": {
+              "action": "UpdateQuantity(widget, 3)",
+              "items": "[(widget,1)]"
+            },
+            "model_eval": "items=[(widget,3)], total=30"
+          },
+          {
+            "constraints": [
+              "action = UpdateQuantity",
+              "qty <= 0"
+            ],
+            "invariant": "item removed (delegates to RemoveItem)",
+            "model": {
+              "action": "UpdateQuantity(widget, 0)",
+              "items": "[(widget,1)]"
+            },
+            "model_eval": "items=[], total=0"
+          },
+          {
+            "constraints": [
+              "action = Clear"
+            ],
+            "invariant": "empty cart, no discount, total=0",
+            "model": {
+              "action": "Clear"
+            },
+            "model_eval": "items=[], discount=None, total=0"
+          },
+          {
+            "constraints": [
+              "action = ApplyDiscount",
+              "0 < pct <= 100"
+            ],
+            "invariant": "discount applied, total recalculated with discount",
+            "model": {
+              "action": "ApplyDiscount(SAVE10, 10)",
+              "total": "100"
+            },
+            "model_eval": "discount=Some(SAVE10,10), total=90"
+          },
+          {
+            "constraints": [
+              "action = ApplyDiscount",
+              "pct <= 0 or pct > 100"
+            ],
+            "invariant": "state unchanged (invalid discount rejected)",
+            "model": {
+              "action": "ApplyDiscount(BAD, 150)"
+            },
+            "model_eval": "unchanged"
+          },
+          {
+            "constraints": [
+              "action = RemoveDiscount",
+              "discount exists"
+            ],
+            "invariant": "discount removed, total recalculated",
+            "model": {
+              "action": "RemoveDiscount",
+              "discount": "Some(SAVE10, 10)"
+            },
+            "model_eval": "discount=None, total=100"
+          },
+          {
+            "constraints": [
+              "action = RemoveDiscount",
+              "no discount"
+            ],
+            "invariant": "state unchanged",
+            "model": {
+              "action": "RemoveDiscount",
+              "discount": "None"
+            },
+            "model_eval": "unchanged"
+          },
+          {
+            "constraints": [
+              "action = ApplyDiscount",
+              "cart empty"
+            ],
+            "invariant": "discount set but total remains 0",
+            "model": {
+              "action": "ApplyDiscount(SAVE10, 10)",
+              "items": "[]"
+            },
+            "model_eval": "discount=Some(SAVE10,10), total=0"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a8",
+      "artifact_type": "GeneratedTests",
+      "name": "cart_tests",
+      "producer_action_id": 21,
+      "derived_from": [
+        "a7"
+      ],
+      "summary": "18 tests from cart_reducer decomposition",
+      "payload": {
+        "function": "cart_reducer",
+        "language": "typescript",
+        "source_decomposition_artifact_id": "a7",
+        "tests": [
+          {
+            "name": "test_add_new_item",
+            "region_index": 0,
+            "constraints": [
+              "new item"
+            ],
+            "inputs": {
+              "action": "AddItem(widget)"
+            },
+            "expected": "item in cart",
+            "code": "it('adds new item with qty 1', () => {\n  const state = cartReducer(emptyCart, { type: 'ADD_ITEM', item: widget });\n  expect(state.items).toHaveLength(1);\n  expect(state.items[0].qty).toBe(1);\n});"
+          },
+          {
+            "name": "test_update_qty_to_zero_removes",
+            "region_index": 5,
+            "constraints": [
+              "qty=0"
+            ],
+            "inputs": {
+              "action": "UpdateQuantity(widget, 0)"
+            },
+            "expected": "item removed",
+            "code": "it('removes item when qty set to 0', () => {\n  const state = cartReducer(cartWithWidget, { type: 'UPDATE_QUANTITY', id: 'widget', qty: 0 });\n  expect(state.items).toHaveLength(0);\n});"
+          },
+          {
+            "name": "test_apply_valid_discount",
+            "region_index": 7,
+            "constraints": [
+              "valid pct"
+            ],
+            "inputs": {
+              "action": "ApplyDiscount(SAVE10, 10)"
+            },
+            "expected": "discount applied",
+            "code": "it('applies 10% discount', () => {\n  const state = cartReducer(cartWith100Total, { type: 'APPLY_DISCOUNT', code: 'SAVE10', percent: 10 });\n  expect(state.discount).toEqual({ code: 'SAVE10', percent: 10 });\n  expect(state.total).toBe(90);\n});"
+          },
+          {
+            "name": "test_reject_invalid_discount",
+            "region_index": 8,
+            "constraints": [
+              "pct > 100"
+            ],
+            "inputs": {
+              "action": "ApplyDiscount(BAD, 150)"
+            },
+            "expected": "unchanged",
+            "code": "it('rejects discount > 100%', () => {\n  const state = cartReducer(cartWith100Total, { type: 'APPLY_DISCOUNT', code: 'BAD', percent: 150 });\n  expect(state.discount).toBeNull();\n  expect(state.total).toBe(100);\n});"
+          },
+          {
+            "name": "test_discount_on_empty_cart",
+            "region_index": 11,
+            "constraints": [
+              "empty cart + discount"
+            ],
+            "inputs": {
+              "action": "ApplyDiscount(SAVE10, 10)"
+            },
+            "expected": "discount set, total=0",
+            "code": "it('sets discount on empty cart (total stays 0)', () => {\n  const state = cartReducer(emptyCart, { type: 'APPLY_DISCOUNT', code: 'SAVE10', percent: 10 });\n  expect(state.discount).toBeDefined();\n  expect(state.total).toBe(0);\n});"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a9",
+      "artifact_type": "Diff",
+      "name": "reducer_updated",
+      "producer_action_id": 30,
+      "derived_from": [
+        "a2",
+        "a4",
+        "a6"
+      ],
+      "summary": "Updated cartReducer with discount actions"
+    },
+    {
+      "artifact_id": "a10",
+      "artifact_type": "CommandResult",
+      "name": "test_results",
+      "producer_action_id": 31,
+      "derived_from": [
+        "a8",
+        "a9"
+      ],
+      "summary": "18/18 tests pass"
+    },
+    {
+      "artifact_id": "a11",
+      "artifact_type": "Commit",
+      "name": "commit",
+      "producer_action_id": 32,
+      "derived_from": [
+        "a10"
+      ],
+      "summary": "feat: add discount code support to cart"
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "category": "activity",
+      "type": "ReadFile",
+      "label": "Read: cartReducer.ts",
+      "rationale": "understand current reducer actions and state shape",
+      "inputs": [],
+      "outputs": [
+        "a1"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "src/cartReducer.ts"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "category": "reasoning",
+      "type": "Formalize",
+      "label": "Formalize: cart reducer → IML",
+      "rationale": "model all action types including new discount actions",
+      "inputs": [
+        "a1"
+      ],
+      "outputs": [
+        "a2"
+      ],
+      "result_summary": "transparent formalization → 4 IML symbols",
+      "execution": {
+        "tool": "codelogician",
+        "version": "2026.04",
+        "determinism": "deterministic"
+      }
+    },
+    {
+      "id": 11,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: total always non-negative",
+      "rationale": "core invariant — cart total must never go negative",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a3"
+      ],
+      "result_summary": "verify: total >= 0 after any action"
+    },
+    {
+      "id": 12,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: total non-negative — PROVED",
+      "rationale": "confirmed for all 6 action types",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a4"
+      ],
+      "result_summary": "proved — total >= 0 is invariant",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 450
+      }
+    },
+    {
+      "id": 13,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: discount percentage bounded",
+      "rationale": "discount must be 0-100% when present",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a5"
+      ],
+      "result_summary": "verify: discount always in valid range"
+    },
+    {
+      "id": 14,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: discount bounded — PROVED",
+      "rationale": "ApplyDiscount guards against invalid percentages",
+      "inputs": [
+        "a5"
+      ],
+      "outputs": [
+        "a6"
+      ],
+      "result_summary": "proved — invalid discounts rejected",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 380
+      }
+    },
+    {
+      "id": 20,
+      "category": "reasoning",
+      "type": "Decompose",
+      "label": "Decompose: cart_reducer — 18 regions",
+      "rationale": "find every distinct action × state combination",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a7"
+      ],
+      "result_summary": "18 exhaustive regions (12 shown), complete",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 680
+      }
+    },
+    {
+      "id": 21,
+      "category": "reasoning",
+      "type": "GenerateTests",
+      "label": "Generate: 18 tests from decomposition",
+      "rationale": "test every action/state combination including edge cases",
+      "inputs": [
+        "a7"
+      ],
+      "outputs": [
+        "a8"
+      ],
+      "result_summary": "18 TypeScript tests generated"
+    },
+    {
+      "id": 30,
+      "category": "activity",
+      "type": "EditFile",
+      "label": "Edit: cartReducer.ts with discount support",
+      "rationale": "implement verified reducer with discount actions",
+      "inputs": [
+        "a2",
+        "a4",
+        "a6"
+      ],
+      "outputs": [
+        "a9"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "src/cartReducer.ts"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "category": "activity",
+      "type": "RunTests",
+      "label": "Tests: 18/18 pass",
+      "rationale": "validate all action/state combinations",
+      "inputs": [
+        "a8",
+        "a9"
+      ],
+      "outputs": [
+        "a10"
+      ],
+      "result_summary": "18/18 passed",
+      "evidence": [
+        {
+          "type": "CommandOutput",
+          "ref": "npx vitest run",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "category": "activity",
+      "type": "GitCommit",
+      "label": "Commit: add discount support to cart",
+      "rationale": "invariants proved, all 18 tests passing",
+      "inputs": [
+        "a10"
+      ],
+      "outputs": [
+        "a11"
+      ]
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Added discount code support to cart reducer. Formal verification proved total non-negativity and discount bounds invariants. Region decomposition found 18 distinct action/state paths. All 18 generated tests pass."
+  },
+  "files_modified": [
+    "src/cartReducer.ts"
+  ],
+  "policies": [
+    {
+      "policy_id": "p1",
+      "name": "reducer_action_coverage",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(Formalize ∧ reducer → F(Decompose ∧ complete))"
+    },
+    {
+      "policy_id": "p2",
+      "name": "tests_before_commit",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+    },
+    {
+      "policy_id": "p3",
+      "name": "all_actions_have_rationale",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(action → rationale ≠ ∅)"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "p1",
+      "status": "passed",
+      "note": "Reducer formalized and decomposed into 18 complete regions"
+    },
+    {
+      "policy_id": "p2",
+      "status": "passed",
+      "evidence_action_ids": [
+        31,
+        32
+      ]
+    },
+    {
+      "policy_id": "p3",
+      "status": "passed"
+    }
+  ],
+  "metrics": {
+    "total_actions": 11
+  }
+}

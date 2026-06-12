@@ -773,7 +773,10 @@ work-list.
 ```
 Every relied-upon assumption must point at what it touches, so a reviewer can find it.
 
-These four are evaluated structurally (like §17.3) and ship in the policy gallery.
+These four ship in the policy gallery. Beyond them, the residual-quantifier forms of §15.1 are
+evaluated **generally** by the reference compiler — any `∀` / `∃` / `∃!` policy over `residuals`
+with field comparisons (`=`, `≠`, `≥`, …, and `≠ ∅`) is enforceable, not only this standard set,
+and may be freely composed under temporal operators (e.g. `G(GitCommit → ∀ r ∈ residuals . …)`).
 
 ---
 

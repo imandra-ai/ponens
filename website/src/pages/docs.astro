@@ -1,0 +1,65 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Docs — ponens">
+  <article class="prose">
+    <h1>Getting started</h1>
+    <p><strong>ponens</strong> captures what an AI coding agent did — its actions, artifacts,
+      proofs, and the gaps it left open — and checks that work against computable governance
+      policies. The CLI is terminal-first; the browser is the escalation.</p>
+
+    <h2>Install</h2>
+    <pre><code># from PyPI (once published)
+pip install ponens
+
+# or from the repo
+pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"</code></pre>
+
+    <h2>1 · Create a trace</h2>
+    <p>Usually a coding agent emits the trace as it works. You can also build one by hand:</p>
+    <pre><code>ponens trace init    .ponens/demo.json
+ponens trace trigger .ponens/demo.json --type TaskReceived --description "Add input validation"
+ponens trace action  .ponens/demo.json --type EditFile --label "add checks" --rationale "enforce required" --evidence form.js
+ponens trace action  .ponens/demo.json --type RunTests --label "run tests" --rationale "verify" --result-summary "12/12 passed"
+ponens trace action  .ponens/demo.json --type GitCommit --label "commit" --rationale "ship it"
+ponens trace complete .ponens/demo.json --summary "Added validation; tests pass"</code></pre>
+
+    <h2>2 · Inspect it (textual)</h2>
+    <pre><code>ponens trace status    .ponens/demo.json   # summary + action log
+ponens trace residuals .ponens/demo.json   # the declared negative space
+
+# pull a policy from the gallery and gate the trace
+ponens registry update
+ponens policies search payments
+ponens policies add tests_before_commit --into .ponens/demo.json
+ponens trace check .ponens/demo.json        # → PASS / FAIL (exit code)</code></pre>
+    <p>Everything is plain text — greppable, pipeable, <code>--json</code> where you script it.
+      This is the agent / CI surface too.</p>
+
+    <h2>3 · View it in the browser</h2>
+    <pre><code>ponens trace view .ponens/demo.json        # the rich visualizer
+
+# or escalate from a textual command
+ponens trace status   .ponens/demo.json --web
+ponens trace residuals .ponens/demo.json --web</code></pre>
+    <p>It writes a self-contained page and opens it. Headless (SSH/CI)? It prints the file path
+      instead. See it live in the <a href="/viewer">Viewer</a>.</p>
+
+    <h2>4 · Share it</h2>
+    <pre><code>ponens bind     # stamp the trace with the git commit + write a Trace-Id note
+ponens push     # publish to a TraceHub backend  →  status: shared
+ponens status   # local ↔ HEAD ↔ hub divergence</code></pre>
+    <p>Once pushed, <code>--web</code> opens the collaborative hub view instead of the local one.</p>
+
+    <h2>Concepts</h2>
+    <ul>
+      <li><strong>Trace</strong> — the immutable record of an agent's work session (<a href="/spec">spec</a>).</li>
+      <li><strong>Policy</strong> — an LTL-style formula checked over a trace. Browse the <a href="/gallery">gallery</a>.</li>
+      <li><strong>Residual surface</strong> — what the trace did <em>not</em> establish: assumptions,
+        unverified claims, out-of-scope items, limitations, open questions. The spine of agent-to-agent review.</li>
+      <li><strong>Review handoff</strong> — how a reviewing agent consumes a trace: verify the
+        consequential claims, triage the declared gaps, hunt the undeclared ones.</li>
+    </ul>
+  </article>
+</Layout>

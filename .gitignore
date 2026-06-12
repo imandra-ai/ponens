@@ -18,6 +18,11 @@ website/dist/
 website/.astro/
 .cache/
 
+# Generated site inputs (built by website/scripts/prepare.mjs)
+website/public/gallery/
+website/public/viewer/
+website/src/pages/spec/*.md
+
 # Local registry cache
 .ponens/
 

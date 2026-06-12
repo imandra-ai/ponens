@@ -14,6 +14,7 @@ from .formatting import (
 )
 from . import trace as trace_mod
 from . import registry as registry_mod
+from . import sync as sync_mod
 
 
 # ── Helpers ─────────────────────────────────────────────────────
@@ -637,6 +638,9 @@ def main():
 
     # ── registry & policies (community policy gallery) ───────────
     registry_mod.register(subparsers)
+
+    # ── git/hub sync (bind, push, pull, status) ──────────────────
+    sync_mod.register(subparsers)
 
     # ── Parse and dispatch ───────────────────────────────────────
     args = parser.parse_args()

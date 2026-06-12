@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 39,
+  "policy_count": 43,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -115,6 +115,25 @@
       "reference_compiler": "ok",
       "hash": "sha256:3cdd6b2ff271ec17618347d7ebcaef97141bf5bfba6ee2a510e115e85a2088c7",
       "file": "approval_before_deploy.json"
+    },
+    {
+      "id": "assumptions_are_located",
+      "name": "Assumptions Are Located",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "general",
+      "tags": [
+        "assumptions",
+        "navigable",
+        "residuals",
+        "review"
+      ],
+      "language_level": "structural",
+      "description": "Every residual of kind 'assumption' must be locatable — it must carry a target or a non-empty related_artifact_ids, so a reviewer can find what depends on it.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:cbad29e9e826a6c476eaf2db7f27265eff655b3234a054e24abbb71647821e2b",
+      "file": "assumptions_are_located.json"
     },
     {
       "id": "async_state_transitions_verified",
@@ -322,6 +341,25 @@
       "file": "goals_reference_valid_artifacts.json"
     },
     {
+      "id": "high_severity_residuals_acknowledged_before_commit",
+      "name": "High-Severity Residuals Acknowledged Before Commit",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "commit",
+        "git",
+        "governance",
+        "residuals"
+      ],
+      "language_level": "structural",
+      "description": "Before a commit, every high- or critical-severity residual must be acknowledged, addressed, or waived — not left open. A commit must not silently carry an unacknowledged high-severity gap.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5c2484d856d74ada98e85b5ae2e665af355df498a0809450e8e7d5163c3b4a8c",
+      "file": "high_severity_residuals_acknowledged_before_commit.json"
+    },
+    {
       "id": "lint_before_commit",
       "name": "Lint Before Commit",
       "category": "workflow",
@@ -356,6 +394,25 @@
       "reference_compiler": "ok",
       "hash": "sha256:ae298138cd5de74b8eaa5b3affc9f8cffadd587ce1964a8b1f3ac776f9beecc3",
       "file": "no_force_push.json"
+    },
+    {
+      "id": "no_open_critical_residuals",
+      "name": "No Open Critical Residuals",
+      "category": "safety",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "governance",
+        "negative-space",
+        "residuals",
+        "review"
+      ],
+      "language_level": "structural",
+      "description": "A trace must carry no critical-severity residual that is still open. Intended as an approval gate: critical declared gaps must be addressed, acknowledged, or waived before sign-off.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:88bb76485727e91284dccc1bd64288cf555619ceee595cffbde6d7f53703e0bd",
+      "file": "no_open_critical_residuals.json"
     },
     {
       "id": "no_secrets_committed",
@@ -667,6 +724,25 @@
       "file": "ui_state_machine_decomposed.json"
     },
     {
+      "id": "unverified_residuals_have_suggested_check",
+      "name": "Unverified Residuals Have a Suggested Check",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "general",
+      "tags": [
+        "actionable",
+        "handoff",
+        "residuals",
+        "review"
+      ],
+      "language_level": "structural",
+      "description": "Every residual of kind 'unverified' must carry a non-empty suggested_check — a concrete way a reviewer could close the gap.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:6cec9549d030e0929033306dcee6a785d1ddc3ccea6f6cd0f25ade579bda2b76",
+      "file": "unverified_residuals_have_suggested_check.json"
+    },
+    {
       "id": "xstate_deadlock_free",
       "name": "XState Deadlock Free",
       "category": "reasoning",
@@ -758,11 +834,13 @@
   "tags": [
     "a11y",
     "accessibility",
+    "actionable",
     "animation",
     "api",
     "approval",
     "aria",
     "artifacts",
+    "assumptions",
     "async",
     "audit",
     "audit-trail",
@@ -774,6 +852,7 @@
     "bugs",
     "ci",
     "cleanup",
+    "commit",
     "communication",
     "completeness",
     "compliance",
@@ -801,7 +880,9 @@
     "framer-motion",
     "frontend",
     "git",
+    "governance",
     "guards",
+    "handoff",
     "high-stakes",
     "hipaa",
     "iam",
@@ -813,6 +894,8 @@
     "loading-states",
     "memory-leak",
     "migration",
+    "navigable",
+    "negative-space",
     "ordering",
     "payments",
     "pci",
@@ -828,7 +911,9 @@
     "references",
     "regulated",
     "research",
+    "residuals",
     "reversibility",
+    "review",
     "routing",
     "safety",
     "secrets",

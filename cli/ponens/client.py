@@ -39,6 +39,9 @@ def api(method: str, path: str, body: dict | None = None) -> dict | list | str:
             f"{method} {path} -> {e.code}: "
             f"{json.dumps(detail) if isinstance(detail, (dict, list)) else detail}"
         ) from None
+    except urllib.error.URLError as e:
+        # connection refused / DNS / no hub running — surface as a clean error
+        raise RuntimeError(f"cannot reach hub at {hub_url()}: {e.reason}") from None
 
     try:
         return json.loads(text)

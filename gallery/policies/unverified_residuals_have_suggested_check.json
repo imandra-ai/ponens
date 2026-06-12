@@ -1,0 +1,27 @@
+{
+  "id": "unverified_residuals_have_suggested_check",
+  "name": "Unverified Residuals Have a Suggested Check",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "Every residual of kind 'unverified' must carry a non-empty suggested_check — a concrete way a reviewer could close the gap.",
+  "formula": "∀ r ∈ residuals . r.kind = Unverified → r.suggested_check ≠ ∅",
+  "language_level": "structural",
+  "rationale": "An unverified claim is only actionable to a reviewer if it says how it could be verified. Requiring a suggested_check turns the negative space from a warning into a work-list, and is what makes the agent-to-agent handoff productive rather than merely cautionary.",
+  "tags": [
+    "residuals",
+    "review",
+    "actionable",
+    "handoff"
+  ],
+  "examples": {
+    "passes": "{ kind: unverified, statement: 'dispute path not covered', suggested_check: 'add a verification goal for the dispute transition' }",
+    "fails": "{ kind: unverified, statement: 'dispute path not covered' } with no suggested_check."
+  },
+  "domain": "general",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra-ai"
+  },
+  "date_added": "2026-06-11",
+  "downloads": 0
+}

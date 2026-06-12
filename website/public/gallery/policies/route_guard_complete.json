@@ -1,0 +1,29 @@
+{
+  "id": "route_guard_complete",
+  "name": "Route Guard Complete",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Route guards (auth checks, role checks, feature flags) must be decomposed to verify that all route × auth-state combinations are handled correctly.",
+  "formula": "G(Formalize ∧ route_guard → F(Decompose ∧ complete))",
+  "language_level": "pure_temporal",
+  "rationale": "Missing route guards expose protected pages to unauthorized users. Decomposition ensures every route is checked against every possible auth state: logged out, logged in (no role), admin, expired token, etc.",
+  "tags": [
+    "routing",
+    "guards",
+    "auth",
+    "authorization",
+    "decomposition",
+    "security"
+  ],
+  "examples": {
+    "passes": "Decompose(routeGuard) → 24 regions covering all route × role × token-state combinations",
+    "fails": "Admin dashboard accessible with an expired token because the guard only checks role, not token validity"
+  },
+  "domain": "javascript-ui",
+  "author": {
+    "name": "Simon Cruanes",
+    "github": "simon-cruanes"
+  },
+  "date_added": "2026-03-27",
+  "downloads": 140
+}

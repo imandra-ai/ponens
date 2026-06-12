@@ -1,0 +1,250 @@
+(* 03_trace_policy_accessors.iml *)
+
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+[@@@import Policy_utils, "02_trace_policy_utils.iml"]
+
+open Policy_types
+open Policy_utils
+
+let artifact_common_of (a : artifact) : artifact_common =
+  match a with
+  | UserInstructionArtifact c
+  | SourceCodeArtifact c
+  | DocumentationArtifact c
+  | SearchResultsArtifact c
+  | AnalysisNoteArtifact c
+  | PlanArtifact c
+  | FormalizationArtifact (c, _)
+  | FormalModelArtifact (c, _)
+  | VerificationGoalArtifact (c, _)
+  | VerificationResultArtifact (c, _)
+  | StateSpaceAnalysisResultArtifact (c, _)
+  | ConformanceResultArtifact (c, _)
+  | CoSimulationResultArtifact (c, _)
+  | GeneratedTestsArtifact (c, _)
+  | CommandResultArtifact (c, _)
+  | DiffArtifact c
+  | UserApprovalArtifact c
+  | CommitArtifact c
+  | ReproductionBundleArtifact (c, _) -> c
+
+let artifact_id_of (a : artifact) : string =
+  (artifact_common_of a).artifact_id
+
+let artifact_type_name (a : artifact) : string =
+  match a with
+  | UserInstructionArtifact _ -> "UserInstruction"
+  | SourceCodeArtifact _ -> "SourceCode"
+  | DocumentationArtifact _ -> "Documentation"
+  | SearchResultsArtifact _ -> "SearchResults"
+  | AnalysisNoteArtifact _ -> "AnalysisNote"
+  | PlanArtifact _ -> "Plan"
+  | FormalizationArtifact _ -> "Formalization"
+  | FormalModelArtifact _ -> "FormalModel"
+  | VerificationGoalArtifact _ -> "VerificationGoal"
+  | VerificationResultArtifact _ -> "VerificationResult"
+  | StateSpaceAnalysisResultArtifact _ -> "StateSpaceAnalysisResult"
+  | ConformanceResultArtifact _ -> "ConformanceResult"
+  | CoSimulationResultArtifact _ -> "CoSimulationResult"
+  | GeneratedTestsArtifact _ -> "GeneratedTests"
+  | CommandResultArtifact _ -> "CommandResult"
+  | DiffArtifact _ -> "Diff"
+  | UserApprovalArtifact _ -> "UserApproval"
+  | CommitArtifact _ -> "Commit"
+  | ReproductionBundleArtifact _ -> "ReproductionBundle"
+
+let action_common_of (a : action) : action_common =
+  match a with
+  | ActivityAction (c, _, _) -> c
+  | GatewayAction (c, _, _) -> c
+  | ReasoningAction (c, _, _) -> c
+  | GovernanceAction (c, _, _) -> c
+
+let action_payload_of (a : action) : action_payload option =
+  match a with
+  | ActivityAction (_, _, p) -> p
+  | GatewayAction _ -> None
+  | ReasoningAction (_, _, p) -> p
+  | GovernanceAction (_, _, p) -> p
+
+let action_id_of (a : action) : int =
+  (action_common_of a).id
+
+let rec action_ids_of (xs : action list) : int list =
+  match xs with
+  | [] -> []
+  | x :: rest -> action_id_of x :: action_ids_of rest
+
+let rec artifact_ids_of (xs : artifact list) : string list =
+  match xs with
+  | [] -> []
+  | x :: rest -> artifact_id_of x :: artifact_ids_of rest
+
+let rec find_action_by_id (id : int) (xs : action list) : action option =
+  match xs with
+  | [] -> None
+  | x :: rest -> if action_id_of x = id then Some x else find_action_by_id id rest
+
+let rec find_artifact_by_id (id : string) (xs : artifact list) : artifact option =
+  match xs with
+  | [] -> None
+  | x :: rest -> if artifact_id_of x = id then Some x else find_artifact_by_id id rest
+
+let rec nth_action (n : int) (xs : action list) : action option =
+  if n < 0 then None
+  else
+    match xs with
+    | [] -> None
+    | x :: rest -> if n = 0 then Some x else nth_action (n - 1) rest
+
+let current_action (tr : trace) (env : env) : action option =
+  nth_action env.current_pos tr.actions
+
+let current_action_id (tr : trace) (env : env) : int option =
+  match current_action tr env with
+  | Some a -> Some (action_id_of a)
+  | None -> None
+
+let action_has_nonempty_rationale (a : action) : bool =
+  (action_common_of a).rationale <> ""
+
+let rec any_nonzero_exit_code (xs : evidence list) : bool =
+  match xs with
+  | [] -> false
+  | x :: rest ->
+    begin match x.exit_code with
+    | Some n -> n <> 0 || any_nonzero_exit_code rest
+    | None -> any_nonzero_exit_code rest
+    end
+
+let rec any_zero_exit_code (xs : evidence list) : bool =
+  match xs with
+  | [] -> false
+  | x :: rest ->
+    begin match x.exit_code with
+    | Some 0 -> true
+    | Some _ -> any_zero_exit_code rest
+    | None -> any_zero_exit_code rest
+    end
+
+let payload_field_is_true (p : action_payload) (k : string) : bool =
+  match lookup_kv k p.result_fields with
+  | Some v -> value_is_true v
+  | None -> false
+
+let payload_field_is_false (p : action_payload) (k : string) : bool =
+  match lookup_kv k p.result_fields with
+  | Some v -> value_is_false v
+  | None -> false
+
+let payload_status_is (p : action_payload) (s : string) : bool =
+  match lookup_kv "status" p.result_fields with
+  | Some (VString s') -> s' = s
+  | _ -> false
+
+let action_is_failed (a : action) : bool =
+  let c = action_common_of a in
+  any_nonzero_exit_code c.evidence
+  ||
+  match action_payload_of a with
+  | Some p ->
+    payload_field_is_false p "success"
+    || payload_field_is_false p "completed"
+    || payload_field_is_false p "ok"
+    || payload_field_is_false p "passed"
+    || payload_status_is p "failed"
+    || payload_status_is p "error"
+    || payload_status_is p "aborted"
+    || payload_status_is p "rejected"
+  | None -> false
+
+let action_is_completed (a : action) : bool =
+  if action_is_failed a then false
+  else
+    match action_payload_of a with
+    | Some p ->
+      not (payload_status_is p "pending"
+           || payload_status_is p "running"
+           || payload_status_is p "in_progress"
+           || payload_status_is p "incomplete")
+    | None ->
+      true
+
+let artifact_has_role (a : artifact) (r : artifact_role) : bool =
+  match (artifact_common_of a).artifact_role with
+  | Some r' -> r = r'
+  | None -> false
+
+let is_formal_model_artifact (a : artifact) : bool =
+  match a with
+  | FormalModelArtifact _ -> true
+  | _ -> false
+
+let is_approved_reference_artifact (a : artifact) : bool =
+  artifact_has_role a ApprovedReferenceRole
+
+let is_state_space_analysis_result_artifact (a : artifact) : bool =
+  match a with
+  | StateSpaceAnalysisResultArtifact _ -> true
+  | _ -> false
+
+let is_reasoning_action (a : action) : bool =
+  match a with
+  | ReasoningAction _ -> true
+  | _ -> false
+
+let is_verification_action (a : action) : bool =
+  match a with
+  | ReasoningAction (_, Verify, _) -> true
+  | _ -> false
+
+let is_state_space_analysis_action (a : action) : bool =
+  match a with
+  | ReasoningAction (_, StateSpaceAnalysis, _) -> true
+  | _ -> false
+
+let action_category_name (a : action) : string =
+  match a with
+  | ActivityAction _ -> "activity"
+  | GatewayAction _ -> "gateway"
+  | ReasoningAction _ -> "reasoning"
+  | GovernanceAction _ -> "governance"
+
+let action_type_name (a : action) : string =
+  match a with
+  | ActivityAction (_, t, _) ->
+    begin match t with
+    | ReadFile -> "ReadFile" | SearchCode -> "SearchCode" | SearchWeb -> "SearchWeb"
+    | AnalyzeCode -> "AnalyzeCode" | ExploreDirectory -> "ExploreDirectory"
+    | ReadDocumentation -> "ReadDocumentation" | EditFile -> "EditFile"
+    | CreateFile -> "CreateFile" | DeleteFile -> "DeleteFile" | RenameFile -> "RenameFile"
+    | RunCommand -> "RunCommand" | RunTests -> "RunTests" | TypeCheck -> "TypeCheck"
+    | Lint -> "Lint" | ManualVerification -> "ManualVerification"
+    | GitStatus -> "GitStatus" | GitDiff -> "GitDiff" | GitCommit -> "GitCommit"
+    | AskUser -> "AskUser" | ReportProgress -> "ReportProgress" | Explain -> "Explain"
+    | FormulatePlan -> "FormulatePlan" | DecomposeTask -> "DecomposeTask"
+    | EstimateImpact -> "EstimateImpact"
+    end
+  | GatewayAction (_, t, _) ->
+    begin match t with
+    | ExclusiveDecision -> "ExclusiveDecision"
+    | ParallelSplit -> "ParallelSplit"
+    | EventBasedDecision -> "EventBasedDecision"
+    | LoopGateway -> "LoopGateway"
+    end
+  | ReasoningAction (_, t, _) ->
+    begin match t with
+    | Formalize -> "Formalize" | DefineVerificationGoal -> "DefineVerificationGoal"
+    | Verify -> "Verify" | StateSpaceAnalysis -> "StateSpaceAnalysis"
+    | ConformanceCheck -> "ConformanceCheck" | CoSimulate -> "CoSimulate"
+    | GenerateTests -> "GenerateTests"
+    end
+  | GovernanceAction (_, t, _) ->
+    begin match t with
+    | EvaluatePolicy -> "EvaluatePolicy" | CreateReviewItem -> "CreateReviewItem"
+    | AcknowledgeReviewItem -> "AcknowledgeReviewItem"
+    | ResolveReviewItem -> "ResolveReviewItem" | AddComment -> "AddComment"
+    | RequestApproval -> "RequestApproval" | Approve -> "Approve"
+    | Reject -> "Reject" | CreateSnapshot -> "CreateSnapshot"
+    | RecordAudit -> "RecordAudit" | LinkTrace -> "LinkTrace"
+    end

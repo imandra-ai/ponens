@@ -1,0 +1,26 @@
+{
+  "id": "data_flow_integrity",
+  "name": "Data Flow Integrity",
+  "category": "structural",
+  "severity": "error",
+  "description": "Every consumed artifact must have exactly one valid producer earlier in the trace.",
+  "formula": "G(∀input ∈ inputs(a) → ∃!b . b < a ∧ input ∈ outputs(b))",
+  "language_level": "structural",
+  "rationale": "Ensures the artifact dependency graph is well-formed. Broken data flow means an action used data that was never produced.",
+  "tags": [
+    "integrity",
+    "artifacts",
+    "data-flow"
+  ],
+  "examples": {
+    "passes": "Action #1 produces 'source_code', Action #2 consumes 'source_code'",
+    "fails": "Action #5 consumes 'analysis_result' but no prior action produced it"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Simon Cruanes",
+    "github": "simon-cruanes"
+  },
+  "date_added": "2026-03-27",
+  "downloads": 450
+}

@@ -1,0 +1,26 @@
+{
+  "id": "tests_pass_before_commit",
+  "name": "Tests Pass Before Commit",
+  "category": "workflow",
+  "severity": "error",
+  "description": "The most recent test run before each commit must have passed. A failed run followed by a successful re-run satisfies this policy.",
+  "formula": "G(GitCommit → (RunTests ∧ completed) S_last GitCommit)",
+  "language_level": "scoped_temporal",
+  "rationale": "Stronger than tests_before_commit: ensures the most recent test state is clean, not just that some test ran at some point.",
+  "tags": [
+    "ci",
+    "testing",
+    "git"
+  ],
+  "examples": {
+    "passes": "RunTests(fail) → RunTests(pass) → GitCommit (re-run fixed it)",
+    "fails": "RunTests(pass) → RunTests(fail) → GitCommit (last run failed)"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-04-01",
+  "downloads": 1420
+}

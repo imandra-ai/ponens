@@ -1,0 +1,32 @@
+---
+const { title = "ponens", description = "Author, govern, and validate the reasoning of AI coding agents." } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="stylesheet" href="/styles/global.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a href="/" class="brand">∴ ponens</a>
+      <nav>
+        <a href="/gallery">Gallery</a>
+        <a href="https://github.com/imandra-ai/ponens/tree/main/spec">Spec</a>
+        <a href="https://github.com/imandra-ai/ponens/tree/main/cli">CLI</a>
+        <a href="https://github.com/imandra-ai/ponens">GitHub</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <span>∴ ponens — open governance for AI agent reasoning</span>
+      <span>MIT · <a href="https://github.com/imandra-ai/ponens">imandra-ai/ponens</a></span>
+    </footer>
+  </body>
+</html>

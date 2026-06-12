@@ -1,0 +1,153 @@
+(* 08_trace_policy_properties.iml *)
+
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+[@@@import Policy_utils, "02_trace_policy_utils.iml"]
+[@@@import Policy_accessors, "03_trace_policy_accessors.iml"]
+[@@@import Policy_binding, "04_trace_policy_binding.iml"]
+
+open Policy_types
+open Policy_utils
+open Policy_accessors
+open Policy_binding
+
+let rec all_action_inputs_exist (tr : trace) (xs : action list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest ->
+    let c = action_common_of x in
+    let rec inputs_exist ys =
+      match ys with
+      | [] -> true
+      | y :: ys_rest ->
+        begin match find_artifact_by_id y tr.artifacts with
+        | Some _ -> inputs_exist ys_rest
+        | None -> false
+        end
+    in
+    inputs_exist c.inputs && all_action_inputs_exist tr rest
+
+let rec all_action_outputs_exist (tr : trace) (xs : action list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest ->
+    let c = action_common_of x in
+    let rec outputs_exist ys =
+      match ys with
+      | [] -> true
+      | y :: ys_rest ->
+        begin match find_artifact_by_id y tr.artifacts with
+        | Some _ -> outputs_exist ys_rest
+        | None -> false
+        end
+    in
+    outputs_exist c.outputs && all_action_outputs_exist tr rest
+
+let rec all_producer_action_ids_exist (tr : trace) (xs : artifact list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest ->
+    begin match (artifact_common_of x).producer_action_id with
+    | Some id ->
+      begin match find_action_by_id id tr.actions with
+      | Some _ -> all_producer_action_ids_exist tr rest
+      | None -> false
+      end
+    | None -> all_producer_action_ids_exist tr rest
+    end
+let rec all_producer_action_ids_match_outputs (tr : trace) (xs : artifact list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest ->
+    begin match (artifact_common_of x).producer_action_id with
+    | Some id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a ->
+        mem_string (artifact_id_of x) (action_common_of a).outputs
+        && all_producer_action_ids_match_outputs tr rest
+      | None -> false
+      end
+    | None -> all_producer_action_ids_match_outputs tr rest
+    end
+
+let rec all_derived_from_exist (tr : trace) (xs : artifact list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest ->
+    let rec parents_exist ys =
+      match ys with
+      | [] -> true
+      | y :: ys_rest ->
+        begin match find_artifact_by_id y tr.artifacts with
+        | Some _ -> parents_exist ys_rest
+        | None -> false
+        end
+    in
+    parents_exist (artifact_common_of x).derived_from && all_derived_from_exist tr rest
+
+let wf_trace (tr : trace) : bool =
+  unique_ints (action_ids_of tr.actions)
+  && unique_strings (artifact_ids_of tr.artifacts)
+  && all_action_inputs_exist tr tr.actions
+  && all_action_outputs_exist tr tr.actions
+  && all_producer_action_ids_exist tr tr.artifacts
+  && all_producer_action_ids_match_outputs tr tr.artifacts
+  && all_derived_from_exist tr tr.artifacts
+
+let rec all_actions_have_rationale_actions (xs : action list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest -> action_has_nonempty_rationale x && all_actions_have_rationale_actions rest
+
+let all_actions_have_rationale (tr : trace) : bool =
+  all_actions_have_rationale_actions tr.actions
+
+let rec tests_before_commit_aux (seen_tests : bool) (xs : action list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest ->
+    begin match x with
+    | ActivityAction (_, RunTests, _) -> tests_before_commit_aux true rest
+    | ActivityAction (_, GitCommit, _) -> seen_tests && tests_before_commit_aux seen_tests rest
+    | _ -> tests_before_commit_aux seen_tests rest
+    end
+[@@measure Ordinal.of_int (List.length xs)]
+
+let tests_before_commit (tr : trace) : bool =
+  tests_before_commit_aux false tr.actions
+
+let goals_reference_valid_artifacts (tr : trace) : bool =
+  let rec go xs =
+    match xs with
+    | [] -> true
+    | x :: rest ->
+      begin match x with
+      | VerificationGoalArtifact (_, vg) ->
+        begin match find_artifact_by_id vg.target_artifact_id tr.artifacts with
+        | Some a -> is_formal_model_artifact a && go rest
+        | None -> false
+        end
+      | _ -> go rest
+      end
+  in go tr.artifacts
+
+let generated_tests_require_state_space_analysis (tr : trace) : bool =
+  let rec go xs =
+    match xs with
+    | [] -> true
+    | x :: rest ->
+      begin match x with
+      | GeneratedTestsArtifact (c, _) ->
+        let rec exists_analysis ys =
+          match ys with
+          | [] -> false
+          | y :: ys_rest ->
+            if is_state_space_analysis_result_artifact y
+               && (artifact_id_of y = c.artifact_id
+                   || ancestor_of_artifact (artifact_id_of y) c.artifact_id tr.artifacts)
+            then true
+            else exists_analysis ys_rest
+        in
+        exists_analysis tr.artifacts && go rest
+      | _ -> go rest
+      end
+  in go tr.artifacts

@@ -1,0 +1,752 @@
+{
+  "trace_id": "trace-auth-xstate-001",
+  "spec_version": "1.1",
+  "assistant": "claude-code + codelogician",
+  "model": "claude-opus-4-6",
+  "timestamp": "2026-04-02T14:30:00Z",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Fix session timeout bug in the authentication flow — users are not redirected to login after token expiry",
+    "from_user": "developer"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "a1",
+      "artifact_type": "SourceCode",
+      "name": "auth_source",
+      "format": "typescript",
+      "revision": 1,
+      "producer_action_id": 1,
+      "summary": "XState auth machine in AuthProvider.tsx"
+    },
+    {
+      "artifact_id": "a2",
+      "artifact_type": "AnalysisNote",
+      "name": "auth_analysis",
+      "revision": 1,
+      "producer_action_id": 2,
+      "derived_from": [
+        "a1"
+      ],
+      "summary": "Auth state machine: idle → authenticating → authenticated → sessionExpired. Missing transition on token expiry."
+    },
+    {
+      "artifact_id": "a3",
+      "artifact_type": "IMLModel",
+      "name": "auth_iml_model",
+      "format": "iml",
+      "revision": 1,
+      "producer_action_id": 10,
+      "derived_from": [
+        "a2"
+      ],
+      "summary": "IML formalization of auth XState machine",
+      "payload": {
+        "status": "transparent",
+        "src_lang": "typescript",
+        "src_code": "const authMachine = createMachine({\n  id: 'auth',\n  initial: 'idle',\n  states: {\n    idle: { on: { LOGIN: 'authenticating' } },\n    authenticating: {\n      on: {\n        SUCCESS: 'authenticated',\n        FAILURE: 'idle'\n      }\n    },\n    authenticated: {\n      on: { LOGOUT: 'idle' }\n      // BUG: no TOKEN_EXPIRED transition\n    },\n    sessionExpired: {\n      on: { LOGIN: 'authenticating' }\n    }\n  }\n});",
+        "iml_code": "type auth_state = Idle | Authenticating | Authenticated | SessionExpired\n\ntype auth_event = Login | Logout | Success | Failure | TokenExpired\n\nlet auth_transition (state : auth_state) (event : auth_event) : auth_state =\n  match state, event with\n  | Idle, Login -> Authenticating\n  | Authenticating, Success -> Authenticated\n  | Authenticating, Failure -> Idle\n  | Authenticated, Logout -> Idle\n  (* BUG: TokenExpired not handled in Authenticated *)\n  | _ -> state",
+        "symbols": [
+          "auth_state",
+          "auth_event",
+          "auth_transition"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a4",
+      "artifact_type": "VerificationGoal",
+      "name": "deadlock_free_vg",
+      "producer_action_id": 11,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "kind": "verify",
+        "description": "Auth machine is deadlock-free: every non-terminal state handles all relevant events",
+        "target_artifact_id": "a3",
+        "src": "let deadlock_free (state : auth_state) =\n  state = SessionExpired ||\n  List.exists (fun event -> auth_transition state event <> state)\n    [Login; Logout; Success; Failure; TokenExpired]"
+      }
+    },
+    {
+      "artifact_id": "a5",
+      "artifact_type": "VerificationResult",
+      "name": "deadlock_refuted",
+      "producer_action_id": 12,
+      "derived_from": [
+        "a4"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "goal_artifact_id": "a4",
+        "status": "refuted",
+        "engine": "imandrax",
+        "result": {
+          "refuted": {
+            "counterexample": "state = Authenticated\nevent = TokenExpired\n\nauth_transition Authenticated TokenExpired = Authenticated\n\nThe machine stays in Authenticated when token expires.\nExpected: transition to SessionExpired or Idle."
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a6",
+      "artifact_type": "AnalysisNote",
+      "name": "bug_analysis",
+      "producer_action_id": 13,
+      "derived_from": [
+        "a5"
+      ],
+      "summary": "Bug confirmed: Authenticated state has no handler for TokenExpired event"
+    },
+    {
+      "artifact_id": "a7",
+      "artifact_type": "Diff",
+      "name": "auth_fix",
+      "producer_action_id": 14,
+      "derived_from": [
+        "a6"
+      ],
+      "summary": "Add TokenExpired → SessionExpired transition"
+    },
+    {
+      "artifact_id": "a8",
+      "artifact_type": "IMLModel",
+      "name": "auth_iml_fixed",
+      "format": "iml",
+      "revision": 2,
+      "producer_action_id": 20,
+      "derived_from": [
+        "a7",
+        "a3"
+      ],
+      "supersedes": "a3",
+      "summary": "Fixed IML model with TokenExpired transition",
+      "payload": {
+        "status": "transparent",
+        "src_lang": "iml",
+        "src_code": "(* Original: missing TokenExpired handler *)\nlet auth_transition (state : auth_state) (event : auth_event) : auth_state =\n  match state, event with\n  | Idle, Login -> Authenticating\n  | Authenticating, Success -> Authenticated\n  | Authenticating, Failure -> Idle\n  | Authenticated, Logout -> Idle\n  | _ -> state",
+        "iml_code": "(* Fixed: added TokenExpired handler *)\nlet auth_transition (state : auth_state) (event : auth_event) : auth_state =\n  match state, event with\n  | Idle, Login -> Authenticating\n  | Authenticating, Success -> Authenticated\n  | Authenticating, Failure -> Idle\n  | Authenticated, Logout -> Idle\n  | Authenticated, TokenExpired -> SessionExpired  (* FIX *)\n  | SessionExpired, Login -> Authenticating\n  | _ -> state",
+        "symbols": [
+          "auth_state",
+          "auth_event",
+          "auth_transition"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a9",
+      "artifact_type": "VerificationGoal",
+      "name": "deadlock_free_vg_2",
+      "producer_action_id": 21,
+      "derived_from": [
+        "a8"
+      ],
+      "payload": {
+        "goal_id": 2,
+        "kind": "verify",
+        "description": "Fixed auth machine is deadlock-free",
+        "target_artifact_id": "a8",
+        "src": "let deadlock_free (state : auth_state) =\n  state = SessionExpired ||\n  List.exists (fun event -> auth_transition state event <> state)\n    [Login; Logout; Success; Failure; TokenExpired]"
+      }
+    },
+    {
+      "artifact_id": "a10",
+      "artifact_type": "VerificationResult",
+      "name": "deadlock_free_proved",
+      "producer_action_id": 22,
+      "derived_from": [
+        "a9"
+      ],
+      "payload": {
+        "goal_id": 2,
+        "goal_artifact_id": "a9",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "deadlock_free: proved for all auth_state values by case analysis"
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a11",
+      "artifact_type": "Decomposition",
+      "name": "auth_decomposition",
+      "producer_action_id": 30,
+      "derived_from": [
+        "a8"
+      ],
+      "summary": "8 exhaustive regions of auth_transition",
+      "payload": {
+        "target_artifact_id": "a8",
+        "target_function": "auth_transition",
+        "target_symbol": "auth_transition",
+        "complete": true,
+        "regions": [
+          {
+            "constraints": [
+              "state = Idle",
+              "event = Login"
+            ],
+            "invariant": "Authenticating",
+            "model": {
+              "state": "Idle",
+              "event": "Login"
+            },
+            "model_eval": "Authenticating"
+          },
+          {
+            "constraints": [
+              "state = Authenticating",
+              "event = Success"
+            ],
+            "invariant": "Authenticated",
+            "model": {
+              "state": "Authenticating",
+              "event": "Success"
+            },
+            "model_eval": "Authenticated"
+          },
+          {
+            "constraints": [
+              "state = Authenticating",
+              "event = Failure"
+            ],
+            "invariant": "Idle",
+            "model": {
+              "state": "Authenticating",
+              "event": "Failure"
+            },
+            "model_eval": "Idle"
+          },
+          {
+            "constraints": [
+              "state = Authenticated",
+              "event = Logout"
+            ],
+            "invariant": "Idle",
+            "model": {
+              "state": "Authenticated",
+              "event": "Logout"
+            },
+            "model_eval": "Idle"
+          },
+          {
+            "constraints": [
+              "state = Authenticated",
+              "event = TokenExpired"
+            ],
+            "invariant": "SessionExpired",
+            "model": {
+              "state": "Authenticated",
+              "event": "TokenExpired"
+            },
+            "model_eval": "SessionExpired"
+          },
+          {
+            "constraints": [
+              "state = SessionExpired",
+              "event = Login"
+            ],
+            "invariant": "Authenticating",
+            "model": {
+              "state": "SessionExpired",
+              "event": "Login"
+            },
+            "model_eval": "Authenticating"
+          },
+          {
+            "constraints": [
+              "state in {Idle, SessionExpired}",
+              "event in {Logout, Success, Failure, TokenExpired}"
+            ],
+            "invariant": "state unchanged",
+            "model": {
+              "state": "Idle",
+              "event": "Logout"
+            },
+            "model_eval": "Idle"
+          },
+          {
+            "constraints": [
+              "state = Authenticated",
+              "event in {Login, Success, Failure}"
+            ],
+            "invariant": "state unchanged",
+            "model": {
+              "state": "Authenticated",
+              "event": "Login"
+            },
+            "model_eval": "Authenticated"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a12",
+      "artifact_type": "GeneratedTests",
+      "name": "auth_tests",
+      "producer_action_id": 31,
+      "derived_from": [
+        "a11"
+      ],
+      "summary": "8 tests from auth_transition decomposition",
+      "payload": {
+        "function": "auth_transition",
+        "language": "typescript",
+        "source_decomposition_artifact_id": "a11",
+        "tests": [
+          {
+            "name": "test_idle_login",
+            "region_index": 0,
+            "constraints": [
+              "state = Idle",
+              "event = Login"
+            ],
+            "inputs": {
+              "state": "Idle",
+              "event": "Login"
+            },
+            "expected": "Authenticating",
+            "code": "it('idle + LOGIN → authenticating', () => {\n  const state = authMachine.transition('idle', 'LOGIN');\n  expect(state.value).toBe('authenticating');\n});"
+          },
+          {
+            "name": "test_auth_success",
+            "region_index": 1,
+            "constraints": [
+              "state = Authenticating",
+              "event = Success"
+            ],
+            "inputs": {
+              "state": "Authenticating",
+              "event": "Success"
+            },
+            "expected": "Authenticated",
+            "code": "it('authenticating + SUCCESS → authenticated', () => {\n  const state = authMachine.transition('authenticating', 'SUCCESS');\n  expect(state.value).toBe('authenticated');\n});"
+          },
+          {
+            "name": "test_token_expired",
+            "region_index": 4,
+            "constraints": [
+              "state = Authenticated",
+              "event = TokenExpired"
+            ],
+            "inputs": {
+              "state": "Authenticated",
+              "event": "TokenExpired"
+            },
+            "expected": "SessionExpired",
+            "code": "it('authenticated + TOKEN_EXPIRED → sessionExpired', () => {\n  const state = authMachine.transition('authenticated', 'TOKEN_EXPIRED');\n  expect(state.value).toBe('sessionExpired');\n});"
+          },
+          {
+            "name": "test_session_expired_login",
+            "region_index": 5,
+            "constraints": [
+              "state = SessionExpired",
+              "event = Login"
+            ],
+            "inputs": {
+              "state": "SessionExpired",
+              "event": "Login"
+            },
+            "expected": "Authenticating",
+            "code": "it('sessionExpired + LOGIN → authenticating', () => {\n  const state = authMachine.transition('sessionExpired', 'LOGIN');\n  expect(state.value).toBe('authenticating');\n});"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a13",
+      "artifact_type": "Diff",
+      "name": "updated_component",
+      "format": "typescript",
+      "producer_action_id": 40,
+      "derived_from": [
+        "a8",
+        "a10"
+      ],
+      "summary": "Updated AuthProvider.tsx with TokenExpired transition"
+    },
+    {
+      "artifact_id": "a14",
+      "artifact_type": "CommandResult",
+      "name": "test_results",
+      "producer_action_id": 41,
+      "derived_from": [
+        "a12",
+        "a13"
+      ],
+      "summary": "8/8 tests pass"
+    },
+    {
+      "artifact_id": "a15",
+      "artifact_type": "Commit",
+      "name": "commit",
+      "producer_action_id": 42,
+      "derived_from": [
+        "a14"
+      ],
+      "summary": "fix: add TokenExpired transition to auth machine"
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "category": "activity",
+      "type": "ReadFile",
+      "label": "Read: AuthProvider.tsx",
+      "rationale": "understand the current auth state machine",
+      "inputs": [],
+      "outputs": [
+        "a1"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "src/AuthProvider.tsx"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "category": "activity",
+      "type": "AnalyzeCode",
+      "label": "Analyze: XState auth machine with 4 states",
+      "detail": "Auth machine: idle → authenticating → authenticated. SessionExpired state exists but is unreachable from authenticated.",
+      "rationale": "map the state machine before formalization",
+      "inputs": [
+        "a1"
+      ],
+      "outputs": [
+        "a2"
+      ],
+      "result_summary": "4 states, missing TokenExpired transition identified"
+    },
+    {
+      "id": 10,
+      "category": "reasoning",
+      "type": "Formalize",
+      "label": "Formalize: auth XState machine → IML",
+      "rationale": "translate TypeScript XState definition into IML for formal analysis",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a3"
+      ],
+      "request": {
+        "source_artifact_id": "a1"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a3"
+      },
+      "result_summary": "transparent formalization → 3 IML symbols",
+      "execution": {
+        "tool": "codelogician",
+        "version": "2026.04",
+        "determinism": "deterministic"
+      }
+    },
+    {
+      "id": 11,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: deadlock freedom check",
+      "rationale": "verify that every non-terminal state can make progress",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a4"
+      ],
+      "result_summary": "verify: deadlock freedom for all states"
+    },
+    {
+      "id": 12,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: deadlock freedom — REFUTED",
+      "rationale": "ImandraX found that Authenticated state is stuck on TokenExpired event",
+      "inputs": [
+        "a4"
+      ],
+      "outputs": [
+        "a5"
+      ],
+      "result_summary": "refuted — Authenticated + TokenExpired = stuck",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 890
+      }
+    },
+    {
+      "id": 13,
+      "category": "activity",
+      "type": "AnalyzeCode",
+      "label": "Analyze: missing TokenExpired handler",
+      "detail": "The Authenticated state only handles Logout. TokenExpired events are silently ignored, so users stay 'authenticated' with an expired token.",
+      "rationale": "diagnose the root cause from the counterexample",
+      "inputs": [
+        "a5"
+      ],
+      "outputs": [
+        "a6"
+      ],
+      "result_summary": "root cause: no TokenExpired → SessionExpired transition",
+      "observations": [
+        {
+          "statement": "Authenticated state silently swallows TokenExpired events. Users remain in authenticated state with expired credentials.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "category": "activity",
+      "type": "EditFile",
+      "label": "Fix: add TokenExpired → SessionExpired transition",
+      "rationale": "fix the bug discovered by formal verification",
+      "inputs": [
+        "a6"
+      ],
+      "outputs": [
+        "a7"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "src/AuthProvider.tsx"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "category": "reasoning",
+      "type": "Formalize",
+      "label": "Formalize: fixed auth machine",
+      "rationale": "re-formalize with the TokenExpired transition added",
+      "inputs": [
+        "a7",
+        "a3"
+      ],
+      "outputs": [
+        "a8"
+      ],
+      "result_summary": "transparent formalization with fix",
+      "execution": {
+        "tool": "codelogician",
+        "version": "2026.04",
+        "determinism": "deterministic"
+      }
+    },
+    {
+      "id": 21,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: deadlock freedom (after fix)",
+      "rationale": "re-verify deadlock freedom on the fixed model",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a9"
+      ],
+      "result_summary": "verify: deadlock freedom after fix"
+    },
+    {
+      "id": 22,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: deadlock freedom — PROVED",
+      "rationale": "confirmed: all states can make progress",
+      "inputs": [
+        "a9"
+      ],
+      "outputs": [
+        "a10"
+      ],
+      "result_summary": "proved — all states have outgoing transitions",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 650
+      }
+    },
+    {
+      "id": 30,
+      "category": "reasoning",
+      "type": "Decompose",
+      "label": "Decompose: auth_transition — 8 regions",
+      "rationale": "partition all state × event combinations to generate exhaustive tests",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a11"
+      ],
+      "result_summary": "8 exhaustive regions, complete coverage",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 420
+      }
+    },
+    {
+      "id": 31,
+      "category": "reasoning",
+      "type": "GenerateTests",
+      "label": "Generate: 8 tests from decomposition",
+      "rationale": "produce TypeScript test cases for every state × event region",
+      "inputs": [
+        "a11"
+      ],
+      "outputs": [
+        "a12"
+      ],
+      "result_summary": "8 TypeScript tests generated"
+    },
+    {
+      "id": 40,
+      "category": "activity",
+      "type": "EditFile",
+      "label": "Edit: AuthProvider.tsx",
+      "rationale": "implement the verified fix in the component",
+      "inputs": [
+        "a8",
+        "a10"
+      ],
+      "outputs": [
+        "a13"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "src/AuthProvider.tsx"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "category": "activity",
+      "type": "RunTests",
+      "label": "Tests: 8/8 pass",
+      "rationale": "validate all generated tests pass",
+      "inputs": [
+        "a12",
+        "a13"
+      ],
+      "outputs": [
+        "a14"
+      ],
+      "result_summary": "8/8 passed",
+      "evidence": [
+        {
+          "type": "CommandOutput",
+          "ref": "npx vitest run",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "category": "activity",
+      "type": "GitCommit",
+      "label": "Commit: fix session timeout bug",
+      "rationale": "all properties verified, all tests passing",
+      "inputs": [
+        "a14"
+      ],
+      "outputs": [
+        "a15"
+      ],
+      "evidence": [
+        {
+          "type": "CommandOutput",
+          "ref": "git commit",
+          "exit_code": 0
+        }
+      ]
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Fixed session timeout bug in auth XState machine. Formal verification discovered missing TokenExpired transition. 1 property proved, 8 exhaustive test regions generated."
+  },
+  "files_modified": [
+    "src/AuthProvider.tsx"
+  ],
+  "policies": [
+    {
+      "policy_id": "p1",
+      "name": "research_before_edit",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(EditFile → P_target(ReadFile ∨ AnalyzeCode))"
+    },
+    {
+      "policy_id": "p2",
+      "name": "xstate_machine_formalized",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(EditFile ∧ xstate_machine → P_chain(Formalize ∧ xstate_domain))"
+    },
+    {
+      "policy_id": "p3",
+      "name": "xstate_deadlock_free",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(Formalize ∧ xstate_domain → F(Verify ∧ proved ∧ deadlock_free))"
+    },
+    {
+      "policy_id": "p4",
+      "name": "tests_before_commit",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "p1",
+      "status": "passed",
+      "note": "ReadFile and AnalyzeCode preceded both edits"
+    },
+    {
+      "policy_id": "p2",
+      "status": "passed",
+      "note": "XState machine formalized before component edit"
+    },
+    {
+      "policy_id": "p3",
+      "status": "passed",
+      "evidence_action_ids": [
+        22
+      ],
+      "note": "Deadlock freedom proved after fix"
+    },
+    {
+      "policy_id": "p4",
+      "status": "passed",
+      "evidence_action_ids": [
+        41,
+        42
+      ],
+      "note": "8/8 tests passed before commit"
+    }
+  ],
+  "metrics": {
+    "total_actions": 15,
+    "decision_points": 0
+  }
+}

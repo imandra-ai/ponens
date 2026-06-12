@@ -1,0 +1,26 @@
+{
+  "id": "goals_reference_valid_artifacts",
+  "name": "Goals Reference Valid Artifacts",
+  "category": "structural",
+  "severity": "error",
+  "description": "Every VerificationGoal must reference a valid IMLModel via its target_artifact_id field.",
+  "formula": "G(VerificationGoal → target_artifact_id ∈ {a.id | a.type = IMLModel})",
+  "language_level": "structural",
+  "rationale": "A verification goal without a valid model reference is meaningless — there's nothing to verify against.",
+  "tags": [
+    "integrity",
+    "verification",
+    "references"
+  ],
+  "examples": {
+    "passes": "VG targets artifact 'a3' which is an IMLModel",
+    "fails": "VG targets artifact 'a7' which is a Diff, not an IMLModel"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Matt Bray",
+    "github": "mattjbray"
+  },
+  "date_added": "2026-04-05",
+  "downloads": 92
+}

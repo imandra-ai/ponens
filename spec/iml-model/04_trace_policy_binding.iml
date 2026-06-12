@@ -1,0 +1,115 @@
+(* 04_trace_policy_binding.iml *)
+
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+[@@@import Policy_utils, "02_trace_policy_utils.iml"]
+[@@@import Policy_accessors, "03_trace_policy_accessors.iml"]
+
+open Policy_types
+open Policy_utils
+open Policy_accessors
+
+let rec has_edge (src : string) (dst : string) (arts : artifact list) : bool =
+  match find_artifact_by_id dst arts with
+  | None -> false
+  | Some a -> mem_string src (artifact_common_of a).derived_from
+
+let rec artifact_edge_budget (arts : artifact list) : int =
+  match arts with
+  | [] -> 0
+  | a :: rest ->
+    List.length (artifact_common_of a).derived_from + artifact_edge_budget rest
+
+let rec ancestor_of_artifact_search
+    (src : string)
+    (pending : string list)
+    (arts : artifact list)
+    (visited : string list)
+    (fuel : int) : bool =
+  if fuel <= 0 then false
+  else
+    let next_fuel = fuel - 1 in
+    begin match pending with
+    | [] -> false
+    | dst :: rest ->
+      if src = dst then ancestor_of_artifact_search src rest arts visited next_fuel
+      else if mem_string dst visited then ancestor_of_artifact_search src rest arts visited next_fuel
+      else if has_edge src dst arts then true
+      else
+        match find_artifact_by_id dst arts with
+        | None -> ancestor_of_artifact_search src rest arts visited next_fuel
+        | Some a ->
+          let next_pending =
+            append_strings (artifact_common_of a).derived_from rest
+          in
+          ancestor_of_artifact_search src next_pending arts (dst :: visited) next_fuel
+    end
+[@@measure Ordinal.of_int fuel]
+
+let ancestor_of_artifact (src : string) (dst : string) (arts : artifact list) : bool =
+  ancestor_of_artifact_search
+    src
+    [dst]
+    arts
+    []
+    (artifact_edge_budget arts + 1)
+
+let action_target_artifact_id (a : action) : string option =
+  match action_payload_of a with
+  | Some p ->
+    begin match p.target_artifact_id with
+    | Some x -> Some x
+    | None ->
+      let c = action_common_of a in
+      begin match (c.outputs, c.inputs) with
+      | ([x], _) -> Some x
+      | ([], [x]) -> Some x
+      | _ -> None
+      end
+    end
+  | None ->
+    let c = action_common_of a in
+    begin match (c.outputs, c.inputs) with
+    | ([x], _) -> Some x
+    | ([], [x]) -> Some x
+    | _ -> None
+    end
+
+let action_target_path (a : action) : string option =
+  match action_payload_of a with
+  | Some p -> p.target_path
+  | None -> None
+
+let actions_same_target (a1 : action) (a2 : action) : bool =
+  match (action_target_artifact_id a1, action_target_artifact_id a2) with
+  | (Some x, Some y) -> x = y
+  | _ ->
+    begin match (action_target_path a1, action_target_path a2) with
+    | (Some x, Some y) -> x = y
+    | _ -> false
+    end
+
+let action_relevant_artifacts (a : action) : string list =
+  let c = action_common_of a in
+  match action_target_artifact_id a with
+  | Some t -> append_strings c.inputs (append_strings c.outputs [t])
+  | None -> append_strings c.inputs c.outputs
+
+let outputs_of_action (a : action) : string list =
+  (action_common_of a).outputs
+
+let actions_same_chain (tr : trace) (prev : action) (cur : action) : bool =
+  let prev_outs = outputs_of_action prev in
+  let cur_rel = action_relevant_artifacts cur in
+  let rec go_prev xs =
+    match xs with
+    | [] -> false
+    | x :: rest ->
+      let rec go_cur ys =
+        match ys with
+        | [] -> false
+        | y :: ys_rest ->
+          x = y || ancestor_of_artifact x y tr.artifacts || go_cur ys_rest
+      in
+      go_cur cur_rel || go_prev rest
+  in
+  go_prev prev_outs

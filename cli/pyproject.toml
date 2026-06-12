@@ -1,0 +1,13 @@
+[project]
+name = "ponens"
+version = "1.0.0"
+description = "Author, govern, and validate reasoning traces — the open CLI for the reasoning-policies ecosystem"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+[project.scripts]
+ponens = "ponens.cli:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

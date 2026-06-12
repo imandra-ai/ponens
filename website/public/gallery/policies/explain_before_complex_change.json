@@ -1,0 +1,26 @@
+{
+  "id": "explain_before_complex_change",
+  "name": "Explain Before Complex Change",
+  "category": "communication",
+  "severity": "info",
+  "description": "Complex changes (touching 3+ files) should be preceded by an explanation to the user.",
+  "formula": "G(complex_change → P(Explain ∨ ReportProgress))",
+  "language_level": "pure_temporal",
+  "rationale": "Users should understand what the agent is about to do before large-scale changes.",
+  "tags": [
+    "communication",
+    "transparency",
+    "ux"
+  ],
+  "examples": {
+    "passes": "Explain('I will refactor the auth module across 5 files') → EditFile × 5",
+    "fails": "EditFile × 5 with no prior explanation"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Matt Bray",
+    "github": "mattjbray"
+  },
+  "date_added": "2026-03-30",
+  "downloads": 58
+}

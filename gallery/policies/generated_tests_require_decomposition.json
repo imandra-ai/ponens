@@ -1,0 +1,27 @@
+{
+  "id": "generated_tests_require_decomposition",
+  "name": "Generated Tests Require Decomposition",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Generated test artifacts must derive from a Decomposition artifact in their lineage.",
+  "formula": "G(GeneratedTests → Decomposition ∈ ancestors(derived_from))",
+  "language_level": "structural",
+  "rationale": "Tests should be generated from formal region decomposition, not ad hoc. This ensures exhaustive coverage of the input space.",
+  "tags": [
+    "testing",
+    "decomposition",
+    "coverage",
+    "formal-verification"
+  ],
+  "examples": {
+    "passes": "Decompose(step) → GenerateTests(step) with derived_from link",
+    "fails": "GenerateTests with no Decomposition ancestor in its artifact lineage"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Nicola Mometto",
+    "github": "nicola-mometto"
+  },
+  "date_added": "2026-04-04",
+  "downloads": 56
+}

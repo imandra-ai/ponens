@@ -1,0 +1,26 @@
+{
+  "id": "type_check_before_commit",
+  "name": "Type Check Before Commit",
+  "category": "workflow",
+  "severity": "warning",
+  "description": "A type checker should run before any commit for typed languages.",
+  "formula": "G(GitCommit → P(TypeCheck ∧ completed))",
+  "language_level": "pure_temporal",
+  "rationale": "Type errors caught early prevent runtime failures.",
+  "tags": [
+    "ci",
+    "type-checking",
+    "quality"
+  ],
+  "examples": {
+    "passes": "TypeCheck(pass) → GitCommit",
+    "fails": "GitCommit with no prior type check"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Simon Cruanes",
+    "github": "simon-cruanes"
+  },
+  "date_added": "2026-04-03",
+  "downloads": 760
+}

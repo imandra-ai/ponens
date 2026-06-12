@@ -1,0 +1,28 @@
+{
+  "id": "database_migration_verified",
+  "name": "Database Migration Verified",
+  "category": "safety",
+  "severity": "error",
+  "domain": "general",
+  "description": "Database migration scripts must be formally verified for reversibility and data preservation before execution.",
+  "formula": "G(RunCommand ∧ db_migration → P_chain(Verify ∧ proved ∧ migration_safe))",
+  "language_level": "scoped_temporal",
+  "rationale": "Irreversible migrations that lose data are catastrophic. Formalizing the migration as a state transition and verifying reversibility catches destructive operations before they run.",
+  "tags": [
+    "database",
+    "migration",
+    "reversibility",
+    "data-preservation",
+    "safety"
+  ],
+  "author": {
+    "name": "Simon Cruanes",
+    "github": "simon-cruanes"
+  },
+  "date_added": "2026-04-03",
+  "downloads": 360,
+  "examples": {
+    "passes": "Formalize(add_column migration) → Verify(reversible: proved) → RunCommand(migrate)",
+    "fails": "RunCommand(DROP TABLE users) without prior verification"
+  }
+}

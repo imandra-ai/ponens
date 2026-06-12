@@ -1,0 +1,27 @@
+{
+  "id": "xstate_guards_verified",
+  "name": "XState Guards Verified",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Guard conditions in XState machines must be formally verified to ensure they partition the event space completely — no unhandled cases.",
+  "formula": "G(Formalize ∧ xstate_guards → F(Verify ∧ proved ∧ guard_completeness))",
+  "language_level": "pure_temporal",
+  "rationale": "XState guards determine which transitions fire. If guards have gaps (events that match no guard) or overlaps (events that match multiple guards), the machine has undefined behavior. Formal verification catches this exhaustively.",
+  "tags": [
+    "xstate",
+    "guards",
+    "formal-verification",
+    "completeness"
+  ],
+  "examples": {
+    "passes": "Formalize(checkoutMachine guards) → Decompose → Verify(guard completeness: proved)",
+    "fails": "XState machine with overlapping guards on the 'SUBMIT' event that are never verified"
+  },
+  "domain": "xstate",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-03-15",
+  "downloads": 480
+}

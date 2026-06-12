@@ -1,0 +1,26 @@
+{
+  "id": "no_force_push",
+  "name": "No Force Push",
+  "category": "safety",
+  "severity": "error",
+  "description": "Force push to shared branches is prohibited. Agents must never rewrite published history.",
+  "formula": "G(¬(GitPush ∧ force))",
+  "language_level": "pure_temporal",
+  "rationale": "Force pushing destroys commit history for other collaborators. This is almost never the right action for an AI agent.",
+  "tags": [
+    "safety",
+    "git",
+    "destructive"
+  ],
+  "examples": {
+    "passes": "git push origin feature-branch",
+    "fails": "git push --force origin main"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-03-16",
+  "downloads": 65
+}

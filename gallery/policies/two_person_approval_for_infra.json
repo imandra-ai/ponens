@@ -1,0 +1,29 @@
+{
+  "id": "two_person_approval_for_infra",
+  "name": "Two-Person Approval for Infrastructure",
+  "category": "safety",
+  "severity": "error",
+  "domain": "general",
+  "description": "Infrastructure changes (database migrations, IAM policies, network configs) require approval from two distinct users before execution.",
+  "formula": "G(EditFile ∧ infra_scope → P(UserApproval ∧ approver_1) ∧ P(UserApproval ∧ approver_2 ∧ approver_2 ≠ approver_1))",
+  "language_level": "pure_temporal",
+  "rationale": "Single-person approval for infrastructure is a common audit finding. Two-person approval prevents both accidental and malicious infrastructure changes.",
+  "tags": [
+    "infrastructure",
+    "approval",
+    "two-person",
+    "audit",
+    "iam",
+    "safety"
+  ],
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-04-04",
+  "downloads": 390,
+  "examples": {
+    "passes": "UserApproval(alice) → UserApproval(bob) → EditFile(terraform/main.tf)",
+    "fails": "Only one approval before editing IAM policy"
+  }
+}

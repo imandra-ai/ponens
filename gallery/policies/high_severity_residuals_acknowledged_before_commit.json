@@ -1,0 +1,27 @@
+{
+  "id": "high_severity_residuals_acknowledged_before_commit",
+  "name": "High-Severity Residuals Acknowledged Before Commit",
+  "category": "workflow",
+  "severity": "error",
+  "description": "Before a commit, every high- or critical-severity residual must be acknowledged, addressed, or waived — not left open. A commit must not silently carry an unacknowledged high-severity gap.",
+  "formula": "G(GitCommit → ∀ r ∈ residuals . r.severity ≥ High → r.status ≠ Open)",
+  "language_level": "structural",
+  "rationale": "Commits are where work crosses a boundary into the shared history. Requiring high-severity residuals to be explicitly acknowledged before commit ensures a reviewer downstream inherits a triaged residual surface, not a pile of silent open gaps.",
+  "tags": [
+    "residuals",
+    "git",
+    "commit",
+    "governance"
+  ],
+  "examples": {
+    "passes": "A trace with a GitCommit where the one high-severity residual has status 'acknowledged'.",
+    "fails": "A trace with a GitCommit while a { severity: high, status: open } residual remains."
+  },
+  "domain": "general",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra-ai"
+  },
+  "date_added": "2026-06-11",
+  "downloads": 0
+}

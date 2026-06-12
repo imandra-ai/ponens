@@ -1,0 +1,62 @@
+(* 02_trace_policy_utils.iml *)
+
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+open Policy_types
+
+let rec lookup_kv (k : string) (xs : kv_pair list) : value option =
+  match xs with
+  | [] -> None
+  | p :: rest -> if p.k = k then Some p.v else lookup_kv k rest
+
+let rec lookup_binding (x : string) (bs : binding list) : runtime_value option =
+  match bs with
+  | [] -> None
+  | b :: rest -> if b.name = x then Some b.value else lookup_binding x rest
+
+let rec mem_string (x : string) (xs : string list) : bool =
+  match xs with
+  | [] -> false
+  | y :: ys -> x = y || mem_string x ys
+
+let rec mem_int (x : int) (xs : int list) : bool =
+  match xs with
+  | [] -> false
+  | y :: ys -> x = y || mem_int x ys
+
+let rec append_strings (xs : string list) (ys : string list) : string list =
+  match xs with
+  | [] -> ys
+  | x :: rest -> x :: append_strings rest ys
+
+let rec unique_strings (xs : string list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest -> not (mem_string x rest) && unique_strings rest
+
+let rec unique_ints (xs : int list) : bool =
+  match xs with
+  | [] -> true
+  | x :: rest -> not (mem_int x rest) && unique_ints rest
+
+let value_to_runtime (v : value) : runtime_value =
+  match v with
+  | VString s -> RVString s
+  | VInt i -> RVInt i
+  | VBool b -> RVBool b
+  | VFloat f -> RVFloat f
+
+let value_is_true (v : value) : bool =
+  match v with
+  | VBool b -> b
+  | VInt i -> i <> 0
+  | VFloat f -> f <> 0.p
+  | VString s ->
+    s = "true" || s = "ok" || s = "passed" || s = "completed" || s = "success"
+
+let value_is_false (v : value) : bool =
+  match v with
+  | VBool b -> not b
+  | VInt i -> i = 0
+  | VFloat f -> f = 0.p
+  | VString s ->
+    s = "false" || s = "failed" || s = "error" || s = "aborted" || s = "incomplete"

@@ -1,0 +1,28 @@
+{
+  "id": "xstate_machine_formalized",
+  "name": "XState Machine Formalized",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Any XState state machine definition must be formalized into IML before the component using it is edited.",
+  "formula": "G(EditFile ∧ xstate_machine → P_chain(Formalize ∧ xstate_domain))",
+  "language_level": "scoped_temporal",
+  "rationale": "XState machines define critical application logic. Formalizing them into IML enables exhaustive verification of all state transitions, guard conditions, and event handling — something unit tests alone cannot guarantee.",
+  "tags": [
+    "xstate",
+    "state-machine",
+    "formalization",
+    "react",
+    "frontend"
+  ],
+  "examples": {
+    "passes": "Formalize(authMachine) → Verify(all transitions valid) → EditFile(AuthFlow.tsx)",
+    "fails": "EditFile(AuthFlow.tsx) with XState machine changes but no prior formalization"
+  },
+  "domain": "xstate",
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-03-16",
+  "downloads": 540
+}

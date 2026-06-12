@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / website
+node_modules/
+website/dist/
+website/.astro/
+.cache/
+
+# Local registry cache
+.ponens/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

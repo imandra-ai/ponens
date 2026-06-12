@@ -1,0 +1,82 @@
+---
+import Layout from "../layouts/Layout.astro";
+// The catalog is synced into public/gallery at build time; fetch it at runtime
+// so the page is a thin browser over the same _catalog.json the CLI consumes.
+---
+
+<Layout title="Policy Gallery — ponens">
+  <section class="gallery-head">
+    <h1>Policy Gallery</h1>
+    <p>Community-curated, computable governance policies. The same
+      <a href="/gallery/policies/_catalog.json"><code>_catalog.json</code></a>
+      is what <code>ponens registry update</code> pulls.</p>
+    <input id="q" type="search" placeholder="Search policies…" autocomplete="off" />
+    <div id="filters" class="filters"></div>
+  </section>
+
+  <div id="count" class="count"></div>
+  <div id="grid" class="policy-grid"></div>
+
+  <script is:inline>
+    const grid = document.getElementById("grid");
+    const countEl = document.getElementById("count");
+    const filtersEl = document.getElementById("filters");
+    const q = document.getElementById("q");
+    let all = [];
+    let activeDomain = null;
+
+    const sevClass = (s) => `sev sev-${s}`;
+
+    function render() {
+      const query = q.value.trim().toLowerCase();
+      const items = all.filter((p) => {
+        if (activeDomain && p.domain !== activeDomain) return false;
+        if (!query) return true;
+        const hay = `${p.id} ${p.name} ${p.description} ${p.domain} ${(p.tags || []).join(" ")}`.toLowerCase();
+        return hay.includes(query);
+      });
+      countEl.textContent = `${items.length} of ${all.length} policies`;
+      grid.innerHTML = items
+        .map(
+          (p) => `
+        <article class="policy-card">
+          <div class="policy-top">
+            <code class="pid">${p.id}</code>
+            <span class="${sevClass(p.severity)}">${p.severity}</span>
+          </div>
+          <h3>${p.name}</h3>
+          <p>${p.description ?? ""}</p>
+          <div class="policy-meta">
+            <span class="dom">${p.domain ?? ""}</span>
+            ${(p.tags || []).map((t) => `<span class="tag">${t}</span>`).join("")}
+          </div>
+        </article>`
+        )
+        .join("");
+    }
+
+    fetch("/gallery/policies/_catalog.json")
+      .then((r) => r.json())
+      .then((cat) => {
+        all = cat.policies || [];
+        const domains = [...new Set(all.map((p) => p.domain).filter(Boolean))].sort();
+        filtersEl.innerHTML =
+          `<button class="chip active" data-d="">All</button>` +
+          domains.map((d) => `<button class="chip" data-d="${d}">${d}</button>`).join("");
+        filtersEl.querySelectorAll("button").forEach((b) =>
+          b.addEventListener("click", () => {
+            activeDomain = b.dataset.d || null;
+            filtersEl.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+            b.classList.add("active");
+            render();
+          })
+        );
+        render();
+      })
+      .catch(() => {
+        grid.innerHTML = `<p class="empty">Could not load the catalog. Run <code>npm run sync-gallery</code> in <code>website/</code>.</p>`;
+      });
+
+    q.addEventListener("input", render);
+  </script>
+</Layout>

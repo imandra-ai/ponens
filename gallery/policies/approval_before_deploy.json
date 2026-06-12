@@ -1,0 +1,26 @@
+{
+  "id": "approval_before_deploy",
+  "name": "Approval Before Deploy",
+  "category": "workflow",
+  "severity": "error",
+  "description": "Deployment actions require explicit user approval.",
+  "formula": "G(Deploy → P UserApproval)",
+  "language_level": "pure_temporal",
+  "rationale": "Automated deployments by AI agents should always have a human gate.",
+  "tags": [
+    "deployment",
+    "approval",
+    "safety"
+  ],
+  "examples": {
+    "passes": "AskUser('deploy to staging?') → UserApproval → Deploy",
+    "fails": "Deploy without prior user approval"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Matt Bray",
+    "github": "mattjbray"
+  },
+  "date_added": "2026-03-22",
+  "downloads": 100
+}

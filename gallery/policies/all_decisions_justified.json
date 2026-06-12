@@ -1,0 +1,26 @@
+{
+  "id": "all_decisions_justified",
+  "name": "All Decisions Justified",
+  "category": "auditability",
+  "severity": "error",
+  "description": "All gateway (decision) nodes must have a non-empty rationale explaining the choice.",
+  "formula": "G(gateway → rationale ≠ ∅)",
+  "language_level": "pure_temporal",
+  "rationale": "Decision points are where the agent chose between alternatives. The reasoning must be recorded for review.",
+  "tags": [
+    "audit",
+    "decisions",
+    "rationale"
+  ],
+  "examples": {
+    "passes": "Gateway 'choose fix strategy' has rationale: 'option A is simpler and doesn't break the API'",
+    "fails": "Gateway with empty rationale"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Simon Cruanes",
+    "github": "simon-cruanes"
+  },
+  "date_added": "2026-03-18",
+  "downloads": 193
+}

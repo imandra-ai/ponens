@@ -1,0 +1,26 @@
+{
+  "id": "counterexample_triggers_fix",
+  "name": "Counterexample Triggers Fix",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "When a verification goal is refuted (counterexample found), a fix action should follow.",
+  "formula": "G(Verify ∧ refuted → F(EditFile))",
+  "language_level": "pure_temporal",
+  "rationale": "Finding a bug via formal verification is only useful if the bug gets fixed. A refutation should lead to a code change.",
+  "tags": [
+    "formal-verification",
+    "bugs",
+    "fixes"
+  ],
+  "examples": {
+    "passes": "Verify(refuted: capture bug) → AnalyzeCode → EditFile(fix)",
+    "fails": "Verify(refuted) with no subsequent edit"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-03-25",
+  "downloads": 320
+}

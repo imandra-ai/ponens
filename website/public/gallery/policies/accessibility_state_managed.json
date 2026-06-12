@@ -1,0 +1,28 @@
+{
+  "id": "accessibility_state_managed",
+  "name": "Accessibility State Managed",
+  "category": "safety",
+  "severity": "warning",
+  "description": "Interactive components with ARIA state (expanded, selected, checked, disabled) must manage state transitions correctly. Focus management after state changes should be verified.",
+  "formula": "G(EditFile ∧ aria_state_component → P_chain(Verify ∧ a11y_state_correct))",
+  "language_level": "scoped_temporal",
+  "rationale": "Incorrect ARIA state causes accessibility tools to report wrong information. A dropdown that sets aria-expanded=true but never sets it back to false on close is broken for screen reader users.",
+  "tags": [
+    "accessibility",
+    "a11y",
+    "aria",
+    "state-machine",
+    "formal-verification"
+  ],
+  "examples": {
+    "passes": "Formalize(dropdown ARIA states) → Verify(expanded/collapsed transitions are symmetric: proved)",
+    "fails": "Accordion component where aria-expanded is set on open but not cleared on close"
+  },
+  "domain": "javascript-ui",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-03-15",
+  "downloads": 80
+}

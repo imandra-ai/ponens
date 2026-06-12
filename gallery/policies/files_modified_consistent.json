@@ -1,0 +1,26 @@
+{
+  "id": "files_modified_consistent",
+  "name": "Files Modified Consistent",
+  "category": "structural",
+  "severity": "warning",
+  "description": "The files_modified list must match the actual files changed by code-modifying actions.",
+  "formula": "files_modified = {target(a) | G(a ∧ (EditFile ∨ CreateFile ∨ DeleteFile))}",
+  "language_level": "structural",
+  "rationale": "Catches discrepancies between declared and actual file changes. Important for accurate commit messages and change tracking.",
+  "tags": [
+    "integrity",
+    "files",
+    "consistency"
+  ],
+  "examples": {
+    "passes": "files_modified: ['login.py'] and only EditFile(login.py) occurred",
+    "fails": "files_modified: ['login.py'] but EditFile(auth.py) also occurred"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-04-01",
+  "downloads": 36
+}

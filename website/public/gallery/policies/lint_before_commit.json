@@ -1,0 +1,26 @@
+{
+  "id": "lint_before_commit",
+  "name": "Lint Before Commit",
+  "category": "workflow",
+  "severity": "warning",
+  "description": "A linter should run before any commit to catch style and quality issues.",
+  "formula": "G(GitCommit → P(Lint ∧ completed))",
+  "language_level": "pure_temporal",
+  "rationale": "Catches formatting issues, unused imports, and common bugs before they enter the codebase.",
+  "tags": [
+    "ci",
+    "linting",
+    "quality"
+  ],
+  "examples": {
+    "passes": "Lint(pass) → GitCommit",
+    "fails": "GitCommit with no prior lint run"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-03-15",
+  "downloads": 1280
+}

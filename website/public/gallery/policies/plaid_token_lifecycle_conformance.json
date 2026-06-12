@@ -1,0 +1,29 @@
+{
+  "id": "plaid_token_lifecycle_conformance",
+  "name": "Plaid Token Lifecycle Conformance",
+  "category": "conformance",
+  "severity": "error",
+  "domain": "payments",
+  "description": "Code handling Plaid Link tokens must be verified against the Plaid Link Reference Model — token exchange only after successful link, proper expiration handling.",
+  "formula": "G(Formalize ∧ plaid_domain → P_chain(VerificationResult(proved) ∧ ref_model(ref_plaid_link)))",
+  "language_level": "scoped_temporal",
+  "rationale": "Plaid's Link token lifecycle has strict ordering requirements. Exchanging a token before the user completes Link, or using an expired token, causes silent failures that are hard to debug.",
+  "tags": [
+    "plaid",
+    "conformance",
+    "payments",
+    "reference-model",
+    "token-lifecycle"
+  ],
+  "reference_model": "ref_plaid_link",
+  "author": {
+    "name": "Nicola Mometto",
+    "github": "nicola-mometto"
+  },
+  "date_added": "2026-04-05",
+  "downloads": 45,
+  "examples": {
+    "passes": "Formalize(plaidLinkHandler) → Verify(conforms to Plaid ref model: proved)",
+    "fails": "Calling /item/public_token/exchange before Link flow succeeds"
+  }
+}

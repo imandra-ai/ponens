@@ -1,0 +1,28 @@
+{
+  "id": "react_effect_cleanup_verified",
+  "name": "React Effect Cleanup Verified",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "React useEffect hooks with subscriptions or timers should have their cleanup logic formally verified to prevent memory leaks.",
+  "formula": "G(EditFile ∧ react_effect_with_subscription → P_chain(Verify ∧ cleanup_correct))",
+  "language_level": "scoped_temporal",
+  "rationale": "Missing or incorrect cleanup in useEffect is a common source of memory leaks and stale state bugs in React applications. Formalizing the setup/teardown contract and verifying it catches issues that are hard to reproduce manually.",
+  "tags": [
+    "react",
+    "useEffect",
+    "cleanup",
+    "memory-leak",
+    "formal-verification"
+  ],
+  "examples": {
+    "passes": "Formalize(subscription effect) → Verify(cleanup cancels subscription: proved) → EditFile",
+    "fails": "EditFile adds a WebSocket subscription in useEffect without verifying cleanup"
+  },
+  "domain": "react",
+  "author": {
+    "name": "Nicola Mometto",
+    "github": "nicola-mometto"
+  },
+  "date_added": "2026-03-20",
+  "downloads": 120
+}

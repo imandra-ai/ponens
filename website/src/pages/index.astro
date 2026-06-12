@@ -1,0 +1,53 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout>
+  <section class="hero">
+    <h1>Prove what your agents did.</h1>
+    <p class="tagline">
+      <strong>ponens</strong> captures what an AI coding agent actually did — its
+      actions, artifacts, proofs, and counterexamples — and checks that work against
+      computable governance policies. A reasoning trace becomes an auditable,
+      policy-governed object.
+    </p>
+    <div class="cta">
+      <code>pip install ponens</code>
+      <a class="btn" href="/gallery">Browse the policy gallery →</a>
+    </div>
+    <p class="etymology">
+      From <em>modus ponens</em> — the rule of inference <code>P → Q, P ⊢ Q</code>.
+      Given the policies and the recorded work, ponens derives whether the reasoning holds.
+    </p>
+  </section>
+
+  <section class="grid">
+    <article>
+      <h3>Author traces</h3>
+      <p>Record an agent's reasoning as a typed, immutable trace — actions, artifacts, lineage, proofs.</p>
+    </article>
+    <article>
+      <h3>Govern with policies</h3>
+      <p>An LTL-style policy language checks temporal and structural properties of the trace. The gate runs offline.</p>
+    </article>
+    <article>
+      <h3>Pull from the gallery</h3>
+      <p>A community gallery of versioned, content-hashed policies — <code>ponens policies search</code> and add them to a trace.</p>
+    </article>
+    <article>
+      <h3>Bind to commits &amp; sync</h3>
+      <p>Bind a trace 1:1 to a git commit and push to a TraceHub backend for review, snapshots, and audit.</p>
+    </article>
+  </section>
+
+  <section class="quickstart">
+    <h2>Quickstart</h2>
+    <pre><code>ponens registry update
+ponens policies search payments
+
+ponens policies add tests_before_commit --into ./trace.json
+ponens trace check ./trace.json
+
+ponens bind &amp;&amp; ponens push</code></pre>
+  </section>
+</Layout>

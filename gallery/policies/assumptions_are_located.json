@@ -1,0 +1,27 @@
+{
+  "id": "assumptions_are_located",
+  "name": "Assumptions Are Located",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "Every residual of kind 'assumption' must be locatable — it must carry a target or a non-empty related_artifact_ids, so a reviewer can find what depends on it.",
+  "formula": "∀ r ∈ residuals . r.kind = Assumption → (r.target ≠ ∅ ∨ r.related_artifact_ids ≠ ∅)",
+  "language_level": "structural",
+  "rationale": "An assumption the work relies on is only reviewable if a reviewer can find what it touches. An unlocated assumption ('I assumed something somewhere') gives the reviewer nowhere to point. Requiring a target or related artifacts keeps the residual surface navigable.",
+  "tags": [
+    "residuals",
+    "assumptions",
+    "review",
+    "navigable"
+  ],
+  "examples": {
+    "passes": "{ kind: assumption, statement: 'upstream returns sorted results', target: { target_type: artifact, target_id: a3 } }",
+    "fails": "{ kind: assumption, statement: 'upstream returns sorted results' } with no target or related_artifact_ids."
+  },
+  "domain": "general",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra-ai"
+  },
+  "date_added": "2026-06-11",
+  "downloads": 0
+}

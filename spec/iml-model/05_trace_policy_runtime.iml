@@ -1,0 +1,217 @@
+(* 05_trace_policy_runtime.iml *)
+
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+[@@@import Policy_utils, "02_trace_policy_utils.iml"]
+[@@@import Policy_accessors, "03_trace_policy_accessors.iml"]
+[@@@import Policy_binding, "04_trace_policy_binding.iml"]
+
+open Policy_types
+open Policy_utils
+open Policy_accessors
+open Policy_binding
+
+let runtime_of_action_field (a : action) (fld : action_field) : runtime_value =
+  let c = action_common_of a in
+  match fld with
+  | ActionIdField -> RVInt c.id
+  | ActionLabelField -> RVString c.label
+  | ActionRationaleField -> RVString c.rationale
+  | ActionDetailField ->
+    begin match c.detail with
+    | Some s -> RVString s
+    | None -> RVUnknown
+    end
+  | ActionCategoryField -> RVString (action_category_name a)
+  | ActionTypeField -> RVString (action_type_name a)
+  | ActionToolField ->
+    begin match c.execution with
+    | Some e ->
+      begin match e.tool with
+      | Some s -> RVString s
+      | None -> RVUnknown
+      end
+    | None -> RVUnknown
+    end
+  | ActionVersionField ->
+    begin match c.execution with
+    | Some e ->
+      begin match e.version with
+      | Some s -> RVString s
+      | None -> RVUnknown
+      end
+    | None -> RVUnknown
+    end
+  | ActionMethodField ->
+    begin match c.execution with
+    | Some e ->
+      begin match e.method_ with
+      | Some s -> RVString s
+      | None -> RVUnknown
+      end
+    | None -> RVUnknown
+    end
+  | ActionTargetArtifactIdField ->
+    begin match action_target_artifact_id a with
+    | Some s -> RVArtifactId s
+    | None -> RVUnknown
+    end
+  | ActionTargetPathField ->
+    begin match action_target_path a with
+    | Some s -> RVString s
+    | None -> RVUnknown
+    end
+  | ActionInputCountField -> RVInt (List.length c.inputs)
+  | ActionOutputCountField -> RVInt (List.length c.outputs)
+
+let runtime_of_artifact_field (a : artifact) (fld : artifact_field) : runtime_value =
+  let c = artifact_common_of a in
+  match fld with
+  | ArtifactIdField -> RVArtifactId c.artifact_id
+  | ArtifactTypeField -> RVString (artifact_type_name a)
+  | ArtifactFormatField ->
+    begin match c.format with
+    | Some s -> RVString s
+    | None -> RVUnknown
+    end
+  | ArtifactSummaryField ->
+    begin match c.summary with
+    | Some s -> RVString s
+    | None -> RVUnknown
+    end
+  | ArtifactProducerActionIdField ->
+    begin match c.producer_action_id with
+    | Some i -> RVInt i
+    | None -> RVUnknown
+    end
+  | ArtifactRevisionField ->
+    begin match c.revision with
+    | Some i -> RVInt i
+    | None -> RVUnknown
+    end
+  | ArtifactStatusField ->
+    begin match a with
+    | VerificationResultArtifact (_, p) ->
+      begin match p.status with
+      | VrProved -> RVString "proved"
+      | VrRefuted -> RVString "refuted"
+      | VrSat -> RVString "sat"
+      | VrUnknown -> RVString "unknown"
+      end
+    | ConformanceResultArtifact (_, p) ->
+      begin match p.status with
+      | ConformancePassed -> RVString "passed"
+      | ConformanceFailed -> RVString "failed"
+      | ConformancePartial -> RVString "partial"
+      | ConformanceUnknown -> RVString "unknown"
+      end
+    | CoSimulationResultArtifact (_, p) ->
+      begin match p.status with
+      | Matched -> RVString "matched"
+      | Mismatched -> RVString "mismatched"
+      | Partial -> RVString "partial"
+      | ErrorStatus -> RVString "error"
+      end
+    | _ -> RVUnknown
+    end
+  | ArtifactAnalysisKindField ->
+    begin match a with
+    | StateSpaceAnalysisResultArtifact (_, p) -> RVString p.analysis_kind
+    | _ -> RVUnknown
+    end
+  | ArtifactTargetArtifactIdField ->
+    begin match a with
+    | VerificationGoalArtifact (_, p) -> RVArtifactId p.target_artifact_id
+    | StateSpaceAnalysisResultArtifact (_, p) -> RVArtifactId p.target_artifact_id
+    | ConformanceResultArtifact (_, p) -> RVArtifactId p.target_artifact_id
+    | CoSimulationResultArtifact (_, p) -> RVArtifactId p.target_artifact_id
+    | _ -> RVUnknown
+    end
+  | ArtifactReferenceArtifactIdField ->
+    begin match a with
+    | ConformanceResultArtifact (_, p) -> RVString p.reference_artifact_id
+    | _ -> RVUnknown
+    end
+
+let compare_runtime (v1 : runtime_value) (op : cmp_op) (v2 : runtime_value) : bool =
+  match (v1, op, v2) with
+  | RVString s1, Eq, RVString s2 -> s1 = s2
+  | RVString s1, Neq, RVString s2 -> s1 <> s2
+  | RVInt i1, Eq, RVInt i2 -> i1 = i2
+  | RVInt i1, Neq, RVInt i2 -> i1 <> i2
+  | RVInt i1, Lt, RVInt i2 -> i1 < i2
+  | RVInt i1, Le, RVInt i2 -> i1 <= i2
+  | RVInt i1, Gt, RVInt i2 -> i1 > i2
+  | RVInt i1, Ge, RVInt i2 -> i1 >= i2
+  | RVBool b1, Eq, RVBool b2 -> b1 = b2
+  | RVBool b1, Neq, RVBool b2 -> b1 <> b2
+  | RVArtifactId x, In, RVArtifactIds xs -> mem_string x xs
+  | RVString x, In, RVArtifactIds xs -> mem_string x xs
+  | RVActionId x, In, RVActionIds xs -> mem_int x xs
+  | RVInt x, In, RVActionIds xs -> mem_int x xs
+  | _ -> false
+
+let eval_builtin_predicate (tr : trace) (nm : string) (args : runtime_value list) : bool =
+  match (nm, args) with
+  | ("action", [RVActionId id]) ->
+    begin match find_action_by_id id tr.actions with
+    | Some _ -> true
+    | None -> false
+    end
+  | ("artifact", [RVArtifactId id]) ->
+    begin match find_artifact_by_id id tr.artifacts with
+    | Some _ -> true
+    | None -> false
+    end
+  | ("formal_model_artifact", [RVArtifactId id]) ->
+    begin match find_artifact_by_id id tr.artifacts with
+    | Some a -> is_formal_model_artifact a
+    | None -> false
+    end
+  | ("approved_reference_artifact", [RVArtifactId id]) ->
+    begin match find_artifact_by_id id tr.artifacts with
+    | Some a -> is_approved_reference_artifact a
+    | None -> false
+    end
+  | ("reasoning_action", [RVActionId id]) ->
+    begin match find_action_by_id id tr.actions with
+    | Some a -> is_reasoning_action a
+    | None -> false
+    end
+  | ("verification_action", [RVActionId id]) ->
+    begin match find_action_by_id id tr.actions with
+    | Some a -> is_verification_action a
+    | None -> false
+    end
+  | ("state_space_analysis_action", [RVActionId id]) ->
+    begin match find_action_by_id id tr.actions with
+    | Some a -> is_state_space_analysis_action a
+    | None -> false
+    end
+  | ("state_space_analysis_result", [RVArtifactId id]) ->
+    begin match find_artifact_by_id id tr.artifacts with
+    | Some a -> is_state_space_analysis_result_artifact a
+    | None -> false
+    end
+  | ("high_stakes_path", [RVString s]) ->
+    s = "/critical" || s = "/regulated" || s = "/finance"
+  | ("has_target", [RVActionId id]) ->
+    begin match find_action_by_id id tr.actions with
+    | Some a ->
+      begin match action_target_artifact_id a, action_target_path a with
+      | Some _, _ -> true
+      | _, Some _ -> true
+      | _ -> false
+      end
+    | None -> false
+    end
+  | ("completed", [RVActionId id]) ->
+    begin match find_action_by_id id tr.actions with
+    | Some a -> action_is_completed a
+    | None -> false
+    end
+  | ("failed_action", [RVActionId id]) ->
+    begin match find_action_by_id id tr.actions with
+    | Some a -> action_is_failed a
+    | None -> false
+    end
+  | _ -> false

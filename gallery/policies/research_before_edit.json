@@ -1,0 +1,26 @@
+{
+  "id": "research_before_edit",
+  "name": "Research Before Edit",
+  "category": "workflow",
+  "severity": "warning",
+  "description": "Every edit must be preceded by at least one research action (read, search, analyze) on the same target file.",
+  "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))",
+  "language_level": "scoped_temporal",
+  "rationale": "Prevents blind edits. The agent should understand the code before modifying it. Uses P_target to ensure the research is about the same file being edited.",
+  "tags": [
+    "research",
+    "editing",
+    "best-practice"
+  ],
+  "examples": {
+    "passes": "ReadFile(foo.py) → EditFile(foo.py)",
+    "fails": "ReadFile(bar.py) → EditFile(foo.py) (research was on a different file)"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-03-25",
+  "downloads": 1980
+}

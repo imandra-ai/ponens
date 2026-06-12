@@ -1,0 +1,28 @@
+{
+  "id": "form_validation_complete",
+  "name": "Form Validation Complete",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "Form validation logic should be formalized and decomposed to ensure all field combinations are handled — no valid input rejected, no invalid input accepted.",
+  "formula": "G(Formalize ∧ form_validation → F(Decompose ∧ complete))",
+  "language_level": "pure_temporal",
+  "rationale": "Form validation often has edge cases: empty strings, whitespace-only, unicode, boundary values. Decomposition finds every distinct validation path and generates test cases for each.",
+  "tags": [
+    "forms",
+    "validation",
+    "decomposition",
+    "edge-cases",
+    "ux"
+  ],
+  "examples": {
+    "passes": "Formalize(signupValidation) → Decompose(15 regions) → tests cover: empty email, valid email, email with unicode, password too short, matching passwords, etc.",
+    "fails": "Signup form that accepts 'user@' as a valid email because the regex was never decomposed"
+  },
+  "domain": "javascript-ui",
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-04-02",
+  "downloads": 180
+}

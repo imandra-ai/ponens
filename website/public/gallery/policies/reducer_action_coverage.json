@@ -1,0 +1,28 @@
+{
+  "id": "reducer_action_coverage",
+  "name": "Reducer Action Coverage",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "Redux/useReducer reducers should be decomposed to verify that every action type is handled and produces a valid state.",
+  "formula": "G(Formalize ∧ reducer → F(Decompose ∧ all_actions_handled))",
+  "language_level": "pure_temporal",
+  "rationale": "Reducers with missing action handlers silently return the previous state, which can cause subtle bugs. Decomposition reveals every action × state combination and whether the result is well-defined.",
+  "tags": [
+    "redux",
+    "reducer",
+    "useReducer",
+    "coverage",
+    "decomposition"
+  ],
+  "examples": {
+    "passes": "Formalize(cartReducer) → Decompose → all 24 action/state combinations produce valid states",
+    "fails": "cartReducer does not handle 'APPLY_DISCOUNT' when cart is empty (returns stale state)"
+  },
+  "domain": "react",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-03-24",
+  "downloads": 160
+}

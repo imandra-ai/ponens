@@ -1,0 +1,27 @@
+{
+  "id": "reasoning_required_for_high_stakes",
+  "name": "Reasoning Required for High-Stakes Changes",
+  "category": "safety",
+  "severity": "error",
+  "description": "Edits to high-stakes modules (payments, risk, matching) must be preceded by formal reasoning in the artifact dependency chain.",
+  "formula": "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))",
+  "language_level": "scoped_temporal",
+  "rationale": "Critical code changes must be formally verified before implementation. The reasoning must be in the lineage of the edit, not just somewhere in the trace.",
+  "tags": [
+    "safety",
+    "reasoning",
+    "high-stakes",
+    "formal-verification"
+  ],
+  "examples": {
+    "passes": "Formalize → Verify(proved) → EditFile(payments/charge.py)",
+    "fails": "EditFile(payments/charge.py) with no prior verification in the dependency chain"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Matt Bray",
+    "github": "mattjbray"
+  },
+  "date_added": "2026-03-22",
+  "downloads": 1150
+}

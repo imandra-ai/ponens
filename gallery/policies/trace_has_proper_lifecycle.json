@@ -1,0 +1,26 @@
+{
+  "id": "trace_has_proper_lifecycle",
+  "name": "Trace Has Proper Lifecycle",
+  "category": "structural",
+  "severity": "error",
+  "description": "The trace must have both a start event (trigger) and eventually reach an end event (outcome).",
+  "formula": "start_event ∧ F end_event",
+  "language_level": "pure_temporal",
+  "rationale": "A well-formed trace must have clear boundaries. Incomplete traces indicate crashes or abandoned sessions.",
+  "tags": [
+    "lifecycle",
+    "structure",
+    "completeness"
+  ],
+  "examples": {
+    "passes": "TaskReceived → ... → ProcessCompleted",
+    "fails": "Actions without a trigger event, or a trace that never reaches an outcome"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-04-02",
+  "downloads": 87
+}

@@ -1,0 +1,26 @@
+{
+  "id": "tests_before_commit",
+  "name": "Tests Before Commit",
+  "category": "workflow",
+  "severity": "error",
+  "description": "Every commit must be preceded by a successful test run.",
+  "formula": "G(GitCommit → P(RunTests ∧ completed))",
+  "language_level": "pure_temporal",
+  "rationale": "Prevents untested code from entering the repository. A fundamental CI/CD gate.",
+  "tags": [
+    "ci",
+    "testing",
+    "git"
+  ],
+  "examples": {
+    "passes": "ReadFile → RunTests(pass) → EditFile → RunTests(pass) → GitCommit",
+    "fails": "ReadFile → EditFile → GitCommit (no test run before commit)"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Matt Bray",
+    "github": "mattjbray"
+  },
+  "date_added": "2026-03-30",
+  "downloads": 2840
+}

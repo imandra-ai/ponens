@@ -1,0 +1,77 @@
+{
+  "name": "codelogician-traces",
+  "displayName": "CodeLogician Traces",
+  "description": "View and inspect Imandra CodeLogician reasoning traces with artifact DAG, policy dashboard, and reasoning funnel.",
+  "version": "0.1.0",
+  "publisher": "imandra",
+  "icon": "media/traces-marketplace.png",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:codelogician.openViewer",
+    "onCommand:codelogician.openInBrowser",
+    "onCommand:codelogician.selectTraceFile",
+    "onCommand:codelogician.selectDemo",
+    "onCommand:codelogician.openFromExplorer"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codelogician.openViewer",
+        "title": "CodeLogician: Open Trace Viewer",
+        "icon": {
+          "light": "media/traces-icon.svg",
+          "dark": "media/traces-icon.svg"
+        }
+      },
+      {
+        "command": "codelogician.openInBrowser",
+        "title": "CodeLogician: Open in Browser"
+      },
+      {
+        "command": "codelogician.selectTraceFile",
+        "title": "CodeLogician: Select Trace File"
+      },
+      {
+        "command": "codelogician.selectDemo",
+        "title": "CodeLogician: Select Demo Trace"
+      },
+      {
+        "command": "codelogician.openFromExplorer",
+        "title": "Open with CodeLogician Traces"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "codelogician.openFromExplorer",
+          "when": "resourceExtname == .json",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CodeLogician Traces",
+      "properties": {
+        "codelogician.traceFile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the trace JSON file to watch. Leave empty to use the demo trace."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "prepublish": "cp ../visualizer.html media/visualizer.html",
+    "package": "cp ../visualizer.html media/visualizer.html && npx @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "no_open_critical_residuals",
+  "name": "No Open Critical Residuals",
+  "category": "safety",
+  "severity": "error",
+  "description": "A trace must carry no critical-severity residual that is still open. Intended as an approval gate: critical declared gaps must be addressed, acknowledged, or waived before sign-off.",
+  "formula": "¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open",
+  "language_level": "structural",
+  "rationale": "The residual surface is the trace's declared negative space. Approving a change while it still carries an open critical gap defeats the purpose of declaring it. This makes 'gaps declared, located, and triaged' enforceable at the most consequential level.",
+  "tags": [
+    "residuals",
+    "review",
+    "governance",
+    "negative-space"
+  ],
+  "examples": {
+    "passes": "A trace whose only residuals are medium/low, or whose critical residual has status 'addressed'/'waived'.",
+    "fails": "A trace with a residual { severity: critical, status: open } at approval time."
+  },
+  "domain": "general",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra-ai"
+  },
+  "date_added": "2026-06-11",
+  "downloads": 0
+}

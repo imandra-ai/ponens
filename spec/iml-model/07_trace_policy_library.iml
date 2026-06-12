@@ -1,0 +1,491 @@
+(* 07_trace_policy_library.iml
+   Reusable policy constructors, shorthands, and lightweight normalization helpers. *)
+
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+[@@@import Policy_eval, "06_trace_policy_eval.iml"]
+
+open Policy_types
+open Policy_eval
+
+(* ------------------------------------------------------------------------- *)
+(* Basic term constructors                                                    *)
+(* ------------------------------------------------------------------------- *)
+
+let action_var : term = Var ("a")
+let artifact_var : term = Var ("x")
+
+let str (s : string) : term =
+  Val (VString s)
+
+let int_ (i : int) : term =
+  Val (VInt i)
+
+let bool_ (b : bool) : term =
+  Val (VBool b)
+
+let action_field (t : term) (f : action_field) : term =
+  ActionField (t, f)
+
+let artifact_field (t : term) (f : artifact_field) : term =
+  ArtifactField (t, f)
+
+let inputs_of (t : term) : term =
+  Inputs t
+
+let outputs_of (t : term) : term =
+  Outputs t
+
+let target_of (t : term) : term =
+  Target t
+
+let ancestors_of (t : term) : term =
+  AncestorsOf t
+
+let count_of (s : set_expr) : term =
+  Count s
+
+let singleton_set (t : term) : set_expr =
+  TermSet (SetLiteral [t])
+
+(* ------------------------------------------------------------------------- *)
+(* Basic formula constructors                                                 *)
+(* ------------------------------------------------------------------------- *)
+
+let atom (p : atomic_predicate) : policy_formula =
+  Atom p
+
+let not_ (f : policy_formula) : policy_formula =
+  Not f
+
+let and_ (fs : policy_formula list) : policy_formula =
+  And fs
+
+let or_ (fs : policy_formula list) : policy_formula =
+  Or fs
+
+let implies (f1 : policy_formula) (f2 : policy_formula) : policy_formula =
+  Implies (f1, f2)
+
+let iff (f1 : policy_formula) (f2 : policy_formula) : policy_formula =
+  Iff (f1, f2)
+
+let eq (t1 : term) (t2 : term) : policy_formula =
+  Compare (t1, Eq, t2)
+
+let neq (t1 : term) (t2 : term) : policy_formula =
+  Compare (t1, Neq, t2)
+
+let lt (t1 : term) (t2 : term) : policy_formula =
+  Compare (t1, Lt, t2)
+
+let le (t1 : term) (t2 : term) : policy_formula =
+  Compare (t1, Le, t2)
+
+let gt (t1 : term) (t2 : term) : policy_formula =
+  Compare (t1, Gt, t2)
+
+let ge (t1 : term) (t2 : term) : policy_formula =
+  Compare (t1, Ge, t2)
+
+let in_ (t1 : term) (t2 : term) : policy_formula =
+  Compare (t1, In, t2)
+
+(* ------------------------------------------------------------------------- *)
+(* Temporal shorthands                                                        *)
+(* ------------------------------------------------------------------------- *)
+
+let globally (f : policy_formula) : policy_formula =
+  Temporal1 (G, f)
+
+let eventually (f : policy_formula) : policy_formula =
+  Temporal1 (F, f)
+
+let next (f : policy_formula) : policy_formula =
+  Temporal1 (X, f)
+
+let previously (f : policy_formula) : policy_formula =
+  Temporal1 (P, f)
+
+let historically (f : policy_formula) : policy_formula =
+  Temporal1 (H, f)
+
+let previously_on_target (f : policy_formula) : policy_formula =
+  Temporal1 (PTarget, f)
+
+let historically_on_target (f : policy_formula) : policy_formula =
+  Temporal1 (HTarget, f)
+
+let previously_in_chain (f : policy_formula) : policy_formula =
+  Temporal1 (PChain, f)
+
+let historically_in_chain (f : policy_formula) : policy_formula =
+  Temporal1 (HChain, f)
+
+let until_ (f1 : policy_formula) (f2 : policy_formula) : policy_formula =
+  Temporal2 (U, f1, f2)
+
+let since (f1 : policy_formula) (f2 : policy_formula) : policy_formula =
+  Temporal2 (S, f1, f2)
+
+let since_last (f1 : policy_formula) (f2 : policy_formula) : policy_formula =
+  Temporal2 (SLast, f1, f2)
+
+(* ------------------------------------------------------------------------- *)
+(* Quantifier helpers                                                         *)
+(* ------------------------------------------------------------------------- *)
+
+let forall_in (binder : var) (source : set_expr) (body : policy_formula) : policy_formula =
+  Quantified { quantifier = Forall; binder = binder; source = source; body = body }
+
+let exists_in (binder : var) (source : set_expr) (body : policy_formula) : policy_formula =
+  Quantified { quantifier = Exists; binder = binder; source = source; body = body }
+
+let exists_unique_in (binder : var) (source : set_expr) (body : policy_formula) : policy_formula =
+  Quantified { quantifier = ExistsUnique; binder = binder; source = source; body = body }
+
+(* ------------------------------------------------------------------------- *)
+(* Canonical semantic predicate constructors                                  *)
+(* ------------------------------------------------------------------------- *)
+
+let action_type_is (t : term) (nm : string) : policy_formula =
+  atom (ActionTypeIs (t, nm))
+
+let action_category_is (t : term) (nm : string) : policy_formula =
+  atom (ActionCategoryIs (t, nm))
+
+let artifact_type_is (t : term) (nm : string) : policy_formula =
+  atom (ArtifactTypeIs (t, nm))
+
+let artifact_role_is (t : term) (nm : string) : policy_formula =
+  atom (ArtifactRoleIs (t, nm))
+
+let status_is (t : term) (nm : string) : policy_formula =
+  atom (StatusIs (t, nm))
+
+let start_event : policy_formula =
+  atom StartEvent
+
+let end_event : policy_formula =
+  atom EndEvent
+
+let high_stakes_path (t : term) : policy_formula =
+  atom (HighStakesPath t)
+
+let has_rationale (t : term) : policy_formula =
+  atom (HasRationale t)
+
+let completed (t : term) : policy_formula =
+  atom (Completed t)
+
+let failed_action (t : term) : policy_formula =
+  atom (FailedAction t)
+
+let formal_model_artifact (t : term) : policy_formula =
+  atom (FormalModelArtifactPred t)
+
+let approved_reference_artifact (t : term) : policy_formula =
+  atom (ApprovedReferenceArtifactPred t)
+
+let reasoning_action (t : term) : policy_formula =
+  atom (ReasoningActionPred t)
+
+let verification_action (t : term) : policy_formula =
+  atom (VerificationActionPred t)
+
+let state_space_analysis_action (t : term) : policy_formula =
+  atom (StateSpaceAnalysisActionPred t)
+
+let state_space_analysis_result (t : term) : policy_formula =
+  atom (StateSpaceAnalysisResultPred t)
+
+let ancestor_of (t1 : term) (t2 : term) : policy_formula =
+  atom (AncestorOfPred (t1, t2))
+
+let derived_from (t1 : term) (t2 : term) : policy_formula =
+  atom (DerivedFromPred (t1, t2))
+
+let upstream_of (t1 : term) (t2 : term) : policy_formula =
+  atom (UpstreamOfPred (t1, t2))
+
+let predicate_app (nm : string) (args : term list) : policy_formula =
+  atom (PredicateApp (nm, args))
+
+(* ------------------------------------------------------------------------- *)
+(* Whitelisted field helpers                                                  *)
+(* ------------------------------------------------------------------------- *)
+
+let action_id_term (t : term) : term =
+  action_field t ActionIdField
+
+let action_label_term (t : term) : term =
+  action_field t ActionLabelField
+
+let action_rationale_term (t : term) : term =
+  action_field t ActionRationaleField
+
+let action_detail_term (t : term) : term =
+  action_field t ActionDetailField
+
+let action_category_term (t : term) : term =
+  action_field t ActionCategoryField
+
+let action_type_term (t : term) : term =
+  action_field t ActionTypeField
+
+let action_tool_term (t : term) : term =
+  action_field t ActionToolField
+
+let action_version_term (t : term) : term =
+  action_field t ActionVersionField
+
+let action_method_term (t : term) : term =
+  action_field t ActionMethodField
+
+let action_target_artifact_id_term (t : term) : term =
+  action_field t ActionTargetArtifactIdField
+
+let action_target_path_term (t : term) : term =
+  action_field t ActionTargetPathField
+
+let action_input_count_term (t : term) : term =
+  action_field t ActionInputCountField
+
+let action_output_count_term (t : term) : term =
+  action_field t ActionOutputCountField
+
+let artifact_id_term (t : term) : term =
+  artifact_field t ArtifactIdField
+
+let artifact_type_term (t : term) : term =
+  artifact_field t ArtifactTypeField
+
+let artifact_format_term (t : term) : term =
+  artifact_field t ArtifactFormatField
+
+let artifact_summary_term (t : term) : term =
+  artifact_field t ArtifactSummaryField
+
+let artifact_producer_action_id_term (t : term) : term =
+  artifact_field t ArtifactProducerActionIdField
+
+let artifact_revision_term (t : term) : term =
+  artifact_field t ArtifactRevisionField
+
+let artifact_status_term (t : term) : term =
+  artifact_field t ArtifactStatusField
+
+let artifact_analysis_kind_term (t : term) : term =
+  artifact_field t ArtifactAnalysisKindField
+
+let artifact_target_artifact_id_term (t : term) : term =
+  artifact_field t ArtifactTargetArtifactIdField
+
+let artifact_reference_artifact_id_term (t : term) : term =
+  artifact_field t ArtifactReferenceArtifactIdField
+
+(* ------------------------------------------------------------------------- *)
+(* Common formula fragments                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+let is_git_commit (t : term) : policy_formula =
+  action_type_is t "GitCommit"
+
+let is_run_tests (t : term) : policy_formula =
+  action_type_is t "RunTests"
+
+let is_edit_file (t : term) : policy_formula =
+  action_type_is t "EditFile"
+
+let is_read_file (t : term) : policy_formula =
+  action_type_is t "ReadFile"
+
+let is_read_documentation (t : term) : policy_formula =
+  action_type_is t "ReadDocumentation"
+
+let is_search_code (t : term) : policy_formula =
+  action_type_is t "SearchCode"
+
+let is_analyze_code (t : term) : policy_formula =
+  action_type_is t "AnalyzeCode"
+
+let is_formal_model (t : term) : policy_formula =
+  artifact_type_is t "FormalModel"
+
+let is_generated_tests (t : term) : policy_formula =
+  artifact_type_is t "GeneratedTests"
+
+let is_verification_goal (t : term) : policy_formula =
+  artifact_type_is t "VerificationGoal"
+
+(* ------------------------------------------------------------------------- *)
+(* Lightweight normalization / smart constructors                             *)
+(* ------------------------------------------------------------------------- *)
+
+let rec flatten_and (fs : policy_formula list) : policy_formula list =
+  match fs with
+  | [] -> []
+  | And xs :: rest -> flatten_and xs @ flatten_and rest
+  | x :: rest -> x :: flatten_and rest
+
+let rec flatten_or (fs : policy_formula list) : policy_formula list =
+  match fs with
+  | [] -> []
+  | Or xs :: rest -> flatten_or xs @ flatten_or rest
+  | x :: rest -> x :: flatten_or rest
+
+let mk_and (fs : policy_formula list) : policy_formula =
+  match flatten_and fs with
+  | [] -> True
+  | [f] -> f
+  | xs -> And xs
+
+let mk_or (fs : policy_formula list) : policy_formula =
+  match flatten_or fs with
+  | [] -> False
+  | [f] -> f
+  | xs -> Or xs
+
+let mk_implies (f1 : policy_formula) (f2 : policy_formula) : policy_formula =
+  match (f1, f2) with
+  | (False, _) -> True
+  | (_, True) -> True
+  | (True, x) -> x
+  | (_, False) -> Not f1
+  | _ -> Implies (f1, f2)
+
+let mk_not (f : policy_formula) : policy_formula =
+  match f with
+  | True -> False
+  | False -> True
+  | Not g -> g
+  | _ -> Not f
+
+(* ------------------------------------------------------------------------- *)
+(* Standard reusable policy schemas                                           *)
+(* ------------------------------------------------------------------------- *)
+
+let policy_trace_has_lifecycle_formula : policy_formula =
+  mk_and [start_event; eventually end_event]
+
+let policy_all_actions_have_rationale_formula : policy_formula =
+  globally (has_rationale action_var)
+
+let policy_tests_before_commit_formula : policy_formula =
+  globally
+    (mk_implies
+       (is_git_commit action_var)
+       (previously (mk_and [is_run_tests action_var; completed action_var])))
+
+let policy_research_before_edit_formula : policy_formula =
+  globally
+    (mk_implies
+       (is_edit_file action_var)
+       (previously_on_target
+          (mk_or
+             [ is_read_file action_var
+             ; is_read_documentation action_var
+             ; is_search_code action_var
+             ; is_analyze_code action_var ])))
+
+let policy_high_stakes_edit_requires_reasoning_formula : policy_formula =
+  globally
+    (mk_implies
+       (mk_and [is_edit_file action_var; high_stakes_path action_var])
+       (previously_in_chain
+          (mk_or
+             [ status_is artifact_var "proved"
+             ; state_space_analysis_result artifact_var
+             ; status_is artifact_var "passed" ])))
+
+let policy_goals_target_formal_models_formula : policy_formula =
+  forall_in
+    "x"
+    (TermSet artifact_var)
+    (mk_implies
+       (is_verification_goal (Var "x"))
+       (formal_model_artifact (artifact_target_artifact_id_term (Var "x"))))
+
+let policy_generated_tests_require_upstream_state_space_analysis_formula : policy_formula =
+  forall_in
+    "x"
+    (TermSet artifact_var)
+    (mk_implies
+       (is_generated_tests (Var "x"))
+       (exists_in
+          "y"
+          (TermSet artifact_var)
+          (mk_and
+             [ state_space_analysis_result (Var "y")
+             ; ancestor_of (Var "y") (Var "x") ])))
+
+(* ------------------------------------------------------------------------- *)
+(* Convenience constructors for policy records                                *)
+(* ------------------------------------------------------------------------- *)
+
+let mk_policy
+    (policy_id : string)
+    (name : string)
+    (severity : policy_severity)
+    (scope : policy_scope)
+    (kind : policy_kind)
+    (formula : policy_formula)
+  : policy =
+  { policy_id = policy_id
+  ; name = name
+  ; description = None
+  ; severity = severity
+  ; scope = scope
+  ; kind = kind
+  ; applies_when = None
+  ; formula = formula
+  ; reference_artifact_id = None
+  }
+
+let policy_trace_has_lifecycle : policy =
+  mk_policy
+    "policy_trace_has_lifecycle"
+    "trace_has_lifecycle"
+    ErrorSeverity
+    TraceScope
+    TraceInvariant
+    policy_trace_has_lifecycle_formula
+
+let policy_all_actions_have_rationale : policy =
+  mk_policy
+    "policy_all_actions_have_rationale"
+    "all_actions_have_rationale"
+    ErrorSeverity
+    TraceScope
+    TraceInvariant
+    policy_all_actions_have_rationale_formula
+
+let policy_tests_before_commit : policy =
+  mk_policy
+    "policy_tests_before_commit"
+    "tests_before_commit"
+    ErrorSeverity
+    TraceScope
+    TraceInvariant
+    policy_tests_before_commit_formula
+
+let policy_research_before_edit : policy =
+  mk_policy
+    "policy_research_before_edit"
+    "research_before_edit"
+    Warning
+    TraceScope
+    ReasoningRequirement
+    policy_research_before_edit_formula
+
+(* ------------------------------------------------------------------------- *)
+(* Notes                                                                      *)
+(* ------------------------------------------------------------------------- *)
+
+(* This file is intentionally light on domain-specific assumptions.
+   It provides reusable building blocks that sit between:
+   - raw evaluation semantics in 06
+   - concrete trace examples / proof queries in 09
+
+   Some policy schemas here are idealized and may need further binding/domain
+   refinement depending on how you want quantifier domains to be materialized
+   in ImandraX. *)

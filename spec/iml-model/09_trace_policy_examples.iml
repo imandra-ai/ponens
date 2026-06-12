@@ -1,0 +1,186 @@
+(* 09_trace_policy_examples.iml *)
+
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+[@@@import Policy_library, "07_trace_policy_library.iml"]
+[@@@import Policy_properties, "08_trace_policy_properties.iml"]
+
+open Policy_types
+open Policy_library
+open Policy_properties
+
+let empty_event : event =
+  { typ = TaskReceived;
+    description = None;
+    summary = None;
+    from_user = None;
+    reason = None; }
+
+let empty_action_payload : action_payload =
+  { target_artifact_id = None;
+    target_path = None;
+    request_fields = [];
+    result_fields = []; }
+
+let empty_action_common (id : int) (label : string) (rationale : string) : action_common =
+  { id = id;
+    label = label;
+    rationale = rationale;
+    detail = None;
+    inputs = [];
+    outputs = [];
+    evidence = [];
+    observations = [];
+    execution = None;
+    reproducibility = None; }
+
+let ac (id : int) (aid : string) : artifact_common =
+  { artifact_id = aid;
+    artifact_role = None;
+    name = None;
+    format = None;
+    revision = None;
+    producer_action_id = Some id;
+    derived_from = [];
+    supersedes = None;
+    content_ref = None;
+    summary = None;
+    metadata = None; }
+
+let good_trace : trace =
+  let a_model =
+    FormalModelArtifact
+      ({ (ac 2 "a_model") with artifact_role = Some FormalModelRole },
+       { model_language = "iml"; formal_code = "let f x = x"; symbols = ["f"]; scope = None })
+  in
+  let a_goal =
+    VerificationGoalArtifact
+      ({ (ac 3 "a_goal") with artifact_role = Some ReasoningGoalRole; derived_from = ["a_model"] },
+       { goal_id = 1; goal_revision = None; kind = VerifyGoal; description = "prove something";
+         src = "fun x -> true"; target_artifact_id = "a_model"; target_symbol = Some "f"; properties = [] })
+  in
+  let a_result =
+    VerificationResultArtifact
+      ({ (ac 4 "a_result") with artifact_role = Some ReasoningResultRole; derived_from = ["a_goal"] },
+       { goal_id = 1; goal_artifact_id = "a_goal"; status = VrProved; engine = Some "imandrax";
+         completed_at = None; result = ProvedResult { proof_pp = "proof"; properties = [] } })
+  in
+  let a_ssa =
+    StateSpaceAnalysisResultArtifact
+      ({ (ac 5 "a_ssa") with artifact_role = Some StateSpaceAnalysisRole; derived_from = ["a_model"] },
+       { target_artifact_id = "a_model"; target_symbol = Some "f"; analysis_kind = "region_decomposition";
+         analysis_revision = None; description = None; complete = Some true; regions = [];
+         coverage_summary = None; notes = None })
+  in
+  let a_tests =
+    GeneratedTestsArtifact
+      ({ (ac 6 "a_tests") with artifact_role = Some GeneratedTestRole; derived_from = ["a_ssa"] },
+       { function_ = "f"; language = "python"; source_analysis_artifact_id = "a_ssa"; tests = [] })
+  in
+  { trace_id = "good";
+    spec_version = "1.4";
+    assistant = "codelogician";
+    model = "test";
+    timestamp = "2026-01-01T00:00:00Z";
+    trigger = { empty_event with typ = TaskReceived };
+    actions =
+      [ ActivityAction (empty_action_common 1 "read" "inspect code", ReadFile,
+          Some { empty_action_payload with target_path = Some "/src/core.py" });
+        ActivityAction (empty_action_common 2 "run tests" "run tests before commit", RunTests,
+          Some empty_action_payload);
+        ReasoningAction (empty_action_common 3 "formalize" "build a formal model", Formalize,
+          Some { empty_action_payload with target_artifact_id = Some "a_model" });
+        ReasoningAction (empty_action_common 4 "verify" "prove goal", Verify,
+          Some { empty_action_payload with target_artifact_id = Some "a_goal" });
+        ReasoningAction (empty_action_common 5 "analyze" "partition state space", StateSpaceAnalysis,
+          Some { empty_action_payload with target_artifact_id = Some "a_model" });
+        ReasoningAction (empty_action_common 6 "generate tests" "derive tests", GenerateTests,
+          Some { empty_action_payload with target_artifact_id = Some "a_ssa" });
+        ActivityAction (empty_action_common 7 "commit" "commit approved result", GitCommit,
+          Some { empty_action_payload with target_path = Some "/src/core.py" }) ];
+    outcome = { empty_event with typ = ProcessCompleted };
+    artifacts = [a_model; a_goal; a_result; a_ssa; a_tests];
+    reference_artifacts = [];
+    policies = [];
+    policy_evaluations = [];
+    execution_environments = [];
+    reproducibility = None;
+    comments = [];
+    review_items = [];
+    trace_links = [];
+    trace_lineage = None;
+    files_modified = ["/src/core.py"];
+    metrics = None; }
+
+let bad_trace_missing_rationale : trace =
+  { good_trace with
+    trace_id = "bad_missing_rationale";
+    actions =
+      [ ActivityAction ({ (empty_action_common 1 "read" "") with rationale = "" }, ReadFile,
+          Some { empty_action_payload with target_path = Some "/src/core.py" });
+        ActivityAction (empty_action_common 2 "commit" "commit", GitCommit,
+          Some { empty_action_payload with target_path = Some "/src/core.py" }) ];
+    artifacts = [];
+    outcome = { empty_event with typ = ProcessCompleted }; }
+
+let bad_trace_no_tests_before_commit : trace =
+  { good_trace with
+    trace_id = "bad_no_tests_before_commit";
+    actions =
+      [ ActivityAction (empty_action_common 1 "read" "inspect code", ReadFile,
+          Some { empty_action_payload with target_path = Some "/src/core.py" });
+        ActivityAction (empty_action_common 2 "commit" "commit", GitCommit,
+          Some { empty_action_payload with target_path = Some "/src/core.py" }) ];
+    artifacts = [];
+    outcome = { empty_event with typ = ProcessCompleted }; }
+
+let bad_trace_invalid_goal_target : trace =
+  let bogus_goal =
+    VerificationGoalArtifact
+      ({ (ac 1 "a_goal") with artifact_role = Some ReasoningGoalRole },
+       { goal_id = 1; goal_revision = None; kind = VerifyGoal; description = "bad target";
+         src = "fun x -> true"; target_artifact_id = "missing_model"; target_symbol = None; properties = [] })
+  in
+  { good_trace with trace_id = "bad_invalid_goal"; actions = []; artifacts = [bogus_goal]; }
+
+let policy_all_actions_have_rationale_formula : policy_formula =
+  Temporal1 (G, Atom (HasRationale (Var "a")))
+
+let policy_tests_before_commit_formula : policy_formula =
+  Temporal1
+    (G,
+     Implies
+       (Atom (ActionTypeIs (Var "a", "GitCommit")),
+        Temporal1 (P, And [Atom (ActionTypeIs (Var "a", "RunTests")); Atom (Completed (Var "a"))])))
+
+let counterexample_all_actions_have_rationale (tr : trace) : bool =
+  wf_trace tr && not (all_actions_have_rationale tr)
+
+let counterexample_tests_before_commit (tr : trace) : bool =
+  wf_trace tr && not (tests_before_commit tr)
+
+let counterexample_goals_reference_valid_artifacts (tr : trace) : bool =
+  wf_trace tr && not (goals_reference_valid_artifacts tr)
+
+let counterexample_generated_tests_require_state_space_analysis (tr : trace) : bool =
+  wf_trace tr && not (generated_tests_require_state_space_analysis tr)
+
+let verify_good_trace_all_actions_have_rationale : bool =
+  wf_trace good_trace && all_actions_have_rationale good_trace
+
+let verify_good_trace_tests_before_commit : bool =
+  wf_trace good_trace && tests_before_commit good_trace
+
+let verify_good_trace_goals_reference_valid_artifacts : bool =
+  wf_trace good_trace && goals_reference_valid_artifacts good_trace
+
+let verify_good_trace_generated_tests_require_state_space_analysis : bool =
+  wf_trace good_trace && generated_tests_require_state_space_analysis good_trace
+
+let verify_bad_trace_is_counterexample_missing_rationale : bool =
+  counterexample_all_actions_have_rationale bad_trace_missing_rationale
+
+let verify_bad_trace_is_counterexample_no_tests_before_commit : bool =
+  counterexample_tests_before_commit bad_trace_no_tests_before_commit
+
+let verify_bad_trace_is_counterexample_invalid_goal_target : bool =
+  counterexample_goals_reference_valid_artifacts bad_trace_invalid_goal_target

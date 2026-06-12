@@ -1,0 +1,576 @@
+[@@@import Policy_types, "01_trace_policy_types.iml"]
+[@@@import Policy_utils, "02_trace_policy_utils.iml"]
+[@@@import Policy_accessors, "03_trace_policy_accessors.iml"]
+[@@@import Policy_binding, "04_trace_policy_binding.iml"]
+[@@@import Policy_runtime, "05_trace_policy_runtime.iml"]
+
+open Policy_types
+open Policy_utils
+open Policy_accessors
+open Policy_binding
+open Policy_runtime
+
+let rec eval_term (tr : trace) (env : env) (t : term) : runtime_value =
+  match t with
+  | Var v ->
+    begin match lookup_binding v env.bindings with
+    | Some rv -> rv
+    | None ->
+      if v = "a" then
+        begin match current_action_id tr env with
+        | Some id -> RVActionId id
+        | None -> RVUnknown
+        end
+      else RVUnknown
+    end
+  | Val v -> value_to_runtime v
+  | ActionField (t1, fld) ->
+    begin match eval_term tr env t1 with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> runtime_of_action_field a fld
+      | None -> RVUnknown
+      end
+    | _ -> RVUnknown
+    end
+  | ArtifactField (t1, fld) ->
+    begin match eval_term tr env t1 with
+    | RVArtifactId id ->
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a -> runtime_of_artifact_field a fld
+      | None -> RVUnknown
+      end
+    | _ -> RVUnknown
+    end
+  | Inputs t1 ->
+    begin match eval_term tr env t1 with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> RVArtifactIds ((action_common_of a).inputs)
+      | None -> RVArtifactIds []
+      end
+    | _ -> RVArtifactIds []
+    end
+  | Outputs t1 ->
+    begin match eval_term tr env t1 with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> RVArtifactIds ((action_common_of a).outputs)
+      | None -> RVArtifactIds []
+      end
+    | _ -> RVArtifactIds []
+    end
+  | Target t1 ->
+    begin match eval_term tr env t1 with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a ->
+        begin match action_target_artifact_id a with
+        | Some x -> RVArtifactId x
+        | None ->
+          begin match action_target_path a with
+          | Some p -> RVString p
+          | None -> RVUnknown
+          end
+        end
+      | None -> RVUnknown
+      end
+    | _ -> RVUnknown
+    end
+  | AncestorsOf t1 ->
+    begin match eval_term tr env t1 with
+    | RVArtifactId id ->
+      let rec collect frontier visited =
+        match frontier with
+        | [] -> visited
+        | x :: rest ->
+          if mem_string x visited then collect rest visited
+          else
+            begin match find_artifact_by_id x tr.artifacts with
+            | None -> collect rest (x :: visited)
+            | Some a -> collect (append_strings (artifact_common_of a).derived_from rest) (x :: visited)
+            end
+      in
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a -> RVArtifactIds (collect (artifact_common_of a).derived_from [])
+      | None -> RVArtifactIds []
+      end
+    | _ -> RVArtifactIds []
+    end
+  | Count se ->
+    begin match eval_set_expr tr env se with
+    | RVValues xs -> RVInt (List.length xs)
+    | RVActionIds xs -> RVInt (List.length xs)
+    | RVArtifactIds xs -> RVInt (List.length xs)
+    | _ -> RVUnknown
+    end
+  | SetLiteral ts ->
+    let rec go xs =
+      match xs with
+      | [] -> []
+      | x :: rest -> eval_term tr env x :: go rest
+    in
+    RVValues (go ts)
+
+and eval_set_expr (tr : trace) (env : env) (se : set_expr) : runtime_value =
+  match se with
+  | TermSet t ->
+    begin match eval_term tr env t with
+    | RVActionIds xs -> RVActionIds xs
+    | RVArtifactIds xs -> RVArtifactIds xs
+    | RVValues xs -> RVValues xs
+    | v -> RVValues [v]
+    end
+  | SetComprehension { binder; source; guard; body } ->
+    let source_vals =
+      match eval_set_expr tr env source with
+      | RVActionIds xs ->
+        let rec go ys =
+          match ys with
+          | [] -> []
+          | y :: rest -> RVActionId y :: go rest
+        in go xs
+      | RVArtifactIds xs ->
+        let rec go ys =
+          match ys with
+          | [] -> []
+          | y :: rest -> RVArtifactId y :: go rest
+        in go xs
+      | RVValues xs -> xs
+      | v -> [v]
+    in
+    let rec map_filter vals =
+      match vals with
+      | [] -> []
+      | v :: rest ->
+        let env' = { env with bindings = { name = binder; value = v } :: env.bindings } in
+        let keep =
+          match guard with
+          | None -> true
+          | Some g -> eval_formula_at tr env' g
+        in
+        let tail = map_filter rest in
+        if keep then eval_term tr env' body :: tail else tail
+    in
+    RVValues (map_filter source_vals)
+
+and eval_atomic_predicate (tr : trace) (env : env) (p : atomic_predicate) : bool =
+  match p with
+  | StartEvent ->
+    tr.trigger.typ = TaskReceived || tr.trigger.typ = TriggeredByEvent
+  | EndEvent ->
+    tr.outcome.typ = ProcessCompleted
+    || tr.outcome.typ = ProcessAborted
+    || tr.outcome.typ = ProcessInterrupted
+  | HasRationale t ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> action_has_nonempty_rationale a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | Completed t ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> action_is_completed a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | FailedAction t ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> action_is_failed a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | ActionTypeIs (t, nm) ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> action_type_name a = nm
+      | None -> false
+      end
+    | _ -> false
+    end
+  | ActionCategoryIs (t, nm) ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> action_category_name a = nm
+      | None -> false
+      end
+    | _ -> false
+    end
+  | ArtifactTypeIs (t, nm) ->
+    begin match eval_term tr env t with
+    | RVArtifactId id ->
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a -> artifact_type_name a = nm
+      | None -> false
+      end
+    | _ -> false
+    end
+  | ArtifactRoleIs (t, nm) ->
+    begin match eval_term tr env t with
+    | RVArtifactId id ->
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a ->
+        begin match (artifact_common_of a).artifact_role with
+        | Some FormalModelRole -> nm = "formal_model"
+        | Some ApprovedReferenceRole -> nm = "approved_reference"
+        | Some ReasoningGoalRole -> nm = "reasoning_goal"
+        | Some ReasoningResultRole -> nm = "reasoning_result"
+        | Some ProofRole -> nm = "proof"
+        | Some CounterexampleRole -> nm = "counterexample"
+        | Some StateSpaceAnalysisRole -> nm = "state_space_analysis"
+        | Some GeneratedTestRole -> nm = "generated_test"
+        | Some AuditEvidenceRole -> nm = "audit_evidence"
+        | Some (CustomArtifactRole s) -> s = nm
+        | None -> false
+        end
+      | None -> false
+      end
+    | _ -> false
+    end
+  | StatusIs (t, nm) ->
+    begin match eval_term tr env t with
+    | RVArtifactId id ->
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a ->
+        begin match runtime_of_artifact_field a ArtifactStatusField with
+        | RVString s -> s = nm
+        | _ -> false
+        end
+      | None -> false
+      end
+    | _ -> false
+    end
+  | HighStakesPath t ->
+    begin match eval_term tr env t with
+    | RVString s -> eval_builtin_predicate tr "high_stakes_path" [RVString s]
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a ->
+        begin match action_target_path a with
+        | Some s -> eval_builtin_predicate tr "high_stakes_path" [RVString s]
+        | None -> false
+        end
+      | None -> false
+      end
+    | _ -> false
+    end
+  | FormalModelArtifactPred t ->
+    begin match eval_term tr env t with
+    | RVArtifactId id ->
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a -> is_formal_model_artifact a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | ApprovedReferenceArtifactPred t ->
+    begin match eval_term tr env t with
+    | RVArtifactId id ->
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a -> is_approved_reference_artifact a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | ReasoningActionPred t ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> is_reasoning_action a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | VerificationActionPred t ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> is_verification_action a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | StateSpaceAnalysisActionPred t ->
+    begin match eval_term tr env t with
+    | RVActionId id ->
+      begin match find_action_by_id id tr.actions with
+      | Some a -> is_state_space_analysis_action a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | StateSpaceAnalysisResultPred t ->
+    begin match eval_term tr env t with
+    | RVArtifactId id ->
+      begin match find_artifact_by_id id tr.artifacts with
+      | Some a -> is_state_space_analysis_result_artifact a
+      | None -> false
+      end
+    | _ -> false
+    end
+  | AncestorOfPred (t1, t2) ->
+    begin match (eval_term tr env t1, eval_term tr env t2) with
+    | (RVArtifactId a1, RVArtifactId a2) -> ancestor_of_artifact a1 a2 tr.artifacts
+    | _ -> false
+    end
+  | DerivedFromPred (t1, t2) ->
+    begin match (eval_term tr env t1, eval_term tr env t2) with
+    | (RVArtifactId a1, RVArtifactId a2) -> has_edge a1 a2 tr.artifacts
+    | _ -> false
+    end
+  | UpstreamOfPred (t1, t2) ->
+    begin match (eval_term tr env t1, eval_term tr env t2) with
+    | (RVArtifactId a1, RVArtifactId a2) -> ancestor_of_artifact a1 a2 tr.artifacts
+    | _ -> false
+    end
+  | PredicateApp (nm, args) ->
+    let rec eval_args xs =
+      match xs with
+      | [] -> []
+      | x :: rest -> eval_term tr env x :: eval_args rest
+    in
+    eval_builtin_predicate tr nm (eval_args args)
+
+and eval_formula_at (tr : trace) (env : env) (f : policy_formula) : bool =
+  let n = List.length tr.actions in
+  match f with
+  | True -> true
+  | False -> false
+  | Atom p -> eval_atomic_predicate tr env p
+  | Not g -> not (eval_formula_at tr env g)
+  | And gs ->
+    let rec go xs =
+      match xs with
+      | [] -> true
+      | x :: rest -> eval_formula_at tr env x && go rest
+    in go gs
+  | Or gs ->
+    let rec go xs =
+      match xs with
+      | [] -> false
+      | x :: rest -> eval_formula_at tr env x || go rest
+    in go gs
+  | Implies (g1, g2) ->
+    (not (eval_formula_at tr env g1)) || eval_formula_at tr env g2
+  | Iff (g1, g2) ->
+    eval_formula_at tr env g1 = eval_formula_at tr env g2
+  | Compare (t1, op, t2) ->
+    compare_runtime (eval_term tr env t1) op (eval_term tr env t2)
+  | Quantified { quantifier; binder; source; body } ->
+    begin match eval_set_expr tr env source with
+    | RVActionIds xs ->
+      let rec forall_ids ys =
+        match ys with
+        | [] -> true
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = RVActionId y } :: env.bindings } in
+          eval_formula_at tr env' body && forall_ids rest
+      in
+      let rec exists_ids ys =
+        match ys with
+        | [] -> false
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = RVActionId y } :: env.bindings } in
+          eval_formula_at tr env' body || exists_ids rest
+      in
+      let rec count_ids ys =
+        match ys with
+        | [] -> 0
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = RVActionId y } :: env.bindings } in
+          let c = count_ids rest in
+          if eval_formula_at tr env' body then c + 1 else c
+      in
+      begin match quantifier with
+      | Forall -> forall_ids xs
+      | Exists -> exists_ids xs
+      | ExistsUnique -> count_ids xs = 1
+      end
+    | RVArtifactIds xs ->
+      let rec forall_ids ys =
+        match ys with
+        | [] -> true
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = RVArtifactId y } :: env.bindings } in
+          eval_formula_at tr env' body && forall_ids rest
+      in
+      let rec exists_ids ys =
+        match ys with
+        | [] -> false
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = RVArtifactId y } :: env.bindings } in
+          eval_formula_at tr env' body || exists_ids rest
+      in
+      let rec count_ids ys =
+        match ys with
+        | [] -> 0
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = RVArtifactId y } :: env.bindings } in
+          let c = count_ids rest in
+          if eval_formula_at tr env' body then c + 1 else c
+      in
+      begin match quantifier with
+      | Forall -> forall_ids xs
+      | Exists -> exists_ids xs
+      | ExistsUnique -> count_ids xs = 1
+      end
+    | RVValues xs ->
+      let rec forall_vals ys =
+        match ys with
+        | [] -> true
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = y } :: env.bindings } in
+          eval_formula_at tr env' body && forall_vals rest
+      in
+      let rec exists_vals ys =
+        match ys with
+        | [] -> false
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = y } :: env.bindings } in
+          eval_formula_at tr env' body || exists_vals rest
+      in
+      let rec count_vals ys =
+        match ys with
+        | [] -> 0
+        | y :: rest ->
+          let env' = { env with bindings = { name = binder; value = y } :: env.bindings } in
+          let c = count_vals rest in
+          if eval_formula_at tr env' body then c + 1 else c
+      in
+      begin match quantifier with
+      | Forall -> forall_vals xs
+      | Exists -> exists_vals xs
+      | ExistsUnique -> count_vals xs = 1
+      end
+    | _ -> false
+    end
+  | Temporal1 (op, g) ->
+    begin match op with
+    | G ->
+      let rec loop i =
+        if i >= n then true
+        else eval_formula_at tr { env with current_pos = i } g && loop (i + 1)
+      in loop env.current_pos
+    | F ->
+      let rec loop i =
+        if i >= n then false
+        else eval_formula_at tr { env with current_pos = i } g || loop (i + 1)
+      in loop env.current_pos
+    | X ->
+      if env.current_pos + 1 >= n then false
+      else eval_formula_at tr { env with current_pos = env.current_pos + 1 } g
+    | P ->
+      let rec loop i =
+        if i < 0 then false
+        else eval_formula_at tr { env with current_pos = i } g || loop (i - 1)
+      in loop (env.current_pos - 1)
+    | H ->
+      let rec loop i =
+        if i < 0 then true
+        else eval_formula_at tr { env with current_pos = i } g && loop (i - 1)
+      in loop (env.current_pos - 1)
+    | PTarget ->
+      begin match current_action tr env with
+      | None -> false
+      | Some cur ->
+        let rec loop i =
+          if i < 0 then false
+          else match nth_action i tr.actions with
+          | Some prev ->
+            if actions_same_target prev cur
+            then eval_formula_at tr { env with current_pos = i } g || loop (i - 1)
+            else loop (i - 1)
+          | None -> false
+        in loop (env.current_pos - 1)
+      end
+    | HTarget ->
+      begin match current_action tr env with
+      | None -> true
+      | Some cur ->
+        let rec loop i =
+          if i < 0 then true
+          else match nth_action i tr.actions with
+          | Some prev ->
+            if actions_same_target prev cur
+            then eval_formula_at tr { env with current_pos = i } g && loop (i - 1)
+            else loop (i - 1)
+          | None -> true
+        in loop (env.current_pos - 1)
+      end
+    | PChain ->
+      begin match current_action tr env with
+      | None -> false
+      | Some cur ->
+        let rec loop i =
+          if i < 0 then false
+          else match nth_action i tr.actions with
+          | Some prev ->
+            if actions_same_chain tr prev cur
+            then eval_formula_at tr { env with current_pos = i } g || loop (i - 1)
+            else loop (i - 1)
+          | None -> false
+        in loop (env.current_pos - 1)
+      end
+    | HChain ->
+      begin match current_action tr env with
+      | None -> true
+      | Some cur ->
+        let rec loop i =
+          if i < 0 then true
+          else match nth_action i tr.actions with
+          | Some prev ->
+            if actions_same_chain tr prev cur
+            then eval_formula_at tr { env with current_pos = i } g && loop (i - 1)
+            else loop (i - 1)
+          | None -> true
+        in loop (env.current_pos - 1)
+      end
+    end
+  | Temporal2 (op, g1, g2) ->
+    begin match op with
+    | U ->
+      let rec loop i =
+        if i >= n then false
+        else if eval_formula_at tr { env with current_pos = i } g2 then true
+        else if eval_formula_at tr { env with current_pos = i } g1 then loop (i + 1)
+        else false
+      in loop env.current_pos
+    | S ->
+      let rec loop i =
+        if i < 0 then false
+        else if eval_formula_at tr { env with current_pos = i } g2 then true
+        else if eval_formula_at tr { env with current_pos = i } g1 then loop (i - 1)
+        else false
+      in loop env.current_pos
+    | SLast ->
+      let rec find_last i =
+        if i < 0 then None
+        else if eval_formula_at tr { env with current_pos = i } g2 then Some i
+        else find_last (i - 1)
+      in
+      begin match find_last (env.current_pos - 1) with
+      | None -> false
+      | Some k ->
+        let rec all_since i =
+          if i <= k then true
+          else eval_formula_at tr { env with current_pos = i } g1 && all_since (i - 1)
+        in all_since (env.current_pos - 1)
+      end
+    end
+
+let satisfies_formula (tr : trace) (f : policy_formula) : bool =
+  eval_formula_at tr { current_pos = 0; bindings = [] } f
+
+let satisfies_policy (tr : trace) (p : policy) : bool =
+  satisfies_formula tr p.formula

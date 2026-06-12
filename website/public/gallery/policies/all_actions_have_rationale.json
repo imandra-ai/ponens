@@ -1,0 +1,26 @@
+{
+  "id": "all_actions_have_rationale",
+  "name": "All Actions Have Rationale",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Every action in the trace must include a non-empty rationale field explaining why it was taken.",
+  "formula": "G(action → rationale ≠ ∅)",
+  "language_level": "pure_temporal",
+  "rationale": "Ensures every step is explainable. Critical for audit trails and debugging agent behavior.",
+  "tags": [
+    "audit",
+    "transparency",
+    "rationale"
+  ],
+  "examples": {
+    "passes": "All actions have rationale: 'understand the login code', 'fix the bug', etc.",
+    "fails": "Action #5 EditFile has empty rationale"
+  },
+  "domain": "general",
+  "author": {
+    "name": "Grant Amos",
+    "github": "grantamos"
+  },
+  "date_added": "2026-03-16",
+  "downloads": 2650
+}

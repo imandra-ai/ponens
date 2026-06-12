@@ -1,0 +1,891 @@
+{
+  "schema_version": "1.0",
+  "source": "gallery/policies",
+  "policy_count": 39,
+  "policies": [
+    {
+      "id": "accessibility_state_managed",
+      "name": "Accessibility State Managed",
+      "category": "safety",
+      "severity": "warning",
+      "domain": "javascript-ui",
+      "tags": [
+        "a11y",
+        "accessibility",
+        "aria",
+        "formal-verification",
+        "state-machine"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Interactive components with ARIA state (expanded, selected, checked, disabled) must manage state transitions correctly. Focus management after state changes should be verified.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:8b137c528d8fba08d751b63cc49df4e89448b25ee94d812f385a3228e7650f27",
+      "file": "accessibility_state_managed.json"
+    },
+    {
+      "id": "all_actions_have_rationale",
+      "name": "All Actions Have Rationale",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "audit",
+        "rationale",
+        "transparency"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Every action in the trace must include a non-empty rationale field explaining why it was taken.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:1b65bb6191c0f5b70a91b59f9ea4ae02428b9f6f6bac67bdcdbfcbc92563b9f9",
+      "file": "all_actions_have_rationale.json"
+    },
+    {
+      "id": "all_decisions_justified",
+      "name": "All Decisions Justified",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "audit",
+        "decisions",
+        "rationale"
+      ],
+      "language_level": "pure_temporal",
+      "description": "All gateway (decision) nodes must have a non-empty rationale explaining the choice.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:d1c4ad614a7014775321a43626d6ee44a5ff7d0d20d93f9f5aee958be7896f74",
+      "file": "all_decisions_justified.json"
+    },
+    {
+      "id": "animation_state_deterministic",
+      "name": "Animation State Deterministic",
+      "category": "reasoning",
+      "severity": "info",
+      "domain": "javascript-ui",
+      "tags": [
+        "animation",
+        "css",
+        "determinism",
+        "framer-motion",
+        "ux"
+      ],
+      "language_level": "pure_temporal",
+      "description": "CSS/JS animation state machines should be verified to be deterministic — the same sequence of events always produces the same visual state.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4e70abf948ca40a5e65d087c3a4daa4ae30fc33b79e3ffbecf22517f4f4cbb36",
+      "file": "animation_state_deterministic.json"
+    },
+    {
+      "id": "api_breaking_change_flagged",
+      "name": "API Breaking Change Flagged",
+      "category": "safety",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "api",
+        "backward-compatibility",
+        "breaking-changes",
+        "formal-verification"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Changes to public API endpoints must be formally checked for backward compatibility. Breaking changes must be explicitly approved.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:3c369a3521e51d86198e1517a8cbbf4a6d7dcfd7e8361c2d87a3bdc8025d631a",
+      "file": "api_breaking_change_flagged.json"
+    },
+    {
+      "id": "approval_before_deploy",
+      "name": "Approval Before Deploy",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "approval",
+        "deployment",
+        "safety"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Deployment actions require explicit user approval.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:3cdd6b2ff271ec17618347d7ebcaef97141bf5bfba6ee2a510e115e85a2088c7",
+      "file": "approval_before_deploy.json"
+    },
+    {
+      "id": "async_state_transitions_verified",
+      "name": "Async State Transitions Verified",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "javascript-ui",
+      "tags": [
+        "api",
+        "async",
+        "formal-verification",
+        "loading-states",
+        "state-machine"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Async operations (API calls, file uploads) that drive UI state must have their transition logic formally verified — especially error and timeout paths.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:13d7d6e9e81b64144ce39bdac0a9f46104839e96e109302c1e1f6ee827b9a8dd",
+      "file": "async_state_transitions_verified.json"
+    },
+    {
+      "id": "counterexample_triggers_fix",
+      "name": "Counterexample Triggers Fix",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "formal-reasoning",
+      "tags": [
+        "bugs",
+        "fixes",
+        "formal-verification"
+      ],
+      "language_level": "pure_temporal",
+      "description": "When a verification goal is refuted (counterexample found), a fix action should follow.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ca3d8ee1099a70464d983f964ab0d738126a4f53cb3e77b972dc516b795c5448",
+      "file": "counterexample_triggers_fix.json"
+    },
+    {
+      "id": "data_flow_integrity",
+      "name": "Data Flow Integrity",
+      "category": "structural",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "artifacts",
+        "data-flow",
+        "integrity"
+      ],
+      "language_level": "structural",
+      "description": "Every consumed artifact must have exactly one valid producer earlier in the trace.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:9684460c2ff86a137d0f0ea30d2b8cae499a2d0e0b55de889be35a6bef783191",
+      "file": "data_flow_integrity.json"
+    },
+    {
+      "id": "database_migration_verified",
+      "name": "Database Migration Verified",
+      "category": "safety",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "data-preservation",
+        "database",
+        "migration",
+        "reversibility",
+        "safety"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Database migration scripts must be formally verified for reversibility and data preservation before execution.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:c8ccbe11cbc9dc47086f4d1297bc9bf662391cf1142dc8dabe967025d2afbdd4",
+      "file": "database_migration_verified.json"
+    },
+    {
+      "id": "destructive_actions_confirmed",
+      "name": "Destructive Actions Confirmed",
+      "category": "safety",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "approval",
+        "destructive",
+        "safety"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Delete actions require linked user approval in the dependency chain — not just any prior approval anywhere in the trace.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:9230a3047694de84679d73a87cadede93704e244ea3e923f77be30eb702d0472",
+      "file": "destructive_actions_confirmed.json"
+    },
+    {
+      "id": "explain_before_complex_change",
+      "name": "Explain Before Complex Change",
+      "category": "communication",
+      "severity": "info",
+      "domain": "general",
+      "tags": [
+        "communication",
+        "transparency",
+        "ux"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Complex changes (touching 3+ files) should be preceded by an explanation to the user.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:dafa7ef818d0ca1f4840b2fba691b515d0f9af30c0d671df1199634b4f176a38",
+      "file": "explain_before_complex_change.json"
+    },
+    {
+      "id": "files_modified_consistent",
+      "name": "Files Modified Consistent",
+      "category": "structural",
+      "severity": "warning",
+      "domain": "general",
+      "tags": [
+        "consistency",
+        "files",
+        "integrity"
+      ],
+      "language_level": "structural",
+      "description": "The files_modified list must match the actual files changed by code-modifying actions.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f2c126c87c7eaa199b00b2b71ad73b0d75db5f04da69342e62063b24d01bfd92",
+      "file": "files_modified_consistent.json"
+    },
+    {
+      "id": "form_validation_complete",
+      "name": "Form Validation Complete",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "javascript-ui",
+      "tags": [
+        "decomposition",
+        "edge-cases",
+        "forms",
+        "ux",
+        "validation"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Form validation logic should be formalized and decomposed to ensure all field combinations are handled — no valid input rejected, no invalid input accepted.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:bc0b0496f932237856a059eb4f6b788e92643afbc82d0bda2002fbff5548cca8",
+      "file": "form_validation_complete.json"
+    },
+    {
+      "id": "formalize_before_verify",
+      "name": "Formalize Before Verify",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "formal-reasoning",
+      "tags": [
+        "formal-verification",
+        "ordering",
+        "reasoning"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Verification goals must be preceded by a formalization step that produced the model being verified.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:1a4a71925c451e723a3908d32726154810dade91c9a56de3dec384307418e80c",
+      "file": "formalize_before_verify.json"
+    },
+    {
+      "id": "generated_tests_require_decomposition",
+      "name": "Generated Tests Require Decomposition",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "formal-reasoning",
+      "tags": [
+        "coverage",
+        "decomposition",
+        "formal-verification",
+        "testing"
+      ],
+      "language_level": "structural",
+      "description": "Generated test artifacts must derive from a Decomposition artifact in their lineage.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:230757661d4278cbac4e400634ee8437cf76d8fc6b976b30e70b2cb740568384",
+      "file": "generated_tests_require_decomposition.json"
+    },
+    {
+      "id": "goals_reference_valid_artifacts",
+      "name": "Goals Reference Valid Artifacts",
+      "category": "structural",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "integrity",
+        "references",
+        "verification"
+      ],
+      "language_level": "structural",
+      "description": "Every VerificationGoal must reference a valid IMLModel via its target_artifact_id field.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:9e371afc9024e3ae40bc2db45d2c17f36ce0ea1a2766f0d2f491215e0e4706ad",
+      "file": "goals_reference_valid_artifacts.json"
+    },
+    {
+      "id": "lint_before_commit",
+      "name": "Lint Before Commit",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "general",
+      "tags": [
+        "ci",
+        "linting",
+        "quality"
+      ],
+      "language_level": "pure_temporal",
+      "description": "A linter should run before any commit to catch style and quality issues.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:028e81754b9256ccdbe68dba243d5e14202b1ec6c1150136e7df076b0336d918",
+      "file": "lint_before_commit.json"
+    },
+    {
+      "id": "no_force_push",
+      "name": "No Force Push",
+      "category": "safety",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "destructive",
+        "git",
+        "safety"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Force push to shared branches is prohibited. Agents must never rewrite published history.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ae298138cd5de74b8eaa5b3affc9f8cffadd587ce1964a8b1f3ac776f9beecc3",
+      "file": "no_force_push.json"
+    },
+    {
+      "id": "no_secrets_committed",
+      "name": "No Secrets Committed",
+      "category": "security",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "git",
+        "secrets",
+        "security"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Files matching secret patterns (.env, credentials, private keys) must never be included in commits.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ea2bbdca307416bd4ad9a50eb8cfe2c1a560520de04683ca70c78041a0eb0a7d",
+      "file": "no_secrets_committed.json"
+    },
+    {
+      "id": "pci_compliance_review",
+      "name": "PCI Compliance Review",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "payments",
+      "tags": [
+        "compliance",
+        "formal-verification",
+        "payments",
+        "pci",
+        "regulated"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Changes to payment card processing code must be preceded by formal reasoning that verifies PCI DSS compliance constraints — no card data in logs, encryption at rest, tokenization of PANs.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f7050d8b2622ac6e6e22fcf70b5d3cb0875d5f81f1b74438eb7d8290c4b886ad",
+      "file": "pci_compliance_review.json"
+    },
+    {
+      "id": "plaid_token_lifecycle_conformance",
+      "name": "Plaid Token Lifecycle Conformance",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "payments",
+      "tags": [
+        "conformance",
+        "payments",
+        "plaid",
+        "reference-model",
+        "token-lifecycle"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Code handling Plaid Link tokens must be verified against the Plaid Link Reference Model — token exchange only after successful link, proper expiration handling.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:99deddc993abbcdf53f85b19fe2457fce4107c17d2acf37c0146ca67cfaf3298",
+      "file": "plaid_token_lifecycle_conformance.json"
+    },
+    {
+      "id": "react_effect_cleanup_verified",
+      "name": "React Effect Cleanup Verified",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "react",
+      "tags": [
+        "cleanup",
+        "formal-verification",
+        "memory-leak",
+        "react",
+        "useEffect"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "React useEffect hooks with subscriptions or timers should have their cleanup logic formally verified to prevent memory leaks.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:d94f2881372bc37187d4e209d488e2cdc8a47c81f37ef8bb5affe8ee21b673a4",
+      "file": "react_effect_cleanup_verified.json"
+    },
+    {
+      "id": "reasoning_required_for_high_stakes",
+      "name": "Reasoning Required for High-Stakes Changes",
+      "category": "safety",
+      "severity": "error",
+      "domain": "formal-reasoning",
+      "tags": [
+        "formal-verification",
+        "high-stakes",
+        "reasoning",
+        "safety"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Edits to high-stakes modules (payments, risk, matching) must be preceded by formal reasoning in the artifact dependency chain.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:67af60fd13d74e019495490f8b3cca8d531dd4b8d0fda7e54457b956ec66a9ba",
+      "file": "reasoning_required_for_high_stakes.json"
+    },
+    {
+      "id": "reducer_action_coverage",
+      "name": "Reducer Action Coverage",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "react",
+      "tags": [
+        "coverage",
+        "decomposition",
+        "reducer",
+        "redux",
+        "useReducer"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Redux/useReducer reducers should be decomposed to verify that every action type is handled and produces a valid state.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:2a6099945ab126a870303d3e6076379c9a9de803274b6f7f2adcb06158009ce9",
+      "file": "reducer_action_coverage.json"
+    },
+    {
+      "id": "regulated_change_audit_trail",
+      "name": "Regulated Change Audit Trail",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "approval",
+        "audit-trail",
+        "compliance",
+        "hipaa",
+        "regulated",
+        "sox"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Changes to regulated systems must have a complete audit trail: research action, formal reasoning, user approval, test pass, and commit — all with rationale.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:7971136a449ec1cf5009cd76995d63163f3266beaae29675c408190e2d6d4082",
+      "file": "regulated_change_audit_trail.json"
+    },
+    {
+      "id": "research_before_edit",
+      "name": "Research Before Edit",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "general",
+      "tags": [
+        "best-practice",
+        "editing",
+        "research"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Every edit must be preceded by at least one research action (read, search, analyze) on the same target file.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:796eab76f49f96950810795248ae41d0b625196e03e7e29719e143bdc939e354",
+      "file": "research_before_edit.json"
+    },
+    {
+      "id": "route_guard_complete",
+      "name": "Route Guard Complete",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "javascript-ui",
+      "tags": [
+        "auth",
+        "authorization",
+        "decomposition",
+        "guards",
+        "routing",
+        "security"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Route guards (auth checks, role checks, feature flags) must be decomposed to verify that all route × auth-state combinations are handled correctly.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:a7b87c1690be2a243940715770841396bd5494846dfae7361778023a55554d62",
+      "file": "route_guard_complete.json"
+    },
+    {
+      "id": "stripe_conformance_required",
+      "name": "Stripe Conformance Required",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "payments",
+      "tags": [
+        "conformance",
+        "payments",
+        "reference-model",
+        "stripe"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Formalizations of Stripe payment code must be verified against the Stripe Payment Reference Model.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:24ce45423c13050f28ef4093925c88150c24c94327e710077c9452775b4126d1",
+      "file": "stripe_conformance_required.json"
+    },
+    {
+      "id": "tests_before_commit",
+      "name": "Tests Before Commit",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "ci",
+        "git",
+        "testing"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Every commit must be preceded by a successful test run.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5474ee02faa6cc6b381cddd18e388b940d8ce016857e1fb04fa5ea0a75eea745",
+      "file": "tests_before_commit.json"
+    },
+    {
+      "id": "tests_pass_before_commit",
+      "name": "Tests Pass Before Commit",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "ci",
+        "git",
+        "testing"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "The most recent test run before each commit must have passed. A failed run followed by a successful re-run satisfies this policy.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:bacc0b6e160503fc9aa26cbd6235d3e148319026be3e4b69e309db2e50d3ba16",
+      "file": "tests_pass_before_commit.json"
+    },
+    {
+      "id": "trace_has_proper_lifecycle",
+      "name": "Trace Has Proper Lifecycle",
+      "category": "structural",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "completeness",
+        "lifecycle",
+        "structure"
+      ],
+      "language_level": "pure_temporal",
+      "description": "The trace must have both a start event (trigger) and eventually reach an end event (outcome).",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:c649bf2365691dc0b177fa5a68ac2a69baa3a670f6d8596141aa3754825da7ce",
+      "file": "trace_has_proper_lifecycle.json"
+    },
+    {
+      "id": "two_person_approval_for_infra",
+      "name": "Two-Person Approval for Infrastructure",
+      "category": "safety",
+      "severity": "error",
+      "domain": "general",
+      "tags": [
+        "approval",
+        "audit",
+        "iam",
+        "infrastructure",
+        "safety",
+        "two-person"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Infrastructure changes (database migrations, IAM policies, network configs) require approval from two distinct users before execution.",
+      "version": "1.0.0",
+      "reference_compiler": "unsupported",
+      "hash": "sha256:cd000e4fdcbe1594266a416ddbd7e7e1f09548bfcffbe0fb674629bcbb8383e5",
+      "file": "two_person_approval_for_infra.json"
+    },
+    {
+      "id": "type_check_before_commit",
+      "name": "Type Check Before Commit",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "general",
+      "tags": [
+        "ci",
+        "quality",
+        "type-checking"
+      ],
+      "language_level": "pure_temporal",
+      "description": "A type checker should run before any commit for typed languages.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b638b07124325f146b8fd02ff3a788cc3b8a91ac135291a5ea343abc0716360c",
+      "file": "type_check_before_commit.json"
+    },
+    {
+      "id": "ui_state_machine_decomposed",
+      "name": "UI State Machine Decomposed",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "javascript-ui",
+      "tags": [
+        "decomposition",
+        "edge-cases",
+        "state-machine",
+        "testing",
+        "ui"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Complex UI state machines (5+ states) should be decomposed into regions to generate exhaustive edge case tests.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b83d736baffcceb29e716557c615992ae9a74c763a52ee97609c125507c7e84c",
+      "file": "ui_state_machine_decomposed.json"
+    },
+    {
+      "id": "xstate_deadlock_free",
+      "name": "XState Deadlock Free",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "xstate",
+      "tags": [
+        "deadlock",
+        "formal-verification",
+        "liveness",
+        "ux",
+        "xstate"
+      ],
+      "language_level": "pure_temporal",
+      "description": "XState machines must be verified to be deadlock-free — every non-final state must have at least one enabled transition.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f4b4d4ff9251a99ad21d378c31aa086939727875d85cdbcf9878e471dd4bb83b",
+      "file": "xstate_deadlock_free.json"
+    },
+    {
+      "id": "xstate_guards_verified",
+      "name": "XState Guards Verified",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "xstate",
+      "tags": [
+        "completeness",
+        "formal-verification",
+        "guards",
+        "xstate"
+      ],
+      "language_level": "pure_temporal",
+      "description": "Guard conditions in XState machines must be formally verified to ensure they partition the event space completely — no unhandled cases.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ce125983f6e3ed6b45fed170903d41b02769601a4c6a065d98cc9a1373b8d50f",
+      "file": "xstate_guards_verified.json"
+    },
+    {
+      "id": "xstate_machine_formalized",
+      "name": "XState Machine Formalized",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "xstate",
+      "tags": [
+        "formalization",
+        "frontend",
+        "react",
+        "state-machine",
+        "xstate"
+      ],
+      "language_level": "scoped_temporal",
+      "description": "Any XState state machine definition must be formalized into IML before the component using it is edited.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:12add7da608cb1a7d89764780951d1f242e301e287893d79ab5ed6f89839bf4c",
+      "file": "xstate_machine_formalized.json"
+    },
+    {
+      "id": "xstate_reachability_checked",
+      "name": "XState Reachability Checked",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "xstate",
+      "tags": [
+        "dead-code",
+        "decomposition",
+        "reachability",
+        "xstate"
+      ],
+      "language_level": "pure_temporal",
+      "description": "All states in an XState machine should be reachable from the initial state. Unreachable states indicate dead code or design errors.",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:3f4d7822b45c4723b0d996d797173c6deaade6db9ed7f072f97145b91b8483f3",
+      "file": "xstate_reachability_checked.json"
+    }
+  ],
+  "categories": [
+    "auditability",
+    "communication",
+    "conformance",
+    "reasoning",
+    "safety",
+    "security",
+    "structural",
+    "workflow"
+  ],
+  "tags": [
+    "a11y",
+    "accessibility",
+    "animation",
+    "api",
+    "approval",
+    "aria",
+    "artifacts",
+    "async",
+    "audit",
+    "audit-trail",
+    "auth",
+    "authorization",
+    "backward-compatibility",
+    "best-practice",
+    "breaking-changes",
+    "bugs",
+    "ci",
+    "cleanup",
+    "communication",
+    "completeness",
+    "compliance",
+    "conformance",
+    "consistency",
+    "coverage",
+    "css",
+    "data-flow",
+    "data-preservation",
+    "database",
+    "dead-code",
+    "deadlock",
+    "decisions",
+    "decomposition",
+    "deployment",
+    "destructive",
+    "determinism",
+    "edge-cases",
+    "editing",
+    "files",
+    "fixes",
+    "formal-verification",
+    "formalization",
+    "forms",
+    "framer-motion",
+    "frontend",
+    "git",
+    "guards",
+    "high-stakes",
+    "hipaa",
+    "iam",
+    "infrastructure",
+    "integrity",
+    "lifecycle",
+    "linting",
+    "liveness",
+    "loading-states",
+    "memory-leak",
+    "migration",
+    "ordering",
+    "payments",
+    "pci",
+    "plaid",
+    "quality",
+    "rationale",
+    "reachability",
+    "react",
+    "reasoning",
+    "reducer",
+    "redux",
+    "reference-model",
+    "references",
+    "regulated",
+    "research",
+    "reversibility",
+    "routing",
+    "safety",
+    "secrets",
+    "security",
+    "sox",
+    "state-machine",
+    "stripe",
+    "structure",
+    "testing",
+    "token-lifecycle",
+    "transparency",
+    "two-person",
+    "type-checking",
+    "ui",
+    "useEffect",
+    "useReducer",
+    "ux",
+    "validation",
+    "verification",
+    "xstate"
+  ],
+  "domains": {
+    "general": {
+      "label": "General",
+      "color": "#6a7a8c",
+      "icon": "&#9881;",
+      "description": "Universal agent workflow and safety policies"
+    },
+    "formal-reasoning": {
+      "label": "Formal Reasoning",
+      "color": "#4838a0",
+      "icon": "&#129504;",
+      "description": "Policies governing the formal verification pipeline"
+    },
+    "payments": {
+      "label": "Payments",
+      "color": "#0a7a4a",
+      "icon": "&#128179;",
+      "description": "Payment processing and financial API conformance"
+    },
+    "xstate": {
+      "label": "XState",
+      "color": "#2563eb",
+      "icon": "&#9881;",
+      "description": "XState state machine formalization and verification"
+    },
+    "react": {
+      "label": "React",
+      "color": "#0098c8",
+      "icon": "&#9883;",
+      "description": "React component lifecycle and hook verification"
+    },
+    "javascript-ui": {
+      "label": "JavaScript UI",
+      "color": "#b82030",
+      "icon": "&#128736;",
+      "description": "Frontend UI logic, routing, forms, animations, accessibility"
+    }
+  }
+}

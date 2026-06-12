@@ -1,0 +1,28 @@
+{
+  "id": "pci_compliance_review",
+  "name": "PCI Compliance Review",
+  "category": "conformance",
+  "severity": "error",
+  "domain": "payments",
+  "description": "Changes to payment card processing code must be preceded by formal reasoning that verifies PCI DSS compliance constraints — no card data in logs, encryption at rest, tokenization of PANs.",
+  "formula": "G(EditFile ∧ pci_scope → P_chain(VerificationResult(proved) ∧ pci_constraints))",
+  "language_level": "scoped_temporal",
+  "rationale": "PCI DSS violations carry severe penalties. Formal verification against PCI constraints catches issues like accidental logging of card numbers that code review often misses.",
+  "tags": [
+    "pci",
+    "compliance",
+    "payments",
+    "regulated",
+    "formal-verification"
+  ],
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-04-05",
+  "downloads": 870,
+  "examples": {
+    "passes": "Formalize(paymentHandler) → Verify(no PAN in logs: proved) → EditFile(payment_handler.py)",
+    "fails": "EditFile(payment_handler.py) logging raw card data without prior PCI verification"
+  }
+}

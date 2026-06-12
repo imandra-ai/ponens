@@ -1,0 +1,27 @@
+{
+  "id": "xstate_reachability_checked",
+  "name": "XState Reachability Checked",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "All states in an XState machine should be reachable from the initial state. Unreachable states indicate dead code or design errors.",
+  "formula": "G(Formalize ∧ xstate_domain → F(Decompose ∧ all_states_reachable))",
+  "language_level": "pure_temporal",
+  "rationale": "Unreachable states waste code and confuse developers. Region decomposition reveals which states are actually reachable and what conditions lead to them.",
+  "tags": [
+    "xstate",
+    "reachability",
+    "dead-code",
+    "decomposition"
+  ],
+  "examples": {
+    "passes": "Decompose(authMachine) → all states appear in at least one region",
+    "fails": "State 'adminOverride' exists in the machine but no event sequence reaches it"
+  },
+  "domain": "xstate",
+  "author": {
+    "name": "Simon Cruanes",
+    "github": "simon-cruanes"
+  },
+  "date_added": "2026-03-18",
+  "downloads": 95
+}

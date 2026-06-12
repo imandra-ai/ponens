@@ -1,0 +1,29 @@
+{
+  "id": "regulated_change_audit_trail",
+  "name": "Regulated Change Audit Trail",
+  "category": "auditability",
+  "severity": "error",
+  "domain": "general",
+  "description": "Changes to regulated systems must have a complete audit trail: research action, formal reasoning, user approval, test pass, and commit — all with rationale.",
+  "formula": "G(GitCommit ∧ regulated_scope → P_chain(ReadFile) ∧ P_chain(Verify ∧ proved) ∧ P(UserApproval) ∧ P(RunTests ∧ completed))",
+  "language_level": "scoped_temporal",
+  "rationale": "SOX, HIPAA, and financial regulations require demonstrable evidence that changes were reviewed, tested, and approved. This policy makes the audit trail machine-checkable.",
+  "tags": [
+    "regulated",
+    "audit-trail",
+    "sox",
+    "hipaa",
+    "compliance",
+    "approval"
+  ],
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-04-05",
+  "downloads": 980,
+  "examples": {
+    "passes": "ReadFile → Formalize → Verify(proved) → UserApproval → RunTests(pass) → GitCommit",
+    "fails": "GitCommit to regulated module without formal verification in the dependency chain"
+  }
+}

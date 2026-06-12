@@ -1,0 +1,28 @@
+{
+  "id": "xstate_deadlock_free",
+  "name": "XState Deadlock Free",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "XState machines must be verified to be deadlock-free — every non-final state must have at least one enabled transition.",
+  "formula": "G(Formalize ∧ xstate_domain → F(Verify ∧ proved ∧ deadlock_free))",
+  "language_level": "pure_temporal",
+  "rationale": "A deadlocked state machine leaves the UI stuck with no way forward. This is especially critical for multi-step flows (checkout, onboarding, wizards) where users cannot recover without a page refresh.",
+  "tags": [
+    "xstate",
+    "deadlock",
+    "liveness",
+    "formal-verification",
+    "ux"
+  ],
+  "examples": {
+    "passes": "Formalize(wizardMachine) → Verify(no deadlocks: every non-final state has an outgoing transition)",
+    "fails": "A wizard machine where the 'review' state has no transitions when the cart is empty"
+  },
+  "domain": "xstate",
+  "author": {
+    "name": "Matt Bray",
+    "github": "mattjbray"
+  },
+  "date_added": "2026-04-05",
+  "downloads": 110
+}

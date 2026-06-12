@@ -1,0 +1,28 @@
+{
+  "id": "animation_state_deterministic",
+  "name": "Animation State Deterministic",
+  "category": "reasoning",
+  "severity": "info",
+  "description": "CSS/JS animation state machines should be verified to be deterministic — the same sequence of events always produces the same visual state.",
+  "formula": "G(Formalize ∧ animation_state → F(Verify ∧ deterministic))",
+  "language_level": "pure_temporal",
+  "rationale": "Non-deterministic animations cause visual glitches: elements stuck mid-transition, competing animations, or states that depend on timing. Verifying determinism ensures consistent UX.",
+  "tags": [
+    "animation",
+    "css",
+    "framer-motion",
+    "determinism",
+    "ux"
+  ],
+  "examples": {
+    "passes": "Formalize(modalAnimation: entering/entered/exiting/exited) → Verify(deterministic: proved)",
+    "fails": "Modal where rapid open/close produces a stuck half-opacity overlay"
+  },
+  "domain": "javascript-ui",
+  "author": {
+    "name": "Nicola Mometto",
+    "github": "nicola-mometto"
+  },
+  "date_added": "2026-03-20",
+  "downloads": 60
+}

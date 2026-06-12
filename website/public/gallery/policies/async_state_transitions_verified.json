@@ -1,0 +1,28 @@
+{
+  "id": "async_state_transitions_verified",
+  "name": "Async State Transitions Verified",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Async operations (API calls, file uploads) that drive UI state must have their transition logic formally verified — especially error and timeout paths.",
+  "formula": "G(Formalize ∧ async_state_machine → F(Verify ∧ (proved ∨ sat)))",
+  "language_level": "pure_temporal",
+  "rationale": "Async state machines (idle → loading → success/error) are deceptively simple but have subtle issues: race conditions, stale responses, retry logic. Formal verification ensures all paths terminate correctly.",
+  "tags": [
+    "async",
+    "state-machine",
+    "api",
+    "loading-states",
+    "formal-verification"
+  ],
+  "examples": {
+    "passes": "Formalize(fetchMachine: idle/loading/success/error/retrying) → Verify(all paths reach terminal state: proved)",
+    "fails": "Fetch machine where a retry after timeout can loop forever (liveness violation)"
+  },
+  "domain": "javascript-ui",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "dignatovich"
+  },
+  "date_added": "2026-03-24",
+  "downloads": 270
+}

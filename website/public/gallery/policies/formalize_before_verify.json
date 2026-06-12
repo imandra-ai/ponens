@@ -1,0 +1,26 @@
+{
+  "id": "formalize_before_verify",
+  "name": "Formalize Before Verify",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Verification goals must be preceded by a formalization step that produced the model being verified.",
+  "formula": "G(DefineVG → P_chain Formalize)",
+  "language_level": "scoped_temporal",
+  "rationale": "You cannot verify properties of code that hasn't been formalized into a model first.",
+  "tags": [
+    "formal-verification",
+    "reasoning",
+    "ordering"
+  ],
+  "examples": {
+    "passes": "Formalize → DefineVG (with formalization in dependency chain)",
+    "fails": "DefineVG with no Formalize action in its artifact lineage"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Simon Cruanes",
+    "github": "simon-cruanes"
+  },
+  "date_added": "2026-04-03",
+  "downloads": 810
+}

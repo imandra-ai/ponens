@@ -1,0 +1,28 @@
+{
+  "id": "stripe_conformance_required",
+  "name": "Stripe Conformance Required",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Formalizations of Stripe payment code must be verified against the Stripe Payment Reference Model.",
+  "formula": "G(Formalize ∧ stripe_domain → P_chain(VerificationResult(proved) ∧ ref_model(ref_stripe_payments)))",
+  "language_level": "scoped_temporal",
+  "rationale": "Payment processing code must conform to the canonical Stripe API state machine. The agent's formalization must be proved to be a valid refinement of the reference model.",
+  "tags": [
+    "conformance",
+    "stripe",
+    "payments",
+    "reference-model"
+  ],
+  "reference_model": "ref_stripe_payments",
+  "examples": {
+    "passes": "Formalize → DefineVG(conformance) → Verify(proved against Stripe ref model)",
+    "fails": "Formalize of Stripe code without conformance verification"
+  },
+  "domain": "payments",
+  "author": {
+    "name": "Nicola Mometto",
+    "github": "nicola-mometto"
+  },
+  "date_added": "2026-03-28",
+  "downloads": 920
+}

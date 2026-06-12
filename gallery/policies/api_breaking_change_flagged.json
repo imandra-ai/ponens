@@ -1,0 +1,27 @@
+{
+  "id": "api_breaking_change_flagged",
+  "name": "API Breaking Change Flagged",
+  "category": "safety",
+  "severity": "error",
+  "domain": "general",
+  "description": "Changes to public API endpoints must be formally checked for backward compatibility. Breaking changes must be explicitly approved.",
+  "formula": "G(EditFile ∧ api_endpoint → P_chain(Verify ∧ (proved ∧ backward_compatible) ∨ (refuted ∧ P UserApproval)))",
+  "language_level": "scoped_temporal",
+  "rationale": "Unintentional API breaking changes cause downstream failures. Formal verification of the API contract catches field removals, type changes, and semantic shifts.",
+  "tags": [
+    "api",
+    "backward-compatibility",
+    "breaking-changes",
+    "formal-verification"
+  ],
+  "author": {
+    "name": "Matt Bray",
+    "github": "mattjbray"
+  },
+  "date_added": "2026-04-04",
+  "downloads": 420,
+  "examples": {
+    "passes": "Formalize(GET /users response) → Verify(backward compatible: proved) → EditFile(users_api.py)",
+    "fails": "Removing a required field from the API response without verification or approval"
+  }
+}

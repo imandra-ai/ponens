@@ -1,0 +1,17 @@
+{
+  "name": "ponens-website",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "sync-gallery": "node scripts/sync-gallery.mjs",
+    "predev": "npm run sync-gallery",
+    "dev": "astro dev",
+    "prebuild": "npm run sync-gallery",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^5.0.0"
+  }
+}

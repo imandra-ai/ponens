@@ -1,0 +1,28 @@
+{
+  "id": "ui_state_machine_decomposed",
+  "name": "UI State Machine Decomposed",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "Complex UI state machines (5+ states) should be decomposed into regions to generate exhaustive edge case tests.",
+  "formula": "G(Formalize ∧ ui_state_machine ∧ complex → F(Decompose))",
+  "language_level": "pure_temporal",
+  "rationale": "Manual testing of state machines is error-prone because the number of paths grows exponentially. Region decomposition by ImandraX finds every distinct execution path and generates a test for each.",
+  "tags": [
+    "state-machine",
+    "decomposition",
+    "edge-cases",
+    "testing",
+    "ui"
+  ],
+  "examples": {
+    "passes": "Formalize(checkoutMachine, 8 states) → Decompose(47 regions) → GenerateTests(47 tests)",
+    "fails": "Complex state machine with 12 states but no decomposition performed"
+  },
+  "domain": "javascript-ui",
+  "author": {
+    "name": "Nicola Mometto",
+    "github": "nicola-mometto"
+  },
+  "date_added": "2026-04-04",
+  "downloads": 290
+}

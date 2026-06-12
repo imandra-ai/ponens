@@ -1,0 +1,31 @@
+name: Validate policy gallery
+
+on:
+  pull_request:
+    paths:
+      - "gallery/policies/**"
+      - "scripts/build_index.py"
+      - ".github/workflows/validate-gallery.yml"
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The reference compiler lives in the ponens CLI. Installing it lets the
+      # build verify each formula against the compiler and stamp per-policy
+      # `reference_compiler` status. If this step is removed, validation still
+      # runs (schema, consistency, staleness) but compiler checks are skipped.
+      - name: Install reference compiler (optional)
+        continue-on-error: true
+        run: pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
+
+      - name: Validate gallery and check catalog is up to date
+        run: python3 scripts/build_index.py --check

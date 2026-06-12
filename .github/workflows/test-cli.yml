@@ -1,0 +1,40 @@
+name: Test CLI
+
+on:
+  pull_request:
+    paths:
+      - "cli/**"
+      - "gallery/policies/**"
+      - ".github/workflows/test-cli.yml"
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the CLI
+        run: pip install -e ./cli pytest
+
+      - name: Unit tests (offline)
+        run: cd cli && python3 -m pytest tests/unit -q
+
+      # Offline smoke test of the local toolchain (no TraceHub backend needed —
+      # the hub-integration tests in cli/tests/test_e2e.py require a running
+      # TraceHub server and are exercised against the pilot, not here).
+      - name: Local toolchain smoke test
+        run: |
+          ponens --version
+          export PONENS_REGISTRY_URL="file://$PWD/gallery/policies"
+          ponens registry update
+          ponens policies search testing --severity error
+          python3 -c "import json; t=json.load(open('examples/stripe_v1_1.json')); t['policies']=[]; t['policy_evaluations']=[]; json.dump(t, open('/tmp/t.json','w'))"
+          ponens policies add tests_before_commit --into /tmp/t.json
+          ponens policies add data_flow_integrity --into /tmp/t.json
+          ponens trace check /tmp/t.json

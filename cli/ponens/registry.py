@@ -1,5 +1,5 @@
 """Policy registry client — resolve, search, and load policies from one or more
-**sources**: the public gallery, a corporate TraceHub (future), or a local directory
+**sources**: the public gallery, a corporate hub (future), or a local directory
 of your own policies.
 
 Sources are declared in ``sources.toml`` (user-global ``~/.ponens/sources.toml`` and

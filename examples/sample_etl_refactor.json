@@ -1,0 +1,393 @@
+{
+  "trace_id": "trace-sample-etl-refactor",
+  "spec_version": "1.6",
+  "assistant": "ponens",
+  "model": "example-model",
+  "timestamp": "2026-06-14T12:00:00Z",
+  "title": "Refactor the CSV transform with conformance coverage",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "split the monolithic transform_rows and add tests so the refactor is safe"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "etl/transform.py",
+      "rationale": "Read the CSV transform before splitting it.",
+      "inputs": [],
+      "outputs": [
+        "a1"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "SearchCode",
+      "category": "reasoning",
+      "label": "callers of transform_rows",
+      "rationale": "Find every caller so the refactor is safe.",
+      "inputs": [
+        "a1"
+      ],
+      "outputs": [
+        "a2"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "ExclusiveDecision",
+      "category": "gateway",
+      "label": "Streaming vs batch rewrite",
+      "rationale": "Batch fits in memory for current volumes; chose batch for simplicity, noted the limit.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "options": [
+        {
+          "label": "Batch (current)",
+          "chosen": true
+        },
+        {
+          "label": "Streaming",
+          "chosen": false,
+          "rejected_because": "premature for current volumes"
+        }
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "EditFile",
+      "category": "activity",
+      "label": "etl/transform.py",
+      "rationale": "Split transform_rows into parse / normalize / emit.",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a3"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "etl/transform.py"
+        }
+      ],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 5,
+      "type": "Decompose",
+      "category": "reasoning",
+      "label": "Decompose transform by column type",
+      "rationale": "Region-split inputs by column dtype to generate conformance tests.",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a4"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 6,
+      "type": "GenerateTests",
+      "category": "activity",
+      "label": "Generate conformance tests",
+      "rationale": "One golden-row test per column-type region.",
+      "inputs": [
+        "a4"
+      ],
+      "outputs": [
+        "a5"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 7,
+      "type": "RunTests",
+      "category": "activity",
+      "label": "pytest etl -q",
+      "rationale": "Run the conformance suite against golden fixtures.",
+      "inputs": [
+        "a5"
+      ],
+      "outputs": [
+        "a6"
+      ],
+      "evidence": [],
+      "detail": "pytest etl -q",
+      "result_summary": "40 passed",
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 8,
+      "type": "GitCommit",
+      "category": "activity",
+      "label": "commit: split transform_rows",
+      "rationale": "Land the refactor with conformance coverage.",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [],
+      "evidence": [],
+      "detail": "git commit -m 'etl: split transform_rows + conformance tests'",
+      "meta_action_id": "m4"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Map the transform and its callers",
+      "intent": "Refactor safely \u2014 know every caller",
+      "action_ids": [
+        1,
+        2
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a1",
+        "a2"
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Choose batch over streaming",
+      "intent": "Scope the rewrite to current volumes",
+      "action_ids": [
+        3
+      ],
+      "source": "turn_segmented",
+      "residual_ids": [
+        "r1"
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Refactor and cover with conformance tests",
+      "intent": "Split the function, generate golden-row tests per column type",
+      "action_ids": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a3",
+        "a4",
+        "a5",
+        "a6"
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Commit",
+      "intent": "Land the refactor",
+      "action_ids": [
+        8
+      ],
+      "source": "turn_segmented"
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Split transform_rows into parse/normalize/emit, generated conformance tests per column type, 40 pass."
+  },
+  "artifacts": [
+    {
+      "artifact_id": "a1",
+      "artifact_type": "SourceCode",
+      "name": "transform.py (monolith)",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "a2",
+      "artifact_type": "AnalysisNote",
+      "name": "3 callers, all batch",
+      "producer_action_id": 2,
+      "derived_from": [
+        "a1"
+      ]
+    },
+    {
+      "artifact_id": "a3",
+      "artifact_type": "Diff",
+      "name": "split transform_rows",
+      "producer_action_id": 4,
+      "derived_from": [
+        "a2"
+      ]
+    },
+    {
+      "artifact_id": "a4",
+      "artifact_type": "Decomposition",
+      "name": "column-type regions",
+      "producer_action_id": 5,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "target_artifact_id": "a3",
+        "target_function": "transform_rows",
+        "complete": true,
+        "regions": [
+          {
+            "id": "c1",
+            "constraint": "dtype = int"
+          },
+          {
+            "id": "c2",
+            "constraint": "dtype = str"
+          },
+          {
+            "id": "c3",
+            "constraint": "dtype = date"
+          },
+          {
+            "id": "c4",
+            "constraint": "null"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a5",
+      "artifact_type": "GeneratedTests",
+      "name": "conformance suite",
+      "producer_action_id": 6,
+      "derived_from": [
+        "a4"
+      ],
+      "payload": {
+        "function": "transform_rows",
+        "language": "python",
+        "source_decomposition_artifact_id": "a4",
+        "tests": [
+          {
+            "name": "test_int_columns"
+          },
+          {
+            "name": "test_str_columns"
+          },
+          {
+            "name": "test_date_columns"
+          },
+          {
+            "name": "test_nulls_passthrough"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a6",
+      "artifact_type": "CommandResult",
+      "name": "pytest: 40 passed",
+      "producer_action_id": 7,
+      "derived_from": [
+        "a5"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "p1",
+      "name": "research_before_edit",
+      "description": "Every edit is preceded by research",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
+    },
+    {
+      "policy_id": "p2",
+      "name": "all_decisions_justified",
+      "description": "Every decision records its rationale",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
+    },
+    {
+      "policy_id": "p3",
+      "name": "data_flow_integrity",
+      "description": "Every consumed artifact has a producer",
+      "severity": "error",
+      "scope": "action",
+      "kind": "structural",
+      "formula": "data_flow_integrity"
+    },
+    {
+      "policy_id": "p4",
+      "name": "generated_tests_require_decomposition",
+      "description": "Generated tests derive from a decomposition",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "structural",
+      "formula": "generated_tests_require_decomposition"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "p1",
+      "status": "passed",
+      "note": "edit #4 preceded by read #1 / search #2"
+    },
+    {
+      "policy_id": "p2",
+      "status": "passed",
+      "note": "decision #3 records its rationale"
+    },
+    {
+      "policy_id": "p3",
+      "status": "passed",
+      "note": "DAG well-formed"
+    },
+    {
+      "policy_id": "p4",
+      "status": "passed",
+      "note": "a5 derives from decomposition a4"
+    }
+  ],
+  "residuals": [
+    {
+      "residual_id": "r1",
+      "kind": "limitation",
+      "severity": "medium",
+      "status": "acknowledged",
+      "source": "agent_declared",
+      "statement": "Batch transform assumes the file fits in memory; will need streaming above ~2GB.",
+      "target": {
+        "target_type": "action",
+        "target_id": 3
+      },
+      "suggested_check": "Add a size guard that fails fast above the batch threshold.",
+      "introduced_by_action_id": 3
+    },
+    {
+      "residual_id": "r2",
+      "kind": "unverified",
+      "severity": "low",
+      "status": "open",
+      "source": "agent_declared",
+      "statement": "Timezone handling for date columns relies on the fixtures' implicit UTC; not asserted.",
+      "suggested_check": "Add a test with a non-UTC date column."
+    }
+  ],
+  "files_modified": [
+    "etl/transform.py"
+  ],
+  "metrics": {
+    "total_actions": 8,
+    "meta_action_count": 4
+  }
+}

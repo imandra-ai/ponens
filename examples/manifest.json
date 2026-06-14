@@ -1,0 +1,47 @@
+{
+  "description": "Canonical sample traces. This directory is the single source of truth for the demo set: the viewer dropdown, the website, and CI all read from here. CI validates every *.json against the CLI on each build (.github/workflows/validate-samples.yml).",
+  "samples": [
+    {
+      "file": "sample_payment_idempotency.json",
+      "name": "Payment Idempotency (proved)",
+      "spec": "1.6",
+      "summary": "Prove payment capture is idempotent, then implement it. Meta-actions, full lineage, a machine-checked proof, generated tests."
+    },
+    {
+      "file": "sample_auth_xstate.json",
+      "name": "Auth State Machine (reachability)",
+      "spec": "1.6",
+      "summary": "Model ad-hoc auth booleans as an explicit state machine and prove every state is reachable."
+    },
+    {
+      "file": "sample_etl_refactor.json",
+      "name": "ETL Refactor (conformance)",
+      "spec": "1.6",
+      "summary": "Refactor a CSV transform with generated conformance tests — lineage without formal proofs."
+    },
+    {
+      "file": "stripe_v1_1.json",
+      "name": "Stripe Payment Flow",
+      "spec": "1.5",
+      "summary": "The flagship: 14 amount-invariant properties proved/refuted over a real payment state machine."
+    },
+    {
+      "file": "form_validation_v1_1.json",
+      "name": "Form Validation",
+      "spec": "1.1",
+      "summary": "Form validation logic with verified state transitions."
+    },
+    {
+      "file": "api_pagination_v1_1.json",
+      "name": "API Pagination",
+      "spec": "1.1",
+      "summary": "Cursor pagination correctness."
+    },
+    {
+      "file": "cart_reducer_v1_1.json",
+      "name": "Cart Reducer",
+      "spec": "1.1",
+      "summary": "Shopping-cart reducer action coverage."
+    }
+  ]
+}

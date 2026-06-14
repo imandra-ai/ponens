@@ -1,0 +1,122 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Writing policies — ponens">
+  <article class="prose">
+    <p class="spec-back"><a href="/docs">← Docs</a></p>
+    <h1>Writing policies</h1>
+    <p>A <strong>policy</strong> is a formula checked over a trace. ponens evaluates it and returns
+      pass / fail with an exit code. Policies live in the public <a href="/gallery">gallery</a> or in
+      your own <strong>local source</strong> — this page covers the formula language and how to write,
+      add, and check your own.</p>
+
+    <h2>The policy object</h2>
+    <p>A policy is a JSON file named <code>&lt;id&gt;.json</code>:</p>
+    <pre><code>{`{
+  "id": "tests_before_commit",          // snake_case, must match the filename
+  "name": "Tests Before Commit",
+  "category": "workflow",               // see categories below
+  "severity": "error",                  // error | warning | info
+  "description": "Every commit must be preceded by a successful test run.",
+  "formula": "G(GitCommit → P(RunTests ∧ completed))",
+  "language_level": "pure_temporal",    // pure_temporal | scoped_temporal | structural
+  "rationale": "Prevents untested code from entering the repository.",
+  "tags": ["ci", "testing", "git"],
+  "domain": "general",
+  "examples": {
+    "passes": "ReadFile → RunTests(pass) → EditFile → RunTests(pass) → GitCommit",
+    "fails":  "ReadFile → EditFile → GitCommit (no test run before commit)"
+  }
+}`}</code></pre>
+
+    <h2>The formula language</h2>
+    <p>Formulas are written over the trace's ordered <em>actions</em>, its <em>artifacts</em>, and its
+      <a href="/spec">residual surface</a>. Operators may be written with unicode or ASCII
+      (<code>→</code>/<code>-&gt;</code>, <code>∧</code>/<code>/\</code>, <code>∨</code>/<code>\/</code>,
+      <code>¬</code>/<code>!</code>, <code>≠</code>/<code>!=</code>, <code>∅</code>/<code>EMPTY</code>).</p>
+
+    <h3>Atoms (what holds at an action)</h3>
+    <ul>
+      <li><strong>Action types</strong> — <code>ReadFile</code>, <code>EditFile</code>, <code>RunTests</code>,
+        <code>GitCommit</code>, <code>Formalize</code>, <code>Verify</code>, <code>Decompose</code>,
+        <code>GenerateTests</code>, … (true when the current action is of that type)</li>
+      <li><strong>Artifact types</strong> — <code>VerificationResult</code>, <code>Decomposition</code>,
+        <code>GeneratedTests</code>, <code>IMLModel</code>, … (true when the action produces such an artifact)</li>
+      <li><strong>Categories</strong> — <code>reasoning</code>, <code>gateway</code>, <code>activity</code>; and <code>action</code> (any)</li>
+      <li><strong>Predicates</strong> — <code>completed</code>, <code>failed</code>, <code>proved</code>,
+        <code>refuted</code>, <code>sat</code>, <code>high_stakes_path</code></li>
+      <li><strong>Lifecycle</strong> — <code>start_event</code>, <code>end_event</code></li>
+      <li><strong>Field non-empty</strong> — e.g. <code>rationale ≠ ∅</code></li>
+    </ul>
+
+    <h3>Temporal operators</h3>
+    <table>
+      <tr><th>Operator</th><th>Meaning</th></tr>
+      <tr><td><code>G φ</code></td><td>globally — φ holds at every action</td></tr>
+      <tr><td><code>F φ</code></td><td>finally — φ holds at some action</td></tr>
+      <tr><td><code>P φ</code></td><td>previously — φ held at some earlier action</td></tr>
+      <tr><td><code>H φ</code></td><td>historically — φ held at every earlier action</td></tr>
+      <tr><td><code>X φ</code></td><td>next — φ holds at the immediately following action</td></tr>
+      <tr><td><code>φ U ψ</code></td><td>until — ψ holds eventually, and φ holds until then</td></tr>
+      <tr><td><code>φ S ψ</code></td><td>since — ψ held in the past, and φ has held since</td></tr>
+    </table>
+
+    <h3>Scoped operators (lineage-aware)</h3>
+    <table>
+      <tr><th>Operator</th><th>Meaning</th></tr>
+      <tr><td><code>P_target φ</code></td><td>some earlier action sharing the same <em>target</em> satisfied φ</td></tr>
+      <tr><td><code>P_chain φ</code></td><td>some earlier action in the <em>dependency chain</em> satisfied φ</td></tr>
+    </table>
+
+    <h3>Quantifying over the residual surface</h3>
+    <p>Policies can govern a trace's declared negative space with <code>∀</code> / <code>∃</code> over
+      <code>residuals</code>, with field access on the bound variable:</p>
+    <pre><code>{`¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open
+∀ r ∈ residuals . r.kind = Unverified → r.suggested_check ≠ ∅`}</code></pre>
+    <p>Fields: <code>r.kind</code>, <code>r.severity</code>, <code>r.status</code>, <code>r.target</code>,
+      <code>r.suggested_check</code>, <code>r.related_artifact_ids</code>. Severity is ordered
+      (<code>info &lt; low &lt; medium &lt; high &lt; critical</code>), so <code>r.severity ≥ High</code> works.</p>
+
+    <h2>Worked examples</h2>
+    <pre><code>{`# pure temporal — tests before commit
+G(GitCommit → P(RunTests ∧ completed))
+
+# scoped — research before edit
+G(EditFile → P_target(ReadFile ∨ AnalyzeCode ∨ SearchCode))
+
+# reasoning required for high-stakes edits
+G(EditFile ∧ high_stakes_path → P_chain(VerificationResult ∨ Decomposition))
+
+# residual surface — no open critical gap at approval
+¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open`}</code></pre>
+
+    <h2>Write your own & use it</h2>
+    <ol>
+      <li>Create <code>.ponens/policies/my_rule.json</code> using the shape above.</li>
+      <li>Register a local source:
+        <pre><code>{`ponens sources add team --type local --path .ponens/policies`}</code></pre>
+        (or add a <code>[[source]]</code> block to <code>.ponens/sources.toml</code>).</li>
+      <li>Find it, add it to a trace, and check:
+        <pre><code>{`ponens policies search my_rule          # shows source = team
+ponens policies add team/my_rule --into ./trace.json
+ponens trace check ./trace.json`}</code></pre></li>
+    </ol>
+    <p>The materialized policy carries its <strong>provenance</strong> (<code>source: team</code>) into the
+      trace, so a reviewer sees which source governed it.</p>
+
+    <h2>Validate as you go</h2>
+    <p><code>ponens trace check</code> compiles each formula and reports syntax/semantic errors before
+      evaluating. Unrecognized operators or unbalanced parentheses are caught there. Use
+      <code>ponens trace validate &lt;file&gt;</code> to check the trace's own structure.</p>
+
+    <h2>Reference</h2>
+    <p><strong>Categories:</strong> auditability, communication, conformance, reasoning, safety, security,
+      structural, workflow. &nbsp; <strong>Severities:</strong> error, warning, info.</p>
+    <p><strong>Language levels:</strong> <code>pure_temporal</code> (only temporal operators),
+      <code>scoped_temporal</code> (uses <code>P_target</code>/<code>P_chain</code>),
+      <code>structural</code> (quantifiers / first-order, incl. residual policies). The gallery records
+      whether the reference compiler can evaluate each formula. See the
+      <a href="/spec">Policy Specification</a> for the full grammar.</p>
+  </article>
+</Layout>

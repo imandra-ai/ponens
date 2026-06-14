@@ -29,12 +29,46 @@ from .policy_compiler import (
 # Trace I/O
 # ================================================================
 
+def _require_yaml():
+    try:
+        import yaml
+        return yaml
+    except ImportError:
+        print("Error: YAML support needs PyYAML — `pip install pyyaml` (or `pip install ponens[yaml]`).",
+              file=sys.stderr)
+        sys.exit(1)
+
+
+def _dump_yaml(trace):
+    """YAML with block scalars for multiline strings (readable embedded code)."""
+    yaml = _require_yaml()
+
+    def _str_rep(dumper, data):
+        style = '|' if '\n' in data else None
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style=style)
+
+    yaml.SafeDumper.add_representer(str, _str_rep)
+    return yaml.safe_dump(trace, sort_keys=False, allow_unicode=True, default_flow_style=False)
+
+
 def load_trace(path):
     if not os.path.exists(path):
         print(f"Error: trace file not found: {path}", file=sys.stderr)
         sys.exit(1)
     with open(path) as f:
-        return json.load(f)
+        text = f.read()
+    if path.endswith((".yaml", ".yml")):
+        yaml = _require_yaml()
+        try:
+            return yaml.safe_load(text)
+        except yaml.YAMLError as e:
+            print(f"Error: {path} is not valid YAML: {e}", file=sys.stderr)
+            sys.exit(1)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        print(f"Error: {path} is not valid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def save_trace(path, trace):
@@ -55,7 +89,7 @@ def save_trace(path, trace):
 # Trace Construction
 # ================================================================
 
-def create_empty_trace(model='claude-opus-4-6', assistant='claude-code + ponens'):
+def create_empty_trace(model='example-model', assistant='ponens'):
     return {
         'trace_id': f'trace-{uuid.uuid4().hex[:12]}',
         'spec_version': '1.1',
@@ -266,6 +300,40 @@ def evaluate_formula(node, trace, ctx=None):
             evaluate_formula(node.left, trace, {'action': b})
             for b in before if b['id'] > boundary
         )
+
+    if isinstance(node, Next):
+        # X φ: φ holds at the immediately following action (strong next: false at the end)
+        if not ctx:
+            return False
+        seq = sorted(trace.get('actions', []), key=lambda a: a['id'])
+        nxt = next((a for a in seq if a['id'] > ctx['action']['id']), None)
+        return False if nxt is None else evaluate_formula(node.body, trace, {**ctx, 'action': nxt})
+
+    if isinstance(node, Until):
+        # φ U ψ: ψ holds at some position k ≥ here, and φ holds at every position from here to k-1
+        seq = sorted(trace.get('actions', []), key=lambda a: a['id'])
+        start = 0 if not ctx else next((i for i, a in enumerate(seq) if a['id'] == ctx['action']['id']), None)
+        if start is None:
+            return False
+        for k in range(start, len(seq)):
+            if evaluate_formula(node.right, trace, {**(ctx or {}), 'action': seq[k]}):
+                if all(evaluate_formula(node.left, trace, {**(ctx or {}), 'action': seq[j]})
+                       for j in range(start, k)):
+                    return True
+        return False
+
+    if isinstance(node, Since):
+        # φ S ψ: ψ held at some position k ≤ here, and φ held at every position from k+1 to here
+        seq = sorted(trace.get('actions', []), key=lambda a: a['id'])
+        end = (len(seq) - 1) if not ctx else next((i for i, a in enumerate(seq) if a['id'] == ctx['action']['id']), None)
+        if end is None or end < 0:
+            return False
+        for k in range(end, -1, -1):
+            if evaluate_formula(node.right, trace, {**(ctx or {}), 'action': seq[k]}):
+                if all(evaluate_formula(node.left, trace, {**(ctx or {}), 'action': seq[j]})
+                       for j in range(k + 1, end + 1)):
+                    return True
+        return False
 
     if isinstance(node, Implies):
         left = evaluate_formula(node.left, trace, ctx)
@@ -636,8 +704,622 @@ def cmd_complete(args):
     return 0
 
 
+RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'open_question'}
+RESIDUAL_SEVERITIES = {'info', 'low', 'medium', 'high', 'critical'}
+RESIDUAL_STATUSES = {'open', 'acknowledged', 'addressed', 'waived'}
+META_SOURCES = {'plan_declared', 'turn_segmented', 'intent_inferred', 'curated'}
+META_STATUSES = {'completed', 'partial', 'abandoned'}
+
+
+def validate_trace(trace):
+    """Structural validation of a trace. Returns (errors, warnings).
+
+    Errors are malformations that make the trace unsound (wrong types, missing ids,
+    invalid enums). Warnings are incompleteness (no trigger/outcome/rationale) — fine
+    while a trace is being authored. This is a structural check, not full JSON-Schema
+    validation (the formal schema lives in spec/schema)."""
+    errors, warnings = [], []
+    if not isinstance(trace, dict):
+        return ["trace is not a JSON object"], []
+
+    if not (isinstance(trace.get('trace_id'), str) and trace.get('trace_id')):
+        errors.append("missing or non-string 'trace_id'")
+
+    actions = trace.get('actions', [])
+    if not isinstance(actions, list):
+        errors.append("'actions' must be a list")
+        actions = []
+    artifacts = trace.get('artifacts', [])
+    if not isinstance(artifacts, list):
+        errors.append("'artifacts' must be a list")
+        artifacts = []
+
+    seen = set()
+    for i, a in enumerate(actions):
+        if not isinstance(a, dict):
+            errors.append(f"action #{i} is not an object")
+            continue
+        aid = a.get('id')
+        if not isinstance(aid, int):
+            errors.append(f"action #{i} has missing/non-integer 'id'")
+        elif aid in seen:
+            errors.append(f"duplicate action id {aid}")
+        else:
+            seen.add(aid)
+        if not (isinstance(a.get('type'), str) and a.get('type')):
+            errors.append(f"action {aid}: missing 'type'")
+        if not a.get('rationale'):
+            warnings.append(f"action {aid}: no rationale")
+
+    for i, art in enumerate(artifacts):
+        if not isinstance(art, dict):
+            errors.append(f"artifact #{i} is not an object")
+            continue
+        if not art.get('artifact_id'):
+            errors.append(f"artifact #{i} missing 'artifact_id'")
+        if not art.get('artifact_type'):
+            errors.append(f"artifact {art.get('artifact_id', '?')}: missing 'artifact_type'")
+
+    if not (trace.get('trigger') or {}).get('type'):
+        warnings.append("trigger has no 'type' (trace may be incomplete)")
+    if not (trace.get('outcome') or {}).get('type'):
+        warnings.append("outcome has no 'type' (trace may be incomplete)")
+
+    for i, r in enumerate(trace.get('residuals', []) or []):
+        if not isinstance(r, dict):
+            errors.append(f"residual #{i} is not an object")
+            continue
+        rid = r.get('residual_id', f'#{i}')
+        if r.get('kind') and r['kind'] not in RESIDUAL_KINDS:
+            errors.append(f"residual {rid}: invalid kind '{r['kind']}'")
+        if r.get('severity') and r['severity'] not in RESIDUAL_SEVERITIES:
+            errors.append(f"residual {rid}: invalid severity '{r['severity']}'")
+        if r.get('status') and r['status'] not in RESIDUAL_STATUSES:
+            errors.append(f"residual {rid}: invalid status '{r['status']}'")
+
+    for i, p in enumerate(trace.get('policies', []) or []):
+        if not isinstance(p, dict):
+            errors.append(f"policy #{i} is not an object")
+            continue
+        if not (p.get('name') or p.get('policy_id')):
+            errors.append(f"policy #{i}: missing 'name'/'policy_id'")
+        if not p.get('formula'):
+            warnings.append(f"policy {p.get('name', i)}: no formula")
+
+    # Meta-action overlay (§8.4): well-formed, ids resolve, no action in two
+    # meta-actions, and the meta_action_id back-references stay consistent.
+    metas = trace.get('meta_actions', []) or []
+    meta_ids, claimed = set(), {}
+    for i, m in enumerate(metas):
+        if not isinstance(m, dict):
+            errors.append(f"meta_action #{i} is not an object")
+            continue
+        mid = m.get('id')
+        if not (isinstance(mid, str) and mid):
+            errors.append(f"meta_action #{i}: missing/non-string 'id'")
+        elif mid in meta_ids:
+            errors.append(f"duplicate meta_action id '{mid}'")
+        else:
+            meta_ids.add(mid)
+        if m.get('source') and m['source'] not in META_SOURCES:
+            errors.append(f"meta_action {mid}: invalid source '{m['source']}'")
+        if m.get('status') and m['status'] not in META_STATUSES:
+            errors.append(f"meta_action {mid}: invalid status '{m['status']}'")
+        member_ids = m.get('action_ids', [])
+        if not isinstance(member_ids, list):
+            errors.append(f"meta_action {mid}: 'action_ids' must be a list")
+            member_ids = []
+        for aid in member_ids:
+            if aid not in seen:
+                errors.append(f"meta_action {mid}: action_id {aid} does not exist")
+            elif aid in claimed:
+                errors.append(f"action {aid} is in two meta-actions ({claimed[aid]} and {mid})")
+            else:
+                claimed[aid] = mid
+        if member_ids and list(member_ids) != sorted(member_ids):
+            warnings.append(f"meta_action {mid}: action_ids are not in timeline order")
+    for m in metas:
+        if isinstance(m, dict) and m.get('parent_id') and m['parent_id'] not in meta_ids:
+            errors.append(f"meta_action {m.get('id')}: parent_id '{m['parent_id']}' does not exist")
+    for a in actions:
+        if not isinstance(a, dict):
+            continue
+        mref = a.get('meta_action_id')
+        if mref is None:
+            continue
+        if mref not in meta_ids:
+            errors.append(f"action {a.get('id')}: meta_action_id '{mref}' does not exist")
+        elif claimed.get(a.get('id')) != mref:
+            errors.append(f"action {a.get('id')}: meta_action_id '{mref}' disagrees with membership")
+
+    return errors, warnings
+
+
+def cmd_validate(args):
+    trace = load_trace(args.trace_file)
+    errors, warnings = validate_trace(trace)
+    for w in warnings:
+        print(f"  warning: {w}")
+    for e in errors:
+        print(f"  error:   {e}")
+    if errors:
+        print(f"\nInvalid trace: {len(errors)} error(s), {len(warnings)} warning(s).")
+        return 1
+    print(f"Valid trace ({len(warnings)} warning(s)).")
+    return 0
+
+
+def _grade_dimensions(trace):
+    """Score a trace on the dimensions that make it useful to a reviewer. Each
+    dimension is 0..1; weights sum to 100. Mechanical — no model involved."""
+    actions = trace.get("actions", []) or []
+    artifacts = trace.get("artifacts", []) or []
+    residuals = trace.get("residuals", []) or []
+    errors, _ = validate_trace(trace)
+    has_trigger = bool((trace.get("trigger") or {}).get("type"))
+    has_outcome = bool((trace.get("outcome") or {}).get("type"))
+    outcome_sum = (trace.get("outcome") or {}).get("summary", "") or ""
+
+    # 1. Structure — is it a sound, complete record?
+    struct = (0.4 if not errors else 0.0) + (0.3 if has_trigger else 0.0) + (0.3 if has_outcome else 0.0)
+    snote = f"{len(errors)} structural error(s)" if errors else ("valid; trigger + outcome present"
+            if has_trigger and has_outcome else "missing trigger/outcome")
+
+    # 2. Rationale coverage — are the steps explained at all? (coverage, NOT a
+    #    judgment of whether the reasoning is sound — that needs a reviewer/LLM-judge)
+    real = [a for a in actions if a.get("rationale") and len(a["rationale"]) >= 30
+            and not a["rationale"].startswith("(")]
+    rat_frac = len(real) / len(actions) if actions else 0.0
+    has_decisions = any(a.get("category") == "gateway" for a in actions)
+    reason = 0.7 * rat_frac + 0.15 * (1 if has_decisions else 0) + 0.15 * (1 if len(outcome_sum) >= 25 else 0)
+
+    # 3. Negative space — are the gaps declared?
+    if not residuals:
+        neg, nnote = 0.0, "no residuals declared"
+    else:
+        wc = sum(1 for r in residuals if r.get("suggested_check")) / len(residuals)
+        wt = sum(1 for r in residuals if r.get("target") or r.get("related_artifact_ids")) / len(residuals)
+        sd = min(len({r.get("severity") for r in residuals}) / 3, 1)
+        neg = 0.4 + 0.2 * wc + 0.2 * wt + 0.2 * sd
+        nnote = f"{len(residuals)} declared, {int(wc*100)}% with a suggested check"
+
+    # 4. Reproducibility — can a reviewer re-run / re-derive it?
+    cmdish = [a for a in actions if a.get("type") in
+              ("RunCommand", "RunTests", "GitDiff", "GitStatus", "GitCommit")]
+    repro_acts = [a for a in actions if a.get("reproducibility")]
+    repro_frac = (len(repro_acts) / len(cmdish)) if cmdish else 0.0
+    has_vgoals = any(a.get("artifact_type") in ("VerificationGoal", "VerificationResult") for a in artifacts)
+    base = max(repro_frac, 0.6 if has_vgoals else 0.0)
+    bound = bool(trace.get("commit_sha"))
+    repro = 0.5 * min(base, 1) + 0.25 * (1 if trace.get("reproducibility") else 0) + 0.25 * (1 if bound else 0)
+    rnote = f"{len(repro_acts)} replayable action(s)" + ("" if bound else "; not bound to a commit")
+
+    # 5. Verification evidence — was it actually checked? (substance)
+    art_types = {a.get("artifact_type") for a in artifacts}
+    has_proofs = "VerificationResult" in art_types
+    has_tests = ("GeneratedTests" in art_types) or any(
+        a.get("type") == "RunTests" and a.get("result_summary") for a in actions)
+    has_results = any(a.get("result_summary") for a in actions)
+    evidence = (0.5 if has_proofs else 0.0) + (0.25 if has_tests else 0.0) + (0.25 if has_results else 0.0)
+    parts = [n for n, ok in [("proofs", has_proofs), ("tests", has_tests), ("results", has_results)] if ok]
+    enote = ", ".join(parts) if parts else "no verification evidence"
+
+    # 6. Lineage / integrity — run the structural checks over the artifact DAG.
+    #    Only meaningful when there ARE artifacts; a vacuous pass earns no credit (N/A).
+    if artifacts:
+        checks = [evaluate_structural("data_flow_integrity", trace)]
+        if any(a.get("artifact_type") == "VerificationGoal" for a in artifacts):
+            checks.append(evaluate_structural("goals_reference_valid_artifacts", trace))
+        if any(a.get("artifact_type") == "GeneratedTests" for a in artifacts):
+            checks.append(evaluate_structural("generated_tests_require_decomposition", trace))
+        passed = sum(1 for c in checks if c)
+        lineage = {"name": "Lineage / integrity", "score": passed / len(checks), "weight": 15,
+                   "note": f"{passed}/{len(checks)} structural checks pass", "applicable": True}
+    else:
+        lineage = {"name": "Lineage / integrity", "score": 0.0, "weight": 15,
+                   "note": "0 artifacts — lineage not visualizable", "applicable": False}
+
+    return [
+        {"name": "Structure", "score": struct, "weight": 15, "note": snote},
+        {"name": "Rationale coverage", "score": reason, "weight": 20,
+         "note": f"{int(rat_frac*100)}% of actions carry a non-trivial rationale"},
+        {"name": "Negative space", "score": neg, "weight": 20, "note": nnote},
+        {"name": "Reproducibility", "score": repro, "weight": 20, "note": rnote},
+        {"name": "Verification evidence", "score": evidence, "weight": 25, "note": enote},
+        lineage,
+    ]
+
+
+def _policy_compliance(trace):
+    """Run the trace's attached policies — a separate compliance axis, NOT folded
+    into the quality grade (compliance is org-relative; quality is not)."""
+    policies = trace.get("policies", []) or []
+    if not policies:
+        return {"applicable": False}
+    passed, failed = 0, []
+    for p in policies:
+        status, _ = evaluate_policy(p, trace)
+        if status == "passed":
+            passed += 1
+        elif status == "failed":
+            failed.append(p.get("name", p.get("policy_id", "?")))
+    return {"applicable": True, "passed": passed, "total": len(policies), "failed": failed}
+
+
+def grade_trace(trace):
+    normalize_trace(trace)
+    dims = _grade_dimensions(trace)
+    applicable = [d for d in dims if d.get("applicable", True)]
+    total = sum(d["weight"] for d in applicable) or 1
+    overall = round(sum(d["score"] * d["weight"] for d in applicable) / total * 100)
+    letter = ("A" if overall >= 90 else "B" if overall >= 80 else "C" if overall >= 70
+              else "D" if overall >= 60 else "F")
+    by = {d["name"]: d["score"] for d in applicable}
+    suggestions = []
+    if by.get("Negative space", 1) < 0.5:
+        suggestions.append("Declare the gaps with `ponens trace residual add` (assumptions / unverified / out-of-scope / …)")
+    if by.get("Rationale coverage", 1) < 0.6:
+        suggestions.append("Thin rationale coverage — explain each step (emit captures it; or enrich by hand)")
+    if by.get("Reproducibility", 1) < 0.6:
+        suggestions.append("Record commands + expected output and `ponens bind` to a commit so it can be reproduced")
+    if by.get("Verification evidence", 1) < 0.5:
+        suggestions.append("No verification — run tests or prove key properties so the claims are checkable")
+    lineage_dim = next((d for d in dims if d["name"] == "Lineage / integrity"), None)
+    if lineage_dim and not lineage_dim.get("applicable", True):
+        suggestions.append("No artifacts — lineage isn't visualizable. Have the agent declare what it "
+                           "produced/consumed (and wire inputs/outputs) so the data flow shows in the viewer.")
+    elif by.get("Lineage / integrity", 1) < 1.0:
+        suggestions.append("Artifact lineage is broken — a consumed artifact has no valid producer (data flow integrity)")
+    compliance = _policy_compliance(trace)
+    if compliance.get("applicable") and compliance["failed"]:
+        suggestions.append(f"Policy compliance: failing {', '.join(compliance['failed'])} (governance gate, separate from quality)")
+    return {"overall": overall, "grade": letter, "dimensions": dims,
+            "applicable_weight": total, "compliance": compliance, "suggestions": suggestions}
+
+
+def cmd_grade(args):
+    trace = load_trace(args.trace_file)
+    g = grade_trace(trace)
+    if getattr(args, "json", False):
+        print(json.dumps(g, indent=2, ensure_ascii=False))
+        return 0
+    c = g["compliance"]
+    comp = (f"Policy compliance: {c['passed']}/{c['total']} passed" if c.get("applicable")
+            else "Policy compliance: none attached")
+    print(f"Trace grade: {g['grade']}  ({g['overall']}/100)      {comp}\n")
+    total = g["applicable_weight"]
+    for d in g["dimensions"]:
+        if not d.get("applicable", True):
+            print(f"  {d['name']:22s} {'·' * 12}  n/a   {d['note']}")
+            continue
+        filled = int(round(d["score"] * 12))
+        bar = "█" * filled + "·" * (12 - filled)
+        share = round(d["weight"] / total * 100)
+        print(f"  {d['name']:22s} {bar} {int(d['score']*100):3d}%  ({share}%)  {d['note']}")
+    if c.get("applicable"):
+        mark = "✓" if not c["failed"] else "✗"
+        tail = f"  —  failed: {', '.join(c['failed'])}" if c["failed"] else ""
+        print(f"\n  Policy compliance {mark}  {c['passed']}/{c['total']} passed{tail}   (separate axis — not in the quality score)")
+    if g["suggestions"]:
+        print("\n  To improve:")
+        for s in g["suggestions"]:
+            print(f"    • {s}")
+    return 0
+
+
+_SEV_EMOJI = {"critical": "🔴", "high": "🔴", "medium": "🟡", "low": "🔵", "info": "⚪"}
+
+
+def cmd_report(args):
+    """Emit a Markdown summary of a trace — the body of a PR comment: grade, policy
+    compliance, declared gaps, and the size of the reasoning record."""
+    trace = load_trace(args.trace_file)
+    g = grade_trace(trace)
+    residuals = trace.get("residuals", []) or []
+    metas = trace.get("meta_actions", []) or []
+    arts = trace.get("artifacts", []) or []
+    repro = sum(1 for a in (trace.get("actions") or []) if a.get("reproducibility"))
+    title = (trace.get("title") or (trace.get("trigger") or {}).get("description")
+             or trace.get("trace_id") or "reasoning trace")
+
+    out = [f"### 🧭 Ponens reasoning trace — {title}", ""]
+    head = [f"**Grade {g['grade']} ({g['overall']}/100)**"]
+    c = g["compliance"]
+    if c.get("applicable"):
+        head.append(f"policies {c['passed']}/{c['total']}" + (" ✓" if not c["failed"] else " ✗"))
+    head.append(f"{len(metas)} steps")
+    if arts:
+        head.append(f"{len(arts)} artifacts")
+    if repro:
+        head.append(f"{repro} replayable")
+    out += [" · ".join(head), ""]
+
+    out.append("<details><summary>Scorecard</summary>\n")
+    out += ["| Dimension | Score |", "|---|---|"]
+    for d in g["dimensions"]:
+        score = f"{int(d['score'] * 100)}%" if d.get("applicable", True) else "n/a"
+        out.append(f"| {d['name']} | {score} |")
+    out += ["\n</details>", ""]
+
+    if residuals:
+        out.append("**Declared gaps (residuals):**")
+        for r in sorted(residuals, key=lambda r: -_SEVERITY_RANK.get(r.get("severity"), 0))[:6]:
+            em = _SEV_EMOJI.get(r.get("severity"), "•")
+            chk = f" — *check:* {r['suggested_check']}" if r.get("suggested_check") else ""
+            out.append(f"- {em} **{r.get('severity', '?')}** — {r.get('statement', '')}{chk}")
+        if len(residuals) > 6:
+            out.append(f"- …and {len(residuals) - 6} more")
+    else:
+        out.append("⚠️ **No residuals declared** — the negative space (assumptions / "
+                   "unverified claims / out-of-scope) is undeclared. A clean trace *declares* its gaps.")
+    print("\n".join(out))
+    return 0
+
+
+# Commands safe to replay during reproduction (read-only / verification only).
+_REPRO_SAFE = ("pytest", "npm test", "npm run build", "npm run lint", "go test",
+               "cargo test", "make test", "make check", "git status", "git diff",
+               "git log", "ls ", "cat ", "grep ")
+_REPRO_DANGER = ("rm ", "git push", "git commit", "sudo", " > ", ">>", "mv ", "dd ",
+                 "curl", "wget", "chmod", "kill", "npm publish", "pip install", "git reset")
+
+
+def _repro_command(action):
+    return ((action.get("reproducibility") or {}).get("procedure") or {}).get("command")
+
+
+def _repro_safe(cmd):
+    c = (cmd or "").lower()
+    if any(d in c for d in _REPRO_DANGER):
+        return False
+    return any(p in c for p in _REPRO_SAFE)
+
+
+def cmd_reproduce(args):
+    """Replay a trace's reproducible commands and report where the result diverges
+    from what the trace recorded — the feedback a reviewing agent gives by reproducing.
+
+    Execution is opt-in (--run) and limited to read-only / verification commands."""
+    import subprocess
+    trace = load_trace(args.trace_file)
+    repro = [a for a in trace.get("actions", []) if _repro_command(a)]
+    if not repro:
+        print("No reproducible actions (no recorded commands) in this trace.")
+        return 0
+    safe = [a for a in repro if _repro_safe(_repro_command(a))]
+    print(f"{len(repro)} reproducible command(s); {len(safe)} safe to replay"
+          f"{'' if args.run else ' (dry run)'}.")
+
+    if not args.run:
+        for a in safe:
+            print(f"  would replay #{a['id']}: {_repro_command(a)[:80]}")
+        print("  pass --run to execute the safe commands and check for divergence.")
+        return 0
+
+    diverged = 0
+    for a in safe:
+        cmd = _repro_command(a)
+        expected = ((a.get("reproducibility") or {}).get("expected_output") or {}).get("result_summary", "")
+        try:
+            r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+            actual = " ".join((r.stdout + r.stderr).split())
+        except Exception as e:
+            actual = f"(execution failed: {e})"
+        exp = expected.replace("ERROR: ", "").strip().strip("…")
+        ok = bool(exp) and exp[:60] in actual
+        print(f"  {'✓ reproduced' if ok else '✗ DIVERGED '} #{a['id']}: {cmd[:64]}")
+        if not ok:
+            diverged += 1
+            print(f"      expected: {expected[:80]}")
+            print(f"      actual:   {actual[:80]}")
+    print(f"\n{len(safe)} replayed · {diverged} diverged.")
+    return 1 if diverged else 0
+
+
+def _save_trace_fmt(path, trace):
+    """Write a trace back in its own format (JSON or YAML)."""
+    if path.endswith((".yaml", ".yml")):
+        with open(path, "w") as f:
+            f.write(_dump_yaml(trace))
+    else:
+        save_trace(path, trace)
+
+
+def cmd_residual_add(args):
+    """Declare a residual — a gap the trace does NOT establish. This is the part of
+    the negative space that only the agent (or author) can report; emission can't
+    derive it."""
+    trace = load_trace(args.trace_file)
+    residuals = trace.setdefault("residuals", [])
+    rid = f"r{len(residuals) + 1}"
+    r = {"residual_id": rid, "kind": args.kind, "severity": args.severity,
+         "statement": args.statement, "source": "agent_declared", "status": args.status}
+    if args.target_type:
+        r["target"] = {"target_type": args.target_type, "target_id": args.target_id}
+    if getattr(args, "related", None):
+        r["related_artifact_ids"] = args.related
+    if args.suggested_check:
+        r["suggested_check"] = args.suggested_check
+    if getattr(args, "tag", None):
+        r["tags"] = args.tag
+    residuals.append(r)
+    if trace.get("spec_version", "1.1") < "1.5":
+        trace["spec_version"] = "1.5"
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Declared residual {rid} ({args.severity} {args.kind}) in {args.trace_file}")
+    return 0
+
+
+# --- meta-action curation (scrub the narrative; the atomic actions stay ground truth) ---
+
+def _find_meta(trace, mid):
+    for m in trace.get("meta_actions", []) or []:
+        if m.get("id") == mid:
+            return m
+    return None
+
+
+def cmd_meta_ls(args):
+    """List the meta-actions (the narrative layer) and how curated each is. The
+    `turn_segmented` ones are drafts seeded from the user's directives — scrub those."""
+    trace = load_trace(args.trace_file)
+    metas = trace.get("meta_actions", []) or []
+    if not metas:
+        print("No meta-actions in this trace.")
+        return 0
+    draft = sum(1 for m in metas if m.get("source") == "turn_segmented")
+    for m in metas:
+        src = m.get("source", "?")
+        flag = "  draft" if src == "turn_segmented" else ("✎ curated" if src == "curated" else "")
+        print(f"  {m['id']:5} [{src:14}] {len(m.get('action_ids', [])):3} actions  "
+              f"{m.get('title', '')[:70]}  {flag}")
+    print(f"\n{len(metas)} meta-actions · {draft} draft (raw from your directives — scrub with "
+          f"`ponens trace meta set …`)")
+    return 0
+
+
+def cmd_meta_set(args):
+    """Rewrite a meta-action's narrative — title / intent / outcome / status. Marks it
+    `curated` (higher fidelity than the inferred draft). The atomic actions are untouched."""
+    trace = load_trace(args.trace_file)
+    m = _find_meta(trace, args.meta_id)
+    if m is None:
+        print(f"Error: no meta-action '{args.meta_id}' in {args.trace_file}", file=sys.stderr)
+        return 1
+    changed = []
+    for field in ("title", "intent", "outcome", "status"):
+        val = getattr(args, field, None)
+        if val is not None:
+            if field == "status" and val not in META_STATUSES:
+                print(f"Error: invalid status '{val}' (one of {', '.join(sorted(META_STATUSES))})",
+                      file=sys.stderr)
+                return 1
+            m[field] = val
+            changed.append(field)
+    if not changed:
+        print("Nothing to set — pass --title / --intent / --outcome / --status.", file=sys.stderr)
+        return 1
+    m["source"] = "curated"
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Curated {args.meta_id} ({', '.join(changed)}) in {args.trace_file}")
+    return 0
+
+
+def cmd_meta_merge(args):
+    """Fold dead-ends / false starts into one meta-action: move the others' actions
+    (and artifacts/residuals) into `into`, then drop them. The result is marked curated."""
+    trace = load_trace(args.trace_file)
+    into = _find_meta(trace, args.into)
+    if into is None:
+        print(f"Error: no meta-action '{args.into}' in {args.trace_file}", file=sys.stderr)
+        return 1
+    others = []
+    for mid in args.meta_ids:
+        m = _find_meta(trace, mid)
+        if m is None:
+            print(f"Error: no meta-action '{mid}'", file=sys.stderr)
+            return 1
+        others.append(m)
+    for m in others:
+        into.setdefault("action_ids", []).extend(m.get("action_ids", []))
+        into.setdefault("produced_artifact_ids", []).extend(m.get("produced_artifact_ids", []))
+        into.setdefault("residual_ids", []).extend(m.get("residual_ids", []))
+    into["action_ids"] = sorted(set(into["action_ids"]))
+    for key in ("produced_artifact_ids", "residual_ids"):
+        if into.get(key):
+            into[key] = list(dict.fromkeys(into[key]))
+    drop = {m["id"] for m in others}
+    trace["meta_actions"] = [m for m in trace["meta_actions"] if m["id"] not in drop]
+    for a in trace.get("actions", []):
+        if a.get("meta_action_id") in drop:
+            a["meta_action_id"] = into["id"]
+    into["source"] = "curated"
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Merged {', '.join(args.meta_ids)} into {args.into} in {args.trace_file}")
+    return 0
+
+
+def cmd_meta_drop(args):
+    """Remove a meta-action from the narrative; its atomic actions remain (ungrouped)."""
+    trace = load_trace(args.trace_file)
+    m = _find_meta(trace, args.meta_id)
+    if m is None:
+        print(f"Error: no meta-action '{args.meta_id}' in {args.trace_file}", file=sys.stderr)
+        return 1
+    trace["meta_actions"] = [x for x in trace["meta_actions"] if x["id"] != args.meta_id]
+    for a in trace.get("actions", []):
+        if a.get("meta_action_id") == args.meta_id:
+            a.pop("meta_action_id", None)
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Dropped meta-action {args.meta_id} (its {len(m.get('action_ids', []))} actions remain) "
+          f"in {args.trace_file}")
+    return 0
+
+
+def cmd_retitle(args):
+    """Set the trace's top-level title and/or outcome summary (the headline narrative)."""
+    trace = load_trace(args.trace_file)
+    if args.title is not None:
+        trace["title"] = args.title
+    if args.outcome is not None:
+        trace.setdefault("outcome", {})["summary"] = args.outcome
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Updated trace title/outcome in {args.trace_file}")
+    return 0
+
+
+def cmd_review_ready(args):
+    """Is this trace ready to hand to a reviewer? Beyond structural validity, this
+    insists the negative space is present — the agent must declare its gaps (or it is
+    not review-ready)."""
+    trace = load_trace(args.trace_file)
+    errors, _ = validate_trace(trace)
+    actions = trace.get("actions", [])
+    no_rationale = [a.get("id") for a in actions if not a.get("rationale")]
+    has_outcome = bool((trace.get("outcome") or {}).get("type"))
+    residuals = trace.get("residuals", []) or []
+
+    checks = [
+        ("structure valid", not errors, f"{len(errors)} structural error(s)" if errors else ""),
+        ("outcome recorded", has_outcome, "" if has_outcome else "no outcome.type"),
+        ("actions have rationale", not no_rationale,
+         f"{len(no_rationale)} action(s) without rationale" if no_rationale else ""),
+        ("residual surface declared", bool(residuals),
+         f"{len(residuals)} declared" if residuals else
+         "no residuals — declare the gaps (assumptions / unverified / out-of-scope / "
+         "limitations / open questions) with `ponens trace residual add`, or there are none to find"),
+    ]
+    print(f"Review-readiness: {args.trace_file}")
+    for label, passed, note in checks:
+        print(f"  {'✓' if passed else '✗'} {label}" + (f"  — {note}" if note else ""))
+
+    ready = not errors and has_outcome and not no_rationale and bool(residuals)
+    print("\n" + ("READY for review." if ready else
+                  "NOT review-ready — address the ✗ items (especially the negative space)."))
+    return 0 if ready else 1
+
+
+def cmd_fmt(args):
+    """Convert a trace between JSON and YAML (the same content, a different projection)."""
+    trace = load_trace(args.trace_file)
+    out = _dump_yaml(trace) if args.to == "yaml" else (json.dumps(trace, indent=2, ensure_ascii=False) + "\n")
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(out)
+        print(f"Wrote {args.output}")
+    else:
+        sys.stdout.write(out)
+    return 0
+
+
 def cmd_check(args):
     trace = load_trace(args.trace_file)
+    errors, _ = validate_trace(trace)
+    if errors:
+        print("Error: cannot check an invalid trace:", file=sys.stderr)
+        for e in errors[:10]:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
     normalize_trace(trace)
     if args.policy_file:
         with open(args.policy_file) as f:
@@ -793,25 +1475,56 @@ def _render_viewer_html(trace):
         return None
     with open(viz) as f:
         html = f.read()
-    trace_json = json.dumps(trace, ensure_ascii=False)
+    # Embed in a NON-executable application/json block and JSON.parse it. Escape
+    # every '<' to < so no </script, <script or <!-- can ever appear in the
+    # block (those drive the HTML script-data tokenizer and would mis-end the tag);
+    # JSON.parse handles U+2028/U+2029 natively, so the data can hold anything.
+    trace_json = json.dumps(trace, ensure_ascii=False).replace('<', '\\u003c')
     loader = """
+<script id="ponens-trace-data" type="application/json">__PONENS_TRACE__</script>
 <script>
 (function() {
-  var _cliTrace = __PONENS_TRACE__;
-  function _tryLoad() {
-    if (typeof loadTrace === 'function') {
-      loadTrace(_cliTrace);
-      var badge = document.getElementById('demoBadge');
-      if (badge) badge.style.display = 'none';
-      var sel = document.getElementById('demoSelect');
-      if (sel) sel.value = '';
-    } else { setTimeout(_tryLoad, 50); }
+  function _banner(msg, ok) {
+    var p = document.getElementById('flowPanel');
+    if (p) p.innerHTML = '<div style="padding:24px;color:' + (ok ? '#86efac' : '#fca5a5') +
+      ';font:13px ui-monospace,monospace;white-space:pre-wrap;line-height:1.5;">' + msg + '</div>';
   }
-  setTimeout(_tryLoad, 200);
+  var _cliTrace;
+  try {
+    _cliTrace = JSON.parse(document.getElementById('ponens-trace-data').textContent);
+  } catch (e) {
+    var emsg = 'Failed to parse embedded trace JSON:\\n\\n' + (e && e.message || e);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function() { _banner(emsg, false); });
+    else _banner(emsg, false);
+    return;
+  }
+  function _go() {
+    if (typeof loadTrace !== 'function') { setTimeout(_go, 50); return; }
+    try {
+      loadTrace(_cliTrace);
+      var b = document.getElementById('demoBadge'); if (b) b.style.display = 'none';
+      var s = document.getElementById('demoSelect'); if (s) s.value = '';
+      var p = document.getElementById('flowPanel');
+      if (!p || !p.innerHTML.trim()) {
+        _banner('loadTrace ran but produced no flow.\\nactions=' + ((_cliTrace.actions || []).length) +
+                '  spec_version=' + _cliTrace.spec_version, false);
+      }
+    } catch (e) {
+      _banner('Viewer failed to render this trace:\\n\\n' + (e && e.stack || e), false);
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function() { setTimeout(_go, 50); });
+  else setTimeout(_go, 50);
 })();
 </script>
 """.replace('__PONENS_TRACE__', trace_json)
-    return html.replace('</body>', loader + '\n</body>')
+    # Inject before the LAST </body> only — an earlier one lives inside a JS
+    # template literal in the visualizer, and replacing it would splay our
+    # <script> (with its </script>) into the page's main script and corrupt it.
+    head, sep, tail = html.rpartition('</body>')
+    if not sep:
+        return html + loader
+    return head + loader + '\n' + sep + tail
 
 
 def _can_open_browser():
@@ -861,7 +1574,18 @@ def launch_viewer(trace, trace_file=None):
 
 
 def cmd_view(args):
-    return launch_viewer(load_trace(args.trace_file), args.trace_file)
+    trace = load_trace(args.trace_file)
+    if getattr(args, "out", None):
+        html = _render_viewer_html(trace)
+        if html is None:
+            print("Error: visualizer.html not found (expected under viewer/vscode-plugin/media/).",
+                  file=sys.stderr)
+            return 1
+        with open(args.out, "w") as f:
+            f.write(html)
+        print(f"Wrote self-contained viewer → {args.out}")
+        return 0
+    return launch_viewer(trace, args.trace_file)
 
 
 # ================================================================
@@ -876,8 +1600,8 @@ def register(subparsers):
     # init
     p = trace_sub.add_parser("init", help="Create a new trace file")
     p.add_argument("trace_file", help="Path to trace JSON file")
-    p.add_argument("--model", default="claude-opus-4-6", help="LLM model name")
-    p.add_argument("--assistant", default="claude-code + ponens", help="Assistant name")
+    p.add_argument("--model", default="example-model", help="LLM model name")
+    p.add_argument("--assistant", default="ponens", help="Assistant name")
     p.set_defaults(func=cmd_init)
 
     # trigger
@@ -920,6 +1644,18 @@ def register(subparsers):
     p.add_argument("--summary", default=None, help="Outcome summary")
     p.set_defaults(func=cmd_complete)
 
+    # validate
+    p = trace_sub.add_parser("validate", help="Validate the trace's structure")
+    p.add_argument("trace_file")
+    p.set_defaults(func=cmd_validate)
+
+    # fmt
+    p = trace_sub.add_parser("fmt", help="Convert a trace between JSON and YAML")
+    p.add_argument("trace_file")
+    p.add_argument("--to", choices=["json", "yaml"], required=True, help="Target format")
+    p.add_argument("-o", "--output", help="Write to this file (default: stdout)")
+    p.set_defaults(func=cmd_fmt)
+
     # check
     p = trace_sub.add_parser("check", help="Check the trace against policies")
     p.add_argument("trace_file")
@@ -933,14 +1669,84 @@ def register(subparsers):
     p.add_argument("--web", action="store_true", help="Open the rich view in a browser")
     p.set_defaults(func=cmd_status)
 
-    # residuals
+    # residuals (view)
     p = trace_sub.add_parser("residuals", help="List the residual surface (declared negative space)")
     p.add_argument("trace_file")
     p.add_argument("--json", action="store_true", help="Output raw JSON")
     p.add_argument("--web", action="store_true", help="Open the rich view in a browser")
     p.set_defaults(func=cmd_residuals)
 
+    # residual (declare)
+    rp = trace_sub.add_parser("residual", help="Declare a residual (a gap the trace does not establish)")
+    rp_sub = rp.add_subparsers(dest="residual_command", required=True)
+    p = rp_sub.add_parser("add", help="Declare a residual")
+    p.add_argument("trace_file")
+    p.add_argument("--kind", required=True, choices=sorted(RESIDUAL_KINDS))
+    p.add_argument("--severity", default="medium", choices=["info", "low", "medium", "high", "critical"])
+    p.add_argument("--statement", required=True, help="The gap, in plain language")
+    p.add_argument("--target-type", choices=["trace", "action", "artifact", "policy"])
+    p.add_argument("--target-id")
+    p.add_argument("--suggested-check", help="How a reviewer could close it")
+    p.add_argument("--related", action="append", help="Related artifact id (repeatable)")
+    p.add_argument("--status", default="open", choices=sorted(RESIDUAL_STATUSES))
+    p.add_argument("--tag", action="append", help="Tag (repeatable)")
+    p.set_defaults(func=cmd_residual_add)
+
+    # meta (curate the narrative layer)
+    mp = trace_sub.add_parser("meta", help="Curate the meta-action narrative (scrub the raw directives)")
+    mp_sub = mp.add_subparsers(dest="meta_command", required=True)
+    q = mp_sub.add_parser("ls", help="List meta-actions and how curated each is")
+    q.add_argument("trace_file")
+    q.set_defaults(func=cmd_meta_ls)
+    q = mp_sub.add_parser("set", help="Rewrite a meta-action's title/intent/outcome (marks it curated)")
+    q.add_argument("trace_file")
+    q.add_argument("meta_id")
+    q.add_argument("--title")
+    q.add_argument("--intent")
+    q.add_argument("--outcome")
+    q.add_argument("--status", choices=sorted(META_STATUSES))
+    q.set_defaults(func=cmd_meta_set)
+    q = mp_sub.add_parser("merge", help="Fold dead-ends into one meta-action")
+    q.add_argument("trace_file")
+    q.add_argument("into", help="The meta-action to keep")
+    q.add_argument("meta_ids", nargs="+", help="Meta-actions to fold in and remove")
+    q.set_defaults(func=cmd_meta_merge)
+    q = mp_sub.add_parser("drop", help="Remove a meta-action (its actions remain, ungrouped)")
+    q.add_argument("trace_file")
+    q.add_argument("meta_id")
+    q.set_defaults(func=cmd_meta_drop)
+
+    # retitle (top-level narrative)
+    p = trace_sub.add_parser("retitle", help="Set the trace's title and/or outcome summary")
+    p.add_argument("trace_file")
+    p.add_argument("--title")
+    p.add_argument("--outcome")
+    p.set_defaults(func=cmd_retitle)
+
+    # review-ready
+    p = trace_sub.add_parser("review-ready", help="Check the trace is complete enough to review (incl. the negatives)")
+    p.add_argument("trace_file")
+    p.set_defaults(func=cmd_review_ready)
+
+    # reproduce
+    p = trace_sub.add_parser("reproduce", help="Replay reproducible commands and report divergence from the record")
+    p.add_argument("trace_file")
+    p.add_argument("--run", action="store_true", help="Execute the safe commands (default: dry run)")
+    p.set_defaults(func=cmd_reproduce)
+
+    # grade
+    p = trace_sub.add_parser("grade", help="Grade the trace's quality across dimensions")
+    p.add_argument("trace_file")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_grade)
+
+    # report (Markdown summary — e.g. a PR comment body)
+    p = trace_sub.add_parser("report", help="Markdown summary of the trace (grade, gaps) for a PR comment")
+    p.add_argument("trace_file")
+    p.set_defaults(func=cmd_report)
+
     # view
     p = trace_sub.add_parser("view", help="Open trace in the visualizer")
     p.add_argument("trace_file")
+    p.add_argument("-o", "--out", help="Write the self-contained viewer HTML here instead of launching")
     p.set_defaults(func=cmd_view)

@@ -15,6 +15,7 @@ from .formatting import (
 from . import trace as trace_mod
 from . import registry as registry_mod
 from . import sync as sync_mod
+from . import emit as emit_mod
 
 
 # ── Helpers ─────────────────────────────────────────────────────
@@ -641,6 +642,9 @@ def main():
 
     # ── git/hub sync (bind, push, pull, status) ──────────────────
     sync_mod.register(subparsers)
+
+    # ── emit (derive a trace from an agent session transcript) ───
+    emit_mod.register(subparsers)
 
     # ── Parse and dispatch ───────────────────────────────────────
     args = parser.parse_args()

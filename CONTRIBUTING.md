@@ -47,7 +47,7 @@ to propose changes:
 ### Improving the CLI
 
 The CLI lives in `cli/`. Install it with `pip install -e ./cli` and run `pytest` from
-`cli/`. Note: the hub-integration tests require a running TraceHub backend; the local
+`cli/`. Note: the hub-integration tests require a running hub backend; the local
 toolchain (compiler, registry, `trace check`) is exercised offline in CI.
 
 ## Development

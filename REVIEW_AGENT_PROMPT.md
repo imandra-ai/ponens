@@ -16,6 +16,7 @@ ponens trace status <file>        # one-line summary of the trace
 ponens trace view <file>          # open the visualizer (flow, lineage, proofs, policies)
 ponens trace residuals <file>     # the declared negative space, sorted by severity
 ponens trace check <file>         # run the trace's policies (the mechanical gate)
+ponens trace grade <file>         # quality rubric — where the trace is thin (incl. lineage)
 ponens pull --file <file>         # hub collaboration state (status, comments, review items)
 ponens comments add <trace_id> "..." --target-type artifact --target-id a5
 ponens ri add <trace_id> "Fix X" --blocking
@@ -40,6 +41,9 @@ Sort everything in a trace into three buckets and treat each differently:
 
 1. **Orient.** Read the intent (`trigger`), the claimed result (`outcome`), the changed files, and
    the lineage. If this trace *supersedes* an earlier one, note which residuals it was meant to close.
+   If the trace declares **no artifacts / lineage**, you cannot trace its results back to what produced
+   them — treat that as a reviewability gap in itself: request the producer wire `inputs`/`outputs` to
+   declared artifacts before a meaningful review is possible.
 2. **Verify the positive space, proportionally.** Re-check the consequential checkable artifacts on
    the changed / high-stakes surface — re-run proofs and tests where cheap. Do **not** re-derive the
    whole trace. Downgrade any unbacked "verified" claim to an undeclared `unverified` residual (step 4).

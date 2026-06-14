@@ -48,14 +48,14 @@ ponens trace residuals .ponens/demo.json --web</code></pre>
 
     <h2>4 · Share it</h2>
     <pre><code>ponens bind     # stamp the trace with the git commit + write a Trace-Id note
-ponens push     # publish to a TraceHub backend  →  status: shared
+ponens push     # publish to a hub backend  →  status: shared
 ponens status   # local ↔ HEAD ↔ hub divergence</code></pre>
     <p>Once pushed, <code>--web</code> opens the collaborative hub view instead of the local one.</p>
 
     <h2>Concepts</h2>
     <ul>
       <li><strong>Trace</strong> — the immutable record of an agent's work session (<a href="/spec">spec</a>).</li>
-      <li><strong>Policy</strong> — an LTL-style formula checked over a trace. Browse the <a href="/gallery">gallery</a>.</li>
+      <li><strong>Policy</strong> — an LTL-style formula checked over a trace. Browse the <a href="/gallery">gallery</a>, or <a href="/docs/writing-policies">write your own</a>.</li>
       <li><strong>Residual surface</strong> — what the trace did <em>not</em> establish: assumptions,
         unverified claims, out-of-scope items, limitations, open questions. The spine of agent-to-agent review.</li>
       <li><strong>Review handoff</strong> — how a reviewing agent consumes a trace: verify the

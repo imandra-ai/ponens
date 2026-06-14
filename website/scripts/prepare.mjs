@@ -27,7 +27,7 @@ async function syncSpecs() {
     if (f.endsWith(".md")) await rm(resolve(dest, f));
   }
   for (const f of await readdir(src)) {
-    if (!f.endsWith(".md")) continue;
+    if (!f.endsWith(".md") || f === "README.md") continue;   // README is the repo's spec index; the site has its own
     const body = await readFile(resolve(src, f), "utf8");
     const title = f.replace(/\.md$/, "").replace(/_/g, " ");
     const fm = `---\nlayout: ../../layouts/SpecLayout.astro\ntitle: ${JSON.stringify(title)}\nfile: ${JSON.stringify(f)}\n---\n\n`;
@@ -42,10 +42,18 @@ async function syncViewer() {
   await mkdir(resolve(dest, "demo-traces"), { recursive: true });
   await cp(resolve(root, "viewer/vscode-plugin/media/visualizer.html"),
            resolve(dest, "visualizer.html"));
-  // the visualizer auto-loads demo-traces/stripe_v1_1.json on open
-  await cp(resolve(root, "examples/stripe_v1_1.json"),
-           resolve(dest, "demo-traces/stripe_v1_1.json"));
-  console.log("synced viewer → public/viewer");
+
+  // examples/ is the single source of truth; sync the manifest's samples into the
+  // viewer's demo-traces dirs (here and the plugin's media — both build outputs).
+  const manifest = JSON.parse(await readFile(resolve(root, "examples/manifest.json"), "utf8"));
+  const pluginDemos = resolve(root, "viewer/vscode-plugin/media/demo-traces");
+  await mkdir(pluginDemos, { recursive: true });
+  for (const s of manifest.samples) {
+    const from = resolve(root, "examples", s.file);
+    await cp(from, resolve(dest, "demo-traces", s.file));
+    await cp(from, resolve(pluginDemos, s.file));
+  }
+  console.log(`synced viewer → public/viewer (${manifest.samples.length} demo traces)`);
 }
 
 await syncGallery();

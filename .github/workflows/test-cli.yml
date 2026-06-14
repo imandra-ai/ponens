@@ -25,9 +25,9 @@ jobs:
       - name: Unit tests (offline)
         run: cd cli && python3 -m pytest tests/unit -q
 
-      # Offline smoke test of the local toolchain (no TraceHub backend needed —
+      # Offline smoke test of the local toolchain (no hub backend needed —
       # the hub-integration tests in cli/tests/test_e2e.py require a running
-      # TraceHub server and are exercised against the pilot, not here).
+      # hub server and are exercised against the pilot, not here).
       - name: Local toolchain smoke test
         run: |
           ponens --version

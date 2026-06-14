@@ -1,0 +1,81 @@
+name: "Ponens PR trace"
+description: "Summarize a reasoning trace on the pull request and upload the interactive viewer."
+branding:
+  icon: "compass"
+  color: "purple"
+
+inputs:
+  trace-path:
+    description: "Path to the trace JSON (produced by `ponens emit`)."
+    required: false
+    default: ".ponens/trace.json"
+  github-token:
+    description: "Token used to post the PR comment."
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install the ponens CLI
+      shell: bash
+      run: pip install "${{ github.action_path }}/../../../cli"
+
+    - name: Build trace summary + viewer
+      id: build
+      shell: bash
+      run: |
+        if [ ! -f "${{ inputs.trace-path }}" ]; then
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "No reasoning trace at ${{ inputs.trace-path }}."
+          exit 0
+        fi
+        echo "found=true" >> "$GITHUB_OUTPUT"
+        ponens trace validate "${{ inputs.trace-path }}"
+        ponens trace report "${{ inputs.trace-path }}" > "$RUNNER_TEMP/ponens-comment.md"
+        mkdir -p "$RUNNER_TEMP/ponens-viewer"
+        ponens trace view "${{ inputs.trace-path }}" --out "$RUNNER_TEMP/ponens-viewer/trace.html"
+
+    - name: Upload the viewer
+      if: steps.build.outputs.found == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ponens-trace-viewer
+        path: ${{ runner.temp }}/ponens-viewer
+        if-no-files-found: error
+
+    - name: Comment on the PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- ponens-trace -->';
+          const found = '${{ steps.build.outputs.found }}' === 'true';
+          const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          let body;
+          if (!found) {
+            body = `${marker}\n🧭 **No reasoning trace** found at \`${{ inputs.trace-path }}\`.\n\n`
+                 + 'Attach one with `ponens emit -o ${{ inputs.trace-path }}` and commit it, so reviewers can see '
+                 + '*why* this change looks the way it does — the reasoning, the decisions, and the declared gaps.';
+          } else {
+            const md = fs.readFileSync('${{ runner.temp }}/ponens-comment.md', 'utf8');
+            body = `${marker}\n${md}\n\n`
+                 + '📎 **View the full reasoning** — meta-action timeline, lineage, and decisions: '
+                 + `download the **ponens-trace-viewer** artifact from [this run](${runUrl}) and open \`trace.html\`.`;
+          }
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+          const prev = comments.find(c => c.body && c.body.includes(marker));
+          if (prev) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: prev.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }

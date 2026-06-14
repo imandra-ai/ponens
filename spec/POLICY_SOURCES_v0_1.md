@@ -13,7 +13,7 @@
 
 Policies come from more than one place. A team uses the **public gallery** for community
 standards, writes **its own** policies, and pulls **corporate-specific** policies and packs from a
-private **TraceHub**. This specification defines how the `ponens` CLI organizes several *sources*
+a private **hub**. This specification defines how the `ponens` CLI organizes several *sources*
 of policies so they can coexist, be searched together, be referenced unambiguously, and carry their
 provenance into the traces they govern.
 
@@ -41,7 +41,7 @@ A **source** is a named, typed origin of policies (and packs). Three types:
 |---|---|---|
 | `gallery` | a published static catalog (`_catalog.json` + per-policy JSON) over HTTP — the public gallery, or any hosted one | hash-verified per-source cache |
 | `local` | a directory of policy JSON files on disk — your own / a team's, committed in-repo | read live, no cache |
-| `hub` *(future)* | an authenticated **TraceHub** backend — corporate-specific policies and packs | the hub API + token (§10) |
+| `hub` *(future)* | an authenticated **the hub** backend — corporate-specific policies and packs | the hub API + token (§10) |
 
 Every source has a unique **name** within the resolved configuration. `gallery` sources carry a
 `url`; `local` sources carry a `path`; `hub` sources carry a `url` (+ credentials).
@@ -62,9 +62,9 @@ type = "gallery"
 url  = "https://ponens.dev/gallery/policies"
 
 [[source]]
-name = "acme"               # corporate, from TraceHub (future)
+name = "acme"               # corporate, from the hub (future)
 type = "hub"
-url  = "https://tracehub.acme.com"
+url  = "https://hub.acme.com"
 
 [[source]]
 name = "team"               # our own policies, in the repo
@@ -173,8 +173,8 @@ Policy Specification for the pack object.
 
 # 10. Open Questions / Future
 
-- **The `hub` source type** — authenticated corporate policies and packs from TraceHub. Depends on
-  the headless **token model** (`TRACEHUB_TOKEN`), already an open question in the CLI Sync Model.
+- **The `hub` source type** — authenticated corporate policies and packs from the hub. Depends on
+  the headless **token model** (`PONENS_HUB_TOKEN`), already an open question in the CLI Sync Model.
   It reuses the hub API and the scoped-pack model the hub already exposes.
 - **Cross-source packs** — a pack listing policies from several sources (`community/tests_before_commit`
   + `acme/pci_review`). The reference grammar supports it; resolution per-entry follows §5.

@@ -1,0 +1,55 @@
+name: Validate samples
+
+# examples/ is the single source of truth for the demo traces (viewer dropdown,
+# website, docs). Keep them honest: every sample must pass the CLI on each build.
+
+on:
+  pull_request:
+    paths:
+      - "examples/**"
+      - "cli/**"
+      - ".github/workflows/validate-samples.yml"
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the CLI
+        run: pip install -e ./cli
+
+      - name: Validate + check every sample
+        run: |
+          set -e
+          fail=0
+          for f in examples/*.json; do
+            [ "$(basename "$f")" = "manifest.json" ] && continue
+            echo "::group::$f"
+            ponens trace validate "$f" || fail=1
+            # run the policy gate only when the trace declares policies
+            if python3 -c "import json,sys; sys.exit(0 if json.load(open('$f')).get('policies') else 1)"; then
+              ponens trace check "$f" || fail=1
+            fi
+            ponens trace grade "$f" | head -1
+            echo "::endgroup::"
+          done
+          exit $fail
+
+      - name: Manifest entries all resolve
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          m = json.load(open("examples/manifest.json"))
+          missing = [s["file"] for s in m["samples"]
+                     if not os.path.exists(os.path.join("examples", s["file"]))]
+          if missing:
+              print("manifest references missing files:", missing); sys.exit(1)
+          print(f"OK — {len(m['samples'])} manifest samples present")
+          PY

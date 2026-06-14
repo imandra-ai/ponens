@@ -1,8 +1,8 @@
 {
   "trace_id": "trace-stripe-payment-flow-001",
   "spec_version": "1.5",
-  "assistant": "claude-code + codelogician",
-  "model": "claude-opus-4-6",
+  "assistant": "ponens",
+  "model": "example-model",
   "timestamp": "2026-03-28T10:00:00Z",
   "trigger": {
     "type": "TaskReceived",

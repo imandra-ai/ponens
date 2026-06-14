@@ -1,0 +1,533 @@
+{
+  "trace_id": "trace-sample-payment-idempotency",
+  "spec_version": "1.6",
+  "assistant": "ponens",
+  "model": "example-model",
+  "timestamp": "2026-06-14T12:00:00Z",
+  "title": "Make payment capture idempotent (proved)",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "capture is being double-charged on gateway retries \u2014 make it idempotent and prove it"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "src/billing/payment.py",
+      "rationale": "Read the capture path before changing it.",
+      "inputs": [],
+      "outputs": [
+        "a1"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "AnalyzeCode",
+      "category": "activity",
+      "label": "Capture path: 6 states, retried by the gateway",
+      "rationale": "The gateway retries capture on timeout, so a non-idempotent capture can double-charge.",
+      "inputs": [
+        "a1"
+      ],
+      "outputs": [
+        "a2"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "ExclusiveDecision",
+      "category": "gateway",
+      "label": "Idempotency strategy",
+      "rationale": "Dedupe on (charge_id, idempotency_key) vs a distributed lock \u2014 chose the key (no infra).",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "options": [
+        {
+          "label": "Dedupe on (charge_id, idempotency_key)",
+          "chosen": true
+        },
+        {
+          "label": "Distributed lock in Redis",
+          "chosen": false,
+          "rejected_because": "adds infra + a new failure mode"
+        }
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Formalize",
+      "category": "reasoning",
+      "label": "Formalize capture_payment -> IML",
+      "rationale": "Translate the capture transition into pure IML so the invariant is checkable.",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a3"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 5,
+      "type": "DefineVG",
+      "category": "reasoning",
+      "label": "Goal: capture is idempotent and amount-preserving",
+      "rationale": "State the two properties a correct idempotent capture must satisfy.",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a4"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 6,
+      "type": "Verify",
+      "category": "reasoning",
+      "label": "Verify capture idempotency",
+      "rationale": "Prove the two properties hold for all orders and keys.",
+      "inputs": [
+        "a4"
+      ],
+      "outputs": [
+        "a5"
+      ],
+      "evidence": [],
+      "result_summary": "proved: 2/2 properties",
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 7,
+      "type": "Decompose",
+      "category": "reasoning",
+      "label": "Decompose capture into 4 regions",
+      "rationale": "Region-split the input space to drive exhaustive test generation.",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a6"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 8,
+      "type": "EditFile",
+      "category": "activity",
+      "label": "src/billing/payment.py",
+      "rationale": "Add the idempotency-key dedupe guard at the top of capture_payment.",
+      "inputs": [
+        "a5"
+      ],
+      "outputs": [
+        "a7"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "src/billing/payment.py"
+        }
+      ],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 9,
+      "type": "GenerateTests",
+      "category": "activity",
+      "label": "Generate idempotency tests from regions",
+      "rationale": "One test per decomposition region \u2014 covers the dedupe and the replay cases.",
+      "inputs": [
+        "a6"
+      ],
+      "outputs": [
+        "a8"
+      ],
+      "evidence": [],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 10,
+      "type": "RunTests",
+      "category": "activity",
+      "label": "pytest tests/billing -q",
+      "rationale": "Run the generated suite plus the existing billing tests.",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a9"
+      ],
+      "evidence": [],
+      "detail": "pytest tests/billing -q",
+      "result_summary": "24 passed",
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 11,
+      "type": "GitCommit",
+      "category": "activity",
+      "label": "commit: idempotent capture",
+      "rationale": "Commit the verified change with the proof referenced in the message.",
+      "inputs": [
+        "a7"
+      ],
+      "outputs": [],
+      "evidence": [],
+      "detail": "git commit -m 'billing: idempotent capture (proved)'",
+      "meta_action_id": "m5"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Understand the capture path",
+      "intent": "See why retries can double-charge",
+      "action_ids": [
+        1,
+        2
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a1",
+        "a2"
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Choose an idempotency strategy",
+      "intent": "Key-based dedupe vs a lock",
+      "action_ids": [
+        3
+      ],
+      "source": "turn_segmented"
+    },
+    {
+      "id": "m3",
+      "title": "Formally verify no double-charge",
+      "intent": "Prove capture is idempotent and amount-preserving",
+      "action_ids": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a3",
+        "a4",
+        "a5",
+        "a6"
+      ],
+      "residual_ids": [
+        "r1"
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Implement and test",
+      "intent": "Add the guard, generate + run tests",
+      "action_ids": [
+        8,
+        9,
+        10
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a7",
+        "a8",
+        "a9"
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Commit",
+      "intent": "Land the verified change",
+      "action_ids": [
+        11
+      ],
+      "source": "turn_segmented"
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Proved capture is idempotent and amount-preserving (2/2), implemented the key-based guard, 24 tests pass."
+  },
+  "artifacts": [
+    {
+      "artifact_id": "a1",
+      "artifact_type": "SourceCode",
+      "name": "payment.py (original)",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "a2",
+      "artifact_type": "AnalysisNote",
+      "name": "capture is retried, not idempotent",
+      "producer_action_id": 2,
+      "derived_from": [
+        "a1"
+      ]
+    },
+    {
+      "artifact_id": "a3",
+      "artifact_type": "IMLModel",
+      "name": "capture_payment (IML)",
+      "producer_action_id": 4,
+      "derived_from": [
+        "a2"
+      ],
+      "payload": {
+        "status": "proved",
+        "src_lang": "python",
+        "iml_code": "let capture (k:key) (o:order) =\n  if seen k o then o\n  else { o with captured = true; seen = add k o.seen }",
+        "symbols": [
+          "capture",
+          "inv_amounts"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a4",
+      "artifact_type": "VerificationGoal",
+      "name": "idempotency goal",
+      "producer_action_id": 5,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "kind": "verify",
+        "description": "capture is idempotent and preserves amounts",
+        "target_artifact_id": "a3",
+        "target_symbol": "capture",
+        "properties": [
+          {
+            "name": "prop_capture_idempotent",
+            "status": "pending",
+            "src": "let prop_capture_idempotent (k:key) (o:order) =\n  captured o ==> capture k o = o"
+          },
+          {
+            "name": "prop_amount_preserved",
+            "status": "pending",
+            "src": "let prop_amount_preserved (k:key) (o:order) =\n  inv_amounts o ==> inv_amounts (capture k o)"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a5",
+      "artifact_type": "VerificationResult",
+      "name": "idempotency proved",
+      "producer_action_id": 6,
+      "derived_from": [
+        "a4"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "goal_artifact_id": "a4",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "All 2 properties proved.",
+            "properties": [
+              {
+                "name": "prop_capture_idempotent",
+                "status": "proved",
+                "src": "let prop_capture_idempotent (k:key) (o:order) =\n  captured o ==> capture k o = o"
+              },
+              {
+                "name": "prop_amount_preserved",
+                "status": "proved",
+                "src": "let prop_amount_preserved (k:key) (o:order) =\n  inv_amounts o ==> inv_amounts (capture k o)"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a6",
+      "artifact_type": "Decomposition",
+      "name": "capture regions",
+      "producer_action_id": 7,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "target_artifact_id": "a3",
+        "target_function": "capture",
+        "complete": true,
+        "regions": [
+          {
+            "id": "r1",
+            "constraint": "seen k o"
+          },
+          {
+            "id": "r2",
+            "constraint": "not seen k o & captured o"
+          },
+          {
+            "id": "r3",
+            "constraint": "not seen k o & not captured o"
+          },
+          {
+            "id": "r4",
+            "constraint": "refunded o"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a7",
+      "artifact_type": "Diff",
+      "name": "payment.py dedupe guard",
+      "producer_action_id": 8,
+      "derived_from": [
+        "a5"
+      ]
+    },
+    {
+      "artifact_id": "a8",
+      "artifact_type": "GeneratedTests",
+      "name": "idempotency suite",
+      "producer_action_id": 9,
+      "derived_from": [
+        "a6"
+      ],
+      "payload": {
+        "function": "capture",
+        "language": "python",
+        "source_decomposition_artifact_id": "a6",
+        "tests": [
+          {
+            "name": "test_replayed_capture_noop"
+          },
+          {
+            "name": "test_first_capture_charges"
+          },
+          {
+            "name": "test_capture_after_refund_rejected"
+          },
+          {
+            "name": "test_amounts_preserved"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a9",
+      "artifact_type": "CommandResult",
+      "name": "pytest: 24 passed",
+      "producer_action_id": 10,
+      "derived_from": [
+        "a8"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "p1",
+      "name": "research_before_edit",
+      "description": "Every edit is preceded by research on the same file",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
+    },
+    {
+      "policy_id": "p2",
+      "name": "all_decisions_justified",
+      "description": "Every decision records its rationale",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
+    },
+    {
+      "policy_id": "p3",
+      "name": "data_flow_integrity",
+      "description": "Every consumed artifact has a unique earlier producer",
+      "severity": "error",
+      "scope": "action",
+      "kind": "structural",
+      "formula": "data_flow_integrity"
+    },
+    {
+      "policy_id": "p4",
+      "name": "generated_tests_require_decomposition",
+      "description": "Generated tests must derive from a decomposition",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "structural",
+      "formula": "generated_tests_require_decomposition"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "p1",
+      "status": "passed",
+      "note": "edit #8 preceded by read #1 / analyze #2"
+    },
+    {
+      "policy_id": "p2",
+      "status": "passed",
+      "note": "decision #3 records its rationale"
+    },
+    {
+      "policy_id": "p3",
+      "status": "passed",
+      "note": "DAG well-formed"
+    },
+    {
+      "policy_id": "p4",
+      "status": "passed",
+      "note": "a8 derives from decomposition a6"
+    }
+  ],
+  "residuals": [
+    {
+      "residual_id": "r1",
+      "kind": "assumption",
+      "severity": "high",
+      "status": "acknowledged",
+      "source": "agent_declared",
+      "statement": "Assumes the gateway sends a stable idempotency key per logical charge.",
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a3"
+      },
+      "suggested_check": "Confirm the gateway's retry contract guarantees a stable key.",
+      "introduced_by_action_id": 4
+    },
+    {
+      "residual_id": "r2",
+      "kind": "out_of_scope",
+      "severity": "medium",
+      "status": "open",
+      "source": "agent_declared",
+      "statement": "Concurrent capture+refund races are not modelled (single-threaded application only)."
+    }
+  ],
+  "files_modified": [
+    "src/billing/payment.py"
+  ],
+  "metrics": {
+    "total_actions": 11,
+    "meta_action_count": 5
+  }
+}

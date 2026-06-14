@@ -1,8 +1,8 @@
 {
   "trace_id": "trace-auth-xstate-001",
   "spec_version": "1.1",
-  "assistant": "claude-code + codelogician",
-  "model": "claude-opus-4-6",
+  "assistant": "ponens",
+  "model": "example-model",
   "timestamp": "2026-04-02T14:30:00Z",
   "trigger": {
     "type": "TaskReceived",

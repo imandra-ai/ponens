@@ -16,15 +16,15 @@ artifacts consistent over the lifetime of a piece of agent work:
 
 - a **local trace file** in the working tree,
 - a **git commit** (anchored on GitHub or any git remote), and
-- a **TraceHub record** (status, comments, review items, snapshots, policy runs).
+- a **hub record** (status, comments, review items, snapshots, policy runs).
 
 A trace captures *what reasoning happened*. A commit captures *which version of the code it
-happened against*. TraceHub captures *what people and policies decided about it*. No single
+happened against*. The hub captures *what people and policies decided about it*. No single
 layer owns all three facts. The CLI is the tool that binds them and keeps them in sync.
 
 A good one-line summary is:
 
-> **The CLI makes TraceHub a git remote for reasoning: traces are pushed, pulled, and bound to commits the same way code is.**
+> **The CLI makes the hub a git remote for reasoning: traces are pushed, pulled, and bound to commits the same way code is.**
 
 ---
 
@@ -52,7 +52,7 @@ workflow. It defines only the synchronization layer that connects them to git an
 # 3. Three Layers and Their Ownership
 
 ```text
-   WORKING TREE                 GIT / GITHUB                 TRACEHUB
+   WORKING TREE                 GIT / GITHUB                 HUB
  ┌───────────────┐           ┌─────────────────┐         ┌──────────────────┐
  │ trace.json    │  bind     │ commit  abc123  │  push   │ trace-… (record) │
  │ (the agent    │◀────────▶ │  + trailer:     │◀──────▶ │  status, comments│
@@ -67,7 +67,7 @@ workflow. It defines only the synchronization layer that connects them to git an
 |---|---|---|
 | **Local file** | the *content* of the reasoning — immutable, content-hashed | `content_hash = sha256(canonical(trace))` |
 | **Git commit** | the *version anchor* — which code state the reasoning was about | `commit_sha` |
-| **TraceHub** | *collaboration + governance* — status, comments, reviews, snapshots, policy runs | `trace_id` |
+| **The hub** | *collaboration + governance* — status, comments, reviews, snapshots, policy runs | `trace_id` |
 
 The local file is canonical for content; git is canonical for version; the hub is canonical for
 decisions. The CLI never lets these silently diverge — `ponens status` exists to surface
@@ -168,7 +168,7 @@ explicit target. All read commands accept `--json`.
 > **Status.** All verbs below are implemented in the CLI: the gate (`ponens trace check`), the
 > registry verbs (`registry update`, `policies search/show/add`), and the sync verbs (`bind`, `push`,
 > `pull`, `status`). `bind` and `status` work fully offline against local git; `push` and `pull`
-> require a reachable TraceHub backend. By default `bind` records the binding as a **git note**
+> require a reachable hub backend. By default `bind` records the binding as a **git note**
 > (`refs/notes/ponens`, non-mutating; §5.2), and the local↔hub mapping is kept in a `.sync` sidecar
 > beside the trace file.
 
@@ -238,7 +238,7 @@ agent reasons ──▶ writes trace.json ──▶ developer commits
 
 - **Sync is explicit; `check` is advisory.** The human is the gate and the decision-maker.
 - Identity is the **developer** (interactive user identity).
-- TraceHub is the **review surface** alongside the PR.
+- The hub is the **review surface** alongside the PR.
 
 ### 8.2 Autonomous agent — no human in the loop
 
@@ -265,13 +265,13 @@ PR opened, trace attached  ──▶  reviewer agent or compliance pulls
 
 The unifying idea:
 
-> **In AI coding the human is the gate; in autonomous mode the policy pack is the gate — and TraceHub is where that gate's verdict becomes an auditable, signed-off record either way.**
+> **In AI coding the human is the gate; in autonomous mode the policy pack is the gate — and the hub is where that gate's verdict becomes an auditable, signed-off record either way.**
 
 ---
 
 # 9. Git as a Collaboration Channel
 
-TraceHub deliberately uses git as a **collaboration substrate**, not merely as a metadata field.
+The hub deliberately uses git as a **collaboration substrate**, not merely as a metadata field.
 This section defines how far that goes and — equally importantly — where it stops, so that git,
 the git platform (GitHub/GitLab), and the hub each carry only what they are best at.
 
@@ -310,12 +310,12 @@ near-zero when scoped cleanly, because they govern **different objects**:
 | Concern | Home | Why it is not a duplicate |
 |---|---|---|
 | Human discussion of the **code diff** | **git platform (PR)** | Reviewers comment on lines; mature and already in use. |
-| Review of the **reasoning** — a counterexample, proof, artifact, or policy result | **TraceHub** | These are not lines in a diff; a PR cannot target "artifact a5's counterexample" or "policy p11's evaluation." |
-| **Computable** governance — blocking gates, policy-tied review items | **TraceHub** | A PR "Approved" is a social signal, not an object a policy can be evaluated over. |
-| **Frozen audit record** — this trace content + these policy results, signed | **TraceHub snapshot** | A PR approval does not freeze the trace's `content_hash` + policy run for a later auditor. |
-| Governance across a **chain of traces** (the review case) | **TraceHub** | A PR is scoped to one diff/branch; the review case spans the supersedes chain over time. |
+| Review of the **reasoning** — a counterexample, proof, artifact, or policy result | **The hub** | These are not lines in a diff; a PR cannot target "artifact a5's counterexample" or "policy p11's evaluation." |
+| **Computable** governance — blocking gates, policy-tied review items | **The hub** | A PR "Approved" is a social signal, not an object a policy can be evaluated over. |
+| **Frozen audit record** — this trace content + these policy results, signed | **hub snapshot** | A PR approval does not freeze the trace's `content_hash` + policy run for a later auditor. |
+| Governance across a **chain of traces** (the review case) | **The hub** | A PR is scoped to one diff/branch; the review case spans the supersedes chain over time. |
 
-The pull request reviews the **change**; TraceHub reviews the **reasoning behind the change** and
+The pull request reviews the **change**; the hub reviews the **reasoning behind the change** and
 freezes it for audit. The **commit** is the shared anchor that connects them.
 
 ### 9.4 Integration, not duplication
@@ -331,7 +331,7 @@ The only review-layer concern with **no equivalent** on the git platform is the 
 the frozen, policy-bound, portable audit artifact. That is the part the hub layer uniquely earns,
 and the reason the hub remains necessary even when pull requests exist.
 
-> **Let the git platform own human review of the diff. Let TraceHub own computable governance and audit over the reasoning. Connect them through the commit — do not reimplement either inside the other.**
+> **Let the git platform own human review of the diff. Let the hub own computable governance and audit over the reasoning. Connect them through the commit — do not reimplement either inside the other.**
 
 This is the **binding-only** decision: git carries the trace and the link; the platform carries
 human diff review; the hub carries computable governance and snapshots. Fully git-native review
@@ -367,7 +367,7 @@ verbs (`traces`, `comments`, `ri`, `packs`, `snap`), together with the **sync ve
 working tree," no path is needed; otherwise the trace file or `trace_id` is given explicitly. The
 running example throughout is the Stripe payment-flow trace (`demo-traces/stripe_v1_1.json`).
 
-Autonomous examples assume a headless machine identity via `TRACEHUB_TOKEN`; interactive examples
+Autonomous examples assume a headless machine identity via `PONENS_HUB_TOKEN`; interactive examples
 use the current user.
 
 ### 11.1 Author and share a trace (AI coding, human in the loop)

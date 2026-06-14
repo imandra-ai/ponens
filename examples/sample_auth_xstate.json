@@ -1,0 +1,540 @@
+{
+  "trace_id": "trace-sample-auth-xstate",
+  "spec_version": "1.6",
+  "assistant": "ponens",
+  "model": "example-model",
+  "timestamp": "2026-06-14T12:00:00Z",
+  "title": "Migrate auth to an explicit state machine (reachability proved)",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "the auth booleans admit impossible states \u2014 model it as a machine and prove every state is reachable"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "src/auth/machine.ts",
+      "rationale": "Read the existing ad-hoc auth booleans.",
+      "inputs": [],
+      "outputs": [
+        "a1"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "AnalyzeCode",
+      "category": "activity",
+      "label": "5 boolean flags model 7 real states",
+      "rationale": "The boolean soup admits impossible states (e.g. loading && error).",
+      "inputs": [
+        "a1"
+      ],
+      "outputs": [
+        "a2"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "ExclusiveDecision",
+      "category": "gateway",
+      "label": "Model as an explicit state machine",
+      "rationale": "XState chart vs a hand-rolled reducer \u2014 chose XState for the reachability tooling.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "options": [
+        {
+          "label": "XState chart",
+          "chosen": true
+        },
+        {
+          "label": "Hand-rolled reducer",
+          "chosen": false,
+          "rejected_because": "no reachability analysis"
+        }
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Formalize",
+      "category": "reasoning",
+      "label": "Formalize the chart -> IML transition function",
+      "rationale": "Encode states + transitions so reachability is decidable.",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a3"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 5,
+      "type": "DefineVG",
+      "category": "reasoning",
+      "label": "Goal: every state reachable, no orphan Authenticated",
+      "rationale": "State the reachability + provenance properties.",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a4"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 6,
+      "type": "Verify",
+      "category": "reasoning",
+      "label": "Verify reachability",
+      "rationale": "Prove all 7 states are reachable and Authenticated only follows LoggingIn.",
+      "inputs": [
+        "a4"
+      ],
+      "outputs": [
+        "a5"
+      ],
+      "evidence": [],
+      "result_summary": "proved: 2/2 properties",
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 7,
+      "type": "Decompose",
+      "category": "reasoning",
+      "label": "Decompose transitions by event",
+      "rationale": "Split by triggering event to generate one test per transition.",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a6"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 8,
+      "type": "EditFile",
+      "category": "activity",
+      "label": "src/auth/machine.ts",
+      "rationale": "Replace the booleans with the XState machine.",
+      "inputs": [
+        "a5"
+      ],
+      "outputs": [
+        "a7"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "src/auth/machine.ts"
+        }
+      ],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 9,
+      "type": "GenerateTests",
+      "category": "activity",
+      "label": "Generate transition tests",
+      "rationale": "One test per event/transition region.",
+      "inputs": [
+        "a6"
+      ],
+      "outputs": [
+        "a8"
+      ],
+      "evidence": [],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 10,
+      "type": "RunTests",
+      "category": "activity",
+      "label": "vitest run",
+      "rationale": "Run the transition suite.",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a9"
+      ],
+      "evidence": [],
+      "detail": "vitest run",
+      "result_summary": "31 passed",
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 11,
+      "type": "GitCommit",
+      "category": "activity",
+      "label": "commit: xstate auth machine",
+      "rationale": "Land the verified machine.",
+      "inputs": [
+        "a7"
+      ],
+      "outputs": [],
+      "evidence": [],
+      "detail": "git commit -m 'auth: explicit state machine (reachability proved)'",
+      "meta_action_id": "m5"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Audit the ad-hoc auth state",
+      "intent": "Find the impossible states the booleans allow",
+      "action_ids": [
+        1,
+        2
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a1",
+        "a2"
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Decide on an explicit machine",
+      "intent": "XState vs reducer",
+      "action_ids": [
+        3
+      ],
+      "source": "turn_segmented"
+    },
+    {
+      "id": "m3",
+      "title": "Prove reachability",
+      "intent": "Every state reachable; no orphan Authenticated",
+      "action_ids": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a3",
+        "a4",
+        "a5",
+        "a6"
+      ],
+      "residual_ids": [
+        "r1"
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Implement and test",
+      "intent": "Swap in the machine, generate + run transition tests",
+      "action_ids": [
+        8,
+        9,
+        10
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a7",
+        "a8",
+        "a9"
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Commit",
+      "intent": "Land the verified machine",
+      "action_ids": [
+        11
+      ],
+      "source": "turn_segmented"
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Modelled auth as a 7-state machine, proved reachability + no orphan Authenticated, 31 transition tests pass."
+  },
+  "artifacts": [
+    {
+      "artifact_id": "a1",
+      "artifact_type": "SourceCode",
+      "name": "machine.ts (booleans)",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "a2",
+      "artifact_type": "AnalysisNote",
+      "name": "impossible states admitted",
+      "producer_action_id": 2,
+      "derived_from": [
+        "a1"
+      ]
+    },
+    {
+      "artifact_id": "a3",
+      "artifact_type": "IMLModel",
+      "name": "auth machine (IML)",
+      "producer_action_id": 4,
+      "derived_from": [
+        "a2"
+      ],
+      "payload": {
+        "status": "proved",
+        "src_lang": "typescript",
+        "iml_code": "type state = LoggedOut | LoggingIn | Authenticated | Refreshing | Error | Locked | Expired\nlet step (s:state) (e:event) = ...",
+        "symbols": [
+          "step",
+          "reaches"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a4",
+      "artifact_type": "VerificationGoal",
+      "name": "reachability goal",
+      "producer_action_id": 5,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "kind": "verify",
+        "description": "every state reachable; no orphan Authenticated",
+        "target_artifact_id": "a3",
+        "target_symbol": "step",
+        "properties": [
+          {
+            "name": "prop_all_states_reachable",
+            "status": "pending",
+            "src": "let prop_all_states_reachable = forall s. exists path. reaches initial path s"
+          },
+          {
+            "name": "prop_no_orphan_authenticated",
+            "status": "pending",
+            "src": "let prop_no_orphan_authenticated (s:state) =\n  s = Authenticated ==> came_from [LoggingIn] s"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a5",
+      "artifact_type": "VerificationResult",
+      "name": "reachability proved",
+      "producer_action_id": 6,
+      "derived_from": [
+        "a4"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "goal_artifact_id": "a4",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "All 2 properties proved.",
+            "properties": [
+              {
+                "name": "prop_all_states_reachable",
+                "status": "proved",
+                "src": "let prop_all_states_reachable = forall s. exists path. reaches initial path s"
+              },
+              {
+                "name": "prop_no_orphan_authenticated",
+                "status": "proved",
+                "src": "let prop_no_orphan_authenticated (s:state) =\n  s = Authenticated ==> came_from [LoggingIn] s"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a6",
+      "artifact_type": "Decomposition",
+      "name": "transition regions",
+      "producer_action_id": 7,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "target_artifact_id": "a3",
+        "target_function": "step",
+        "complete": true,
+        "regions": [
+          {
+            "id": "e1",
+            "constraint": "event = LOGIN"
+          },
+          {
+            "id": "e2",
+            "constraint": "event = SUCCESS"
+          },
+          {
+            "id": "e3",
+            "constraint": "event = FAILURE"
+          },
+          {
+            "id": "e4",
+            "constraint": "event = REFRESH"
+          },
+          {
+            "id": "e5",
+            "constraint": "event = LOGOUT"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a7",
+      "artifact_type": "Diff",
+      "name": "machine.ts rewrite",
+      "producer_action_id": 8,
+      "derived_from": [
+        "a5"
+      ]
+    },
+    {
+      "artifact_id": "a8",
+      "artifact_type": "GeneratedTests",
+      "name": "transition suite",
+      "producer_action_id": 9,
+      "derived_from": [
+        "a6"
+      ],
+      "payload": {
+        "function": "step",
+        "language": "typescript",
+        "source_decomposition_artifact_id": "a6",
+        "tests": [
+          {
+            "name": "test_login_transitions"
+          },
+          {
+            "name": "test_success_authenticates"
+          },
+          {
+            "name": "test_failure_to_error"
+          },
+          {
+            "name": "test_refresh_keeps_auth"
+          },
+          {
+            "name": "test_logout_resets"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a9",
+      "artifact_type": "CommandResult",
+      "name": "vitest: 31 passed",
+      "producer_action_id": 10,
+      "derived_from": [
+        "a8"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "p1",
+      "name": "research_before_edit",
+      "description": "Every edit is preceded by research",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
+    },
+    {
+      "policy_id": "p2",
+      "name": "all_decisions_justified",
+      "description": "Every decision records its rationale",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
+    },
+    {
+      "policy_id": "p3",
+      "name": "goals_reference_valid_artifacts",
+      "description": "Every verification goal targets a real IML model",
+      "severity": "error",
+      "scope": "action",
+      "kind": "structural",
+      "formula": "goals_reference_valid_artifacts"
+    },
+    {
+      "policy_id": "p4",
+      "name": "generated_tests_require_decomposition",
+      "description": "Generated tests derive from a decomposition",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "structural",
+      "formula": "generated_tests_require_decomposition"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "p1",
+      "status": "passed",
+      "note": "edit #8 preceded by read #1 / analyze #2"
+    },
+    {
+      "policy_id": "p2",
+      "status": "passed",
+      "note": "decision #3 records its rationale"
+    },
+    {
+      "policy_id": "p3",
+      "status": "passed",
+      "note": "VG a4 targets IML a3"
+    },
+    {
+      "policy_id": "p4",
+      "status": "passed",
+      "note": "a8 derives from decomposition a6"
+    }
+  ],
+  "residuals": [
+    {
+      "residual_id": "r1",
+      "kind": "limitation",
+      "severity": "medium",
+      "status": "acknowledged",
+      "source": "agent_declared",
+      "statement": "Reachability is proved for the modelled events only; deep-link entry points are not in the chart.",
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a3"
+      },
+      "suggested_check": "Enumerate router entry points and confirm each maps to a modelled state.",
+      "introduced_by_action_id": 5
+    },
+    {
+      "residual_id": "r2",
+      "kind": "open_question",
+      "severity": "low",
+      "status": "open",
+      "source": "agent_declared",
+      "statement": "Should a token refresh failure log the user out or move to Error? Left as Error for now."
+    }
+  ],
+  "files_modified": [
+    "src/auth/machine.ts"
+  ],
+  "metrics": {
+    "total_actions": 11,
+    "meta_action_count": 5
+  }
+}

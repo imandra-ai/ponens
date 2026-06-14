@@ -15,6 +15,12 @@
 
 A **policy** is a governance formula interpreted over a trace or review case.
 
+Policies are **Computable Governance** — governance you *run*, not a checklist or a sign-off. A
+policy is a machine-checkable rule, evaluated automatically over the structured trace to a pass /
+fail: a real gate, not a social "Approved." This is **conformance checking** — the established
+technique behind runtime verification and declarative process mining (temporal logic over finite
+traces, e.g. DECLARE) — applied to the reasoning traces of AI agents.
+
 Policies do **not** define execution history.  
 They constrain, require, forbid, or validate properties of that history.
 
@@ -262,7 +268,14 @@ The policy DSL is:
 - optionally extended with **quantifiers and set comprehensions**
 
 This means the DSL is not merely propositional LTL.  
-It is a policy language over structured traces.
+It is a policy language over structured traces — a scoped, first-order, finite-trace temporal logic.
+
+The foundation is deliberately well-established: LTL over finite traces (LTL_f) is the semantics
+behind declarative process mining (DECLARE) and runtime verification, where it has been used for
+conformance checking of event logs for years. This DSL extends that proven core with the
+predicates and quantifiers a *typed* trace needs — lineage, residuals (the declared negative
+space), and field access — so a policy can govern not just the action sequence but the trace's
+structure.
 
 ---
 

@@ -2,7 +2,7 @@
 
 A trace is bound 1:1 to a git commit: `bind` stamps the trace with the repo /
 branch / commit and writes a `Trace-Id` git note back onto the commit; `push`
-publishes it to a TraceHub backend; `pull` fetches collaboration state read-only;
+publishes it to a hub backend; `pull` fetches collaboration state read-only;
 `status` reports divergence across local file / HEAD / hub.
 
 The local gate (`trace check`) is offline; these verbs are the network layer.
@@ -90,7 +90,9 @@ def find_trace_file(args):
             _err(f"trace file not found: {args.file}")
         return args.file
     d = ponens_dir()
-    cands = [p for p in glob.glob(os.path.join(d, "*.json")) if not p.endswith(".sync")]
+    cands = []
+    for ext in ("*.json", "*.yaml", "*.yml"):
+        cands += [p for p in glob.glob(os.path.join(d, ext)) if not p.endswith(".sync")]
     if len(cands) == 1:
         return cands[0]
     if not cands:
@@ -293,7 +295,7 @@ def cmd_pull(args):
 def register(subparsers):
     specs = [
         ("bind", cmd_bind, "Stamp the trace with the current git commit and write a Trace-Id note"),
-        ("push", cmd_push, "Publish the bound trace to a TraceHub backend"),
+        ("push", cmd_push, "Publish the bound trace to a hub backend"),
         ("pull", cmd_pull, "Fetch hub collaboration state for the trace (read-only)"),
         ("status", cmd_status, "Show divergence across local file / HEAD / hub"),
     ]

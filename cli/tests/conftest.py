@@ -44,7 +44,7 @@ def hub_server():
             return
 
     # Start one ourselves. If the app/npm isn't available (e.g. the standalone
-    # ponens repo without the TraceHub pilot), skip the hub-dependent E2E tests
+    # ponens repo without the hub pilot), skip the hub-dependent E2E tests
     # rather than failing the whole run.
     port = PORTS_TO_TRY[0]
     url = f"http://localhost:{port}"
@@ -60,7 +60,7 @@ def hub_server():
         pytest.skip("npm/app not available; skipping hub-dependent E2E tests")
     if not _wait_for_server(url):
         proc.terminate()
-        pytest.skip("TraceHub server did not start; skipping hub-dependent E2E tests")
+        pytest.skip("hub server did not start; skipping hub-dependent E2E tests")
 
     yield url
 
@@ -74,4 +74,4 @@ def hub_server():
 @pytest.fixture(autouse=True)
 def set_hub_env(hub_server, monkeypatch):
     """Point the CLI at the test hub server."""
-    monkeypatch.setenv("TRACEHUB_URL", hub_server)
+    monkeypatch.setenv("PONENS_HUB_URL", hub_server)

@@ -1,11 +1,13 @@
-# Imandra CodeLogician Trace Specification
+# Ponens Trace Specification
 
 ## Version
 
-**Version:** 1.5  
+**Version:** 1.6  
 **Status:** Draft  
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
+
+> **Changes in 1.6 (additive, backward-compatible).** Adds **Meta-actions** (§8.4) — an optional, typed *overlay* that groups the atomic `actions` into units of **intent** (a goal → steps → tool-calls hierarchy), so a trace can be read, reviewed, and graded at the level of *what was being attempted* rather than only *what tool ran*. The atomic actions remain the ground-truth record; meta-actions are a producer's claim about their structure, carrying their own intent, outcome, residuals, and produced artifacts. Existing 1.5 traces remain valid; `meta_actions` canonicalizes to the empty list and `meta_action_id` is optional.
 
 > **Changes in 1.5 (additive, backward-compatible).** Adds the **Residual Surface** (§13) — a first-class, typed record of a trace's *negative space*: the assumptions it relied on, the claims it left unverified, what it deliberately left out of scope, its known limitations, and the questions it defers to review. This exists to support review, and in particular **agent-to-agent handoff**, where the consuming agent needs to know where to point rather than re-deriving the whole trace. Existing 1.4 traces remain valid; `residuals` canonicalizes to the empty list.
 
@@ -170,6 +172,7 @@ type trace =
   ; timestamp : string
   ; trigger : event
   ; actions : action list
+  ; meta_actions : meta_action list
   ; outcome : event
   ; artifacts : artifact list
   ; reference_artifacts : reference_artifact list
@@ -347,6 +350,7 @@ type action_common =
   ; observations : observation list
   ; execution : execution_metadata option
   ; reproducibility : action_reproducibility option
+  ; meta_action_id : string option   (* enclosing meta-action, §8.4 *)
   }
 ```
 
@@ -474,6 +478,90 @@ type execution_metadata =
 ```
 
 A reasoning action without at least `tool` should be considered underspecified.
+
+## 8.4 Meta-actions
+
+The `actions` list is the trace's **atomic, ground-truth record** — one entry per tool call. But work has *structure*: a session pursues a goal, broken into steps, each carried out by several tool calls. A **meta-action** captures that structure — a unit of *intent* that groups the atomic actions which carried it out — so a trace can be read, reviewed, and graded at the level of *what was being attempted* rather than only *what tool ran*.
+
+A meta-action is an **interpretive overlay, not a replacement**. The atomic `actions` remain the evidence — the unit that `reproduce`, lineage, and `data_flow_integrity` operate over; meta-actions are a producer's *claim about how those actions group into intent*. This mirrors the positive/negative-space split of §13: the atomic layer is *what happened*; the meta layer is the *structure asserted over it*.
+
+### Canonical model
+
+```ocaml
+type meta_action_status =
+  | MetaCompleted      (* the intent was achieved *)
+  | MetaPartial        (* attempted, not fully achieved *)
+  | MetaAbandoned      (* started, then dropped or superseded *)
+
+type meta_action_source =
+  | PlanDeclared       (* from the agent's own plan / todo list — highest fidelity *)
+  | TurnSegmented      (* inferred from directive (turn) boundaries *)
+  | IntentInferred     (* inferred from a contiguous run of shared intent / rationale *)
+
+type meta_action =
+  { id : string
+  ; title : string                       (* the unit of intent, in plain language *)
+  ; intent : string option               (* why — the goal of this step *)
+  ; action_ids : int list                (* member atomic actions, in order *)
+  ; outcome : string option              (* what resulted *)
+  ; status : meta_action_status option
+  ; source : meta_action_source option   (* how the grouping was determined *)
+  ; parent_id : string option            (* enclosing meta-action, for multi-level zoom *)
+  ; produced_artifact_ids : string list  (* artifacts this step produced *)
+  ; residual_ids : string list           (* gaps declared at this level (§13) *)
+  ; tags : string list
+  }
+```
+
+The trace record (§5) carries `meta_actions : meta_action list`, canonicalized as the empty list. Each atomic action carries a back-reference `meta_action_id : string option` (§8.1) to its enclosing meta-action, so navigation works in both directions.
+
+### Semantics
+
+- **Overlay, ordered, non-overlapping.** A meta-action references its members by id; the `actions` list is unchanged. An atomic action belongs to **at most one** meta-action, and a meta-action's `action_ids` are a contiguous, ordered slice of the timeline. Coverage need not be **total** — incidental actions may remain ungrouped.
+- **Hierarchy via `parent_id`.** Meta-actions may nest (a *goal* contains *steps* contains atomic actions), giving the consumer discrete **zoom levels**. One level (steps over actions) is the common case; `parent_id` enables more without changing the model.
+- **Intent + outcome make it reviewable as a unit.** `title`/`intent` state what was being attempted; `outcome`/`status` state whether it was achieved — so a reviewer can triage a handful of meta-actions ("did each do what it claims?") before drilling into the atomic actions of the suspect ones.
+- **Gaps and artifacts attach at the level they belong.** `residual_ids` lets an assumption or unverified claim be located at the *step* (not only at an atomic action via `introduced_by_action_id`, §13.1); `produced_artifact_ids` makes the meta-action a coarse node in the lineage DAG (§7).
+
+### Source and fidelity
+
+`source` records **how** the grouping was determined, because not all groupings are equally trustworthy — it is a *fidelity ladder*:
+
+1. `PlanDeclared` — the boundaries come from the agent's **own declared plan** (a `FormulatePlan` / `DecomposeTask` action, §8.1, or an external todo list). Most authentic: the agent's stated intent, with its own start/finish markers.
+2. `TurnSegmented` — inferred from **directive boundaries** (a new instruction begins a new unit).
+3. `IntentInferred` — inferred from a **contiguous run of shared rationale/intent**, the weakest signal.
+
+A producer should use the highest-fidelity signal available and record which via `source`, so a consumer knows whether the structure is *declared* (the agent said so) or *inferred* (tooling guessed). As with the residual surface, a *declared* grouping carries more weight across a trust boundary than an inferred one.
+
+### Relationship to existing constructs
+
+- `FormulatePlan` / `DecomposeTask` activity actions (§8.1) record the *act* of planning; a meta-action records the resulting *plan unit* spanning the actions that executed it. The planning action is typically the producer of a `PlanDeclared` meta-action.
+- Gateway actions (§8.1) — decisions, splits, loops — sit **inside** the meta-action whose intent they served, at the point they occurred.
+- `metrics` (§5.1) may summarize a `meta_action_count`; `decision_points` is unchanged — it counts gateways, which meta-actions *contain*, not replace.
+
+### Interchange projection
+
+```json
+"meta_actions": [
+  {
+    "id": "m2",
+    "title": "Make the embedded-trace viewer robust to any content",
+    "intent": "Traces of HTML/JS broke the script parse; embed so no content can corrupt it",
+    "action_ids": [180, 181, 182, 183],
+    "outcome": "application/json block + unicode-escaped '<'; renders 389 actions cleanly",
+    "status": "completed",
+    "source": "plan_declared",
+    "produced_artifact_ids": [],
+    "residual_ids": ["r3"],
+    "tags": ["viewer"]
+  }
+]
+```
+
+An action that belongs to it back-references it:
+
+```json
+{ "id": 181, "label": "Switch the embed to an application/json block", "meta_action_id": "m2" }
+```
 
 ---
 

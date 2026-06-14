@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://reasoning-traces.dev/schema/trace.v1_1.json",
-  "title": "Imandra CodeLogician Trace v1.1",
+  "title": "Ponens Trace v1.1",
   "$ref": "#/$defs/Trace",
   "$defs": {
     "Trace": {

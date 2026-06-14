@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Imandra CodeLogician</title>
+<title>Ponens Trace Viewer</title>
 <link rel="icon" type="image/webp" href="https://codelogician.dev/favicon.webp">
 <style>
   /* ---- Theme Variables ---- */
@@ -329,6 +329,70 @@
   }
   .action-card .card-label { font-size: 13px; color: var(--text-primary); font-weight: 500; line-height: 1.3; }
   .action-card .card-rationale { font-size: 11px; color: var(--text-dim); line-height: 1.4; margin-top: 4px; }
+  /* Grouped step: a run of same-rationale actions collapsed into one card */
+  .action-card.step-group { border-style: dashed; }
+  .action-card .step-count { margin-left: auto; font-size: 10px; color: var(--text-dim);
+    background: var(--bg-inset, rgba(255,255,255,.05)); padding: 1px 6px; border-radius: 8px; flex: none; }
+  .action-card .step-sublist { display: flex; flex-direction: column; gap: 2px; margin-top: 8px;
+    border-top: 1px solid var(--border, rgba(255,255,255,.08)); padding-top: 6px; }
+  .step-subrow { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 2px 6px;
+    border-radius: 4px; cursor: pointer; }
+  .step-subrow:hover { background: var(--bg-inset, rgba(255,255,255,.06)); }
+  .step-subrow .sr-icon { flex: none; opacity: .8; }
+  .step-subrow .sr-id { color: var(--text-dim); font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; flex: none; }
+  .step-subrow .sr-label { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step-subrow .sr-result { margin-left: auto; font-family: 'SF Mono','Fira Code',monospace; font-size: 10px;
+    color: #86efac; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; flex: none; }
+  .step-subrow .sr-result.err { color: #fca5a5; }
+  /* Zoom toolbar + meta-action (§8.4) level */
+  .zoom-toolbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 6px;
+    padding: 8px 4px; margin-bottom: 8px; background: var(--bg-deep, #0b0f17); }
+  .zoom-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-dim); margin-right: 2px; }
+  .zoom-btn { font-size: 11px; padding: 3px 10px; border-radius: 12px; cursor: pointer;
+    background: var(--bg-surface); color: var(--text-dim); border: 1px solid var(--border, rgba(255,255,255,.12)); }
+  .zoom-btn.active { background: var(--accent, #6366f1); color: #fff; border-color: var(--accent, #6366f1); }
+  .meta-card { border: 1px solid var(--border, rgba(255,255,255,.12)); border-radius: 8px; padding: 12px 14px;
+    margin: 0 auto; max-width: 760px; background: var(--bg-surface); cursor: pointer; transition: border-color .15s; }
+  .meta-card:hover { border-color: var(--accent, #6366f1); }
+  .meta-head { display: flex; align-items: center; gap: 8px; }
+  .meta-head .meta-id { font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; color: var(--text-dim); flex: none; }
+  .meta-head .meta-title { font-size: 13px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta-status { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 8px; flex: none; }
+  .meta-status.ok { background: rgba(34,197,94,.15); color: #86efac; }
+  .meta-status.warn { background: rgba(234,179,8,.15); color: #fde047; }
+  .meta-status.err { background: rgba(239,68,68,.15); color: #fca5a5; }
+  .meta-source { font-size: 9px; padding: 1px 6px; border-radius: 8px; flex: none;
+    background: var(--bg-inset, rgba(255,255,255,.06)); color: var(--text-dim); }
+  .meta-source.plan_declared { background: rgba(99,102,241,.18); color: #c7d2fe; }
+  .meta-gaps { font-size: 10px; color: #fbbf24; flex: none; }
+  .meta-count { margin-left: auto; font-size: 10px; color: var(--text-dim); flex: none; }
+  .meta-caret { font-size: 10px; color: var(--text-dim); flex: none; transition: transform .15s; }
+  .meta-card.expanded .meta-caret { transform: rotate(90deg); }
+  .meta-intent { font-size: 11px; color: var(--text-dim); line-height: 1.45; margin-top: 6px; }
+  .meta-outcome { font-size: 11px; color: #86efac; line-height: 1.45; margin-top: 4px; }
+  .meta-members { display: none; flex-direction: column; gap: 2px; margin-top: 10px;
+    border-top: 1px solid var(--border, rgba(255,255,255,.08)); padding-top: 8px; }
+  .meta-card.expanded .meta-members { display: flex; }
+  .meta-member-row { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 6px; border-radius: 4px; cursor: pointer; }
+  .meta-member-row:hover { background: var(--bg-inset, rgba(255,255,255,.06)); }
+  .meta-member-row .mr-id { color: var(--text-dim); font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; flex: none; }
+  .meta-member-row .mr-label { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta-member-row .mr-result { margin-left: auto; font-family: 'SF Mono','Fira Code',monospace; font-size: 10px;
+    color: #86efac; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; flex: none; }
+  .meta-member-row .mr-result.err { color: #fca5a5; }
+  .meta-caret { font-size: 13px; color: var(--text-dim); flex: none; }
+  /* Drill-down breadcrumb when focused on one meta-action */
+  .focus-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px;
+    padding: 8px 4px; margin-bottom: 4px; background: var(--bg-deep, #0b0f17); }
+  .focus-back { font-size: 11px; padding: 3px 10px; border-radius: 12px; cursor: pointer; flex: none;
+    background: var(--accent, #6366f1); color: #fff; border: 1px solid var(--accent, #6366f1); }
+  .focus-back:hover { filter: brightness(1.1); }
+  .focus-title { font-size: 13px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .focus-intent { font-size: 12px; color: var(--text-dim); line-height: 1.5; max-width: 760px; margin: 0 auto 4px; padding: 0 4px; }
+  .focus-outcome { font-size: 12px; color: #86efac; line-height: 1.5; max-width: 760px; margin: 0 auto 10px; padding: 0 4px; }
+  [data-theme="light"] .focus-outcome { color: #0a7a45; }
   .action-card .card-data { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
   .action-card .cd-tag {
     font-size: 9px; padding: 1px 5px; border-radius: 3px;
@@ -921,6 +985,17 @@
   [data-theme="light"] .clr-green { color: #085a38; }
   [data-theme="light"] .clr-red { color: #8a1520; }
   [data-theme="light"] .clr-yellow { color: #5a4508; }
+  /* Light-mode contrast for the step/meta result + outcome text (green/red on white) */
+  [data-theme="light"] .meta-member-row .mr-result,
+  [data-theme="light"] .step-subrow .sr-result,
+  [data-theme="light"] .meta-outcome { color: #0a7a45; }
+  [data-theme="light"] .meta-member-row .mr-result.err,
+  [data-theme="light"] .step-subrow .sr-result.err { color: #b91c1c; }
+  [data-theme="light"] .meta-status.ok { background: rgba(21,128,61,.12); color: #15803d; }
+  [data-theme="light"] .meta-status.warn { background: rgba(161,98,7,.14); color: #a16207; }
+  [data-theme="light"] .meta-status.err { background: rgba(185,28,28,.12); color: #b91c1c; }
+  [data-theme="light"] .meta-source.plan_declared { background: rgba(79,70,229,.14); color: #4338ca; }
+  [data-theme="light"] .card-reasoning-preview.result-proved { color: #0a7a45; }
   .clr-pending { color: #fbbf24; }
   [data-theme="light"] .clr-pending { color: #6a5010; }
   .proof-row-badge.status-proved { background: #166534; color: #bbf7d0; }
@@ -1281,8 +1356,8 @@
 
 <header>
   <a href="https://www.codelogician.dev" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
-    <img src="https://codelogician.dev/favicon.webp" alt="CodeLogician" style="height:24px;width:24px;">
-    <h1>Imandra CodeLogician<sup style="font-size:9px;color:#64748b;font-weight:400;vertical-align:super;">&#8482;</sup></h1>
+    <img src="https://codelogician.dev/favicon.webp" alt="Ponens" style="height:24px;width:24px;">
+    <h1>Ponens Trace Viewer</h1>
     <span class="version-badge" id="headerVersionBadge" style="display:none"></span>
   </a>
   <div class="meta" id="traceMeta"></div>
@@ -1454,9 +1529,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // ============================================================
 // Demo trace management
 // ============================================================
+// Kept in sync with examples/manifest.json (the source of truth). prepare.mjs
+// copies these files into demo-traces/ at build time.
 const DEMO_TRACES = [
+  { name: 'Payment Idempotency (proved)', file: 'demo-traces/sample_payment_idempotency.json' },
+  { name: 'Auth State Machine (reachability)', file: 'demo-traces/sample_auth_xstate.json' },
+  { name: 'ETL Refactor (conformance)', file: 'demo-traces/sample_etl_refactor.json' },
   { name: 'Stripe Payment Flow', file: 'demo-traces/stripe_v1_1.json' },
-  { name: 'Auth XState Machine', file: 'demo-traces/auth_xstate_v1_1.json' },
   { name: 'Form Validation', file: 'demo-traces/form_validation_v1_1.json' },
   { name: 'API Pagination', file: 'demo-traces/api_pagination_v1_1.json' },
   { name: 'Cart Reducer', file: 'demo-traces/cart_reducer_v1_1.json' },
@@ -1565,15 +1644,16 @@ function showFileLabel(name) {
 // Initialize
 initDemoSelector();
 
-// Load default trace (skip if managed by VS Code extension)
+// Load default trace (skip if managed by VS Code extension). Default to a 1.6
+// sample so the meta-action zoom is visible on open.
 if (!window._vscodeManaged) {
-  _currentDemoFile = 'demo-traces/stripe_v1_1.json';
+  _currentDemoFile = 'demo-traces/sample_payment_idempotency.json';
   // Set dropdown immediately so it doesn't show placeholder
   const _sel = document.getElementById('demoSelect');
-  if (_sel) _sel.value = 'demo-traces/stripe_v1_1.json';
-  fetch('demo-traces/stripe_v1_1.json').then(r => r.json()).then(data => {
+  if (_sel) _sel.value = _currentDemoFile;
+  fetch(_currentDemoFile).then(r => r.json()).then(data => {
     loadTrace(data);
-    updateDemoBadge('demo-traces/stripe_v1_1.json');
+    updateDemoBadge(_currentDemoFile);
   }).catch(() => {
     _currentDemoFile = 'trace.json';
     if (_sel) _sel.value = 'trace.json';
@@ -1672,7 +1752,7 @@ function normalizeTrace(data) {
 
 function validateTrace(data) {
   if (!data || typeof data !== 'object') return 'File does not contain a valid JSON object.';
-  if (!Array.isArray(data.actions) || data.actions.length === 0) return 'Missing or empty "actions" array — this does not appear to be a CodeLogician trace file.';
+  if (!Array.isArray(data.actions) || data.actions.length === 0) return 'Missing or empty "actions" array — this does not appear to be a Ponens trace file.';
   const first = data.actions[0];
   if (!first.type && !first.label) return 'Actions are missing required fields (type, label) — unrecognized trace format.';
   return null;
@@ -1820,10 +1900,55 @@ function activityIcon(type) {
 // ============================================================
 // Flow rendering
 // ============================================================
+function zoomToolbar(trace) {
+  const nMeta = (trace.meta_actions || []).length, nAct = (trace.actions || []).length;
+  if (!nMeta) return '';
+  const z = window._flowZoom;
+  return `<div class="zoom-toolbar"><span class="zoom-label">Zoom</span>
+    <button class="zoom-btn ${z === 'meta' ? 'active' : ''}" onclick="setFlowZoom('meta')">Steps · ${nMeta}</button>
+    <button class="zoom-btn ${z === 'actions' ? 'active' : ''}" onclick="setFlowZoom('actions')">Actions · ${nAct}</button>
+  </div>`;
+}
+
+function setFlowZoom(z) { window._flowZoom = z; window._focusMeta = null; renderFlow(traceData); }
+function focusMeta(id) { window._focusMeta = id; renderFlow(traceData); }
+
+function renderFocusBar(m, n) {
+  const statusClass = { completed: 'ok', partial: 'warn', abandoned: 'err' }[m.status] || '';
+  const srcLabel = { plan_declared: 'plan', turn_segmented: 'directive', intent_inferred: 'inferred' }[m.source] || m.source || '';
+  let h = `<div class="focus-bar">
+    <button class="focus-back" onclick="focusMeta(null)">‹ Steps</button>
+    <span class="meta-id">${esc(m.id)}</span>
+    <span class="focus-title">${esc(m.title)}</span>
+    ${m.status ? `<span class="meta-status ${statusClass}">${esc(m.status)}</span>` : ''}
+    ${srcLabel ? `<span class="meta-source ${esc(m.source)}">${esc(srcLabel)}</span>` : ''}
+    <span class="meta-count">${n} action${n !== 1 ? 's' : ''}</span>
+  </div>`;
+  if (m.intent) h += `<div class="focus-intent">${esc(m.intent)}</div>`;
+  if (m.outcome) h += `<div class="focus-outcome">→ ${esc(m.outcome)}</div>`;
+  return h;
+}
+
 function renderFlow(trace) {
   const panel = document.getElementById('flowPanel');
-  const actions = trace.actions || [];
+  let actions = trace.actions || [];
   const vgs = trace.verification_goals || [];
+  const hasMeta = (trace.meta_actions || []).length > 0;
+  if (window._flowZoom === undefined) window._flowZoom = hasMeta ? 'meta' : 'actions';
+
+  // Meta zoom with no focus → the list of steps.
+  if (hasMeta && window._flowZoom === 'meta' && !window._focusMeta) {
+    panel.innerHTML = zoomToolbar(trace) + renderMetaLevel(trace);
+    return;
+  }
+
+  // Drilled into one step → show ONLY that step's actions.
+  let focusM = null;
+  if (hasMeta && window._flowZoom === 'meta' && window._focusMeta) {
+    focusM = (trace.meta_actions || []).find(x => x.id === window._focusMeta);
+    if (!focusM) { window._focusMeta = null; panel.innerHTML = zoomToolbar(trace) + renderMetaLevel(trace); return; }
+    actions = actions.filter(a => a.meta_action_id === window._focusMeta);
+  }
 
   const groups = [];
   let cur = null;
@@ -1836,7 +1961,8 @@ function renderFlow(trace) {
   const vgByAction = {};
   for (const vg of vgs) for (const aid of (vg.related_actions || [])) (vgByAction[aid] = vgByAction[aid] || []).push(vg);
 
-  let html = `<div class="event-bookend">
+  let html = focusM ? renderFocusBar(focusM, actions.length)
+    : `<div class="event-bookend">
     <div class="event-dot"></div>
     <div class="event-text">${esc(trace.trigger.description || trace.trigger.type)}</div>
   </div>`;
@@ -1852,9 +1978,7 @@ function renderFlow(trace) {
       html += `<div class="data-connector"><span class="arrow">\u2193</span></div>`;
     }
 
-    const labelText = group.key === 'reasoning'
-      ? `${esc(group.label)} POWERED BY <a href="https://www.imandrax.dev" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;text-decoration:none;vertical-align:middle;"><img src="https://imandrax.dev/favicon.webp" alt="ImandraX" style="height:14px;width:14px;"><span class="clr-purple">IMANDRAX</span></a>`
-      : esc(group.label);
+    const labelText = esc(group.label);
 
     html += `<div class="phase-lane"><div class="phase-lane-header">
       <div class="phase-color" style="background:${group.color}"></div>
@@ -1862,97 +1986,189 @@ function renderFlow(trace) {
       <span class="phase-label">${labelText}</span>
     </div><div class="lane-cards">`;
 
-    for (let ai = 0; ai < group.actions.length; ai++) {
-      const a = group.actions[ai];
-      const isGW = a.category === 'gateway';
-      const isReasoning = a.category === 'reasoning';
-      if (ai > 0) html += `<div class="card-arrow">\u2192</div>`;
-
-      const cardClass = isGW ? ' gateway-card' : isReasoning ? ' reasoning-card' : '';
-      html += `<div class="action-card${cardClass}" data-action-id="${a.id}" onclick="selectAction(${a.id})">`;
-      html += `<div class="card-top">
-        <span class="card-icon">${isGW ? '\u{25C7}' : activityIcon(a.type)}</span>
-        <span class="card-num">#${a.id}</span>
-        <span class="card-label">${esc(a.label)}</span>
-      </div>`;
-      html += `<div class="card-rationale">${esc(a.rationale)}</div>`;
-
-      if (isGW && a.options) {
-        html += `<div class="gw-options">`;
-        for (const o of a.options) {
-          html += `<div class="gw-opt ${o.chosen ? 'chosen' : ''}"><div class="gw-bullet"></div> ${esc(o.label)}`;
-          if (!o.chosen && o.rejected_because) html += ` <span class="gw-opt-reason">(${esc(o.rejected_because)})</span>`;
-          html += `</div>`;
-        }
-        html += `</div>`;
+    // Group consecutive actions sharing a rationale into one step \u2014 the rationale
+    // is the unit of intent, so "I did N things for this one reason" reads as one
+    // card instead of N near-identical ones. Gateways/reasoning stay standalone.
+    const steps = [];
+    for (const a of group.actions) {
+      const prev = steps[steps.length - 1];
+      const special = a.category === 'gateway' || a.category === 'reasoning';
+      if (prev && !special && !prev.special && (a.rationale || '').length > 0 &&
+          (prev.rationale || '') === (a.rationale || '')) {
+        prev.items.push(a);
+      } else {
+        steps.push({ rationale: a.rationale || '', special, items: [a] });
       }
-
-      // Reasoning inline previews
-      if (a.formalization) {
-        html += `<span class="card-status-badge ${a.formalization.status}">${a.formalization.status}</span>`;
-        html += `<div class="card-reasoning-preview iml">${highlightIML(truncate(a.formalization.iml_code, 80))}</div>`;
-      }
-      if (a.vg_defined) {
-        if (a.vg_defined.properties && a.vg_defined.properties.length) {
-          html += renderPropTags(a.vg_defined.properties, 3);
-        } else {
-          html += `<div class="card-reasoning-preview vg-src">${highlightIML(truncate(a.vg_defined.src, 80))}</div>`;
-        }
-      }
-      if (a.vg_result) {
-        html += `<span class="card-status-badge ${a.vg_result.status}">${a.vg_result.status}</span>`;
-        if (a.vg_result.result?.proved?.properties) {
-          html += renderPropTags(a.vg_result.result.proved.properties, 3);
-        } else if (a.vg_result.result?.sat) {
-          const src = a.vg_result.result.sat.model.src;
-          html += `<div class="card-reasoning-preview result-sat">${esc(truncate(src, 80))}</div>`;
-        }
-      }
-      if (a.decomposition) {
-        const nRegions = a.decomposition.regions.length;
-        html += `<span class="card-status-badge transparent">${nRegions} region${nRegions !== 1 ? 's' : ''}${a.decomposition.complete ? ' \u2014 complete' : ''}</span>`;
-      }
-      if (a.generated_tests) {
-        const nTests = a.generated_tests.tests.length;
-        html += `<span class="card-status-badge transparent">${nTests} test${nTests !== 1 ? 's' : ''} generated</span>`;
-      }
-
-      // v1.1: result_summary
-      if (a.result_summary) {
-        html += `<div class="card-result-summary">${esc(a.result_summary)}</div>`;
-      }
-
-      const ins = a.inputs || [], outs = a.outputs || [];
-      if (ins.length || outs.length) {
-        html += `<div class="card-data">`;
-        for (const i of ins) html += `<span class="cd-tag cd-in">\u2190 ${esc(i)}</span>`;
-        for (const o of outs) html += `<span class="cd-tag cd-out">${esc(o)} \u2192</span>`;
-        html += `</div>`;
-      }
-
-      const avgs = vgByAction[a.id] || [];
-      if (avgs.length) {
-        html += `<div class="card-vgs">`;
-        for (const vg of avgs) {
-          html += `<span class="card-vg-dot ${vg.status}" onclick="event.stopPropagation();openModal('vg','mvg-${vg.goal_id}')" title="${esc(vg.description)}">VG${vg.goal_id} ${vg.status}</span>`;
-        }
-        html += `</div>`;
-      }
-
-      html += `</div>`;
-      prevOutputs = a.outputs || [];
     }
+
+    for (let si = 0; si < steps.length; si++) {
+      if (si > 0) html += `<div class="card-arrow">\u2192</div>`;
+      const step = steps[si];
+      html += step.items.length === 1
+        ? actionCardHTML(step.items[0], vgByAction)
+        : stepGroupHTML(step.items);
+    }
+    const lastAction = group.actions[group.actions.length - 1];
+    if (lastAction) prevOutputs = lastAction.outputs || [];
 
     html += `</div></div>`;
   }
 
-  html += `<div class="data-connector"><span class="arrow">\u2193</span></div>`;
+  if (!focusM) {
+    html += `<div class="data-connector"><span class="arrow">\u2193</span></div>`;
+    html += `<div class="event-bookend">
+      <div class="event-dot end"></div>
+      <div class="event-text">${esc(trace.outcome.summary || trace.outcome.type)}</div>
+    </div>`;
+  }
+
+  panel.innerHTML = (focusM ? '' : zoomToolbar(trace)) + html;
+}
+
+// Meta-action level (§8.4): the declared structure — each step expandable to its actions.
+function renderMetaLevel(trace) {
+  const metas = trace.meta_actions || [];
+  const byId = {};
+  for (const a of (trace.actions || [])) byId[a.id] = a;
+  let html = `<div class="event-bookend">
+    <div class="event-dot"></div>
+    <div class="event-text">${esc(trace.trigger.description || trace.trigger.type)}</div>
+  </div>`;
+  for (let i = 0; i < metas.length; i++) {
+    if (i > 0) html += `<div class="data-connector"><span class="arrow">↓</span></div>`;
+    html += renderMetaCard(metas[i], byId);
+  }
+  html += `<div class="data-connector"><span class="arrow">↓</span></div>`;
   html += `<div class="event-bookend">
     <div class="event-dot end"></div>
     <div class="event-text">${esc(trace.outcome.summary || trace.outcome.type)}</div>
   </div>`;
+  return html;
+}
 
-  panel.innerHTML = html;
+function renderMetaCard(m, byId) {
+  const acts = (m.action_ids || []).map(id => byId[id]).filter(Boolean);
+  const srcLabel = { plan_declared: 'plan', turn_segmented: 'directive', intent_inferred: 'inferred' }[m.source] || m.source || '';
+  const statusClass = { completed: 'ok', partial: 'warn', abandoned: 'err' }[m.status] || '';
+  const nGaps = (m.residual_ids || []).length;
+  // Click drills into this one step (shows only its actions); see focusMeta/renderFlow.
+  let h = `<div class="meta-card" onclick="focusMeta('${esc(m.id)}')">`;
+  h += `<div class="meta-head">
+    <span class="meta-id">${esc(m.id)}</span>
+    <span class="meta-title">${esc(m.title)}</span>
+    ${m.status ? `<span class="meta-status ${statusClass}">${esc(m.status)}</span>` : ''}
+    ${srcLabel ? `<span class="meta-source ${esc(m.source)}">${esc(srcLabel)}</span>` : ''}
+    ${nGaps ? `<span class="meta-gaps" title="declared residuals">⚠ ${nGaps}</span>` : ''}
+    <span class="meta-count">${acts.length} action${acts.length !== 1 ? 's' : ''}</span>
+    <span class="meta-caret">›</span>
+  </div>`;
+  if (m.intent) h += `<div class="meta-intent">${esc(m.intent)}</div>`;
+  if (m.outcome) h += `<div class="meta-outcome">→ ${esc(m.outcome)}</div>`;
+  h += `</div>`;
+  return h;
+}
+
+// One action → one full card (used for singleton steps and gateways/reasoning).
+function actionCardHTML(a, vgByAction) {
+  const isGW = a.category === 'gateway';
+  const isReasoning = a.category === 'reasoning';
+  const cardClass = isGW ? ' gateway-card' : isReasoning ? ' reasoning-card' : '';
+  let html = `<div class="action-card${cardClass}" data-action-id="${a.id}" onclick="selectAction(${a.id})">`;
+  html += `<div class="card-top">
+    <span class="card-icon">${isGW ? '\u{25C7}' : activityIcon(a.type)}</span>
+    <span class="card-num">#${a.id}</span>
+    <span class="card-label">${esc(a.label)}</span>
+  </div>`;
+  html += `<div class="card-rationale">${esc(a.rationale)}</div>`;
+
+  if (isGW && a.options) {
+    html += `<div class="gw-options">`;
+    for (const o of a.options) {
+      html += `<div class="gw-opt ${o.chosen ? 'chosen' : ''}"><div class="gw-bullet"></div> ${esc(o.label)}`;
+      if (!o.chosen && o.rejected_because) html += ` <span class="gw-opt-reason">(${esc(o.rejected_because)})</span>`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (a.formalization) {
+    html += `<span class="card-status-badge ${a.formalization.status}">${a.formalization.status}</span>`;
+    html += `<div class="card-reasoning-preview iml">${highlightIML(truncate(a.formalization.iml_code, 80))}</div>`;
+  }
+  if (a.vg_defined) {
+    if (a.vg_defined.properties && a.vg_defined.properties.length) {
+      html += renderPropTags(a.vg_defined.properties, 3);
+    } else {
+      html += `<div class="card-reasoning-preview vg-src">${highlightIML(truncate(a.vg_defined.src, 80))}</div>`;
+    }
+  }
+  if (a.vg_result) {
+    html += `<span class="card-status-badge ${a.vg_result.status}">${a.vg_result.status}</span>`;
+    if (a.vg_result.result?.proved?.properties) {
+      html += renderPropTags(a.vg_result.result.proved.properties, 3);
+    } else if (a.vg_result.result?.sat) {
+      const src = a.vg_result.result.sat.model.src;
+      html += `<div class="card-reasoning-preview result-sat">${esc(truncate(src, 80))}</div>`;
+    }
+  }
+  if (a.decomposition) {
+    const nRegions = a.decomposition.regions.length;
+    html += `<span class="card-status-badge transparent">${nRegions} region${nRegions !== 1 ? 's' : ''}${a.decomposition.complete ? ' — complete' : ''}</span>`;
+  }
+  if (a.generated_tests) {
+    const nTests = a.generated_tests.tests.length;
+    html += `<span class="card-status-badge transparent">${nTests} test${nTests !== 1 ? 's' : ''} generated</span>`;
+  }
+
+  if (a.result_summary) {
+    html += `<div class="card-result-summary">${esc(a.result_summary)}</div>`;
+  }
+
+  const ins = a.inputs || [], outs = a.outputs || [];
+  if (ins.length || outs.length) {
+    html += `<div class="card-data">`;
+    for (const i of ins) html += `<span class="cd-tag cd-in">← ${esc(i)}</span>`;
+    for (const o of outs) html += `<span class="cd-tag cd-out">${esc(o)} →</span>`;
+    html += `</div>`;
+  }
+
+  const avgs = vgByAction[a.id] || [];
+  if (avgs.length) {
+    html += `<div class="card-vgs">`;
+    for (const vg of avgs) {
+      html += `<span class="card-vg-dot ${vg.status}" onclick="event.stopPropagation();openModal('vg','mvg-${vg.goal_id}')" title="${esc(vg.description)}">VG${vg.goal_id} ${vg.status}</span>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+// A run of same-rationale actions → one step card: rationale once, actions as rows.
+function stepGroupHTML(items) {
+  const first = items[0], last = items[items.length - 1];
+  let html = `<div class="action-card step-group" data-action-id="${first.id}" onclick="selectAction(${first.id})">`;
+  html += `<div class="card-top">
+    <span class="card-icon">${activityIcon(first.type)}</span>
+    <span class="card-num">#${first.id}–#${last.id}</span>
+    <span class="card-label">${esc(first.label)}</span>
+    <span class="step-count">${items.length}×</span>
+  </div>`;
+  html += `<div class="card-rationale">${esc(first.rationale)}</div>`;
+  html += `<div class="step-sublist">`;
+  for (const a of items) {
+    const res = a.result_summary || '';
+    const isErr = res.startsWith('ERROR');
+    html += `<div class="step-subrow" onclick="event.stopPropagation();selectAction(${a.id})">
+      <span class="sr-icon">${activityIcon(a.type)}</span>
+      <span class="sr-id">#${a.id}</span>
+      <span class="sr-label">${esc(a.label)}</span>
+      ${res ? `<span class="sr-result${isErr ? ' err' : ''}">${esc(truncate(res, 70))}</span>` : ''}
+    </div>`;
+  }
+  html += `</div></div>`;
+  return html;
 }
 
 // ============================================================
@@ -2842,6 +3058,23 @@ function renderLineageView() {
   const el = document.getElementById('view-lineage');
   const groups = collectArtifacts();
 
+  if (!groups.length) {
+    el.innerHTML = `<div style="padding:48px 32px;max-width:640px;margin:0 auto;text-align:center;color:var(--text-dim);">
+      <div style="font-size:32px;margin-bottom:12px;opacity:.5;">◇</div>
+      <div style="font-size:15px;color:var(--text);margin-bottom:8px;">No lineage in this trace yet</div>
+      <p style="font-size:13px;line-height:1.6;margin:0 0 16px;">
+        Lineage shows how each result traces back to what produced it. This trace records
+        <em>what the agent did</em>, but the actions don't declare the artifacts they consumed or
+        produced, so there's no dependency chain to follow.
+      </p>
+      <p style="font-size:12px;line-height:1.6;margin:0;opacity:.8;">
+        Have the agent emit artifacts and wire <code>inputs</code>/<code>outputs</code> between actions
+        to make the data flow visible here.
+      </p>
+    </div>`;
+    return;
+  }
+
   let html = '';
   for (const group of groups) {
     html += `<div class="artifact-group">`;
@@ -3377,7 +3610,19 @@ function renderDAGView() {
   const el = document.getElementById('view-dag');
   const artifacts = traceData?.artifacts || [];
   if (!artifacts.length) {
-    el.innerHTML = '<p style="color:#64748b;padding:32px;">No artifacts in this trace. Artifact DAG requires a v1.1 trace.</p>';
+    el.innerHTML = `<div style="padding:48px 32px;max-width:640px;margin:0 auto;text-align:center;color:var(--text-dim);">
+      <div style="font-size:32px;margin-bottom:12px;opacity:.5;">◇</div>
+      <div style="font-size:15px;color:var(--text);margin-bottom:8px;">No lineage in this trace yet</div>
+      <p style="font-size:13px;line-height:1.6;margin:0 0 16px;">
+        This trace records <em>what the agent did</em>, but not the artifacts it produced or
+        consumed &mdash; models, verification goals, generated tests, decompositions &mdash; so there is
+        no data-flow graph to draw. The reasoning is in <strong>Flow</strong>; the gaps are in <strong>Residuals</strong>.
+      </p>
+      <p style="font-size:12px;line-height:1.6;margin:0;opacity:.8;">
+        To see lineage here, have the agent emit artifacts and link them
+        (<code>inputs</code>/<code>outputs</code>) so each result traces back to what produced it.
+      </p>
+    </div>`;
     return;
   }
 
@@ -4132,7 +4377,7 @@ function generateReport() {
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CodeLogician Trace Report</title>
+<title>Ponens Trace Report</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -4216,7 +4461,7 @@ function generateReport() {
   <div style="display:flex;align-items:flex-start;gap:12px;">
     <img src="https://codelogician.dev/favicon.webp" alt="CodeLogician" style="height:32px;width:32px;margin-top:2px;">
     <div>
-      <h1>Imandra CodeLogician<sup style="font-size:9px;color:#6a7a8c;vertical-align:super;">&trade;</sup> Trace Report</h1>
+      <h1>Ponens Trace Report</h1>
       <div class="subtitle"><strong>Objective:</strong> ${esc(d.trigger?.description || 'Agent trace report')}</div>
     </div>
   </div>
@@ -4390,7 +4635,7 @@ function generateReport() {
 
   html += `
 <div class="footer">
-  <span>Generated by Imandra CodeLogician</span>
+  <span>Generated by Ponens</span>
   <span>${esc(d.trace_id || '')} | ${now}</span>
 </div>
 </body></html>`;

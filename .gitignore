@@ -22,6 +22,8 @@ website/.astro/
 website/public/gallery/
 website/public/viewer/
 website/src/pages/spec/*.md
+# Viewer demo traces are synced from examples/ at build time (source: examples/)
+viewer/vscode-plugin/media/demo-traces/
 
 # Local registry cache
 .ponens/

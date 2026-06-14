@@ -1,4 +1,4 @@
-"""HTTP client for the TraceHub API."""
+"""HTTP client for the hub API."""
 
 import json
 import os
@@ -9,11 +9,11 @@ DEFAULT_HUB = "http://localhost:3001"
 
 
 def hub_url() -> str:
-    return os.environ.get("TRACEHUB_URL", DEFAULT_HUB)
+    return os.environ.get("PONENS_HUB_URL", DEFAULT_HUB)
 
 
 def api(method: str, path: str, body: dict | None = None) -> dict | list | str:
-    """Make an API request to the TraceHub backend.
+    """Make an API request to the hub backend.
 
     Returns parsed JSON (dict or list) on success.
     Raises RuntimeError on HTTP errors.

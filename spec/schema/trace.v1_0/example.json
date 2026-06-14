@@ -1,7 +1,7 @@
 {
   "trace_id": "example-001",
-  "assistant": "claude-code",
-  "model": "claude-opus-4-6",
+  "assistant": "ponens",
+  "model": "example-model",
   "timestamp": "2026-04-01T12:00:00Z",
   "trigger": { "type": "TaskReceived", "description": "fix login bug" },
   "actions": [

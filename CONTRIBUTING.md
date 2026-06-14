@@ -74,6 +74,13 @@ Use [GitHub Issues](https://github.com/imandra-ai/ponens/issues) for:
 - Spec ambiguities or gaps
 - Questions about how to use the policy language
 
+## Authorship & credit
+
+[`AUTHORS.md`](AUTHORS.md) lists the project's original authors and is maintained by the
+maintainers. **All contributors are credited automatically** via the git history and GitHub's
+contributor list — you don't need to add yourself to `AUTHORS.md`. Copyright remains with
+Imandra, Inc. (see [`LICENSE`](LICENSE)); contributing does not transfer or change that.
+
 ## Code of conduct
 
 Be respectful and constructive. We're building shared standards — good-faith disagreement on design decisions is welcome, personal attacks are not.

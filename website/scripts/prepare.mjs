@@ -11,11 +11,13 @@ const root = resolve(here, "..", "..");        // repo root
 const site = resolve(here, "..");              // website/
 
 async function syncGallery() {
-  const dest = resolve(site, "public/gallery/policies");
-  await rm(dest, { recursive: true, force: true });
-  await mkdir(dest, { recursive: true });
-  await cp(resolve(root, "gallery/policies"), dest, { recursive: true });
-  console.log("synced gallery → public/gallery/policies");
+  for (const sub of ["policies", "reasoners"]) {
+    const dest = resolve(site, `public/gallery/${sub}`);
+    await rm(dest, { recursive: true, force: true });
+    await mkdir(dest, { recursive: true });
+    await cp(resolve(root, `gallery/${sub}`), dest, { recursive: true });
+  }
+  console.log("synced gallery → public/gallery/{policies,reasoners}");
 }
 
 async function syncSpecs() {

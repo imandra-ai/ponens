@@ -1,10 +1,11 @@
-name: Validate policy gallery
+name: Validate gallery
 
 on:
   pull_request:
     paths:
-      - "gallery/policies/**"
+      - "gallery/**"
       - "scripts/build_index.py"
+      - "scripts/build_reasoners.py"
       - ".github/workflows/validate-gallery.yml"
   push:
     branches: [main]
@@ -27,5 +28,8 @@ jobs:
         continue-on-error: true
         run: pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
 
-      - name: Validate gallery and check catalog is up to date
+      - name: Validate policies and check catalog is up to date
         run: python3 scripts/build_index.py --check
+
+      - name: Validate reasoner registry and check catalog is up to date
+        run: python3 scripts/build_reasoners.py --check

@@ -17,6 +17,7 @@
         "state-machine"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Interactive components with ARIA state (expanded, selected, checked, disabled) must manage state transitions correctly. Focus management after state changes should be verified.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -35,6 +36,7 @@
         "transparency"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Every action in the trace must include a non-empty rationale field explaining why it was taken.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -53,6 +55,7 @@
         "rationale"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "All gateway (decision) nodes must have a non-empty rationale explaining the choice.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -73,6 +76,7 @@
         "ux"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "CSS/JS animation state machines should be verified to be deterministic — the same sequence of events always produces the same visual state.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -92,6 +96,7 @@
         "formal-verification"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Changes to public API endpoints must be formally checked for backward compatibility. Breaking changes must be explicitly approved.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -110,6 +115,7 @@
         "safety"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Deployment actions require explicit user approval.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -129,6 +135,7 @@
         "review"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "Every residual of kind 'assumption' must be locatable — it must carry a target or a non-empty related_artifact_ids, so a reviewer can find what depends on it.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -149,6 +156,7 @@
         "state-machine"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Async operations (API calls, file uploads) that drive UI state must have their transition logic formally verified — especially error and timeout paths.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -167,6 +175,7 @@
         "formal-verification"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "When a verification goal is refuted (counterexample found), a fix action should follow.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -185,6 +194,7 @@
         "integrity"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "Every consumed artifact must have exactly one valid producer earlier in the trace.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -205,6 +215,7 @@
         "safety"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Database migration scripts must be formally verified for reversibility and data preservation before execution.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -223,6 +234,7 @@
         "safety"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Delete actions require linked user approval in the dependency chain — not just any prior approval anywhere in the trace.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -241,6 +253,7 @@
         "ux"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Complex changes (touching 3+ files) should be preceded by an explanation to the user.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -259,6 +272,7 @@
         "integrity"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "The files_modified list must match the actual files changed by code-modifying actions.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -279,6 +293,7 @@
         "validation"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Form validation logic should be formalized and decomposed to ensure all field combinations are handled — no valid input rejected, no invalid input accepted.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -297,10 +312,11 @@
         "reasoning"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": "codelogician",
       "description": "Verification goals must be preceded by a formalization step that produced the model being verified.",
       "version": "1.0.0",
       "reference_compiler": "ok",
-      "hash": "sha256:1a4a71925c451e723a3908d32726154810dade91c9a56de3dec384307418e80c",
+      "hash": "sha256:9ac4b8242676569aa43ef29ba9bdd445a76b6248c4bee4061ac1b5472eb28cd9",
       "file": "formalize_before_verify.json"
     },
     {
@@ -316,6 +332,7 @@
         "testing"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "Generated test artifacts must derive from a Decomposition artifact in their lineage.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -334,6 +351,7 @@
         "verification"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "Every VerificationGoal must reference a valid IMLModel via its target_artifact_id field.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -353,6 +371,7 @@
         "residuals"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "Before a commit, every high- or critical-severity residual must be acknowledged, addressed, or waived — not left open. A commit must not silently carry an unacknowledged high-severity gap.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -371,6 +390,7 @@
         "quality"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "A linter should run before any commit to catch style and quality issues.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -389,6 +409,7 @@
         "safety"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Force push to shared branches is prohibited. Agents must never rewrite published history.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -408,6 +429,7 @@
         "review"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "A trace must carry no critical-severity residual that is still open. Intended as an approval gate: critical declared gaps must be addressed, acknowledged, or waived before sign-off.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -426,6 +448,7 @@
         "security"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Files matching secret patterns (.env, credentials, private keys) must never be included in commits.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -446,6 +469,7 @@
         "regulated"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Changes to payment card processing code must be preceded by formal reasoning that verifies PCI DSS compliance constraints — no card data in logs, encryption at rest, tokenization of PANs.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -466,6 +490,7 @@
         "token-lifecycle"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Code handling Plaid Link tokens must be verified against the Plaid Link Reference Model — token exchange only after successful link, proper expiration handling.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -486,6 +511,7 @@
         "useEffect"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "React useEffect hooks with subscriptions or timers should have their cleanup logic formally verified to prevent memory leaks.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -505,10 +531,11 @@
         "safety"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": "codelogician",
       "description": "Edits to high-stakes modules (payments, risk, matching) must be preceded by formal reasoning in the artifact dependency chain.",
       "version": "1.0.0",
       "reference_compiler": "ok",
-      "hash": "sha256:67af60fd13d74e019495490f8b3cca8d531dd4b8d0fda7e54457b956ec66a9ba",
+      "hash": "sha256:894599b79b522d44f60fd547c4f0cafc06b99389e7cc955b7e3fe4bdadf83fba",
       "file": "reasoning_required_for_high_stakes.json"
     },
     {
@@ -525,6 +552,7 @@
         "useReducer"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Redux/useReducer reducers should be decomposed to verify that every action type is handled and produces a valid state.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -546,6 +574,7 @@
         "sox"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Changes to regulated systems must have a complete audit trail: research action, formal reasoning, user approval, test pass, and commit — all with rationale.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -564,6 +593,7 @@
         "research"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Every edit must be preceded by at least one research action (read, search, analyze) on the same target file.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -585,6 +615,7 @@
         "security"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Route guards (auth checks, role checks, feature flags) must be decomposed to verify that all route × auth-state combinations are handled correctly.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -604,6 +635,7 @@
         "stripe"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Formalizations of Stripe payment code must be verified against the Stripe Payment Reference Model.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -622,6 +654,7 @@
         "testing"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Every commit must be preceded by a successful test run.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -640,6 +673,7 @@
         "testing"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "The most recent test run before each commit must have passed. A failed run followed by a successful re-run satisfies this policy.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -658,6 +692,7 @@
         "structure"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "The trace must have both a start event (trigger) and eventually reach an end event (outcome).",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -679,6 +714,7 @@
         "two-person"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Infrastructure changes (database migrations, IAM policies, network configs) require approval from two distinct users before execution.",
       "version": "1.0.0",
       "reference_compiler": "unsupported",
@@ -697,6 +733,7 @@
         "type-checking"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "A type checker should run before any commit for typed languages.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -717,6 +754,7 @@
         "ui"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Complex UI state machines (5+ states) should be decomposed into regions to generate exhaustive edge case tests.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -736,6 +774,7 @@
         "review"
       ],
       "language_level": "structural",
+      "reasoner": null,
       "description": "Every residual of kind 'unverified' must carry a non-empty suggested_check — a concrete way a reviewer could close the gap.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -756,6 +795,7 @@
         "xstate"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "XState machines must be verified to be deadlock-free — every non-final state must have at least one enabled transition.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -775,6 +815,7 @@
         "xstate"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "Guard conditions in XState machines must be formally verified to ensure they partition the event space completely — no unhandled cases.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -795,6 +836,7 @@
         "xstate"
       ],
       "language_level": "scoped_temporal",
+      "reasoner": null,
       "description": "Any XState state machine definition must be formalized into IML before the component using it is edited.",
       "version": "1.0.0",
       "reference_compiler": "ok",
@@ -814,6 +856,7 @@
         "xstate"
       ],
       "language_level": "pure_temporal",
+      "reasoner": null,
       "description": "All states in an XState machine should be reachable from the initial state. Unreachable states indicate dead code or design errors.",
       "version": "1.0.0",
       "reference_compiler": "ok",

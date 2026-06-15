@@ -6,6 +6,7 @@
   "description": "Edits to high-stakes modules (payments, risk, matching) must be preceded by formal reasoning in the artifact dependency chain.",
   "formula": "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))",
   "language_level": "scoped_temporal",
+  "reasoner": "codelogician",
   "rationale": "Critical code changes must be formally verified before implementation. The reasoning must be in the lineage of the edit, not just somewhere in the trace.",
   "tags": [
     "safety",

@@ -24,6 +24,12 @@ traces, e.g. DECLARE) — applied to the reasoning traces of AI agents.
 Policies do **not** define execution history.  
 They constrain, require, forbid, or validate properties of that history.
 
+A policy may also **require a reasoner** — an automated-reasoning tool (e.g. CodeLogician,
+ImandraX, a model checker, an SMT solver) that produces the verification artifacts a policy depends
+on. The optional `reasoner` field names one from the **reasoner registry** (`gallery/reasoners`),
+so a policy can demand not just *that* a claim was verified, but *by what* — the engine through
+which a claim becomes *established* rather than merely asserted.
+
 This specification defines:
 
 - the **policy object model**

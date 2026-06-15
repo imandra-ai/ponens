@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "reasoners": ["codelogician", "imandrax", "z3", "tlc"],
+  "kinds": {
+    "formal_verification": "Proves properties / finds counterexamples over a formal model",
+    "smt": "Satisfiability-modulo-theories solving",
+    "model_checking": "State-space exploration of temporal properties",
+    "property_testing": "Randomized / exhaustive property-based testing",
+    "conformance": "Checks an implementation against a reference model"
+  }
+}

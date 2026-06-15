@@ -1,0 +1,27 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ea8fe"/>
+      <stop offset="1" stop-color="#9d7bff"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#9db8ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="28%" cy="6%" r="62%">
+      <stop offset="0" stop-color="#6ea8fe" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#0d1117" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0d1117"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(96,92)">
+    <circle cx="46" cy="18" r="14" fill="url(#pg)"/>
+    <circle cx="18" cy="66" r="14" fill="url(#pg)"/>
+    <circle cx="74" cy="66" r="14" fill="url(#pg)"/>
+  </g>
+  <text x="96" y="322" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="112" font-weight="700" fill="url(#title)">ponens</text>
+  <text x="100" y="404" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="44" font-weight="600" fill="#9db8ff">Not a log. A record.</text>
+  <text x="100" y="476" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" fill="#8b97a7">Higher-level reasoning records for AI coding agents —</text>
+  <text x="100" y="520" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" fill="#8b97a7">curated, verifiable, and governed by Computable Governance.</text>
+</svg>

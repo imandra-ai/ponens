@@ -16,6 +16,8 @@ from . import trace as trace_mod
 from . import registry as registry_mod
 from . import sync as sync_mod
 from . import emit as emit_mod
+from . import agent as agent_mod
+from . import reasoners as reasoners_mod
 
 
 # ── Helpers ─────────────────────────────────────────────────────
@@ -640,11 +642,17 @@ def main():
     # ── registry & policies (community policy gallery) ───────────
     registry_mod.register(subparsers)
 
+    # ── reasoners (the reasoner registry) ────────────────────────
+    reasoners_mod.register(subparsers)
+
     # ── git/hub sync (bind, push, pull, status) ──────────────────
     sync_mod.register(subparsers)
 
     # ── emit (derive a trace from an agent session transcript) ───
     emit_mod.register(subparsers)
+
+    # ── agent (print the workflow guide, for self-onboarding) ────
+    agent_mod.register(subparsers)
 
     # ── Parse and dispatch ───────────────────────────────────────
     args = parser.parse_args()

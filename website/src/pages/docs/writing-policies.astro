@@ -6,10 +6,11 @@ import Layout from "../../layouts/Layout.astro";
   <article class="prose">
     <p class="spec-back"><a href="/docs">← Docs</a></p>
     <h1>Writing policies</h1>
-    <p>A <strong>policy</strong> is a formula checked over a trace. ponens evaluates it and returns
-      pass / fail with an exit code. Policies live in the public <a href="/gallery">gallery</a> or in
-      your own <strong>local source</strong> — this page covers the formula language and how to write,
-      add, and check your own.</p>
+    <p>A <strong>policy</strong> is the unit of <strong>Computable Governance</strong> — a formula
+      (temporal logic over the finite trace, plus structural predicates) checked over a trace, which
+      ponens evaluates to pass / fail with an exit code. Policies live in the public
+      <a href="/gallery">gallery</a> or in your own <strong>local source</strong> — this page covers
+      the formula language and how to write, add, and check your own.</p>
 
     <h2>The policy object</h2>
     <p>A policy is a JSON file named <code>&lt;id&gt;.json</code>:</p>

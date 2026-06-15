@@ -6,6 +6,7 @@
   "description": "Verification goals must be preceded by a formalization step that produced the model being verified.",
   "formula": "G(DefineVG → P_chain Formalize)",
   "language_level": "scoped_temporal",
+  "reasoner": "codelogician",
   "rationale": "You cannot verify properties of code that hasn't been formalized into a model first.",
   "tags": [
     "formal-verification",

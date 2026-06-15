@@ -1,0 +1,13 @@
+{
+  "id": "z3",
+  "name": "Z3",
+  "kind": "smt",
+  "vendor": "Microsoft Research",
+  "status": "community",
+  "description": "A widely-used SMT solver. Discharges logical side-conditions and produces models (counterexamples) for satisfiable formulas — a building block for verification reasoners.",
+  "produces": ["VerificationResult"],
+  "capabilities": ["smt", "counterexamples"],
+  "domains": ["general"],
+  "url": "https://github.com/Z3Prover/z3",
+  "tags": ["smt", "solver"]
+}

@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "source": "gallery/reasoners",
+  "reasoner_count": 4,
+  "reasoners": [
+    {
+      "id": "codelogician",
+      "name": "Imandra CodeLogician",
+      "kind": "formal_verification",
+      "vendor": "Imandra",
+      "status": "available",
+      "description": "Translates code into IML and proves properties — or finds counterexamples — over the resulting model, with region decomposition and exhaustive test generation.",
+      "produces": [
+        "IMLModel",
+        "VerificationGoal",
+        "VerificationResult",
+        "Decomposition",
+        "GeneratedTests"
+      ],
+      "domains": [
+        "general",
+        "payments",
+        "state-machines"
+      ],
+      "tags": [
+        "formal-methods",
+        "iml",
+        "proofs"
+      ],
+      "url": "https://www.imandra.ai/",
+      "hash": "sha256:2111446d64ce3c6cdd7808d95940ac86f05ce5fdddc1aea47a0ae50503ac41de",
+      "file": "codelogician.json"
+    },
+    {
+      "id": "imandrax",
+      "name": "ImandraX",
+      "kind": "formal_verification",
+      "vendor": "Imandra",
+      "status": "available",
+      "description": "The automated reasoning engine: a prover for IML that decides verification goals, returns proofs or counterexamples (sat models), and computes region decompositions.",
+      "produces": [
+        "VerificationResult",
+        "Decomposition"
+      ],
+      "domains": [
+        "general"
+      ],
+      "tags": [
+        "engine",
+        "formal-methods",
+        "prover"
+      ],
+      "url": "https://www.imandra.ai/",
+      "hash": "sha256:c7379d6f1e7120304fe4c8bf21511faddc760c1f72c2249c30e776d6027deba8",
+      "file": "imandrax.json"
+    },
+    {
+      "id": "tlc",
+      "name": "TLC (TLA+)",
+      "kind": "model_checking",
+      "vendor": "TLA+",
+      "status": "community",
+      "description": "The TLA+ model checker. Explores a specification's state space to check temporal properties and surface reachability counterexamples for concurrent and distributed designs.",
+      "produces": [
+        "VerificationResult"
+      ],
+      "domains": [
+        "state-machines",
+        "concurrency"
+      ],
+      "tags": [
+        "model-checking",
+        "tla+"
+      ],
+      "url": "https://lamport.azurewebsites.net/tla/tools.html",
+      "hash": "sha256:0287e502370355abe695c313254651798f471200c0223da07d2f6a432b4dcdd4",
+      "file": "tlc.json"
+    },
+    {
+      "id": "z3",
+      "name": "Z3",
+      "kind": "smt",
+      "vendor": "Microsoft Research",
+      "status": "community",
+      "description": "A widely-used SMT solver. Discharges logical side-conditions and produces models (counterexamples) for satisfiable formulas — a building block for verification reasoners.",
+      "produces": [
+        "VerificationResult"
+      ],
+      "domains": [
+        "general"
+      ],
+      "tags": [
+        "smt",
+        "solver"
+      ],
+      "url": "https://github.com/Z3Prover/z3",
+      "hash": "sha256:a7258d0416253adb8ebe340443e20ae4c2456fd14f969e15d851e54209419723",
+      "file": "z3.json"
+    }
+  ],
+  "kinds": {
+    "formal_verification": "Proves properties / finds counterexamples over a formal model",
+    "smt": "Satisfiability-modulo-theories solving",
+    "model_checking": "State-space exploration of temporal properties",
+    "property_testing": "Randomized / exhaustive property-based testing",
+    "conformance": "Checks an implementation against a reference model"
+  },
+  "statuses": [
+    "available",
+    "community"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "imandrax",
+  "name": "ImandraX",
+  "kind": "formal_verification",
+  "vendor": "Imandra",
+  "status": "available",
+  "description": "The automated reasoning engine: a prover for IML that decides verification goals, returns proofs or counterexamples (sat models), and computes region decompositions.",
+  "produces": ["VerificationResult", "Decomposition"],
+  "capabilities": ["proofs", "counterexamples", "decision procedures"],
+  "domains": ["general"],
+  "url": "https://www.imandra.ai/",
+  "tags": ["formal-methods", "prover", "engine"]
+}

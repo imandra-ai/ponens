@@ -1,5 +1,5 @@
 ---
-const { title = "ponens", description = "Author, govern, and validate the reasoning of AI coding agents." } = Astro.props;
+const { title = "ponens", description = "Turn an AI coding agent's session into a higher-level reasoning record — curated, verifiable, and governed by computable best-practice policies." } = Astro.props;
 const path = Astro.url.pathname;
 const active = (p) => (path === p || (p !== "/" && path.startsWith(p)) ? "active" : "");
 ---
@@ -9,27 +9,71 @@ const active = (p) => (path === p || (p !== "/" && path.startsWith(p)) ? "active
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      // Apply the saved theme before paint (default is light)
+      try { if (localStorage.getItem("ponens-theme") === "dark") document.documentElement.setAttribute("data-theme", "dark"); } catch (e) {}
+    </script>
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="https://ponens.dev/og.png" />
+    <meta property="og:url" content="https://ponens.dev/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content="https://ponens.dev/og.png" />
     <link rel="stylesheet" href="/styles/global.css" />
   </head>
   <body>
     <header class="site-header">
-      <a href="/" class="brand">∴ ponens</a>
+      <a href="/" class="brand" aria-label="ponens — home">
+        <svg class="brand-mark" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <defs><linearGradient id="bm" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#6ea8fe"/><stop offset="1" stop-color="#9d7bff"/>
+          </linearGradient></defs>
+          <circle cx="12" cy="6" r="2.7" fill="url(#bm)"/>
+          <circle cx="6" cy="17.5" r="2.7" fill="url(#bm)"/>
+          <circle cx="18" cy="17.5" r="2.7" fill="url(#bm)"/>
+        </svg>
+        ponens
+      </a>
       <nav>
-        <a href="/gallery" class={active("/gallery")}>Gallery</a>
+        <a href="/" class={active("/")}>Home</a>
+        <a href="/gallery" class={active("/gallery")}>Policies</a>
+        <a href="/reasoners" class={active("/reasoners")}>Reasoners</a>
         <a href="/docs" class={active("/docs")}>Docs</a>
+        <a href="/agents" class={active("/agents")}>Agents</a>
         <a href="/spec" class={active("/spec")}>Spec</a>
         <a href="/viewer" class={active("/viewer")}>Viewer</a>
-        <a href="https://github.com/imandra-ai/ponens">GitHub</a>
+        <a href="https://github.com/imandra-ai/ponens" class="gh-link" aria-label="GitHub" title="GitHub">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+        </a>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle light/dark theme" title="Toggle theme">
+          <svg class="t-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          <svg class="t-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M5 5l1.5 1.5M17.5 17.5 19 19M2 12h2M20 12h2M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>
+        </button>
       </nav>
     </header>
     <main>
       <slot />
     </main>
     <footer class="site-footer">
-      <span>∴ ponens — open governance for AI agent reasoning</span>
+      <span>∴ ponens — higher-level reasoning records for AI coding agents</span>
       <span>MIT · <a href="https://github.com/imandra-ai/ponens">imandra-ai/ponens</a></span>
     </footer>
+    <script>
+      document.getElementById("themeToggle")?.addEventListener("click", () => {
+        const el = document.documentElement;
+        const next = el.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        if (next === "dark") el.setAttribute("data-theme", "dark");
+        else el.removeAttribute("data-theme");
+        try { localStorage.setItem("ponens-theme", next); } catch (e) {}
+      });
+    </script>
   </body>
 </html>

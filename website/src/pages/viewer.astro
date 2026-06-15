@@ -5,10 +5,11 @@ import Layout from "../layouts/Layout.astro";
 <Layout title="Trace Viewer — ponens">
   <section class="page-head">
     <h1>Trace Viewer</h1>
-    <p>The interactive visualizer — flow, lineage, the artifact DAG, the reasoning funnel, the
-      policies dashboard, and the <strong>residual surface</strong>. Below is the Stripe payment-flow
-      example (a re-capture bug found and proved, 14 properties proven, plus its declared gaps).
-      Locally, run <code>ponens trace view &lt;file&gt;</code> on any trace.</p>
+    <p>Read the reasoning behind a commit. The interactive viewer <strong>zooms</strong> from
+      intent-named steps down to atomic actions, with the lineage DAG, the decisions, the policy
+      results, and the <strong>residual surface</strong> (the declared gaps). Pick a trace from the
+      dropdown — including formally-verified examples with machine-checked proofs and
+      counterexamples. Locally, run <code>ponens trace view &lt;file&gt;</code> on any trace.</p>
   </section>
   <div class="viewer-frame">
     <iframe src="/viewer/visualizer.html" title="ponens trace viewer" loading="lazy"></iframe>

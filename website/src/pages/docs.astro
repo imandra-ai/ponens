@@ -1,65 +1,131 @@
 ---
 import Layout from "../layouts/Layout.astro";
+
+const sections = [
+  ["install", "Install"],
+  ["emit", "1 · Emit"],
+  ["curate", "2 · Curate"],
+  ["enrich", "3 · Enrich"],
+  ["grade", "4 · Grade"],
+  ["govern", "5 · Govern"],
+  ["view", "6 · View"],
+  ["share", "7 · Share"],
+  ["concepts", "Concepts"],
+];
 ---
 
 <Layout title="Docs — ponens">
-  <article class="prose">
-    <h1>Getting started</h1>
-    <p><strong>ponens</strong> captures what an AI coding agent did — its actions, artifacts,
-      proofs, and the gaps it left open — and checks that work against computable governance
-      policies. The CLI is terminal-first; the browser is the escalation.</p>
+  <div class="docs-layout">
+    <aside class="docs-nav">
+      <p class="docs-nav-title">On this page</p>
+      <nav>
+        {sections.map(([id, label]) => <a href={`#${id}`} data-spy={id}>{label}</a>)}
+      </nav>
+    </aside>
 
-    <h2>Install</h2>
-    <pre><code># from PyPI (once published)
-pip install ponens
+    <article class="prose">
+      <h1>Getting started</h1>
+      <p><strong>ponens</strong> turns an AI coding agent's session into a higher-level
+        <strong>reasoning record</strong> — a curated, verifiable account of what it built and why —
+        then makes the reasoning rigorous and governs it with <strong>Computable Governance</strong>
+        (machine-checkable best-practice policies). The CLI is terminal-first; the browser is the
+        escalation.</p>
 
-# or from the repo
-pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"</code></pre>
+      <h2 id="install">Install</h2>
+      <pre><code># from this repo
+pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
 
-    <h2>1 · Create a trace</h2>
-    <p>Usually a coding agent emits the trace as it works. You can also build one by hand:</p>
-    <pre><code>ponens trace init    .ponens/demo.json
-ponens trace trigger .ponens/demo.json --type TaskReceived --description "Add input validation"
-ponens trace action  .ponens/demo.json --type EditFile --label "add checks" --rationale "enforce required" --evidence form.js
-ponens trace action  .ponens/demo.json --type RunTests --label "run tests" --rationale "verify" --result-summary "12/12 passed"
-ponens trace action  .ponens/demo.json --type GitCommit --label "commit" --rationale "ship it"
-ponens trace complete .ponens/demo.json --summary "Added validation; tests pass"</code></pre>
+# or for local development
+pip install -e ./cli</code></pre>
 
-    <h2>2 · Inspect it (textual)</h2>
-    <pre><code>ponens trace status    .ponens/demo.json   # summary + action log
-ponens trace residuals .ponens/demo.json   # the declared negative space
+      <p>The flow: <strong>emit</strong> a draft from the session, <strong>curate</strong> the
+        narrative, <strong>enrich</strong> it with what only the agent can declare,
+        <strong>grade</strong> and <strong>govern</strong> it, then <strong>view</strong> and share.
+        Every command is plain text — greppable, pipeable, <code>--json</code> where you script it.
+        This is the agent / CI surface too.</p>
 
-# pull a policy from the gallery and gate the trace
-ponens registry update
-ponens policies search payments
-ponens policies add tests_before_commit --into .ponens/demo.json
-ponens trace check .ponens/demo.json        # → PASS / FAIL (exit code)</code></pre>
-    <p>Everything is plain text — greppable, pipeable, <code>--json</code> where you script it.
-      This is the agent / CI surface too.</p>
+      <h2 id="emit">1 · Emit — capture the session</h2>
+      <p>An agent emits the trace from its own session transcript; you write nothing. Emission
+        captures the actions, file lineage, decisions, and reasoning as ground truth.</p>
+      <pre><code>ponens emit -o trace.json                            # newest session for this project
+ponens emit transcript.jsonl -o trace.json --from claude-code</code></pre>
 
-    <h2>3 · View it in the browser</h2>
-    <pre><code>ponens trace view .ponens/demo.json        # the rich visualizer
+      <h2 id="curate">2 · Curate the narrative</h2>
+      <p>Emission seeds each step's title from the raw directives ("yes", "ok now fix it"). Those are
+        drafts — rewrite them into a clean account of what was built and why. The atomic actions
+        underneath stay untouched and honest.</p>
+      <pre><code>ponens trace meta ls trace.json                      # the steps, and how curated each is
+ponens trace meta set trace.json m3 --title "Add idempotency to capture" --status completed
+ponens trace meta merge trace.json m7 m8             # fold dead-ends into one step
+ponens trace retitle trace.json --title "…" --outcome "…"</code></pre>
 
-# or escalate from a textual command
-ponens trace status   .ponens/demo.json --web
-ponens trace residuals .ponens/demo.json --web</code></pre>
-    <p>It writes a self-contained page and opens it. Headless (SSH/CI)? It prints the file path
-      instead. See it live in the <a href="/viewer">Viewer</a>.</p>
+      <h2 id="enrich">3 · Enrich — declare what emission can't derive</h2>
+      <p>The produced artifacts (so the lineage DAG is real) and the <strong>negative space</strong> —
+        the gaps only the agent can declare.</p>
+      <pre><code>ponens trace artifact trace.json --type VerificationResult --name "no double-charge" --producer-action-id 12
+ponens trace residual add trace.json --kind assumption --severity high \
+    --statement "Assumes the gateway sends a stable idempotency key" \
+    --suggested-check "confirm the retry contract"</code></pre>
 
-    <h2>4 · Share it</h2>
-    <pre><code>ponens bind     # stamp the trace with the git commit + write a Trace-Id note
-ponens push     # publish to a hub backend  →  status: shared
-ponens status   # local ↔ HEAD ↔ hub divergence</code></pre>
-    <p>Once pushed, <code>--web</code> opens the collaborative hub view instead of the local one.</p>
+      <h2 id="grade">4 · Grade it</h2>
+      <p>A quality rubric — structure, rationale coverage, negative space, reproducibility,
+        verification evidence, and lineage — plus a separate policy-compliance line. Treat the grade
+        as a hygiene floor to <em>clear</em>, not a number to game.</p>
+      <pre><code>ponens trace grade trace.json</code></pre>
 
-    <h2>Concepts</h2>
-    <ul>
-      <li><strong>Trace</strong> — the immutable record of an agent's work session (<a href="/spec">spec</a>).</li>
-      <li><strong>Policy</strong> — an LTL-style formula checked over a trace. Browse the <a href="/gallery">gallery</a>, or <a href="/docs/writing-policies">write your own</a>.</li>
-      <li><strong>Residual surface</strong> — what the trace did <em>not</em> establish: assumptions,
-        unverified claims, out-of-scope items, limitations, open questions. The spine of agent-to-agent review.</li>
-      <li><strong>Review handoff</strong> — how a reviewing agent consumes a trace: verify the
-        consequential claims, triage the declared gaps, hunt the undeclared ones.</li>
-    </ul>
-  </article>
+      <h2 id="govern">5 · Govern — Computable Governance</h2>
+      <p>Check the trace against best-practice policies — conformance checks evaluated over the record.
+        A real, automatic gate (exit code), fully offline.</p>
+      <pre><code>ponens registry update
+ponens policies search testing
+ponens policies add tests_before_commit --into trace.json
+ponens trace check trace.json                        # → PASS / FAIL</code></pre>
+
+      <h2 id="view">6 · View it</h2>
+      <p>Read the reasoning behind the commit — zoom from intent-named steps down to atomic actions,
+        with the lineage DAG, decisions, and the residual surface.</p>
+      <pre><code>ponens trace view trace.json                         # self-contained page; opens in a browser
+ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI artifact)</code></pre>
+      <p>Headless (SSH/CI)? It prints the file path instead. See it live in the <a href="/viewer">Viewer</a>.</p>
+
+      <h2 id="share">7 · Share it</h2>
+      <pre><code>ponens bind && ponens push                           # bind 1:1 to the commit, publish for review</code></pre>
+      <p>Or post it on the pull request — the grade, the declared gaps, and a one-click interactive
+        viewer — with the
+        <a href="https://github.com/imandra-ai/ponens/tree/main/.github/actions/pr-trace">pr-trace</a>
+        GitHub Action.</p>
+
+      <h2 id="concepts">Concepts</h2>
+      <ul>
+        <li><strong>Trace</strong> — the curated, verifiable record of an agent's work session, in two
+          layers: faithful <em>atomic actions</em> (ground truth) and a curated <em>meta-action
+          narrative</em> (<a href="/spec">spec</a>).</li>
+        <li><strong>Residual surface</strong> — what the trace did <em>not</em> establish: assumptions,
+          unverified claims, out-of-scope items, limitations, open questions. It tells a reviewer
+          <em>where to look</em>.</li>
+        <li><strong>Computable Governance</strong> — best-practice policies as machine-checkable rules
+          over the trace. Browse the <a href="/gallery">gallery</a>, or
+          <a href="/docs/writing-policies">write your own</a>.</li>
+        <li><strong>Review handoff</strong> — how a reviewing agent consumes a trace: verify the
+          consequential claims, triage the declared gaps, hunt the undeclared ones.</li>
+      </ul>
+    </article>
+  </div>
+
+  <script>
+    const links = [...document.querySelectorAll(".docs-nav a[data-spy]")];
+    const byId = new Map(links.map((a) => [a.dataset.spy, a]));
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            links.forEach((a) => a.classList.remove("active"));
+            byId.get(e.target.id)?.classList.add("active");
+          }
+        }
+      },
+      { rootMargin: "0px 0px -78% 0px", threshold: 0 }
+    );
+    document.querySelectorAll(".prose h2[id]").forEach((h) => obs.observe(h));
+  </script>
 </Layout>

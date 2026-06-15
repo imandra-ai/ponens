@@ -4,50 +4,89 @@ import Layout from "../layouts/Layout.astro";
 
 <Layout>
   <section class="hero">
-    <h1>Prove what your agents did.</h1>
+    <h1>Keep up with your AI-generated code.</h1>
+    <p class="lead">
+      The old code-review model is out. Agents generate too much code, too quickly, for
+      diff-by-diff review to keep pace.
+    </p>
     <p class="tagline">
-      <strong>ponens</strong> turns an AI agent's session into a higher-level
-      <strong>reasoning record</strong> — a curated, verifiable account of <em>what it built and
-      why</em> — then makes the reasoning rigorous and governs it with
-      <strong>Computable Governance</strong>: machine-checkable best-practice policies.
+      <strong>ponens</strong> makes each agent session reviewable at a higher level — a curated,
+      verifiable <strong>reasoning trace</strong> of what was built and why, graded and governed by
+      <strong>Computable Governance</strong>. So your quality bar and your governance keep pace with
+      the code.
     </p>
     <div class="cta">
       <code>pip install ponens</code>
-      <a class="btn" href="/gallery">Browse the policy gallery →</a>
+      <a class="btn" href="/viewer">See a trace →</a>
+      <a class="btn ghost" href="/gallery">Policy gallery →</a>
     </div>
-    <p class="etymology">
-      From <em>modus ponens</em> — the rule of inference <code>P → Q, P ⊢ Q</code>.
-      Given the policies and the recorded work, ponens derives whether the reasoning holds.
-    </p>
+    <aside class="callout">
+      <span class="callout-mark" aria-hidden="true">∴</span>
+      <p>From <em>modus ponens</em> — the rule of inference <code>P → Q, P ⊢ Q</code>. Given the
+        recorded work and the policies, ponens derives whether the reasoning holds.</p>
+    </aside>
+  </section>
+
+  <section class="transform" aria-label="from a session log to a reasoning record">
+    <div class="t-panel t-log">
+      <div class="t-label">The session — a log</div>
+      <div class="t-lines">
+        <div><span class="u">you</span> make capture idempotent</div>
+        <div><span class="a">ai</span> · read payment.py</div>
+        <div><span class="a">ai</span> · edit payment.py</div>
+        <div><span class="u">you</span> yes</div>
+        <div><span class="a">ai</span> · pytest → 24 passed</div>
+        <div><span class="u">you</span> ok now handle refunds too</div>
+        <div><span class="a">ai</span> · edit payment.py</div>
+        <div><span class="a">ai</span> · git commit -m "fix"</div>
+      </div>
+    </div>
+
+    <div class="t-arrow" aria-hidden="true">→</div>
+
+    <div class="t-panel t-record">
+      <div class="t-label">A reasoning record</div>
+      <div class="t-steps">
+        <div class="t-step"><span class="t-dot"></span> Understand the capture path <span class="t-badge ok">done</span></div>
+        <div class="t-step"><span class="t-dot"></span> Prove capture can't double-charge <span class="t-badge proved">proved</span></div>
+        <div class="t-step"><span class="t-dot"></span> Implement &amp; test <span class="t-badge ok">done</span></div>
+        <div class="t-step gap"><span class="t-warn" aria-hidden="true">▲</span> assumes a stable idempotency key <span class="t-badge gap">unverified</span></div>
+      </div>
+      <div class="t-foot"><span class="t-grade">Grade B</span> · lineage 100% · policies 4/4 ✓</div>
+    </div>
   </section>
 
   <section class="grid">
     <article>
-      <h3>Author traces</h3>
-      <p>Record an agent's reasoning as a typed, immutable trace — actions, artifacts, lineage, proofs.</p>
+      <h3>A curated record</h3>
+      <p>Two layers: <strong>atomic actions</strong> — faithful, ungameable ground truth, never
+        rewritten — and a <strong>curated narrative</strong> the agent scrubs from the raw session.
+        Trustworthy <em>and</em> worth reading.</p>
+    </article>
+    <article>
+      <h3>Make the reasoning rigorous</h3>
+      <p>Separates what was <em>established</em> (proved, tested, verified) from what was merely
+        <em>asserted</em> — and points at where formal methods and other tools belong.</p>
     </article>
     <article>
       <h3>Computable Governance</h3>
-      <p>Policies are machine-checkable rules over the trace — conformance checking (temporal logic over finite traces, à la process mining) brought to AI agents. A real gate, run offline.</p>
+      <p>Policies are machine-checkable rules over the trace — conformance checking (temporal logic
+        over finite traces, à la process mining) brought to AI agents. A real gate, run offline.</p>
     </article>
     <article>
-      <h3>Pull from the gallery</h3>
-      <p>A community gallery of versioned, content-hashed policies — <code>ponens policies search</code> and add them to a trace.</p>
-    </article>
-    <article>
-      <h3>Bind to commits &amp; sync</h3>
-      <p>Bind a trace 1:1 to a git commit and push to a hub backend for review, snapshots, and audit.</p>
+      <h3>From session to review</h3>
+      <p>Emit a trace, grade it, read it in the viewer — zoom from intent-named steps down to atomic
+        actions — and post it on the pull request, where reviewers already are.</p>
     </article>
   </section>
 
   <section class="quickstart">
     <h2>Quickstart</h2>
-    <pre><code>ponens registry update
-ponens policies search payments
-
-ponens policies add tests_before_commit --into ./trace.json
-ponens trace check ./trace.json
-
-ponens bind &amp;&amp; ponens push</code></pre>
+    <pre><code>ponens agent                                    # the whole workflow, in one command
+ponens emit -o trace.json                       # capture the session as a trace
+ponens trace meta set trace.json m3 --title "…" # curate the narrative
+ponens trace grade trace.json                   # the quality rubric
+ponens trace check trace.json                   # Computable Governance — best-practice policies
+ponens trace view trace.json                    # read the reasoning, zoomable</code></pre>
   </section>
 </Layout>

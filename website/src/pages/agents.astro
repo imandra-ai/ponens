@@ -1,0 +1,54 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="For agents — ponens">
+  <article class="prose">
+    <h1>Agent-first by design</h1>
+    <p><strong>ponens is built for the agent to drive.</strong> A coding agent produces its own
+      reasoning trace as part of finishing the work — emitting it from the session, curating the
+      narrative, declaring its gaps, and clearing the governance gate. You don't hand-write traces;
+      the agent does.</p>
+
+    <h2>Self-onboarding — one command</h2>
+    <p>The whole workflow ships <em>inside</em> the CLI. An agent with only
+      <code>pip install ponens</code> can learn it with no repo access:</p>
+    <pre><code>ponens agent            # how to produce a trace
+ponens agent --review   # how to review one</code></pre>
+    <p>It prints the two-layer model (faithful atomic actions + a curated narrative), the rigor
+      principle (separate what was <em>established</em> from what was merely <em>asserted</em>, and
+      flag where formal methods belong), and the exact commands for each step.</p>
+
+    <h2>Wire it into your agent</h2>
+    <p>Drop the guide into your agent's instructions so it runs the workflow every time:</p>
+    <pre><code># add it to your project's agent memory
+ponens agent >> AGENTS.md        # or CLAUDE.md, a system prompt, etc.</code></pre>
+    <p>After the agent finishes a task, it runs the pipeline itself — no human in the capture loop.</p>
+
+    <h2>The workflow</h2>
+    <ol>
+      <li><strong>Emit</strong> — derive a faithful draft from the session.</li>
+      <li><strong>Curate</strong> — rewrite the raw directives into a clean narrative.</li>
+      <li><strong>Enrich</strong> — declare produced artifacts (lineage) and the gaps (residuals).</li>
+      <li><strong>Grade</strong> — clear the quality floor.</li>
+      <li><strong>Govern</strong> — check against best-practice policies.</li>
+      <li><strong>Share</strong> — view it, bind it to the commit, post it on the PR.</li>
+    </ol>
+    <p>Full commands in the <a href="/docs">docs</a>.</p>
+
+    <h2>Agent-to-agent review</h2>
+    <p>A reviewing agent reads the <em>trace</em>, not just the diff — verifying the consequential
+      claims, triaging the declared gaps, and hunting the undeclared ones. The protocol is one
+      command away (<code>ponens agent --review</code>), and because a trace declares its own
+      negative space, the reviewer knows <em>where to look</em> instead of re-deriving the change.</p>
+
+    <h2>In CI / on the pull request</h2>
+    <p>The <a href="https://github.com/imandra-ai/ponens/tree/main/.github/actions/pr-trace">pr-trace</a>
+      GitHub Action posts the grade, the declared gaps, and a one-click interactive viewer on the
+      pull request — where reviewers (human or agent) already are.</p>
+
+    <h2>Machine-friendly</h2>
+    <p>Every command is plain text — greppable, pipeable, with <code>--json</code> where you script
+      it. Clear exit codes make <code>ponens trace check</code> a real gate in any pipeline.</p>
+  </article>
+</Layout>

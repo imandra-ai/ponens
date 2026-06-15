@@ -38,6 +38,15 @@ const ex = policy.examples || {};
     <h2>Formula</h2>
     <pre class="formula"><code>{policy.formula}</code></pre>
 
+    {policy.reasoner && (
+      <>
+        <h2>Requires a reasoner</h2>
+        <p>This policy is satisfied by verification from
+          <a href={`/reasoners/${policy.reasoner}`}><code>{policy.reasoner}</code></a> — an
+          automated-reasoning tool in the <a href="/reasoners">reasoner registry</a>.</p>
+      </>
+    )}
+
     {policy.rationale && (<><h2>Why it matters</h2><p>{policy.rationale}</p></>)}
 
     {(ex.passes || ex.fails) && (

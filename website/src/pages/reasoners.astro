@@ -1,0 +1,82 @@
+---
+import Layout from "../layouts/Layout.astro";
+// Thin browser over the same _catalog.json the registry produces.
+---
+
+<Layout title="Reasoner Registry — ponens">
+  <section class="gallery-head">
+    <h1>Reasoner Registry</h1>
+    <p>Automated-reasoning tools — provers, model checkers, SMT solvers — that produce a trace's
+      verification artifacts and that <strong>policies can require</strong>. A reasoner is how a
+      claim gets <em>established</em> rather than merely asserted. <a href="/gallery">Browse policies →</a></p>
+    <input id="q" type="search" placeholder="Search reasoners…" autocomplete="off" />
+    <div id="filters" class="filters"></div>
+  </section>
+
+  <div id="count" class="count"></div>
+  <div id="grid" class="policy-grid"></div>
+
+  <script is:inline>
+    const grid = document.getElementById("grid");
+    const countEl = document.getElementById("count");
+    const filtersEl = document.getElementById("filters");
+    const q = document.getElementById("q");
+    let all = [];
+    let activeKind = null;
+
+    const kindLabel = (k) => (k || "").replace(/_/g, " ");
+
+    function render() {
+      const query = q.value.trim().toLowerCase();
+      const items = all.filter((r) => {
+        if (activeKind && r.kind !== activeKind) return false;
+        if (!query) return true;
+        const hay = `${r.id} ${r.name} ${r.description} ${r.vendor} ${(r.tags || []).join(" ")} ${(r.produces || []).join(" ")}`.toLowerCase();
+        return hay.includes(query);
+      });
+      countEl.textContent = `${items.length} of ${all.length} reasoners`;
+      grid.innerHTML = items
+        .map(
+          (r) => `
+        <a class="policy-card" href="/reasoners/${r.id}">
+          <div class="policy-top">
+            <code class="pid">${r.id}</code>
+            <span class="status status-${r.status}">${r.status}</span>
+          </div>
+          <h3>${r.name}</h3>
+          <p>${r.description ?? ""}</p>
+          <div class="policy-meta">
+            <span class="dom">${kindLabel(r.kind)}</span>
+            ${r.vendor ? `<span class="tag">${r.vendor}</span>` : ""}
+            ${(r.produces || []).slice(0, 3).map((a) => `<span class="tag">${a}</span>`).join("")}
+          </div>
+        </a>`
+        )
+        .join("");
+    }
+
+    fetch("/gallery/reasoners/_catalog.json")
+      .then((r) => r.json())
+      .then((cat) => {
+        all = cat.reasoners || [];
+        const kinds = [...new Set(all.map((r) => r.kind).filter(Boolean))].sort();
+        filtersEl.innerHTML =
+          `<button class="chip active" data-k="">All</button>` +
+          kinds.map((k) => `<button class="chip" data-k="${k}">${kindLabel(k)}</button>`).join("");
+        filtersEl.querySelectorAll("button").forEach((b) =>
+          b.addEventListener("click", () => {
+            activeKind = b.dataset.k || null;
+            filtersEl.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+            b.classList.add("active");
+            render();
+          })
+        );
+        render();
+      })
+      .catch(() => {
+        grid.innerHTML = `<p class="empty">Could not load the reasoner catalog.</p>`;
+      });
+
+    q.addEventListener("input", render);
+  </script>
+</Layout>

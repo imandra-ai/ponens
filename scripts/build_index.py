@@ -29,6 +29,17 @@ ROOT = os.path.dirname(HERE)
 POLICY_DIR = os.path.join(ROOT, "gallery", "policies")
 INDEX_PATH = os.path.join(POLICY_DIR, "_index.json")
 CATALOG_PATH = os.path.join(POLICY_DIR, "_catalog.json")
+REASONER_INDEX = os.path.join(ROOT, "gallery", "reasoners", "_index.json")
+
+
+def load_reasoner_ids():
+    """Known reasoner ids, so a policy's `reasoner` reference can be checked
+    against the reasoner registry. Empty (check skipped) if the registry is absent."""
+    try:
+        with open(REASONER_INDEX) as f:
+            return set(json.load(f).get("reasoners", []))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return set()
 
 CATALOG_SCHEMA_VERSION = "1.0"
 
@@ -124,7 +135,7 @@ def _lint_formula(formula: str):
 # Validation
 # ----------------------------------------------------------------------------
 
-def validate_policy(policy: dict, filename: str, valid_domains: set):
+def validate_policy(policy: dict, filename: str, valid_domains: set, valid_reasoners: set):
     """Return a list of human-readable error strings for one policy file."""
     errors = []
     pid = policy.get("id", "")
@@ -157,6 +168,11 @@ def validate_policy(policy: dict, filename: str, valid_domains: set):
     # compiler. Compiler-version compatibility is recorded separately (metadata).
     errors.extend(f"formula: {m}" for m in _lint_formula(policy.get("formula", "")))
 
+    # Cross-registry: a referenced reasoner must exist in the reasoner registry.
+    ref = policy.get("reasoner")
+    if ref and valid_reasoners and ref not in valid_reasoners:
+        errors.append(f"unknown reasoner '{ref}' (not in gallery/reasoners/_index.json)")
+
     return errors
 
 
@@ -188,6 +204,7 @@ def build_catalog(policies, index):
             "domain": p.get("domain"),
             "tags": sorted(p.get("tags", [])),
             "language_level": p.get("language_level"),
+            "reasoner": p.get("reasoner"),
             "description": p.get("description"),
             "version": p.get("version", "1.0.0"),
             "reference_compiler": status,
@@ -243,6 +260,7 @@ def main():
     with open(INDEX_PATH) as f:
         index = json.load(f)
     valid_domains = set(index.get("domains", {}).keys())
+    valid_reasoners = load_reasoner_ids()
     indexed_ids = set(index.get("policies", []))
 
     policies = load_policies()
@@ -251,7 +269,7 @@ def main():
     # Per-policy validation
     all_ok = True
     for path, policy in policies:
-        errors = validate_policy(policy, path, valid_domains)
+        errors = validate_policy(policy, path, valid_domains, valid_reasoners)
         if errors:
             all_ok = False
             print(f"FAIL  {os.path.basename(path)}")

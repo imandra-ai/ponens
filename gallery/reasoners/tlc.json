@@ -1,0 +1,13 @@
+{
+  "id": "tlc",
+  "name": "TLC (TLA+)",
+  "kind": "model_checking",
+  "vendor": "TLA+",
+  "status": "community",
+  "description": "The TLA+ model checker. Explores a specification's state space to check temporal properties and surface reachability counterexamples for concurrent and distributed designs.",
+  "produces": ["VerificationResult"],
+  "capabilities": ["model checking", "reachability", "counterexamples"],
+  "domains": ["state-machines", "concurrency"],
+  "url": "https://lamport.azurewebsites.net/tla/tools.html",
+  "tags": ["model-checking", "tla+"]
+}

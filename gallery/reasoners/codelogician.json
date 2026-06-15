@@ -1,0 +1,14 @@
+{
+  "id": "codelogician",
+  "name": "Imandra CodeLogician",
+  "kind": "formal_verification",
+  "vendor": "Imandra",
+  "engine": "imandrax",
+  "status": "available",
+  "description": "Translates code into IML and proves properties — or finds counterexamples — over the resulting model, with region decomposition and exhaustive test generation.",
+  "produces": ["IMLModel", "VerificationGoal", "VerificationResult", "Decomposition", "GeneratedTests"],
+  "capabilities": ["proofs", "counterexamples", "region decomposition", "test generation"],
+  "domains": ["general", "payments", "state-machines"],
+  "url": "https://www.imandra.ai/",
+  "tags": ["formal-methods", "proofs", "iml"]
+}

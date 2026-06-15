@@ -1,0 +1,67 @@
+---
+import fs from "node:fs";
+import path from "node:path";
+import Layout from "../../layouts/Layout.astro";
+
+export function getStaticPaths() {
+  const dir = path.resolve("../gallery/reasoners");
+  return fs.readdirSync(dir)
+    .filter((f) => f.endsWith(".json") && !f.startsWith("_"))
+    .map((f) => {
+      const reasoner = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+      return { params: { id: reasoner.id }, props: { reasoner } };
+    });
+}
+
+const { reasoner } = Astro.props;
+const kindLabel = (reasoner.kind || "").replace(/_/g, " ");
+---
+
+<Layout title={`${reasoner.name} — ponens reasoner`} description={reasoner.description}>
+  <article class="policy-detail">
+    <p class="spec-back"><a href="/reasoners">← Reasoner registry</a></p>
+    <div class="pd-head">
+      <h1>{reasoner.name}</h1>
+      <span class={`status status-${reasoner.status}`}>{reasoner.status}</span>
+    </div>
+    <p class="pd-id"><code>{reasoner.id}</code></p>
+    <p class="pd-meta">
+      <span class="dom">{kindLabel}</span>
+      {reasoner.vendor && <span class="cat">{reasoner.vendor}</span>}
+      {(reasoner.domains || []).map((d) => <span class="tag">{d}</span>)}
+    </p>
+
+    <p class="pd-desc">{reasoner.description}</p>
+
+    {(reasoner.produces || []).length > 0 && (
+      <>
+        <h2>Produces</h2>
+        <p class="pd-meta">
+          {(reasoner.produces || []).map((a) => <span class="tag">{a}</span>)}
+        </p>
+        <p class="muted-note">The trace artifacts this reasoner emits — the evidence a policy can require.</p>
+      </>
+    )}
+
+    {(reasoner.capabilities || []).length > 0 && (
+      <>
+        <h2>Capabilities</h2>
+        <p class="pd-meta">
+          {(reasoner.capabilities || []).map((c) => <span class="tag">{c}</span>)}
+        </p>
+      </>
+    )}
+
+    {reasoner.url && (
+      <>
+        <h2>Learn more</h2>
+        <p><a href={reasoner.url} target="_blank" rel="noopener">{reasoner.url} ↗</a></p>
+      </>
+    )}
+
+    <h2>In a policy</h2>
+    <p>Policies reference a reasoner with the <code>reasoner</code> field — e.g. require that a
+      high-stakes change carry a <code>VerificationResult</code> produced by
+      <code>{reasoner.id}</code> before commit. See the <a href="/gallery">policy gallery</a>.</p>
+  </article>
+</Layout>

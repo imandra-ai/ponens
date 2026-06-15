@@ -90,32 +90,48 @@ def test_lint_empty_formula_errors():
 # ---------------------------------------------------------------------------
 
 def test_validate_ok():
-    assert bi.validate_policy(_policy(), "demo_policy.json", {"general"}) == []
+    assert bi.validate_policy(_policy(), "demo_policy.json", {"general"}, set()) == []
 
 
 def test_validate_missing_severity():
-    errs = bi.validate_policy(_policy(severity=""), "demo_policy.json", {"general"})
+    errs = bi.validate_policy(_policy(severity=""), "demo_policy.json", {"general"}, set())
     assert any("severity" in e for e in errs)
 
 
 def test_validate_id_filename_mismatch():
-    errs = bi.validate_policy(_policy(), "other_name.json", {"general"})
+    errs = bi.validate_policy(_policy(), "other_name.json", {"general"}, set())
     assert any("filename" in e for e in errs)
 
 
 def test_validate_bad_category():
-    errs = bi.validate_policy(_policy(category="nonsense"), "demo_policy.json", {"general"})
+    errs = bi.validate_policy(_policy(category="nonsense"), "demo_policy.json", {"general"}, set())
     assert any("category" in e for e in errs)
 
 
 def test_validate_unknown_domain():
-    errs = bi.validate_policy(_policy(domain="mars"), "demo_policy.json", {"general"})
+    errs = bi.validate_policy(_policy(domain="mars"), "demo_policy.json", {"general"}, set())
     assert any("domain" in e for e in errs)
 
 
 def test_validate_missing_examples():
-    errs = bi.validate_policy(_policy(examples={"passes": "x"}), "demo_policy.json", {"general"})
+    errs = bi.validate_policy(_policy(examples={"passes": "x"}), "demo_policy.json", {"general"}, set())
     assert any("examples" in e for e in errs)
+
+
+def test_validate_known_reasoner_ok():
+    errs = bi.validate_policy(_policy(reasoner="codelogician"), "demo_policy.json", {"general"}, {"codelogician"})
+    assert errs == []
+
+
+def test_validate_unknown_reasoner_errors():
+    errs = bi.validate_policy(_policy(reasoner="ghost"), "demo_policy.json", {"general"}, {"codelogician"})
+    assert any("unknown reasoner 'ghost'" in e for e in errs)
+
+
+def test_validate_reasoner_skipped_when_registry_absent():
+    # empty reasoner set (registry not present) -> reference not checked
+    errs = bi.validate_policy(_policy(reasoner="anything"), "demo_policy.json", {"general"}, set())
+    assert errs == []
 
 
 # ---------------------------------------------------------------------------

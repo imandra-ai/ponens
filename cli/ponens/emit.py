@@ -391,8 +391,8 @@ def cmd_emit(args):
         print(gray(f"  {trace['metrics']['total_actions']} actions in {len(metas)} meta-actions "
                    f"({declared} from the agent's plan) · {len(trace['artifacts'])} artifacts · "
                    f"{len(trace['files_modified'])} files · from {os.path.basename(path)}"))
-        print(gray("  next: ponens trace residuals/status/check — and add the residual surface "
-                   "(the gaps only the agent can declare)."))
+        print(gray("  next: curate the narrative, declare the gaps, grade, govern — "
+                   "run `ponens agent` for the full workflow."))
         if not trace.get("artifacts"):
             print(gray("  no artifacts → lineage is empty (not visualizable). Have the agent declare "
                        "what it produced/consumed and wire inputs/outputs to show the data flow."))

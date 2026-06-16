@@ -290,6 +290,20 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; }
 .ex-pass strong { color: #56d364; } .ex-fail strong { color: var(--error); }
 
 /* viewer */
-.viewer-frame { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; height: 78vh; background: #0d1117; }
+/* The viewer is a dense, wide app — let it break out of the 1040px text column
+   and span (almost) the full viewport, capped on ultra-wide screens, centred. */
+.viewer-frame {
+  width: min(100vw - 3rem, 1640px);
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  height: 84vh;
+  min-height: 620px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0d1117;
+}
 .viewer-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
 .viewer-note { color: var(--muted); font-size: 0.9rem; margin-top: 0.8rem; }

@@ -21,7 +21,7 @@
     <circle cx="74" cy="66" r="14" fill="url(#pg)"/>
   </g>
   <text x="96" y="322" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="112" font-weight="700" fill="url(#title)">ponens</text>
-  <text x="100" y="404" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="44" font-weight="600" fill="#9db8ff">Not a log. A record.</text>
-  <text x="100" y="476" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" fill="#8b97a7">Higher-level reasoning records for AI coding agents —</text>
-  <text x="100" y="520" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" fill="#8b97a7">curated, verifiable, and governed by Computable Governance.</text>
+  <text x="100" y="404" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="44" font-weight="600" fill="#9db8ff">Keep up with your AI-generated code.</text>
+  <text x="100" y="476" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" fill="#8b97a7">A curated, verifiable reasoning trace of what was built and why —</text>
+  <text x="100" y="520" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" fill="#8b97a7">graded and governed by Computable Governance.</text>
 </svg>

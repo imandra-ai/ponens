@@ -1,0 +1,62 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Add ponens to CI — ponens">
+  <article class="prose">
+    <p class="spec-back"><a href="/guides">← Guides</a></p>
+    <h1>Add ponens to CI / your PRs</h1>
+    <p><strong>You'll end up with</strong> a comment on every pull request — the grade, the declared
+      gaps, and a one-click interactive viewer — plus an optional PASS/FAIL governance gate, all
+      offline.</p>
+
+    <h2>1. Ship a trace with the change</h2>
+    <p>The agent emits the trace during its session and commits it alongside the code. The default
+      location the action looks for is <code>.ponens/trace.json</code>:</p>
+    <pre><code>{`ponens emit -o .ponens/trace.json
+git add .ponens/trace.json`}</code></pre>
+
+    <h2>2. Add the pr-trace action</h2>
+    <p>Drop a workflow in <code>.github/workflows/ponens.yml</code>. The
+      <a href="https://github.com/imandra-ai/ponens/tree/main/.github/actions/pr-trace">pr-trace</a>
+      action summarizes the trace on the PR and uploads the viewer:</p>
+    <pre><code>{`name: ponens
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write          # to post the comment
+
+jobs:
+  ponens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: imandra-ai/ponens/.github/actions/pr-trace@main
+        with:
+          trace-path: .ponens/trace.json`}</code></pre>
+    <p>If no trace is present, the action no-ops quietly — it never fails a build just for being
+      absent.</p>
+
+    <h2>3. Gate on Computable Governance (optional)</h2>
+    <p>To make policy compliance a <em>required check</em>, add a step that fails when the trace
+      violates a policy:</p>
+    <pre><code>{`      - name: Install ponens
+        run: pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
+      - name: Governance gate
+        run: ponens trace check .ponens/trace.json   # non-zero exit on FAIL`}</code></pre>
+    <p>This is a real gate — deterministic, offline, no model calls. Pick the policies it enforces in
+      the <a href="/guides/govern-a-repo">govern-a-repo guide</a>.</p>
+
+    <h2>What the reviewer sees</h2>
+    <ul>
+      <li>a <strong>grade</strong> and the policy-compliance line, inline on the PR;</li>
+      <li>the <strong>residual surface</strong> — the gaps the author declared;</li>
+      <li>a link to the <strong>interactive viewer</strong> (uploaded as a build artifact).</li>
+    </ul>
+    <p>That's the whole point: the record shows up <em>where review already happens</em>, so nobody
+      has to go find it.</p>
+
+    <p class="next">Next: <a href="/guides/review-a-pr">how a reviewer uses it →</a></p>
+  </article>
+</Layout>

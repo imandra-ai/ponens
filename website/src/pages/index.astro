@@ -7,10 +7,10 @@ import Layout from "../layouts/Layout.astro";
     <h1>Keep up with your AI-generated code.</h1>
     <p class="lead">
       The old code-review model is out. Agents generate too much code, too quickly, for
-      diff-by-diff review to keep pace. <strong>ponens</strong> is the review model that keeps up.
+      diff-by-diff review to keep pace. <span class="pn">ponens</span> is the review model that keeps up.
     </p>
     <p class="tagline">
-      <strong>ponens</strong> makes each agent session reviewable at a higher level — a curated,
+      <span class="pn">ponens</span> makes each agent session reviewable at a higher level — a curated,
       verifiable <strong>reasoning trace</strong> of what was built and why. You can visualize it,
       grade it, and govern it with <strong>Computable Governance</strong> — so your quality bar and
       your governance keep pace with the code.
@@ -23,11 +23,18 @@ import Layout from "../layouts/Layout.astro";
     <aside class="callout">
       <span class="callout-mark" aria-hidden="true">∴</span>
       <p>From <em>modus ponens</em> — the rule of inference <code>P → Q, P ⊢ Q</code>. Given the
-        recorded work and the policies, ponens derives whether the reasoning holds.</p>
+        recorded work and the policies, <span class="pn">ponens</span> derives whether the reasoning holds.</p>
     </aside>
   </section>
 
   <section class="transform" aria-label="from a session log to a reasoning record">
+    <div class="transform-head">
+      <h2>From session to reasoning record</h2>
+      <p><span class="pn">ponens</span> reads the agent's raw session and distills it into a higher-level <strong>reasoning
+        record</strong> — curated steps, the lineage of what changed, the gaps it left open, and a grade.</p>
+    </div>
+
+    <div class="transform-row">
     <div class="ag-window">
       <div class="ag-bar">
         <span class="ag-dot" aria-hidden="true"></span>
@@ -96,6 +103,7 @@ import Layout from "../layouts/Layout.astro";
         <span class="mv-grade"><strong>Grade B</strong> · lineage 100% · policies 4/4 ✓</span>
       </div>
     </div>
+    </div>
   </section>
 
   <section class="tech">
@@ -114,7 +122,7 @@ import Layout from "../layouts/Layout.astro";
       </div>
       <div class="ps-col ps-solution">
         <div class="ps-tag ok">The solution</div>
-        <p>ponens gives the trace a typed schema — atomic actions, artifacts, a lineage DAG, a residual
+        <p><span class="pn">ponens</span> gives the trace a typed schema — atomic actions, artifacts, a lineage DAG, a residual
           surface — then encodes each policy as a formula in <strong>LTLf</strong> (linear temporal logic over
           finite traces), extended with scoped-past (<code>P_chain</code>, <code>P_target</code>) and
           structural operators. The CLI compiles each formula and evaluates it over the trace: a deterministic
@@ -147,12 +155,12 @@ import Layout from "../layouts/Layout.astro";
       </div>
     </div>
 
-    <p class="tech-foot">The full language is in the <a href="/spec">Policy spec</a>, and 40+ ready policies are
-      in the <a href="/gallery">gallery</a>.</p>
+    <p class="tech-foot">The full operator reference is in the <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language spec</a>,
+      and 40+ ready policies are in the <a href="/gallery">gallery</a>.</p>
   </section>
 
   <section class="swim" aria-label="how a developer and a reviewer work together through ponens">
-    <h2 class="swim-title">How review works with ponens</h2>
+    <h2 class="swim-title">How review works with <span class="pn">ponens</span></h2>
 
     <div class="lane lane-dev">
       <div class="lane-actor">
@@ -227,32 +235,45 @@ ponens trace check trace.json                   # Computable Governance — best
 ponens trace view trace.json                    # Read the reasoning, zoomable</code></pre>
   </section>
 
+  <section class="guides-cta">
+    <h2>Practical guides</h2>
+    <p>Short, copy-pasteable how-tos for real tasks. <a href="/guides">All guides →</a></p>
+    <div class="guide-grid">
+      <a class="guide-card" href="/guides/capture-and-curate">
+        <span class="guide-who">Author</span>
+        <h3>Capture &amp; curate a trace</h3>
+        <p>Turn an agent session into a clean, honest reasoning record.</p>
+      </a>
+      <a class="guide-card" href="/guides/review-a-pr">
+        <span class="guide-who">Reviewer</span>
+        <h3>Review an AI-generated PR</h3>
+        <p>Start from the declared gaps; verify what matters; skip the noise.</p>
+      </a>
+      <a class="guide-card" href="/guides/add-to-ci">
+        <span class="guide-who">Maintainer</span>
+        <h3>Add ponens to CI</h3>
+        <p>Grade, gaps, and a viewer on every PR — plus a PASS/FAIL gate.</p>
+      </a>
+      <a class="guide-card" href="/guides/govern-a-repo">
+        <span class="guide-who">Maintainer</span>
+        <h3>Govern a repo with policies</h3>
+        <p>Best-practice rules checked over every trace, offline.</p>
+      </a>
+    </div>
+  </section>
+
   <section class="contribute">
     <h2>Open source — built in the open</h2>
-    <p>ponens is MIT-licensed, and the moving parts grow with the community: the
+    <p><span class="pn">ponens</span> is MIT-licensed, and the moving parts grow with the community: the
       <a href="/gallery">policy gallery</a>, the <a href="/reasoners">reasoner registry</a>, the
       agent adapters, and the <a href="/spec">trace &amp; policy spec</a>. Add a best-practice policy,
       register an automated-reasoning tool, write an adapter for your agent, or help shape the spec.</p>
     <div class="cta">
       <a class="btn star" href="https://github.com/imandra-ai/ponens" aria-label="Star ponens on GitHub">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18l-5.8 3 1.1-6.5L2.6 9.4l6.5-.9L12 2.6z"/></svg>
-        Star on GitHub<span class="star-count" id="ghStars" hidden></span>
+        Star on GitHub
       </a>
       <a class="btn ghost" href="https://github.com/imandra-ai/ponens/blob/main/CONTRIBUTING.md">Read CONTRIBUTING →</a>
     </div>
   </section>
-
-  <script>
-    // Live star count — fills in if the public API responds; otherwise the button just reads "Star on GitHub".
-    fetch("https://api.github.com/repos/imandra-ai/ponens")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const el = document.getElementById("ghStars");
-        if (el && d && typeof d.stargazers_count === "number") {
-          el.textContent = d.stargazers_count.toLocaleString();
-          el.hidden = false;
-        }
-      })
-      .catch(() => {});
-  </script>
 </Layout>

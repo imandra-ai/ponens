@@ -1,0 +1,61 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Govern a repo with policies — ponens">
+  <article class="prose">
+    <p class="spec-back"><a href="/guides">← Guides</a></p>
+    <h1>Govern a repo with policies</h1>
+    <p><strong>You'll end up with</strong> a set of best-practice rules — <em>research before editing,
+      tests before commit, no open critical gaps</em> — checked over every trace as a real PASS/FAIL,
+      offline. This is <strong>Computable Governance</strong>.</p>
+
+    <h2>1. Pull the gallery</h2>
+    <pre><code>{`ponens registry update                         # fetch the public gallery
+ponens policies search testing                 # browse by keyword
+ponens policies search --severity error`}</code></pre>
+    <p>Browse the full set in the <a href="/gallery">policy gallery</a>. Each policy is a formula in
+      <a href="/spec/POLICY_LANGUAGE_v0_2">LTLf</a> with a plain-English rationale and pass/fail
+      examples.</p>
+
+    <h2>2. Add policies to a trace</h2>
+    <pre><code>{`ponens policies add tests_before_commit --into trace.json
+ponens policies add research_before_edit --into trace.json
+ponens policies add no_open_critical_residuals --into trace.json`}</code></pre>
+
+    <h2>3. Check — the gate</h2>
+    <pre><code>ponens trace check trace.json                  # → PASS / FAIL (non-zero exit on FAIL)</code></pre>
+    <p>Each policy compiles to an automaton and is evaluated over the trace. A result is
+      <code>pass</code>, <code>fail</code> (with the witnessing position), or
+      <code>not_applicable</code> when the trigger never occurs. Wire this into
+      <a href="/guides/add-to-ci">CI</a> to make it a required check.</p>
+
+    <h2>4. Write your own</h2>
+    <p>A policy is a small JSON file with a formula. For example, "every commit is preceded by a
+      passing test run":</p>
+    <pre><code>{`{
+  "id": "tests_before_commit",
+  "name": "Tests Before Commit",
+  "category": "workflow",
+  "severity": "error",
+  "formula": "G(GitCommit → P(RunTests ∧ completed))",
+  "language_level": "pure_temporal",
+  "rationale": "Prevents untested code from entering the repository.",
+  "examples": { "passes": "… RunTests(pass) → GitCommit", "fails": "EditFile → GitCommit" }
+}`}</code></pre>
+    <p>Register a local source and use it just like a gallery policy:</p>
+    <pre><code>{`ponens sources add team --type local --path .ponens/policies
+ponens policies add team/tests_before_commit --into trace.json`}</code></pre>
+    <p>The full operator set, the structural/residual predicates, and the grammar are in the
+      <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language reference</a>; the step-by-step authoring
+      walkthrough is in <a href="/docs/writing-policies">Writing policies</a>.</p>
+
+    <h2>Policies can require reasoners</h2>
+    <p>A policy can demand <em>formal evidence</em>, not just process — e.g. a high-stakes edit must be
+      backed by a proof or a model check in its lineage. Those proofs come from
+      <a href="/reasoners">reasoners</a> (CodeLogician, ImandraX, Z3, TLC), which a policy can
+      <code>require</code>. That's the bridge from "did the steps" to "proved the property."</p>
+
+    <p class="next">Next: <a href="/guides/add-to-ci">enforce it on every PR →</a></p>
+  </article>
+</Layout>

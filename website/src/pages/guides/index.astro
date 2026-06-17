@@ -1,0 +1,49 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+const guides = [
+  {
+    href: "/guides/capture-and-curate",
+    title: "Capture & curate a trace",
+    who: "Author",
+    desc: "You just finished an agent session — turn it into a clean, honest reasoning record: emit, curate the narrative, declare the gaps.",
+  },
+  {
+    href: "/guides/review-a-pr",
+    title: "Review an AI-generated PR",
+    who: "Reviewer",
+    desc: "Someone handed you an AI-written PR. Start from the residual surface, verify the claims that matter, and approve with confidence.",
+  },
+  {
+    href: "/guides/add-to-ci",
+    title: "Add ponens to CI / your PRs",
+    who: "Maintainer",
+    desc: "Wire up the GitHub Action so every PR gets a grade, the declared gaps, a one-click viewer, and a PASS/FAIL governance gate.",
+  },
+  {
+    href: "/guides/govern-a-repo",
+    title: "Govern a repo with policies",
+    who: "Maintainer",
+    desc: "Pull best-practice policies from the gallery, gate on Computable Governance, and write your own rules in LTLf.",
+  },
+];
+---
+
+<Layout title="Guides — ponens">
+  <section class="page-head">
+    <h1>Guides</h1>
+    <p>Short, practical how-tos for real tasks. Each one is copy-pasteable end to end. New to the
+      tool? Start with the <a href="/docs">getting-started tour</a>; come here when you have a
+      specific job to do.</p>
+  </section>
+
+  <div class="guide-grid">
+    {guides.map((g) => (
+      <a class="guide-card" href={g.href}>
+        <span class="guide-who">{g.who}</span>
+        <h3>{g.title}</h3>
+        <p>{g.desc}</p>
+      </a>
+    ))}
+  </div>
+</Layout>

@@ -43,6 +43,9 @@ pip install -e ./cli</code></pre>
         <strong>grade</strong> and <strong>govern</strong> it, then <strong>view</strong> and share.
         Every command is plain text — greppable, pipeable, <code>--json</code> where you script it.
         This is the agent / CI surface too.</p>
+      <p>Looking for a specific task instead of the full tour? See the
+        <a href="/guides">practical guides</a> — capture &amp; curate a trace, review an AI-generated
+        PR, add ponens to CI, and govern a repo with policies.</p>
 
       <h2 id="emit">1 · Emit — capture the session</h2>
       <p>An agent emits the trace from its own session transcript; you write nothing. Emission
@@ -104,8 +107,9 @@ ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI
           unverified claims, out-of-scope items, limitations, open questions. It tells a reviewer
           <em>where to look</em>.</li>
         <li><strong>Computable Governance</strong> — best-practice policies as machine-checkable rules
-          over the trace. Browse the <a href="/gallery">gallery</a>, or
-          <a href="/docs/writing-policies">write your own</a>.</li>
+          over the trace, written in LTLf extended with scoped-past and structural operators. Browse the
+          <a href="/gallery">gallery</a>, read the <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language reference</a>,
+          or <a href="/docs/writing-policies">write your own</a>.</li>
         <li><strong>Review handoff</strong> — how a reviewing agent consumes a trace: verify the
           consequential claims, triage the declared gaps, hunt the undeclared ones.</li>
       </ul>

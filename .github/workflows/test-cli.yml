@@ -20,7 +20,8 @@ jobs:
           python-version: "3.12"
 
       - name: Install the CLI
-        run: pip install -e ./cli pytest
+        # include the optional [yaml] extra so the YAML trace tests are exercised
+        run: pip install -e "./cli[yaml]" pytest
 
       - name: Unit tests (offline)
         run: cd cli && python3 -m pytest tests/unit -q

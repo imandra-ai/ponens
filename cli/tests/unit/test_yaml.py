@@ -9,6 +9,10 @@ import pytest
 from ponens.trace import load_trace, cmd_fmt, _dump_yaml
 from ponens.sync import content_hash
 
+# YAML support is an optional extra (`pip install ponens[yaml]`). Skip the whole
+# module when PyYAML isn't installed, rather than failing the stdlib-only run.
+pytest.importorskip("yaml")
+
 
 TRACE = {
     "trace_id": "trace-yaml",

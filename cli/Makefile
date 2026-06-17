@@ -35,8 +35,14 @@ publish-pypi: build  ## Publish to PyPI (pypi.org)
 	-p $$(gcloud secrets versions access --project imandra-dev --secret pypi-imandrax-api-api-token latest) \
 	./dist/ponens-*
 
+.PHONY: validate-new-version
+validate-new-version:
+	$(eval PYPI_VER := $(shell curl -s "https://pypi.org/pypi/ponens/json" | jq '.info.version' -r))
+	$(eval LOCAL_VER := $(shell uv version --short))
+	@uv run python -c "lv, pv = tuple(map(int, '$(LOCAL_VER)'.split('.'))), tuple(map(int, '$(PYPI_VER)'.split('.'))); assert lv > pv" 2>/dev/null || (echo "Local $(LOCAL_VER) must be greater than PyPI $(PYPI_VER)" && exit 1)
+
 .PHONY: release
-release: build  ## Tag, publish to PyPI, and create a GitHub release
+release: validate-new-version build  ## Tag, publish to PyPI, and create a GitHub release
 	@git diff --quiet || { echo "working tree dirty — commit or stash first"; exit 1; }
 	$(eval VERSION := $(shell uv version --short))
 	git tag -a v$(VERSION) -m "v$(VERSION)"

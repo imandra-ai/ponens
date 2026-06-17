@@ -473,6 +473,32 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; }
   padding: 0.1rem 0.5rem; border-radius: 6px; font-size: 0.75rem;
 }
 
+/* Gallery: labelled filter rows + chip counts */
+.filter-row { display: flex; align-items: flex-start; gap: 0.7rem; margin-top: 0.9rem; }
+.filter-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
+  color: var(--muted); flex: none; padding-top: 0.45rem; width: 64px;
+}
+.filter-row .filters { margin-top: 0; }
+.chip em { font-style: normal; opacity: 0.55; margin-left: 0.2rem; }
+
+/* Gallery: policy formula with syntax highlighting */
+.pf {
+  background: rgba(127, 127, 127, 0.06); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.6rem 0.7rem; margin: 0 0 0.85rem; overflow-x: auto;
+}
+.pf code { font-family: var(--mono); font-size: 0.82rem; line-height: 1.55; white-space: pre-wrap; }
+.pf .t-op { color: var(--accent-2); font-weight: 700; }
+.pf .t-type { color: var(--accent); }
+.pf .t-kw { color: #2da44e; }
+.pf .t-sym { color: var(--muted); }
+
+/* Gallery: language-level badge */
+.ll { font-size: 0.7rem; padding: 0.12rem 0.5rem; border-radius: 6px; font-weight: 600; }
+.ll-pure_temporal { background: rgba(46, 160, 67, 0.15); color: #2da44e; }
+.ll-scoped_temporal { background: rgba(157, 123, 255, 0.16); color: var(--accent-2); }
+.ll-structural { background: rgba(110, 168, 254, 0.16); color: var(--accent); }
+
 /* theme toggle */
 .theme-toggle {
   background: none; border: none; color: var(--muted); cursor: pointer; padding: 0;

@@ -206,6 +206,7 @@ def build_catalog(policies, index):
             "language_level": p.get("language_level"),
             "reasoner": p.get("reasoner"),
             "description": p.get("description"),
+            "formula": p.get("formula", ""),
             "version": p.get("version", "1.0.0"),
             "reference_compiler": status,
             "hash": policy_hash(p),

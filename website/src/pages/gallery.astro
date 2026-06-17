@@ -1,6 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-// The catalog is synced into public/gallery at build time; fetch it at runtime
+// The catalog is synced into public/gallery at build time; fetched at runtime
 // so the page is a thin browser over the same _catalog.json the CLI consumes.
 ---
 
@@ -12,8 +12,9 @@ import Layout from "../layouts/Layout.astro";
       <a href="/gallery/policies/_catalog.json"><code>_catalog.json</code></a>
       is what <code>ponens registry update</code> pulls. Want your own?
       <a href="/docs/writing-policies">Write a policy →</a></p>
-    <input id="q" type="search" placeholder="Search policies…" autocomplete="off" />
-    <div id="filters" class="filters"></div>
+    <input id="q" type="search" placeholder="Search policies, formulas, tags…" autocomplete="off" />
+    <div class="filter-row"><span class="filter-label">Domain</span><div id="domFilters" class="filters"></div></div>
+    <div class="filter-row"><span class="filter-label">Category</span><div id="catFilters" class="filters"></div></div>
   </section>
 
   <div id="count" class="count"></div>
@@ -22,19 +23,41 @@ import Layout from "../layouts/Layout.astro";
   <script is:inline>
     const grid = document.getElementById("grid");
     const countEl = document.getElementById("count");
-    const filtersEl = document.getElementById("filters");
     const q = document.getElementById("q");
     let all = [];
     let activeDomain = null;
+    let activeCategory = null;
 
-    const sevClass = (s) => `sev sev-${s}`;
+    const LL_LABEL = {
+      pure_temporal: "Pure temporal",
+      scoped_temporal: "Scoped temporal",
+      structural: "Structural",
+    };
+
+    // Lightweight syntax highlighting for a policy formula.
+    function highlightFormula(f) {
+      let s = f.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      // relational / logical symbols first (before any markup is inserted)
+      s = s.replace(/[→∧∨¬∀∃⊨∈∅≠≥≤=]/g, (c) => `<span class="t-sym">${c}</span>`);
+      // then word tokens
+      s = s.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (w) => {
+        if (/^(G|F|X|P|H|U|S|P_target|P_chain|H_target|H_chain|S_last)$/.test(w))
+          return `<span class="t-op">${w}</span>`;
+        if (/^(completed|failed|proved|refuted|sat|unknown)$/.test(w))
+          return `<span class="t-kw">${w}</span>`;
+        if (/^[A-Z][A-Za-z]+$/.test(w)) return `<span class="t-type">${w}</span>`;
+        return w;
+      });
+      return s;
+    }
 
     function render() {
       const query = q.value.trim().toLowerCase();
       const items = all.filter((p) => {
         if (activeDomain && p.domain !== activeDomain) return false;
+        if (activeCategory && p.category !== activeCategory) return false;
         if (!query) return true;
-        const hay = `${p.id} ${p.name} ${p.description} ${p.domain} ${(p.tags || []).join(" ")}`.toLowerCase();
+        const hay = `${p.id} ${p.name} ${p.description} ${p.domain} ${p.category} ${(p.tags || []).join(" ")} ${p.formula || ""}`.toLowerCase();
         return hay.includes(query);
       });
       countEl.textContent = `${items.length} of ${all.length} policies`;
@@ -44,35 +67,47 @@ import Layout from "../layouts/Layout.astro";
         <a class="policy-card" href="/policies/${p.id}">
           <div class="policy-top">
             <code class="pid">${p.id}</code>
-            <span class="${sevClass(p.severity)}">${p.severity}</span>
+            <span class="sev sev-${p.severity}">${p.severity}</span>
           </div>
           <h3>${p.name}</h3>
           <p>${p.description ?? ""}</p>
+          ${p.formula ? `<pre class="pf"><code>${highlightFormula(p.formula)}</code></pre>` : ""}
           <div class="policy-meta">
             <span class="dom">${p.domain ?? ""}</span>
             ${(p.tags || []).map((t) => `<span class="tag">${t}</span>`).join("")}
+            ${p.language_level ? `<span class="ll ll-${p.language_level}">${LL_LABEL[p.language_level] ?? p.language_level}</span>` : ""}
           </div>
         </a>`
         )
         .join("");
     }
 
+    function buildFilters(container, key, setActive) {
+      const counts = {};
+      all.forEach((p) => {
+        const v = p[key];
+        if (v) counts[v] = (counts[v] || 0) + 1;
+      });
+      const vals = Object.keys(counts).sort();
+      container.innerHTML =
+        `<button class="chip active" data-v="">All <em>${all.length}</em></button>` +
+        vals.map((v) => `<button class="chip" data-v="${v}">${v} <em>${counts[v]}</em></button>`).join("");
+      container.querySelectorAll("button").forEach((b) =>
+        b.addEventListener("click", () => {
+          setActive(b.dataset.v || null);
+          container.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+          b.classList.add("active");
+          render();
+        })
+      );
+    }
+
     fetch("/gallery/policies/_catalog.json")
       .then((r) => r.json())
       .then((cat) => {
         all = cat.policies || [];
-        const domains = [...new Set(all.map((p) => p.domain).filter(Boolean))].sort();
-        filtersEl.innerHTML =
-          `<button class="chip active" data-d="">All</button>` +
-          domains.map((d) => `<button class="chip" data-d="${d}">${d}</button>`).join("");
-        filtersEl.querySelectorAll("button").forEach((b) =>
-          b.addEventListener("click", () => {
-            activeDomain = b.dataset.d || null;
-            filtersEl.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
-            b.classList.add("active");
-            render();
-          })
-        );
+        buildFilters(document.getElementById("domFilters"), "domain", (v) => (activeDomain = v));
+        buildFilters(document.getElementById("catFilters"), "category", (v) => (activeCategory = v));
         render();
       })
       .catch(() => {

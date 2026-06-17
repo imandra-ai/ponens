@@ -16,6 +16,7 @@ help:  ## Show this help (usage: make help)
 
 .PHONY: build
 build:  ## Build the package
+	cp ../viewer/vscode-plugin/media/visualizer.html ponens/visualizer.html || (echo "Failed to copy visualizer.html" && exit 1)
 	rm -rf dist && uv build --no-sources
 
 .PHONY: publish-testpypi

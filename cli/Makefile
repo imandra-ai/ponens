@@ -34,3 +34,12 @@ publish-pypi: build  ## Publish to PyPI (pypi.org)
 	-u __token__ \
 	-p $$(gcloud secrets versions access --project imandra-dev --secret pypi-imandrax-api-api-token latest) \
 	./dist/ponens-*
+
+.PHONY: release
+release: build  ## Tag, publish to PyPI, and create a GitHub release
+	@git diff --quiet || { echo "working tree dirty — commit or stash first"; exit 1; }
+	$(eval VERSION := $(shell uv version --short))
+	git tag -a v$(VERSION) -m "v$(VERSION)"
+	git push origin v$(VERSION)
+	$(MAKE) publish-pypi
+	gh release create v$(VERSION) ./dist/ponens-* --generate-notes --title v$(VERSION)

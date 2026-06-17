@@ -28,6 +28,9 @@ viewer/vscode-plugin/media/demo-traces/
 # Local registry cache
 .ponens/
 
+# Visualizer asset copied into the CLI package at build time (source: viewer/vscode-plugin/media/)
+cli/ponens/visualizer.html
+
 # OS / editor
 .DS_Store
 *.swp

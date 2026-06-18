@@ -1,0 +1,33 @@
+{
+  "id": "code_verified",
+  "name": "Code Verified",
+  "category": "safety",
+  "severity": "error",
+  "description": "Source code is verified (review/analysis) for compliance with the low-level requirements and coding standards.",
+  "formula": "G(SourceCode → reviewed ∨ analyzed)",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Table A-5: source code is verified for compliance, accuracy, and conformance to standards before integration. Not required at DAL D.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "verification",
+    "rag-red",
+    "dal-A-C"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "verification",
+  "tier": "A-C",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

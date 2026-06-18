@@ -1,0 +1,33 @@
+{
+  "id": "code_trace_to_llr",
+  "name": "Code Trace to LLR",
+  "category": "structural",
+  "severity": "error",
+  "description": "Source code is developed from, and traces to, the low-level requirements.",
+  "formula": "G(SourceCode → P_chain(LLR))",
+  "language_level": "scoped_temporal",
+  "rationale": "DO-178C Table A-2 obj 6 & A-5 obj 5: source code is developed from low-level requirements; traceability is established through the artifact lineage.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "development",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "development",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

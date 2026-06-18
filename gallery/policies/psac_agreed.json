@@ -1,0 +1,33 @@
+{
+  "id": "psac_agreed",
+  "name": "PSAC Agreed With Authority",
+  "category": "conformance",
+  "severity": "error",
+  "description": "The Plan for Software Aspects of Certification (PSAC) is agreed with the certification authority before development proceeds.",
+  "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(psac_agreed))",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Table A-10 obj 1: communication and understanding between the applicant and the certification authority is established via the PSAC. Table A-10 applies at Levels A-D.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "certification-liaison",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "certification-liaison",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,284 @@
+{
+  "trace_id": "do178c-violating-001",
+  "spec_version": "1.6",
+  "assistant": "do178c-lifecycle",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "HLR",
+      "category": "activity",
+      "rationale": "DO-178C life-cycle activity",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": [
+        "vhlr1"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "SourceCode",
+      "category": "activity",
+      "rationale": "DO-178C life-cycle activity",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": [
+        "vcode1"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "Test",
+      "category": "activity",
+      "rationale": "DO-178C life-cycle activity",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": [
+        "vtest1"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "CoverageAnalysis",
+      "category": "activity",
+      "rationale": "DO-178C life-cycle activity",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "Change",
+      "category": "activity",
+      "rationale": "DO-178C life-cycle activity",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 6,
+      "type": "ProblemReport",
+      "category": "activity",
+      "rationale": "DO-178C life-cycle activity",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "vhlr1",
+      "artifact_type": "HLR",
+      "name": "vhlr1",
+      "derived_from": [],
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "vcode1",
+      "artifact_type": "SourceCode",
+      "name": "vcode1",
+      "derived_from": [],
+      "producer_action_id": 2
+    },
+    {
+      "artifact_id": "vtest1",
+      "artifact_type": "Test",
+      "name": "vtest1",
+      "derived_from": [],
+      "producer_action_id": 3
+    }
+  ],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "accomplishment_summary",
+      "name": "accomplishment_summary",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "F(AccomplishmentSummary)",
+      "description": "A Software Accomplishment Summary (SAS) is produced, showing compliance with the PSAC."
+    },
+    {
+      "policy_id": "artifacts_baselined",
+      "name": "artifacts_baselined",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode ∨ Test) → baselined)",
+      "description": "All life-cycle data configuration items are identified and placed under configuration management (baselined)."
+    },
+    {
+      "policy_id": "changes_controlled",
+      "name": "changes_controlled",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Change → P(change_approved))",
+      "description": "Changes to baselined configuration items occur only through an approved change-control process."
+    },
+    {
+      "policy_id": "code_trace_to_llr",
+      "name": "code_trace_to_llr",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(SourceCode → P_chain(LLR))",
+      "description": "Source code is developed from, and traces to, the low-level requirements."
+    },
+    {
+      "policy_id": "code_verified",
+      "name": "code_verified",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(SourceCode → reviewed ∨ analyzed)",
+      "description": "Source code is verified (review/analysis) for compliance with the low-level requirements and coding standards."
+    },
+    {
+      "policy_id": "derived_requirements_to_safety",
+      "name": "derived_requirements_to_safety",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(DerivedRequirement → P(safety_assessed))",
+      "description": "Derived requirements (not traceable to a higher level) are provided to the system safety assessment process."
+    },
+    {
+      "policy_id": "hlr_trace_to_system",
+      "name": "hlr_trace_to_system",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(HLR → P_chain(SystemRequirement))",
+      "description": "High-level requirements are developed from, and trace to, system requirements (bidirectional traceability)."
+    },
+    {
+      "policy_id": "hlr_verified",
+      "name": "hlr_verified",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(HLR → reviewed ∧ requirements_accurate)",
+      "description": "High-level requirements are verified for compliance, accuracy and consistency (review/analysis)."
+    },
+    {
+      "policy_id": "llr_trace_to_hlr",
+      "name": "llr_trace_to_hlr",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(LLR → P_chain(HLR))",
+      "description": "Low-level requirements (software design) are developed from, and trace to, high-level requirements."
+    },
+    {
+      "policy_id": "llr_verified",
+      "name": "llr_verified",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(LLR → reviewed)",
+      "description": "Low-level requirements / design are verified by review or analysis."
+    },
+    {
+      "policy_id": "plans_before_development",
+      "name": "plans_before_development",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(plans_approved))",
+      "description": "Software plans (PSAC, SDP, SVP, SCMP, SQAP) are established and approved before development of life-cycle data begins."
+    },
+    {
+      "policy_id": "problem_reports_closed",
+      "name": "problem_reports_closed",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ProblemReport → F(resolved ∨ deferred_with_rationale))",
+      "description": "Problem reports are tracked to closure — resolved, or deferred with recorded rationale."
+    },
+    {
+      "policy_id": "psac_agreed",
+      "name": "psac_agreed",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(psac_agreed))",
+      "description": "The Plan for Software Aspects of Certification (PSAC) is agreed with the certification authority before development proceeds."
+    },
+    {
+      "policy_id": "sqa_conformity",
+      "name": "sqa_conformity",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) → sqa_reviewed)",
+      "description": "Software Quality Assurance assures that life-cycle processes and outputs comply with the approved plans and standards (conformity review)."
+    },
+    {
+      "policy_id": "standards_defined",
+      "name": "standards_defined",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(SourceCode → P(standards_defined))",
+      "description": "Software requirements, design, and coding standards are defined before the corresponding life-cycle data is produced."
+    },
+    {
+      "policy_id": "structural_coverage_achieved",
+      "name": "structural_coverage_achieved",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(CoverageAnalysis → coverage_achieved)",
+      "description": "Structural coverage analysis confirms the achieved coverage appropriate to the DAL (MC/DC at A, decision at B, statement at C)."
+    },
+    {
+      "policy_id": "test_traces_to_requirement",
+      "name": "test_traces_to_requirement",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Test → P_chain(HLR))",
+      "description": "Every test case traces to the requirement it verifies (bidirectional requirements-to-test traceability)."
+    },
+    {
+      "policy_id": "tests_requirements_based",
+      "name": "tests_requirements_based",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Test → requirements_based)",
+      "description": "Test cases are requirements-based, exercising the software against its requirements (normal and robustness)."
+    },
+    {
+      "policy_id": "verification_independent",
+      "name": "verification_independent",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) ∧ dal_a → independent_review)",
+      "description": "At DAL A/B, verification of the development outputs is performed with independence."
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "derived_requirements_to_safety",
+  "name": "Derived Requirements to Safety",
+  "category": "safety",
+  "severity": "error",
+  "description": "Derived requirements (not traceable to a higher level) are provided to the system safety assessment process.",
+  "formula": "G(DerivedRequirement → P(safety_assessed))",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C §5.1.2 / Tables A-2: derived requirements are defined and provided to the system processes, including the system safety assessment, so their impact is evaluated.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "development",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "development",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

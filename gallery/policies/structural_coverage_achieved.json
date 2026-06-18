@@ -1,0 +1,33 @@
+{
+  "id": "structural_coverage_achieved",
+  "name": "Structural Coverage Achieved",
+  "category": "safety",
+  "severity": "error",
+  "description": "Structural coverage analysis confirms the achieved coverage appropriate to the DAL (MC/DC at A, decision at B, statement at C).",
+  "formula": "G(CoverageAnalysis → coverage_achieved)",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Table A-7 obj 5-8: structural coverage is analysed — modified condition/decision coverage at DAL A, decision coverage at B, statement coverage at C. No structural coverage objective at DAL D.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "testing",
+    "rag-red",
+    "dal-A-C"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "testing",
+  "tier": "A-C",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

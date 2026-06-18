@@ -1,0 +1,33 @@
+{
+  "id": "accomplishment_summary",
+  "name": "Accomplishment Summary Produced",
+  "category": "conformance",
+  "severity": "error",
+  "description": "A Software Accomplishment Summary (SAS) is produced, showing compliance with the PSAC.",
+  "formula": "F(AccomplishmentSummary)",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Table A-10 obj 3: the means of compliance and evidence are provided to the certification authority, summarised in the Software Accomplishment Summary.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "certification-liaison",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "certification-liaison",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

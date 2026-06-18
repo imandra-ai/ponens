@@ -1,0 +1,33 @@
+{
+  "id": "verification_independent",
+  "name": "Verification Independence",
+  "category": "safety",
+  "severity": "warning",
+  "description": "At DAL A/B, verification of the development outputs is performed with independence.",
+  "formula": "G((HLR ∨ LLR ∨ SourceCode) ∧ dal_a → independent_review)",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Annex A 'with independence' columns: a number of verification objectives must be satisfied with independence at Levels A and B.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "verification",
+    "rag-amber",
+    "dal-A-B"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "verification",
+  "tier": "A-B",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

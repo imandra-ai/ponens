@@ -1,0 +1,33 @@
+{
+  "id": "test_traces_to_requirement",
+  "name": "Test Traces to Requirement",
+  "category": "structural",
+  "severity": "error",
+  "description": "Every test case traces to the requirement it verifies (bidirectional requirements-to-test traceability).",
+  "formula": "G(Test → P_chain(HLR))",
+  "language_level": "scoped_temporal",
+  "rationale": "DO-178C Table A-7 obj 1-2: test cases trace to requirements and requirements trace to test cases, ensuring complete coverage of requirements by tests.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "testing",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "testing",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

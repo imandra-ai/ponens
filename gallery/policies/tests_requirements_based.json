@@ -1,0 +1,33 @@
+{
+  "id": "tests_requirements_based",
+  "name": "Requirements-Based Testing",
+  "category": "safety",
+  "severity": "error",
+  "description": "Test cases are requirements-based, exercising the software against its requirements (normal and robustness).",
+  "formula": "G(Test → requirements_based)",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Table A-6: test cases and procedures are developed from the high- and low-level requirements; testing is requirements-based.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "testing",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "testing",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,33 @@
+{
+  "id": "plans_before_development",
+  "name": "Plans Before Development",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Software plans (PSAC, SDP, SVP, SCMP, SQAP) are established and approved before development of life-cycle data begins.",
+  "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(plans_approved))",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Table A-1: the software planning process produces the software plans and standards that govern development and verification; these must precede development.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "planning",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "planning",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

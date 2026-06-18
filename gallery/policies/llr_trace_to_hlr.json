@@ -1,0 +1,33 @@
+{
+  "id": "llr_trace_to_hlr",
+  "name": "LLR Trace to HLR",
+  "category": "structural",
+  "severity": "error",
+  "description": "Low-level requirements (software design) are developed from, and trace to, high-level requirements.",
+  "formula": "G(LLR → P_chain(HLR))",
+  "language_level": "scoped_temporal",
+  "rationale": "DO-178C Table A-2 obj 4-5 & A-4 obj 6: low-level requirements and architecture are developed from high-level requirements, traceable through the lineage.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "development",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "development",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

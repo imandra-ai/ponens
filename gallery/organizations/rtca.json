@@ -1,0 +1,14 @@
+{
+  "id": "rtca",
+  "name": "RTCA",
+  "full_name": "RTCA, Inc. / EUROCAE (DO-178C / ED-12C)",
+  "url": "https://www.rtca.org/",
+  "description": "RTCA (with EUROCAE) publishes DO-178C, the airborne-software certification standard used worldwide by aviation authorities. Its Annex A objectives — traceability, verification, coverage, configuration management, and certification liaison — are the basis for the pack below.",
+  "packs": [
+    "do-178c-software-assurance"
+  ],
+  "mapping": [
+    "DO-178C assures airborne software by objectives, organised in Annex A tables A-1 to A-10 and scaled by Design Assurance Level (A–E). Its defining requirement is bidirectional traceability — system requirements → high-level requirements → low-level requirements → source code → tests — and ponens expresses that directly with its `P_chain` lineage operator over the software life-cycle record treated as a trace. Each traceability objective becomes a policy such as `G(SourceCode → P_chain(LLR))`, while process-ordering objectives (plans before development, PSAC agreed before development, reviews and structural coverage achieved) become temporal policies over the same trace.",
+    "Design Assurance Level maps to a policy's `tier` (A–D) and the 'with independence' objectives map to Amber escalations, so the pack scales the way DO-178C does. Running it with `ponens trace check` aggregates the per-objective verdicts to a Green / Amber / Red picture: a missing traceability link, an unverified requirement, an unbaselined configuration item, or an absent Accomplishment Summary is a Red certification gap; softer items such as problem-report closure or independence are Amber. The process-organisation objectives that are not evidenced per artifact (e.g. tool qualification under DO-330) sit outside this pack."
+  ]
+}

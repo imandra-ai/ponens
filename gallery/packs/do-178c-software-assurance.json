@@ -1,0 +1,40 @@
+{
+  "id": "do-178c-software-assurance",
+  "name": "DO-178C Software Assurance",
+  "org": "rtca",
+  "domain": "software-assurance",
+  "spec": "/spec/DO_178C_PACK",
+  "summary": "DO-178C's Annex A objectives — traceability, verification, structural coverage, configuration management, and certification liaison — as computable policies over the software life-cycle record.",
+  "description": "Maps the RTCA DO-178C / EUROCAE ED-12C airborne-software objectives onto ponens policies. Bidirectional traceability (system → HLR → LLR → code → test) is expressed with ponens' P_chain lineage operator; planning, verification, coverage, configuration-management, quality-assurance and certification-liaison objectives become temporal policies. Design Assurance Level maps to each policy's tier (A–D).",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification.",
+  "domains": [
+    {
+      "key": "planning",
+      "label": "Planning (A-1)"
+    },
+    {
+      "key": "development",
+      "label": "Development & Traceability (A-2)"
+    },
+    {
+      "key": "verification",
+      "label": "Verification (A-3/4/5)"
+    },
+    {
+      "key": "testing",
+      "label": "Testing & Coverage (A-6/7)"
+    },
+    {
+      "key": "configuration-management",
+      "label": "Configuration Management (A-8)"
+    },
+    {
+      "key": "quality-assurance",
+      "label": "Quality Assurance (A-9)"
+    },
+    {
+      "key": "certification-liaison",
+      "label": "Certification Liaison (A-10)"
+    }
+  ]
+}

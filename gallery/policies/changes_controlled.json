@@ -1,0 +1,33 @@
+{
+  "id": "changes_controlled",
+  "name": "Changes Controlled",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Changes to baselined configuration items occur only through an approved change-control process.",
+  "formula": "G(Change → P(change_approved))",
+  "language_level": "pure_temporal",
+  "rationale": "DO-178C Table A-8: problem reporting, change control, change review and configuration status accounting govern any modification to baselined data.",
+  "tags": [
+    "software-assurance",
+    "do-178c",
+    "avionics",
+    "configuration-management",
+    "rag-red",
+    "dal-A-D"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required objective evidence is absent"
+  },
+  "domain": "software-assurance",
+  "pack": "do-178c-software-assurance",
+  "group": "configuration-management",
+  "tier": "A-D",
+  "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification; objectives per Annex A tables A-1 to A-10.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 89,
+  "policy_count": 108,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -24,6 +24,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:8b137c528d8fba08d751b63cc49df4e89448b25ee94d812f385a3228e7650f27",
       "file": "accessibility_state_managed.json"
+    },
+    {
+      "id": "accomplishment_summary",
+      "name": "Accomplishment Summary Produced",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "certification-liaison",
+        "dal-A-D",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A Software Accomplishment Summary (SAS) is produced, showing compliance with the PSAC.",
+      "formula": "F(AccomplishmentSummary)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:1a865450783312e460a326840c86b3d142fad0e85e7252ea89552481d0440389",
+      "file": "accomplishment_summary.json",
+      "pack": "do-178c-software-assurance",
+      "group": "certification-liaison",
+      "tier": "A-D"
     },
     {
       "id": "acts_in_client_best_interest",
@@ -475,6 +501,32 @@
       "file": "approval_before_deploy.json"
     },
     {
+      "id": "artifacts_baselined",
+      "name": "Artifacts Baselined",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "configuration-management",
+        "dal-A-D",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "All life-cycle data configuration items are identified and placed under configuration management (baselined).",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode ∨ Test) → baselined)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:3c76c1f2672706a7c7320a0f8a00361ffe880bbad96cf1ce0a2661b9616f5ea6",
+      "file": "artifacts_baselined.json",
+      "pack": "do-178c-software-assurance",
+      "group": "configuration-management",
+      "tier": "A-D"
+    },
+    {
       "id": "assumptions_are_located",
       "name": "Assumptions Are Located",
       "category": "auditability",
@@ -516,6 +568,84 @@
       "reference_compiler": "ok",
       "hash": "sha256:13d7d6e9e81b64144ce39bdac0a9f46104839e96e109302c1e1f6ee827b9a8dd",
       "file": "async_state_transitions_verified.json"
+    },
+    {
+      "id": "changes_controlled",
+      "name": "Changes Controlled",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "configuration-management",
+        "dal-A-D",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Changes to baselined configuration items occur only through an approved change-control process.",
+      "formula": "G(Change → P(change_approved))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5a0b63f89673b3e54e8eef592ad5e04b97e4fbdf63a5f17b9bd2763b44a65028",
+      "file": "changes_controlled.json",
+      "pack": "do-178c-software-assurance",
+      "group": "configuration-management",
+      "tier": "A-D"
+    },
+    {
+      "id": "code_trace_to_llr",
+      "name": "Code Trace to LLR",
+      "category": "structural",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "development",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "scoped_temporal",
+      "reasoner": null,
+      "description": "Source code is developed from, and traces to, the low-level requirements.",
+      "formula": "G(SourceCode → P_chain(LLR))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5f0ffa612c65779e2fd2aa02726a6cb728399b9b67cd1833625ea60a1493987a",
+      "file": "code_trace_to_llr.json",
+      "pack": "do-178c-software-assurance",
+      "group": "development",
+      "tier": "A-D"
+    },
+    {
+      "id": "code_verified",
+      "name": "Code Verified",
+      "category": "safety",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-C",
+        "do-178c",
+        "rag-red",
+        "software-assurance",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Source code is verified (review/analysis) for compliance with the low-level requirements and coding standards.",
+      "formula": "G(SourceCode → reviewed ∨ analyzed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:2dd6f44380784cc2845688361474f0cdcfca6e22e2c2e327c5f6af7df2fc5b0b",
+      "file": "code_verified.json",
+      "pack": "do-178c-software-assurance",
+      "group": "verification",
+      "tier": "A-C"
     },
     {
       "id": "consent_for_ai_decisions",
@@ -762,6 +892,32 @@
       "tier": "4"
     },
     {
+      "id": "derived_requirements_to_safety",
+      "name": "Derived Requirements to Safety",
+      "category": "safety",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "development",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Derived requirements (not traceable to a higher level) are provided to the system safety assessment process.",
+      "formula": "G(DerivedRequirement → P(safety_assessed))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ae9fb369822f8a23052011166108f7f5631433cc28befddd9f7e707bfa534c36",
+      "file": "derived_requirements_to_safety.json",
+      "pack": "do-178c-software-assurance",
+      "group": "development",
+      "tier": "A-D"
+    },
+    {
       "id": "destructive_actions_confirmed",
       "name": "Destructive Actions Confirmed",
       "category": "safety",
@@ -978,6 +1134,58 @@
       "file": "high_severity_residuals_acknowledged_before_commit.json"
     },
     {
+      "id": "hlr_trace_to_system",
+      "name": "HLR Trace to System Requirements",
+      "category": "structural",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "development",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "scoped_temporal",
+      "reasoner": null,
+      "description": "High-level requirements are developed from, and trace to, system requirements (bidirectional traceability).",
+      "formula": "G(HLR → P_chain(SystemRequirement))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:82da531c3264915dec7a0eeddc179fbc428fcb4b1aadd8ba4dc00d19f75d055c",
+      "file": "hlr_trace_to_system.json",
+      "pack": "do-178c-software-assurance",
+      "group": "development",
+      "tier": "A-D"
+    },
+    {
+      "id": "hlr_verified",
+      "name": "HLR Verified",
+      "category": "safety",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "do-178c",
+        "rag-red",
+        "software-assurance",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "High-level requirements are verified for compliance, accuracy and consistency (review/analysis).",
+      "formula": "G(HLR → reviewed ∧ requirements_accurate)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:e5c683ced86998cbacb4ed31683fdc361c6e1bff4fe9714cb560294819b87435",
+      "file": "hlr_verified.json",
+      "pack": "do-178c-software-assurance",
+      "group": "verification",
+      "tier": "A-D"
+    },
+    {
       "id": "human_oversight_evidenced",
       "name": "Human Oversight Evidenced",
       "category": "auditability",
@@ -1074,6 +1282,58 @@
       "reference_compiler": "ok",
       "hash": "sha256:028e81754b9256ccdbe68dba243d5e14202b1ec6c1150136e7df076b0336d918",
       "file": "lint_before_commit.json"
+    },
+    {
+      "id": "llr_trace_to_hlr",
+      "name": "LLR Trace to HLR",
+      "category": "structural",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "development",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "scoped_temporal",
+      "reasoner": null,
+      "description": "Low-level requirements (software design) are developed from, and trace to, high-level requirements.",
+      "formula": "G(LLR → P_chain(HLR))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:8afd1e330e126f7e12784607a26162d250ccafe94f549f0e0ad2c464e058c619",
+      "file": "llr_trace_to_hlr.json",
+      "pack": "do-178c-software-assurance",
+      "group": "development",
+      "tier": "A-D"
+    },
+    {
+      "id": "llr_verified",
+      "name": "LLR Verified",
+      "category": "safety",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-C",
+        "do-178c",
+        "rag-red",
+        "software-assurance",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Low-level requirements / design are verified by review or analysis.",
+      "formula": "G(LLR → reviewed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b4871a29661290d22d978b5766ad2b2168585e421d1ef44f46647773c9fe767e",
+      "file": "llr_verified.json",
+      "pack": "do-178c-software-assurance",
+      "group": "verification",
+      "tier": "A-C"
     },
     {
       "id": "no_ai_washing",
@@ -1387,6 +1647,32 @@
       "file": "plaid_token_lifecycle_conformance.json"
     },
     {
+      "id": "plans_before_development",
+      "name": "Plans Before Development",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "do-178c",
+        "planning",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Software plans (PSAC, SDP, SVP, SCMP, SQAP) are established and approved before development of life-cycle data begins.",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(plans_approved))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:abf68b24e079f295b765a1ff809151037b3290292846afeb78c564b15f9f3fc9",
+      "file": "plans_before_development.json",
+      "pack": "do-178c-software-assurance",
+      "group": "planning",
+      "tier": "A-D"
+    },
+    {
       "id": "policy_reference_current",
       "name": "Policy Reference Current",
       "category": "conformance",
@@ -1413,6 +1699,32 @@
       "tier": "2-4"
     },
     {
+      "id": "problem_reports_closed",
+      "name": "Problem Reports Closed",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "configuration-management",
+        "dal-A-D",
+        "do-178c",
+        "rag-amber",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Problem reports are tracked to closure — resolved, or deferred with recorded rationale.",
+      "formula": "G(ProblemReport → F(resolved ∨ deferred_with_rationale))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:a9e9d4254cf1e765796227cc9d360ff5ea0d433a2b2a504c7af6439e287e9e4c",
+      "file": "problem_reports_closed.json",
+      "pack": "do-178c-software-assurance",
+      "group": "configuration-management",
+      "tier": "A-D"
+    },
+    {
       "id": "product_governance_aligned",
       "name": "Product Governance Aligned",
       "category": "conformance",
@@ -1435,6 +1747,32 @@
       "file": "product_governance_aligned.json",
       "pack": "esma-mifid-ai-investment-services",
       "group": "suitability"
+    },
+    {
+      "id": "psac_agreed",
+      "name": "PSAC Agreed With Authority",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "certification-liaison",
+        "dal-A-D",
+        "do-178c",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "The Plan for Software Aspects of Certification (PSAC) is agreed with the certification authority before development proceeds.",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(psac_agreed))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b0ced4ef38bffa05aae14e88988afcf68b4d08c56fc8ba4640698ecf0725f745",
+      "file": "psac_agreed.json",
+      "pack": "do-178c-software-assurance",
+      "group": "certification-liaison",
+      "tier": "A-D"
     },
     {
       "id": "react_effect_cleanup_verified",
@@ -1644,6 +1982,32 @@
       "file": "route_guard_complete.json"
     },
     {
+      "id": "sqa_conformity",
+      "name": "SQA Conformity Review",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "do-178c",
+        "quality-assurance",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Software Quality Assurance assures that life-cycle processes and outputs comply with the approved plans and standards (conformity review).",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) → sqa_reviewed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:1e3c48cc5214e9cc74f639930d1a399a4bffcac5733f003ea78b21f7d48bb2fc",
+      "file": "sqa_conformity.json",
+      "pack": "do-178c-software-assurance",
+      "group": "quality-assurance",
+      "tier": "A-D"
+    },
+    {
       "id": "staff_competent_for_ai",
       "name": "Staff Competent for AI",
       "category": "workflow",
@@ -1668,6 +2032,32 @@
       "group": "outsourcing"
     },
     {
+      "id": "standards_defined",
+      "name": "Development Standards Defined",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-C",
+        "do-178c",
+        "planning",
+        "rag-red",
+        "software-assurance"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Software requirements, design, and coding standards are defined before the corresponding life-cycle data is produced.",
+      "formula": "G(SourceCode → P(standards_defined))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b10b748efe08409b39629a0ebb3172aa448bfa89abad1ff12e04e885631f66b9",
+      "file": "standards_defined.json",
+      "pack": "do-178c-software-assurance",
+      "group": "planning",
+      "tier": "A-C"
+    },
+    {
       "id": "stripe_conformance_required",
       "name": "Stripe Conformance Required",
       "category": "conformance",
@@ -1687,6 +2077,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:24ce45423c13050f28ef4093925c88150c24c94327e710077c9452775b4126d1",
       "file": "stripe_conformance_required.json"
+    },
+    {
+      "id": "structural_coverage_achieved",
+      "name": "Structural Coverage Achieved",
+      "category": "safety",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-C",
+        "do-178c",
+        "rag-red",
+        "software-assurance",
+        "testing"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Structural coverage analysis confirms the achieved coverage appropriate to the DAL (MC/DC at A, decision at B, statement at C).",
+      "formula": "G(CoverageAnalysis → coverage_achieved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:9db644306be9b96756405a7a9ba18628b67d14d37c1c89d0fdc74fba6479a232",
+      "file": "structural_coverage_achieved.json",
+      "pack": "do-178c-software-assurance",
+      "group": "testing",
+      "tier": "A-C"
     },
     {
       "id": "telemetry_spans_complete",
@@ -1713,6 +2129,32 @@
       "pack": "agentic-ai-runtime-governance",
       "group": "telemetry",
       "tier": "2-4"
+    },
+    {
+      "id": "test_traces_to_requirement",
+      "name": "Test Traces to Requirement",
+      "category": "structural",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "do-178c",
+        "rag-red",
+        "software-assurance",
+        "testing"
+      ],
+      "language_level": "scoped_temporal",
+      "reasoner": null,
+      "description": "Every test case traces to the requirement it verifies (bidirectional requirements-to-test traceability).",
+      "formula": "G(Test → P_chain(HLR))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f7dcedada39406900cfd7648e7ede101886110aa9be72215c58858f78c7d1b17",
+      "file": "test_traces_to_requirement.json",
+      "pack": "do-178c-software-assurance",
+      "group": "testing",
+      "tier": "A-D"
     },
     {
       "id": "tests_before_commit",
@@ -1753,6 +2195,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:bacc0b6e160503fc9aa26cbd6235d3e148319026be3e4b69e309db2e50d3ba16",
       "file": "tests_pass_before_commit.json"
+    },
+    {
+      "id": "tests_requirements_based",
+      "name": "Requirements-Based Testing",
+      "category": "safety",
+      "severity": "error",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-D",
+        "do-178c",
+        "rag-red",
+        "software-assurance",
+        "testing"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Test cases are requirements-based, exercising the software against its requirements (normal and robustness).",
+      "formula": "G(Test → requirements_based)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:7ef9381cef8c1056f6c87a56aae0857617209560d915b8d0a31c93067393a1f0",
+      "file": "tests_requirements_based.json",
+      "pack": "do-178c-software-assurance",
+      "group": "testing",
+      "tier": "A-D"
     },
     {
       "id": "tool_call_budget",
@@ -1963,6 +2431,32 @@
       "file": "unverified_residuals_have_suggested_check.json"
     },
     {
+      "id": "verification_independent",
+      "name": "Verification Independence",
+      "category": "safety",
+      "severity": "warning",
+      "domain": "software-assurance",
+      "tags": [
+        "avionics",
+        "dal-A-B",
+        "do-178c",
+        "rag-amber",
+        "software-assurance",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "At DAL A/B, verification of the development outputs is performed with independence.",
+      "formula": "G((HLR ∨ LLR ∨ SourceCode) ∧ dal_a → independent_review)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:17c3a0460a7a88b4b7352b865fc12ed9806713a690b82085394be3fdc5b32aeb",
+      "file": "verification_independent.json",
+      "pack": "do-178c-software-assurance",
+      "group": "verification",
+      "tier": "A-B"
+    },
+    {
       "id": "within_constraint_scope",
       "name": "Within Constraint Scope",
       "category": "conformance",
@@ -2103,22 +2597,28 @@
     "audit-trail",
     "auth",
     "authorization",
+    "avionics",
     "backward-compatibility",
     "best-interest",
     "best-practice",
     "breaking-changes",
     "bugs",
     "capability",
+    "certification-liaison",
     "ci",
     "cleanup",
     "commit",
     "communication",
     "completeness",
     "compliance",
+    "configuration-management",
     "conformance",
     "consistency",
     "coverage",
     "css",
+    "dal-A-B",
+    "dal-A-C",
+    "dal-A-D",
     "data-flow",
     "data-preservation",
     "database",
@@ -2129,7 +2629,9 @@
     "deployment",
     "destructive",
     "determinism",
+    "development",
     "disclosure",
+    "do-178c",
     "edge-cases",
     "editing",
     "esma",
@@ -2167,7 +2669,9 @@
     "payments",
     "pci",
     "plaid",
+    "planning",
     "quality",
+    "quality-assurance",
     "rag-amber",
     "rag-red",
     "rationale",
@@ -2190,6 +2694,7 @@
     "safety",
     "secrets",
     "security",
+    "software-assurance",
     "sox",
     "state-machine",
     "stripe",
@@ -2269,6 +2774,12 @@
       "color": "#0a5ad6",
       "icon": "&#128188;",
       "description": "MiFID II conduct policies for AI in retail investment services — ESMA's best-interest, suitability, accuracy, and recordkeeping expectations as machine-checkable rules."
+    },
+    "software-assurance": {
+      "label": "Software Assurance",
+      "color": "#5b2a86",
+      "icon": "&#9992;",
+      "description": "Airborne software certification objectives (RTCA DO-178C) — traceability, verification, coverage and configuration management as machine-checkable rules over the software life-cycle record."
     }
   },
   "organizations": [
@@ -2313,6 +2824,20 @@
         "The IOSCO Supervisory Toolkit is supervisor-facing: for each area it lists the “Supporting Evidence for Review” a firm must be able to produce. ponens treats that evidence column as the specification. Each recordkeeping and disclosure expectation from Tables 5 and 6 becomes a policy over the AI system's decision/output trace — that decisions and outputs are logged and model-version-stamped, traceable to the actions they drive, explainable, human-overseen where material, incident-recorded with root cause, and properly disclosed to clients. ponens makes that evidence computable rather than a manual document review.",
         "Where the FIX pack is preventive — gating execution in real time — this pack is evidentiary: it computes the audit trail a supervisor would otherwise inspect by hand. `ponens trace check` returns pass / warning / error per requirement and aggregates to a Green / Amber / Red picture of exactly which records or disclosures are missing. The toolkit's organisational layers — monitoring indicators, third-party concentration, and firm-level governance such as board oversight and training — are population- or firm-level rather than per-trace, and so are intentionally out of scope for this pack."
       ]
+    },
+    {
+      "id": "rtca",
+      "name": "RTCA",
+      "full_name": "RTCA, Inc. / EUROCAE (DO-178C / ED-12C)",
+      "url": "https://www.rtca.org/",
+      "description": "RTCA (with EUROCAE) publishes DO-178C, the airborne-software certification standard used worldwide by aviation authorities. Its Annex A objectives — traceability, verification, coverage, configuration management, and certification liaison — are the basis for the pack below.",
+      "packs": [
+        "do-178c-software-assurance"
+      ],
+      "mapping": [
+        "DO-178C assures airborne software by objectives, organised in Annex A tables A-1 to A-10 and scaled by Design Assurance Level (A–E). Its defining requirement is bidirectional traceability — system requirements → high-level requirements → low-level requirements → source code → tests — and ponens expresses that directly with its `P_chain` lineage operator over the software life-cycle record treated as a trace. Each traceability objective becomes a policy such as `G(SourceCode → P_chain(LLR))`, while process-ordering objectives (plans before development, PSAC agreed before development, reviews and structural coverage achieved) become temporal policies over the same trace.",
+        "Design Assurance Level maps to a policy's `tier` (A–D) and the 'with independence' objectives map to Amber escalations, so the pack scales the way DO-178C does. Running it with `ponens trace check` aggregates the per-objective verdicts to a Green / Amber / Red picture: a missing traceability link, an unverified requirement, an unbaselined configuration item, or an absent Accomplishment Summary is a Red certification gap; softer items such as problem-report closure or independence are Amber. The process-organisation objectives that are not evidenced per artifact (e.g. tool qualification under DO-330) sit outside this pack."
+      ]
     }
   ],
   "packs": [
@@ -2348,6 +2873,47 @@
         }
       ],
       "policy_count": 21
+    },
+    {
+      "id": "do-178c-software-assurance",
+      "name": "DO-178C Software Assurance",
+      "org": "rtca",
+      "domain": "software-assurance",
+      "spec": "/spec/DO_178C_PACK",
+      "summary": "DO-178C's Annex A objectives — traceability, verification, structural coverage, configuration management, and certification liaison — as computable policies over the software life-cycle record.",
+      "description": "Maps the RTCA DO-178C / EUROCAE ED-12C airborne-software objectives onto ponens policies. Bidirectional traceability (system → HLR → LLR → code → test) is expressed with ponens' P_chain lineage operator; planning, verification, coverage, configuration-management, quality-assurance and certification-liaison objectives become temporal policies. Design Assurance Level maps to each policy's tier (A–D).",
+      "source": "RTCA DO-178C / EUROCAE ED-12C — Software Considerations in Airborne Systems and Equipment Certification.",
+      "domains": [
+        {
+          "key": "planning",
+          "label": "Planning (A-1)"
+        },
+        {
+          "key": "development",
+          "label": "Development & Traceability (A-2)"
+        },
+        {
+          "key": "verification",
+          "label": "Verification (A-3/4/5)"
+        },
+        {
+          "key": "testing",
+          "label": "Testing & Coverage (A-6/7)"
+        },
+        {
+          "key": "configuration-management",
+          "label": "Configuration Management (A-8)"
+        },
+        {
+          "key": "quality-assurance",
+          "label": "Quality Assurance (A-9)"
+        },
+        {
+          "key": "certification-liaison",
+          "label": "Certification Liaison (A-10)"
+        }
+      ],
+      "policy_count": 19
     },
     {
       "id": "esma-mifid-ai-investment-services",

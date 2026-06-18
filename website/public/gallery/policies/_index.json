@@ -89,7 +89,26 @@
     "product_governance_aligned",
     "recommendation_suitable",
     "staff_competent_for_ai",
-    "training_data_representative"
+    "training_data_representative",
+    "accomplishment_summary",
+    "artifacts_baselined",
+    "changes_controlled",
+    "code_trace_to_llr",
+    "code_verified",
+    "derived_requirements_to_safety",
+    "hlr_trace_to_system",
+    "hlr_verified",
+    "llr_trace_to_hlr",
+    "llr_verified",
+    "plans_before_development",
+    "problem_reports_closed",
+    "psac_agreed",
+    "sqa_conformity",
+    "standards_defined",
+    "structural_coverage_achieved",
+    "test_traces_to_requirement",
+    "tests_requirements_based",
+    "verification_independent"
   ],
   "categories": [
     "auditability",
@@ -116,6 +135,7 @@
     "audit-trail",
     "auth",
     "authorization",
+    "avionics",
     "backward-compatibility",
     "best-practice",
     "breaking-changes",
@@ -139,6 +159,7 @@
     "deployment",
     "destructive",
     "determinism",
+    "do-178c",
     "edge-cases",
     "editing",
     "esma",
@@ -186,6 +207,7 @@
     "safety",
     "secrets",
     "security",
+    "software-assurance",
     "sox",
     "state-machine",
     "stripe",
@@ -258,6 +280,12 @@
       "color": "#0a5ad6",
       "icon": "&#128188;",
       "description": "MiFID II conduct policies for AI in retail investment services — ESMA's best-interest, suitability, accuracy, and recordkeeping expectations as machine-checkable rules."
+    },
+    "software-assurance": {
+      "label": "Software Assurance",
+      "color": "#5b2a86",
+      "icon": "&#9992;",
+      "description": "Airborne software certification objectives (RTCA DO-178C) — traceability, verification, coverage and configuration management as machine-checkable rules over the software life-cycle record."
     }
   }
 }

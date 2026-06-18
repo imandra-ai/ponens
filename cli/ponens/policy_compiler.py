@@ -221,6 +221,10 @@ ACTION_TYPES = {
     'Decision', 'Output', 'Incident',
     # Investment-services vocabulary (ESMA MiFID II pack)
     'Recommendation', 'Distribution',
+    # Avionics software-assurance vocabulary (DO-178C pack)
+    'Plan', 'SystemRequirement', 'HLR', 'LLR', 'SourceCode', 'Test',
+    'Change', 'ProblemReport', 'DerivedRequirement', 'CoverageAnalysis',
+    'AccomplishmentSummary',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
     'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',

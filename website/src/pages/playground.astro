@@ -1,0 +1,180 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="LTL Playground — ponens">
+  <section class="page-head">
+    <h1>Policy Playground</h1>
+    <p>Build a trace, write (or load) a policy formula, and watch it evaluate — step by step. The
+      same <a href="/spec/POLICY_LANGUAGE_v0_2">LTLf semantics</a> the CLI uses, run live in your
+      browser. Covers the temporal &amp; scoped fragment; <code>structural</code> policies (quantifiers
+      over residuals / lineage) say so and point you at <code>ponens trace check</code>.</p>
+  </section>
+
+  <div class="pg">
+    <div class="pg-formula">
+      <div class="pg-formula-row">
+        <input id="pgFormula" type="text" spellcheck="false" autocomplete="off"
+          placeholder="G(GitCommit → P(RunTests ∧ completed))" />
+        <select id="pgPolicy"><option value="">Load a gallery policy…</option></select>
+      </div>
+    </div>
+
+    <div id="pgResult" class="pg-result"></div>
+    <div id="pgSteps" class="pg-steps"></div>
+
+    <div class="pg-trace">
+      <div class="pg-trace-head">
+        <h2>Trace</h2>
+        <div class="pg-trace-actions">
+          <button id="pgAdd" type="button" class="chip">+ Add action</button>
+          <button id="pgReset" type="button" class="chip">Reset example</button>
+        </div>
+      </div>
+      <div id="pgRows"></div>
+    </div>
+  </div>
+
+  <script>
+    import { evaluate, VOCAB } from "../lib/ltl.mjs";
+
+    const EXAMPLE = () => [
+      { type: "ReadFile", status: "", target: "payment.py", flags: "", rationale: true },
+      { type: "RunTests", status: "completed", target: "", flags: "", rationale: true },
+      { type: "EditFile", status: "", target: "payment.py", flags: "", rationale: true },
+      { type: "GitCommit", status: "", target: "", flags: "", rationale: true },
+    ];
+
+    let trace = EXAMPLE();
+    const fEl = document.getElementById("pgFormula");
+    const rowsEl = document.getElementById("pgRows");
+    const resEl = document.getElementById("pgResult");
+    const stepsEl = document.getElementById("pgSteps");
+    fEl.value = "G(GitCommit → P(RunTests ∧ completed))";
+
+    const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    function typeOptions(sel) {
+      return VOCAB.types.map((t) => `<option ${t === sel ? "selected" : ""}>${t}</option>`).join("");
+    }
+    function statusOptions(sel) {
+      return VOCAB.statuses.map((s) => `<option value="${s}" ${s === sel ? "selected" : ""}>${s || "—"}</option>`).join("");
+    }
+
+    function renderRows() {
+      rowsEl.innerHTML = trace
+        .map(
+          (a, i) => `
+        <div class="pg-row" data-i="${i}">
+          <span class="pg-idx">${i}</span>
+          <select class="pg-type" data-k="type">${typeOptions(a.type)}</select>
+          <select class="pg-status" data-k="status">${statusOptions(a.status)}</select>
+          <input class="pg-target" data-k="target" placeholder="target (file)" value="${esc(a.target)}" />
+          <input class="pg-flags" data-k="flags" placeholder="flags, comma-sep" value="${esc(a.flags)}" />
+          <label class="pg-rat"><input type="checkbox" data-k="rationale" ${a.rationale ? "checked" : ""}/> rationale</label>
+          <button type="button" class="pg-mv" data-mv="up" title="Move up">↑</button>
+          <button type="button" class="pg-mv" data-mv="down" title="Move down">↓</button>
+          <button type="button" class="pg-del" title="Remove">✕</button>
+        </div>`
+        )
+        .join("");
+    }
+
+    // Convert the editable row model into the evaluator's action shape.
+    function toTrace() {
+      return trace.map((a) => ({
+        type: a.type,
+        status: a.status || undefined,
+        target: a.target || undefined,
+        flags: (a.flags || "").split(",").map((s) => s.trim()).filter(Boolean),
+        rationale: !!a.rationale,
+      }));
+    }
+
+    function run() {
+      const r = evaluate(fEl.value, toTrace());
+      if (!r.ok) {
+        resEl.className = "pg-result err";
+        resEl.innerHTML = `<strong>Parse error</strong> — ${esc(r.error)}`;
+        stepsEl.innerHTML = "";
+        return;
+      }
+      if (!r.supported) {
+        resEl.className = "pg-result unsupported";
+        resEl.innerHTML = `<strong>Outside the v1 simulator</strong> — ${esc(r.reason)}`;
+        stepsEl.innerHTML = "";
+        return;
+      }
+      resEl.className = "pg-result " + (r.verdict ? "pass" : "fail");
+      let head = r.verdict ? "PASS — the trace satisfies the policy" : "FAIL — the trace violates the policy";
+      if (r.witness != null) {
+        head += r.witnessKind === "violates"
+          ? ` (first violation at step ${r.witness})`
+          : ` (satisfied at step ${r.witness})`;
+      }
+      resEl.innerHTML = `<strong>${r.verdict ? "✓ " : "✗ "}${head}</strong>`;
+
+      const label = r.bodyOp ? `body of ${r.bodyOp}( … ) at each step` : "formula at each step";
+      stepsEl.innerHTML =
+        `<div class="pg-steps-label">${label}</div>` +
+        `<div class="pg-strip">` +
+        trace
+          .map((a, i) => {
+            const ok = r.per[i];
+            const cls = ["pg-step", ok ? "ok" : "no", r.witness === i ? "wit" : ""].join(" ");
+            return `<div class="${cls}"><span class="pg-step-i">${i}</span><span class="pg-step-t">${esc(a.type)}</span><span class="pg-step-v">${ok ? "✓" : "✗"}</span></div>`;
+          })
+          .join("") +
+        `</div>`;
+    }
+
+    // ---- events ----
+    rowsEl.addEventListener("input", (e) => {
+      const row = e.target.closest(".pg-row");
+      if (!row) return;
+      const i = +row.dataset.i;
+      const k = e.target.dataset.k;
+      if (!k) return;
+      trace[i][k] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+      run();
+    });
+    rowsEl.addEventListener("click", (e) => {
+      const row = e.target.closest(".pg-row");
+      if (!row) return;
+      const i = +row.dataset.i;
+      if (e.target.classList.contains("pg-del")) { trace.splice(i, 1); }
+      else if (e.target.dataset.mv === "up" && i > 0) { [trace[i - 1], trace[i]] = [trace[i], trace[i - 1]]; }
+      else if (e.target.dataset.mv === "down" && i < trace.length - 1) { [trace[i + 1], trace[i]] = [trace[i], trace[i + 1]]; }
+      else return;
+      renderRows(); run();
+    });
+    document.getElementById("pgAdd").addEventListener("click", () => {
+      trace.push({ type: "ReadFile", status: "", target: "", flags: "", rationale: true });
+      renderRows(); run();
+    });
+    document.getElementById("pgReset").addEventListener("click", () => {
+      trace = EXAMPLE(); renderRows(); run();
+    });
+    fEl.addEventListener("input", run);
+
+    // populate policy picker from the same catalog the gallery uses
+    fetch("/gallery/policies/_catalog.json")
+      .then((r) => r.json())
+      .then((cat) => {
+        const sel = document.getElementById("pgPolicy");
+        (cat.policies || [])
+          .filter((p) => p.formula)
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .forEach((p) => {
+            const o = document.createElement("option");
+            o.value = p.formula; o.textContent = p.name;
+            sel.appendChild(o);
+          });
+        sel.addEventListener("change", () => { if (sel.value) { fEl.value = sel.value; run(); } });
+      })
+      .catch(() => {});
+
+    renderRows();
+    run();
+  </script>
+</Layout>

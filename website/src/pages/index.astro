@@ -1,5 +1,19 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+// Live gallery stats, read from the same catalog the gallery serves
+// (prepare-site syncs it before build), so the numbers stay accurate.
+let stats = null;
+try {
+  const cat = JSON.parse(readFileSync(resolve("public/gallery/policies/_catalog.json"), "utf8"));
+  stats = {
+    policies: cat.policy_count ?? (cat.policies || []).length,
+    packs: (cat.packs || []).length,
+    orgs: (cat.organizations || []).length,
+  };
+} catch {}
 ---
 
 <Layout>
@@ -20,6 +34,13 @@ import Layout from "../layouts/Layout.astro";
       <a class="btn" href="/demo">See a trace →</a>
       <a class="btn ghost" href="/gallery">Policy gallery →</a>
     </div>
+    {stats && stats.policies > 0 && (
+      <p class="hero-stats">
+        Already <a href="/gallery"><strong>{stats.policies}</strong> computable policies</a> across
+        <strong>{stats.packs}</strong> packs from
+        <a href="/organizations"><strong>{stats.orgs}</strong> organizations</a>.
+      </p>
+    )}
     <aside class="callout">
       <span class="callout-mark" aria-hidden="true">∴</span>
       <p>From <em>modus ponens</em> — the rule of inference <code>P → Q, P ⊢ Q</code>. Given the
@@ -276,4 +297,15 @@ ponens trace view trace.json                    # Read the reasoning, zoomable</
       <a class="btn ghost" href="https://github.com/imandra-ai/ponens/blob/main/CONTRIBUTING.md">Read CONTRIBUTING →</a>
     </div>
   </section>
+
+  <style>
+    .hero-stats {
+      margin: 1rem 0 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+    .hero-stats strong { color: var(--fg); font-weight: 700; }
+    .hero-stats a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--border); }
+    .hero-stats a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  </style>
 </Layout>

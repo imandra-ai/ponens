@@ -38,6 +38,11 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
   transition: background-color 0.2s ease, color 0.2s ease;
+  /* Sticky footer: fill at least the viewport so the footer sits at the bottom
+     even when a page has little content. */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -70,7 +75,7 @@ code { font-family: var(--mono); }
 .gh-link { display: inline-flex; align-items: center; }
 .gh-link:hover { border-bottom: none; }
 
-main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; }
+main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizing: border-box; flex: 1 0 auto; }
 
 .hero { padding: 5rem 0 2.5rem; position: relative; }
 .hero::before {

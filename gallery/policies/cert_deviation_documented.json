@@ -1,0 +1,32 @@
+{
+  "id": "cert_deviation_documented",
+  "name": "CERT: Deviation Documented",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Every deviation records the violation rationale and is approved.",
+  "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT: a documented deviation records the rule, the rationale (e.g. a false positive or an acceptable risk), and the approval allowing the violation to remain.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "deviations-records",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "deviations-records",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,32 @@
+{
+  "id": "cert_risk_assessed",
+  "name": "CERT: Risk Assessed",
+  "category": "security",
+  "severity": "error",
+  "description": "Every finding is risk-assessed on the three CERT factors: severity, likelihood, and remediation cost.",
+  "formula": "G(Finding → severity_assessed ∧ likelihood_assessed ∧ remediation_assessed)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT risk assessment: each guideline/finding is scored on Severity (low/medium/high), Likelihood (unlikely/probable/likely), and Remediation Cost (high/medium/low).",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "risk-assessment",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "risk-assessment",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

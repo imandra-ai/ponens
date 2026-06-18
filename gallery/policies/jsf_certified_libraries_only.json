@@ -1,0 +1,32 @@
+{
+  "id": "jsf_certified_libraries_only",
+  "name": "JSF++: Certified Libraries Only",
+  "category": "safety",
+  "severity": "error",
+  "description": "Only DO-178B Level A certifiable (SEAL 1) C/C++ libraries are used with safety-critical code.",
+  "formula": "G(safety_critical ∧ library_use → certified_library)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ AV Rule 16: only DO-178B Level A certifiable or SEAL 1 C/C++ libraries shall be used with safety-critical (SEAL 1) code.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "safety-critical",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "safety-critical",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

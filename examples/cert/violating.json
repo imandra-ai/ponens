@@ -1,0 +1,184 @@
+{
+  "trace_id": "cert-violating-001",
+  "spec_version": "1.6",
+  "assistant": "coding-agent",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "Finding",
+      "category": "activity",
+      "rationale": "CERT secure-coding step",
+      "detail": "cert rule violation | severity assessed | likelihood assessed | remediation assessed | priority assigned | level l1",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "Finding",
+      "category": "activity",
+      "rationale": "CERT secure-coding step",
+      "detail": "cert recommendation departure | severity assessed | likelihood assessed | remediation assessed | priority assigned | level l2",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "CERT secure-coding step",
+      "detail": "undecidable violation",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "Deviation",
+      "category": "activity",
+      "rationale": "CERT secure-coding step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "GitCommit",
+      "category": "activity",
+      "rationale": "CERT secure-coding step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 6,
+      "type": "Release",
+      "category": "activity",
+      "rationale": "CERT secure-coding step",
+      "detail": "open l1",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "cert_conformance_recorded",
+      "name": "cert_conformance_recorded",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → P(conformance_summary))",
+      "description": "A conformance record (which rules were checked, findings, deviations) exists before release."
+    },
+    {
+      "policy_id": "cert_deviation_documented",
+      "name": "cert_deviation_documented",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+      "description": "Every deviation records the violation rationale and is approved."
+    },
+    {
+      "policy_id": "cert_l1_remediated",
+      "name": "cert_l1_remediated",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(level_l1 → remediated)",
+      "description": "Highest-priority (Level L1) findings are remediated."
+    },
+    {
+      "policy_id": "cert_l2_reviewed",
+      "name": "cert_l2_reviewed",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(level_l2 → reviewed)",
+      "description": "Medium-priority (Level L2) findings are reviewed."
+    },
+    {
+      "policy_id": "cert_no_open_l1_at_release",
+      "name": "cert_no_open_l1_at_release",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → ¬open_l1)",
+      "description": "No Level L1 finding remains open at release."
+    },
+    {
+      "policy_id": "cert_priority_assigned",
+      "name": "cert_priority_assigned",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Finding → priority_assigned)",
+      "description": "Each finding has a Priority (Severity × Likelihood × Remediation Cost, 1–27) and resulting Level (L1/L2/L3) assigned."
+    },
+    {
+      "policy_id": "cert_recommendation_departure_recorded",
+      "name": "cert_recommendation_departure_recorded",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Finding ∧ cert_recommendation_departure → recorded)",
+      "description": "Departures from CERT Recommendations (advisory guidelines) are recorded."
+    },
+    {
+      "policy_id": "cert_risk_assessed",
+      "name": "cert_risk_assessed",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Finding → severity_assessed ∧ likelihood_assessed ∧ remediation_assessed)",
+      "description": "Every finding is risk-assessed on the three CERT factors: severity, likelihood, and remediation cost."
+    },
+    {
+      "policy_id": "cert_rule_violation_remediated",
+      "name": "cert_rule_violation_remediated",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Finding ∧ cert_rule_violation → remediated ∨ deviation_approved)",
+      "description": "Violations of CERT Rules (normative) are remediated, or covered by an approved deviation."
+    },
+    {
+      "policy_id": "cert_static_analysis_before_commit",
+      "name": "cert_static_analysis_before_commit",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(StaticAnalysis ∧ cert_ruleset))",
+      "description": "Source is checked against the CERT C / C++ ruleset by static analysis before it is committed."
+    },
+    {
+      "policy_id": "cert_undecidable_manual_review",
+      "name": "cert_undecidable_manual_review",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(undecidable_violation → manual_review)",
+      "description": "Potential violations of undecidable rules (not fully checkable by static analysis) are manually reviewed."
+    }
+  ]
+}

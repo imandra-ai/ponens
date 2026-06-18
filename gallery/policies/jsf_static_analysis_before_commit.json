@@ -1,0 +1,32 @@
+{
+  "id": "jsf_static_analysis_before_commit",
+  "name": "JSF++: Static Analysis Before Commit",
+  "category": "workflow",
+  "severity": "error",
+  "description": "Source is checked against the JSF++ ruleset by static analysis before it is committed.",
+  "formula": "G(GitCommit → P(StaticAnalysis ∧ jsf_ruleset))",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ enforcement: rule compliance is established by analysis (and manual review for unverifiable rules) before code is accepted.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "verification",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "verification",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,32 @@
+{
+  "id": "cert_recommendation_departure_recorded",
+  "name": "CERT: Recommendation Departure Recorded",
+  "category": "security",
+  "severity": "warning",
+  "description": "Departures from CERT Recommendations (advisory guidelines) are recorded.",
+  "formula": "G(Finding ∧ cert_recommendation_departure → recorded)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT: Recommendations are advisory guidelines that improve security; departures are permissible but should be recorded.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "rules-recommendations",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "rules-recommendations",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

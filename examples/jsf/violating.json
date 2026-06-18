@@ -1,0 +1,204 @@
+{
+  "trace_id": "jsf-violating-001",
+  "spec_version": "1.6",
+  "assistant": "coding-agent",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "Deviation",
+      "category": "activity",
+      "rationale": "JSF++ compliance step",
+      "detail": "shall deviation | eng lead approved",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "JSF++ compliance step",
+      "detail": "shall violation",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "JSF++ compliance step",
+      "detail": "should violation",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "JSF++ compliance step",
+      "detail": "safety critical | library use",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "JSF++ compliance step",
+      "detail": "dead code",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 6,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "JSF++ compliance step",
+      "detail": "should deviation",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 7,
+      "type": "GitCommit",
+      "category": "activity",
+      "rationale": "JSF++ compliance step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "jsf_certified_libraries_only",
+      "name": "jsf_certified_libraries_only",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(safety_critical ∧ library_use → certified_library)",
+      "description": "Only DO-178B Level A certifiable (SEAL 1) C/C++ libraries are used with safety-critical code."
+    },
+    {
+      "policy_id": "jsf_deviation_record_maintained",
+      "name": "jsf_deviation_record_maintained",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deviation → rationale_recorded ∧ approval_recorded)",
+      "description": "Every deviation record documents the rationale and the required approval(s)."
+    },
+    {
+      "policy_id": "jsf_no_dead_code",
+      "name": "jsf_no_dead_code",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(¬dead_code)",
+      "description": "Dead code — executable code or data not traceable to a system or software requirement — is not present."
+    },
+    {
+      "policy_id": "jsf_runtime_checking_provided",
+      "name": "jsf_runtime_checking_provided",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(safety_critical → runtime_checking)",
+      "description": "Safety-critical (SEAL 1/2) software makes provision for run-time checking (defensive programming)."
+    },
+    {
+      "policy_id": "jsf_shall_deviation_documented",
+      "name": "jsf_shall_deviation_documented",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(shall_deviation → documented_in_file)",
+      "description": "Each deviation from a 'shall' rule is documented in the file that contains the deviation."
+    },
+    {
+      "policy_id": "jsf_shall_rules_verified",
+      "name": "jsf_shall_rules_verified",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(shall_verified))",
+      "description": "Compliance with 'shall' rules is verified (automatically or manually) before code is committed."
+    },
+    {
+      "policy_id": "jsf_shall_violation_deviated",
+      "name": "jsf_shall_violation_deviated",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(shall_violation → P(deviation_approved))",
+      "description": "Any violation of a 'shall' rule is covered by an approved deviation."
+    },
+    {
+      "policy_id": "jsf_shall_will_deviation_dual_approved",
+      "name": "jsf_shall_will_deviation_dual_approved",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((shall_deviation ∨ will_deviation) → eng_lead_approved ∧ product_manager_approved)",
+      "description": "Breaking a 'shall' or 'will' (mandatory) rule is approved by BOTH the software engineering lead and the software product manager."
+    },
+    {
+      "policy_id": "jsf_should_deviation_approved",
+      "name": "jsf_should_deviation_approved",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(should_deviation → eng_lead_approved)",
+      "description": "Breaking a 'should' (advisory) rule is approved by the software engineering lead."
+    },
+    {
+      "policy_id": "jsf_should_violation_recorded",
+      "name": "jsf_should_violation_recorded",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(should_violation → recorded)",
+      "description": "Departures from 'should' (advisory) rules are recorded."
+    },
+    {
+      "policy_id": "jsf_static_analysis_before_commit",
+      "name": "jsf_static_analysis_before_commit",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(StaticAnalysis ∧ jsf_ruleset))",
+      "description": "Source is checked against the JSF++ ruleset by static analysis before it is committed."
+    },
+    {
+      "policy_id": "jsf_will_violation_deviated",
+      "name": "jsf_will_violation_deviated",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(will_violation → P(deviation_approved))",
+      "description": "Any violation of a 'will' rule is covered by an approved deviation."
+    }
+  ]
+}

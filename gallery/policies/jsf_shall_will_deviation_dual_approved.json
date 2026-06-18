@@ -1,0 +1,32 @@
+{
+  "id": "jsf_shall_will_deviation_dual_approved",
+  "name": "JSF++: Shall/Will Deviation Dual-Approved",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Breaking a 'shall' or 'will' (mandatory) rule is approved by BOTH the software engineering lead and the software product manager.",
+  "formula": "G((shall_deviation ∨ will_deviation) → eng_lead_approved ∧ product_manager_approved)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ AV Rule 5: to break a 'will' or a 'shall' rule, approval must be received from both the software engineering lead and the software product manager.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "deviation-approval",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "deviation-approval",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

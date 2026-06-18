@@ -1,0 +1,32 @@
+{
+  "id": "cert-secure-coding",
+  "name": "CERT C/C++ Secure Coding",
+  "org": "cert",
+  "domain": "coding-standards",
+  "spec": "/spec/CERT_SECURE_CODING_PACK",
+  "summary": "The SEI CERT secure-coding risk model — Severity × Likelihood × Remediation → Priority → Level L1/L2/L3 — and its prioritized-remediation process, as computable policies. Covers CERT C and CERT C++.",
+  "description": "Maps the SEI CERT Coding Standards' distinctive risk-assessment and prioritized-remediation process onto ponens policies. The individual rules are enforced by static analysis; this pack checks that every finding is risk-assessed (severity/likelihood/remediation), assigned a priority and level, that L1 findings are remediated and never shipped, and that Rules vs Recommendations are handled accordingly. Applies to both CERT C and CERT C++.",
+  "source": "SEI CERT C and CERT C++ Secure Coding Standards (Carnegie Mellon SEI).",
+  "domains": [
+    {
+      "key": "rules-recommendations",
+      "label": "Rules vs Recommendations"
+    },
+    {
+      "key": "risk-assessment",
+      "label": "Risk Assessment"
+    },
+    {
+      "key": "prioritized-remediation",
+      "label": "Prioritized Remediation (L1/L2/L3)"
+    },
+    {
+      "key": "verification",
+      "label": "Verification & Enforcement"
+    },
+    {
+      "key": "deviations-records",
+      "label": "Deviations & Records"
+    }
+  ]
+}

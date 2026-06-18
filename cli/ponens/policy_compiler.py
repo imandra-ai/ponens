@@ -227,6 +227,8 @@ ACTION_TYPES = {
     'AccomplishmentSummary',
     # Coding-standard compliance vocabulary (MISRA Compliance:2020 packs)
     'StaticAnalysis', 'Deviation', 'ComplianceSummary', 'Directive',
+    # Secure-coding vocabulary (SEI CERT pack)
+    'Finding',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
     'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',

@@ -1,0 +1,32 @@
+{
+  "id": "jsf_deviation_record_maintained",
+  "name": "JSF++: Deviation Record Maintained",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Every deviation record documents the rationale and the required approval(s).",
+  "formula": "G(Deviation → rationale_recorded ∧ approval_recorded)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ AV Rules 4-6: deviations are recorded with rationale and the approvals obtained (engineering lead, and product manager for shall/will rules).",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "records",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "records",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

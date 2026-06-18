@@ -1,0 +1,32 @@
+{
+  "id": "jsf_no_dead_code",
+  "name": "JSF++: No Dead Code",
+  "category": "safety",
+  "severity": "error",
+  "description": "Dead code — executable code or data not traceable to a system or software requirement — is not present.",
+  "formula": "G(¬dead_code)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++: dead code is executable object code (or data) which, as a result of a design error, cannot be executed and is not traceable to a system or software requirement, and is prohibited.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "safety-critical",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "safety-critical",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

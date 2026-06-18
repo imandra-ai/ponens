@@ -1,0 +1,14 @@
+{
+  "id": "cert",
+  "name": "CERT (SEI)",
+  "full_name": "SEI CERT Secure Coding Standards (Carnegie Mellon Software Engineering Institute)",
+  "url": "https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "description": "The SEI CERT Coding Standards (CERT C and CERT C++) are secure-coding standards from Carnegie Mellon's Software Engineering Institute. Unlike category-based standards, CERT scores every guideline on a risk model — severity, likelihood, and remediation cost — yielding a priority and level (L1/L2/L3) that drive remediation order. That risk model is the basis for the pack below.",
+  "packs": [
+    "cert-secure-coding"
+  ],
+  "mapping": [
+    "CERT's individual rules and recommendations are checked by static analysis — so ponens does not re-encode them. What is distinctive about CERT, and what ponens governs, is its risk-prioritized remediation process. Every finding is scored on three factors (severity × likelihood × remediation cost), which multiply to a Priority (1–27) and a Level (L1 = 12–27, L2 = 6–9, L3 = 1–4). ponens turns that into policies over a coding/CI trace: every finding is risk-assessed and assigned a priority and level, L1 findings are remediated and never shipped open, and L2 findings are reviewed.",
+    "CERT also distinguishes normative Rules (a violation is a defect that must be fixed or formally deviated) from advisory Recommendations (departures recorded), and — like MISRA and JSF — requires analysis before commit and manual review of undecidable rules. The same methodology covers both CERT C and CERT C++, so this is a single pack rather than two. Running it with `ponens trace check` aggregates to Green / Amber / Red: an open L1 at release, an unremediated rule violation, a missing risk assessment, or no conformance record is Red; recommendation departures, L2 review, and undecidable-rule review are Amber."
+  ]
+}

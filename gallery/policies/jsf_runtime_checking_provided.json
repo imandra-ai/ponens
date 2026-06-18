@@ -1,0 +1,32 @@
+{
+  "id": "jsf_runtime_checking_provided",
+  "name": "JSF++: Run-Time Checking Provided",
+  "category": "safety",
+  "severity": "error",
+  "description": "Safety-critical (SEAL 1/2) software makes provision for run-time checking (defensive programming).",
+  "formula": "G(safety_critical → runtime_checking)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ AV Rule 15: provision shall be made for run-time checking (defensive programming); for SEAL 1 or SEAL 2 software, provisions ensure proper operation of software and system function.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "safety-critical",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "safety-critical",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

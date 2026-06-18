@@ -1,0 +1,32 @@
+{
+  "id": "jsf-av-cpp",
+  "name": "JSF Air Vehicle C++",
+  "org": "jsf",
+  "domain": "coding-standards",
+  "spec": "/spec/JSF_AV_CPP_PACK",
+  "summary": "The JSF++ (F-35) C++ compliance process — Shall/Will/Should categories, tiered deviation approval, verification, and safety-critical library/run-time obligations — as computable policies.",
+  "description": "Maps the JSF Air Vehicle C++ Coding Standards' compliance process onto ponens policies. The 221 coding rules are enforced by static analysis; this pack checks the process around them — the Shall/Will/Should deviation-approval chain (engineering lead for should; lead + product manager for shall/will; shall deviations documented in-file), shall-rule verification, run-time checking, certified libraries, and no dead code.",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Rev C, 2005).",
+  "domains": [
+    {
+      "key": "deviation-approval",
+      "label": "Deviation Approval (AV 4-7)"
+    },
+    {
+      "key": "categories",
+      "label": "Shall / Will / Should"
+    },
+    {
+      "key": "verification",
+      "label": "Verification & Enforcement"
+    },
+    {
+      "key": "safety-critical",
+      "label": "Safety-Critical (SEAL 1)"
+    },
+    {
+      "key": "records",
+      "label": "Deviation Records"
+    }
+  ]
+}

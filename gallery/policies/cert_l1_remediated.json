@@ -1,0 +1,32 @@
+{
+  "id": "cert_l1_remediated",
+  "name": "CERT: L1 Findings Remediated",
+  "category": "security",
+  "severity": "error",
+  "description": "Highest-priority (Level L1) findings are remediated.",
+  "formula": "G(level_l1 → remediated)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT: L1 findings (high severity, likely, low remediation cost — Priority 12–27) are addressed first; they represent the most urgent risks.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "prioritized-remediation",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "prioritized-remediation",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

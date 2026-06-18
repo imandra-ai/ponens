@@ -1,0 +1,32 @@
+{
+  "id": "cert_no_open_l1_at_release",
+  "name": "CERT: No Open L1 at Release",
+  "category": "security",
+  "severity": "error",
+  "description": "No Level L1 finding remains open at release.",
+  "formula": "G(Release → ¬open_l1)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT prioritization: L1 risks are remediated before lower-priority work and must not ship; an open L1 at release is a critical security gap.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "prioritized-remediation",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "prioritized-remediation",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

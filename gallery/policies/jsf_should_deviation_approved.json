@@ -1,0 +1,32 @@
+{
+  "id": "jsf_should_deviation_approved",
+  "name": "JSF++: Should-Rule Deviation Approved",
+  "category": "conformance",
+  "severity": "warning",
+  "description": "Breaking a 'should' (advisory) rule is approved by the software engineering lead.",
+  "formula": "G(should_deviation → eng_lead_approved)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ AV Rule 4: to break a 'should' rule, approval must be received from the software engineering lead.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "deviation-approval",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "deviation-approval",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

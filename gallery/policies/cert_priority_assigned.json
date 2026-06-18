@@ -1,0 +1,32 @@
+{
+  "id": "cert_priority_assigned",
+  "name": "CERT: Priority and Level Assigned",
+  "category": "security",
+  "severity": "error",
+  "description": "Each finding has a Priority (Severity × Likelihood × Remediation Cost, 1–27) and resulting Level (L1/L2/L3) assigned.",
+  "formula": "G(Finding → priority_assigned)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT: the three risk factors multiply to a Priority (1–27), which maps to a Level — L1 (Priority 12–27), L2 (6–9), L3 (1–4).",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "risk-assessment",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "risk-assessment",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

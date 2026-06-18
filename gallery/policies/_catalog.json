@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 132,
+  "policy_count": 155,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -568,6 +568,281 @@
       "reference_compiler": "ok",
       "hash": "sha256:13d7d6e9e81b64144ce39bdac0a9f46104839e96e109302c1e1f6ee827b9a8dd",
       "file": "async_state_transitions_verified.json"
+    },
+    {
+      "id": "cert_conformance_recorded",
+      "name": "CERT: Conformance Recorded at Release",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "deviations-records",
+        "rag-red",
+        "risk-based",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A conformance record (which rules were checked, findings, deviations) exists before release.",
+      "formula": "G(Release → P(conformance_summary))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:415a7b641f51fcd70f3299ed3df1f6d5d2c044b8649df31fe845e1be01cd5c85",
+      "file": "cert_conformance_recorded.json",
+      "pack": "cert-secure-coding",
+      "group": "deviations-records"
+    },
+    {
+      "id": "cert_deviation_documented",
+      "name": "CERT: Deviation Documented",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "deviations-records",
+        "rag-red",
+        "risk-based",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every deviation records the violation rationale and is approved.",
+      "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:be512fd3826ae53df134782abba0e4cfaccc8c782fc9de17e36e073285051ca3",
+      "file": "cert_deviation_documented.json",
+      "pack": "cert-secure-coding",
+      "group": "deviations-records"
+    },
+    {
+      "id": "cert_l1_remediated",
+      "name": "CERT: L1 Findings Remediated",
+      "category": "security",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "prioritized-remediation",
+        "rag-red",
+        "risk-based",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Highest-priority (Level L1) findings are remediated.",
+      "formula": "G(level_l1 → remediated)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4130c4f44edd2785d1c510581d08cf381f8e6f060985320ff5b3f4a609db076e",
+      "file": "cert_l1_remediated.json",
+      "pack": "cert-secure-coding",
+      "group": "prioritized-remediation"
+    },
+    {
+      "id": "cert_l2_reviewed",
+      "name": "CERT: L2 Findings Reviewed",
+      "category": "security",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "prioritized-remediation",
+        "rag-amber",
+        "risk-based",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Medium-priority (Level L2) findings are reviewed.",
+      "formula": "G(level_l2 → reviewed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:417107866554be6b88f67328e58488340e13502dff18ac09ef453d9cd1e04e6a",
+      "file": "cert_l2_reviewed.json",
+      "pack": "cert-secure-coding",
+      "group": "prioritized-remediation"
+    },
+    {
+      "id": "cert_no_open_l1_at_release",
+      "name": "CERT: No Open L1 at Release",
+      "category": "security",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "prioritized-remediation",
+        "rag-red",
+        "risk-based",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "No Level L1 finding remains open at release.",
+      "formula": "G(Release → ¬open_l1)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:baaf1b1f46ff0d2cbc6ed98bb2a45313347e8e7944dfb69ff87ea98b4186b929",
+      "file": "cert_no_open_l1_at_release.json",
+      "pack": "cert-secure-coding",
+      "group": "prioritized-remediation"
+    },
+    {
+      "id": "cert_priority_assigned",
+      "name": "CERT: Priority and Level Assigned",
+      "category": "security",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "rag-red",
+        "risk-assessment",
+        "risk-based",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Each finding has a Priority (Severity × Likelihood × Remediation Cost, 1–27) and resulting Level (L1/L2/L3) assigned.",
+      "formula": "G(Finding → priority_assigned)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:02911c7649f7bbe191b750c8bc519258aeb9c16539a80a74f64e502ec134a561",
+      "file": "cert_priority_assigned.json",
+      "pack": "cert-secure-coding",
+      "group": "risk-assessment"
+    },
+    {
+      "id": "cert_recommendation_departure_recorded",
+      "name": "CERT: Recommendation Departure Recorded",
+      "category": "security",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "rag-amber",
+        "risk-based",
+        "rules-recommendations",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Departures from CERT Recommendations (advisory guidelines) are recorded.",
+      "formula": "G(Finding ∧ cert_recommendation_departure → recorded)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ba3b379cbdf8d0909a0bd3639dc6da406660b3362774ec41ee0b60af0a21e424",
+      "file": "cert_recommendation_departure_recorded.json",
+      "pack": "cert-secure-coding",
+      "group": "rules-recommendations"
+    },
+    {
+      "id": "cert_risk_assessed",
+      "name": "CERT: Risk Assessed",
+      "category": "security",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "rag-red",
+        "risk-assessment",
+        "risk-based",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every finding is risk-assessed on the three CERT factors: severity, likelihood, and remediation cost.",
+      "formula": "G(Finding → severity_assessed ∧ likelihood_assessed ∧ remediation_assessed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:0f4f24fb6c4a7a1bc138e67b590663d1a5befc5155648ba25bfb977bcbc50da8",
+      "file": "cert_risk_assessed.json",
+      "pack": "cert-secure-coding",
+      "group": "risk-assessment"
+    },
+    {
+      "id": "cert_rule_violation_remediated",
+      "name": "CERT: Rule Violation Remediated",
+      "category": "security",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "rag-red",
+        "risk-based",
+        "rules-recommendations",
+        "secure-coding",
+        "sei"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Violations of CERT Rules (normative) are remediated, or covered by an approved deviation.",
+      "formula": "G(Finding ∧ cert_rule_violation → remediated ∨ deviation_approved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f727de7483c5cc4dbbf862c01f1947ca8e4cecdb6c93eafe764a3e453675ad7c",
+      "file": "cert_rule_violation_remediated.json",
+      "pack": "cert-secure-coding",
+      "group": "rules-recommendations"
+    },
+    {
+      "id": "cert_static_analysis_before_commit",
+      "name": "CERT: Static Analysis Before Commit",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "rag-red",
+        "risk-based",
+        "secure-coding",
+        "sei",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Source is checked against the CERT C / C++ ruleset by static analysis before it is committed.",
+      "formula": "G(GitCommit → P(StaticAnalysis ∧ cert_ruleset))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:fb67429f672b0f030e184f960054bf129beb60d647f3f11054be5726a2a31073",
+      "file": "cert_static_analysis_before_commit.json",
+      "pack": "cert-secure-coding",
+      "group": "verification"
+    },
+    {
+      "id": "cert_undecidable_manual_review",
+      "name": "CERT: Undecidable Rule Manually Reviewed",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "cert",
+        "rag-amber",
+        "risk-based",
+        "secure-coding",
+        "sei",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Potential violations of undecidable rules (not fully checkable by static analysis) are manually reviewed.",
+      "formula": "G(undecidable_violation → manual_review)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:a8beeac0b393c7182a6097d6b4811e7e08cc9c21dca7e62b0a4d3b2d7b06a6bb",
+      "file": "cert_undecidable_manual_review.json",
+      "pack": "cert-secure-coding",
+      "group": "verification"
     },
     {
       "id": "changes_controlled",
@@ -1236,6 +1511,306 @@
       "pack": "iosco-supervisory-recordkeeping",
       "group": "recordkeeping",
       "tier": "1-4"
+    },
+    {
+      "id": "jsf_certified_libraries_only",
+      "name": "JSF++: Certified Libraries Only",
+      "category": "safety",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red",
+        "safety-critical"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Only DO-178B Level A certifiable (SEAL 1) C/C++ libraries are used with safety-critical code.",
+      "formula": "G(safety_critical ∧ library_use → certified_library)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:0306508ca92880ef8e874bc8ad2cc32797892d4d377154e46fcfce5789140926",
+      "file": "jsf_certified_libraries_only.json",
+      "pack": "jsf-av-cpp",
+      "group": "safety-critical"
+    },
+    {
+      "id": "jsf_deviation_record_maintained",
+      "name": "JSF++: Deviation Record Maintained",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red",
+        "records"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every deviation record documents the rationale and the required approval(s).",
+      "formula": "G(Deviation → rationale_recorded ∧ approval_recorded)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ada4c3052ab956ecbf45b978b84ee808a690586b4926df4453b059fec0e047f4",
+      "file": "jsf_deviation_record_maintained.json",
+      "pack": "jsf-av-cpp",
+      "group": "records"
+    },
+    {
+      "id": "jsf_no_dead_code",
+      "name": "JSF++: No Dead Code",
+      "category": "safety",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red",
+        "safety-critical"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Dead code — executable code or data not traceable to a system or software requirement — is not present.",
+      "formula": "G(¬dead_code)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:0a003e298b24892636defb33ba852fc8c4577c931f9d9d6f64ae93a6cb39c1bb",
+      "file": "jsf_no_dead_code.json",
+      "pack": "jsf-av-cpp",
+      "group": "safety-critical"
+    },
+    {
+      "id": "jsf_runtime_checking_provided",
+      "name": "JSF++: Run-Time Checking Provided",
+      "category": "safety",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red",
+        "safety-critical"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Safety-critical (SEAL 1/2) software makes provision for run-time checking (defensive programming).",
+      "formula": "G(safety_critical → runtime_checking)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:96015a0e2698217d14a79863e2923b72fe669caf988bc63c14337a2b23009520",
+      "file": "jsf_runtime_checking_provided.json",
+      "pack": "jsf-av-cpp",
+      "group": "safety-critical"
+    },
+    {
+      "id": "jsf_shall_deviation_documented",
+      "name": "JSF++: Shall Deviation Documented In File",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "deviation-approval",
+        "jsf",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Each deviation from a 'shall' rule is documented in the file that contains the deviation.",
+      "formula": "G(shall_deviation → documented_in_file)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:021752995475c0b401b8587480d62479fa53b77597fdf4ddc0dfd088bbd74736",
+      "file": "jsf_shall_deviation_documented.json",
+      "pack": "jsf-av-cpp",
+      "group": "deviation-approval"
+    },
+    {
+      "id": "jsf_shall_rules_verified",
+      "name": "JSF++: Shall Rules Verified",
+      "category": "safety",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Compliance with 'shall' rules is verified (automatically or manually) before code is committed.",
+      "formula": "G(GitCommit → P(shall_verified))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f682de526c0b05e83f772f99870f9aefd2cb7f4744c22aceca6fafa7870ed9c6",
+      "file": "jsf_shall_rules_verified.json",
+      "pack": "jsf-av-cpp",
+      "group": "verification"
+    },
+    {
+      "id": "jsf_shall_violation_deviated",
+      "name": "JSF++: Shall Violation Has Deviation",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "categories",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Any violation of a 'shall' rule is covered by an approved deviation.",
+      "formula": "G(shall_violation → P(deviation_approved))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:3b4f423cab84de850b22855ccc086bdd1c16462bc500da18f918b3d4f14655ac",
+      "file": "jsf_shall_violation_deviated.json",
+      "pack": "jsf-av-cpp",
+      "group": "categories"
+    },
+    {
+      "id": "jsf_shall_will_deviation_dual_approved",
+      "name": "JSF++: Shall/Will Deviation Dual-Approved",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "deviation-approval",
+        "jsf",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Breaking a 'shall' or 'will' (mandatory) rule is approved by BOTH the software engineering lead and the software product manager.",
+      "formula": "G((shall_deviation ∨ will_deviation) → eng_lead_approved ∧ product_manager_approved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5a65484a8b71d391e4cb583f6e6340f29bf5c029165c5fa3e93ac6a9aec0e824",
+      "file": "jsf_shall_will_deviation_dual_approved.json",
+      "pack": "jsf-av-cpp",
+      "group": "deviation-approval"
+    },
+    {
+      "id": "jsf_should_deviation_approved",
+      "name": "JSF++: Should-Rule Deviation Approved",
+      "category": "conformance",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "deviation-approval",
+        "jsf",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Breaking a 'should' (advisory) rule is approved by the software engineering lead.",
+      "formula": "G(should_deviation → eng_lead_approved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4ea902ef0c07e5bd3f73da417925b938a546c2811457eb501221a20208da470c",
+      "file": "jsf_should_deviation_approved.json",
+      "pack": "jsf-av-cpp",
+      "group": "deviation-approval"
+    },
+    {
+      "id": "jsf_should_violation_recorded",
+      "name": "JSF++: Should Violation Recorded",
+      "category": "conformance",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "categories",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Departures from 'should' (advisory) rules are recorded.",
+      "formula": "G(should_violation → recorded)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5707bdee612860d46eb724e1d513609c3879f08bbb13308497032bba05a1cf16",
+      "file": "jsf_should_violation_recorded.json",
+      "pack": "jsf-av-cpp",
+      "group": "categories"
+    },
+    {
+      "id": "jsf_static_analysis_before_commit",
+      "name": "JSF++: Static Analysis Before Commit",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red",
+        "verification"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Source is checked against the JSF++ ruleset by static analysis before it is committed.",
+      "formula": "G(GitCommit → P(StaticAnalysis ∧ jsf_ruleset))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:53229c1f678bcc7f71f5115106617faf05f6858ae794e9d4803db5c40d69cf15",
+      "file": "jsf_static_analysis_before_commit.json",
+      "pack": "jsf-av-cpp",
+      "group": "verification"
+    },
+    {
+      "id": "jsf_will_violation_deviated",
+      "name": "JSF++: Will Violation Has Deviation",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "avionics",
+        "categories",
+        "coding-standard",
+        "cpp",
+        "jsf",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Any violation of a 'will' rule is covered by an approved deviation.",
+      "formula": "G(will_violation → P(deviation_approved))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4a3b737ad07f166e089133b9aab9c98d3c25f64fd38f731f45ea3d00f902ac8f",
+      "file": "jsf_will_violation_deviated.json",
+      "pack": "jsf-av-cpp",
+      "group": "categories"
     },
     {
       "id": "legal_entity_vlei_present",
@@ -3182,6 +3757,7 @@
     "bugs",
     "capability",
     "categories",
+    "cert",
     "certification-liaison",
     "ci",
     "cleanup",
@@ -3195,6 +3771,7 @@
     "conformance",
     "consistency",
     "coverage",
+    "cpp",
     "css",
     "dal-A-B",
     "dal-A-C",
@@ -3210,7 +3787,9 @@
     "destructive",
     "determinism",
     "development",
+    "deviation-approval",
     "deviations",
+    "deviations-records",
     "directives",
     "disclosure",
     "do-178c",
@@ -3237,6 +3816,7 @@
     "integrity",
     "intent",
     "iosco",
+    "jsf",
     "lifecycle",
     "linting",
     "liveness",
@@ -3255,6 +3835,7 @@
     "pci",
     "plaid",
     "planning",
+    "prioritized-remediation",
     "quality",
     "quality-assurance",
     "rag-amber",
@@ -3265,6 +3846,7 @@
     "reasoning",
     "recategorization",
     "recordkeeping",
+    "records",
     "reducer",
     "redux",
     "reference-model",
@@ -3275,11 +3857,17 @@
     "residuals",
     "reversibility",
     "review",
+    "risk-assessment",
+    "risk-based",
     "risk-management",
     "routing",
+    "rules-recommendations",
     "safety",
+    "safety-critical",
     "secrets",
+    "secure-coding",
     "security",
+    "sei",
     "software-assurance",
     "sox",
     "state-machine",
@@ -3376,6 +3964,20 @@
   },
   "organizations": [
     {
+      "id": "cert",
+      "name": "CERT (SEI)",
+      "full_name": "SEI CERT Secure Coding Standards (Carnegie Mellon Software Engineering Institute)",
+      "url": "https://wiki.sei.cmu.edu/confluence/display/seccode",
+      "description": "The SEI CERT Coding Standards (CERT C and CERT C++) are secure-coding standards from Carnegie Mellon's Software Engineering Institute. Unlike category-based standards, CERT scores every guideline on a risk model — severity, likelihood, and remediation cost — yielding a priority and level (L1/L2/L3) that drive remediation order. That risk model is the basis for the pack below.",
+      "packs": [
+        "cert-secure-coding"
+      ],
+      "mapping": [
+        "CERT's individual rules and recommendations are checked by static analysis — so ponens does not re-encode them. What is distinctive about CERT, and what ponens governs, is its risk-prioritized remediation process. Every finding is scored on three factors (severity × likelihood × remediation cost), which multiply to a Priority (1–27) and a Level (L1 = 12–27, L2 = 6–9, L3 = 1–4). ponens turns that into policies over a coding/CI trace: every finding is risk-assessed and assigned a priority and level, L1 findings are remediated and never shipped open, and L2 findings are reviewed.",
+        "CERT also distinguishes normative Rules (a violation is a defect that must be fixed or formally deviated) from advisory Recommendations (departures recorded), and — like MISRA and JSF — requires analysis before commit and manual review of undecidable rules. The same methodology covers both CERT C and CERT C++, so this is a single pack rather than two. Running it with `ponens trace check` aggregates to Green / Amber / Red: an open L1 at release, an unremediated rule violation, a missing risk assessment, or no conformance record is Red; recommendation departures, L2 review, and undecidable-rule review are Amber."
+      ]
+    },
+    {
       "id": "esma",
       "name": "ESMA",
       "full_name": "European Securities and Markets Authority",
@@ -3415,6 +4017,20 @@
       "mapping": [
         "The IOSCO Supervisory Toolkit is supervisor-facing: for each area it lists the “Supporting Evidence for Review” a firm must be able to produce. ponens treats that evidence column as the specification. Each recordkeeping and disclosure expectation from Tables 5 and 6 becomes a policy over the AI system's decision/output trace — that decisions and outputs are logged and model-version-stamped, traceable to the actions they drive, explainable, human-overseen where material, incident-recorded with root cause, and properly disclosed to clients. ponens makes that evidence computable rather than a manual document review.",
         "Where the FIX pack is preventive — gating execution in real time — this pack is evidentiary: it computes the audit trail a supervisor would otherwise inspect by hand. `ponens trace check` returns pass / warning / error per requirement and aggregates to a Green / Amber / Red picture of exactly which records or disclosures are missing. The toolkit's organisational layers — monitoring indicators, third-party concentration, and firm-level governance such as board oversight and training — are population- or firm-level rather than per-trace, and so are intentionally out of scope for this pack."
+      ]
+    },
+    {
+      "id": "jsf",
+      "name": "JSF (Lockheed Martin)",
+      "full_name": "JSF Air Vehicle C++ Coding Standards — F-35 program (Lockheed Martin)",
+      "url": "https://www.stroustrup.com/JSF-AV-rules.pdf",
+      "description": "The JSF Air Vehicle C++ Coding Standards (\"JSF++\") were developed for the Lockheed Martin F-35 Joint Strike Fighter, with input from Bjarne Stroustrup. Like MISRA they are a safety-critical C++ standard, but with a distinctive three-tier rule scheme (Shall / Will / Should) and a tiered deviation-approval process — the basis for the pack below.",
+      "packs": [
+        "jsf-av-cpp"
+      ],
+      "mapping": [
+        "JSF++ is a C++ coding standard whose 221 numbered rules are checked by static analysis — so, as with MISRA, ponens does not re-encode the rules. What it governs is JSF++'s distinctive compliance process: its three rule categories (Shall = mandatory and verified, Will = mandatory without verification, Should = advisory) and its tiered deviation-approval chain (AV Rules 4-7). Each becomes a policy over a coding/CI trace — breaking a 'should' needs engineering-lead approval, breaking a 'shall' or 'will' needs the engineering lead AND the product manager, and every 'shall' deviation must be documented in the file that contains it.",
+        "The standard also carries explicit safety-critical obligations that map cleanly to per-trace policies: provision for run-time checking (AV Rule 15), use of only DO-178B Level A certifiable libraries for safety-critical code (AV Rule 16 — a direct link to the DO-178C pack), and the prohibition on dead code not traceable to a requirement. Running the pack with `ponens trace check` aggregates to Green / Amber / Red: an undeviated shall/will violation, a single-approved shall deviation, uncertified safety-critical libraries, or dead code is Red; should-rule deviations and records are Amber."
       ]
     },
     {
@@ -3480,6 +4096,39 @@
         }
       ],
       "policy_count": 21
+    },
+    {
+      "id": "cert-secure-coding",
+      "name": "CERT C/C++ Secure Coding",
+      "org": "cert",
+      "domain": "coding-standards",
+      "spec": "/spec/CERT_SECURE_CODING_PACK",
+      "summary": "The SEI CERT secure-coding risk model — Severity × Likelihood × Remediation → Priority → Level L1/L2/L3 — and its prioritized-remediation process, as computable policies. Covers CERT C and CERT C++.",
+      "description": "Maps the SEI CERT Coding Standards' distinctive risk-assessment and prioritized-remediation process onto ponens policies. The individual rules are enforced by static analysis; this pack checks that every finding is risk-assessed (severity/likelihood/remediation), assigned a priority and level, that L1 findings are remediated and never shipped, and that Rules vs Recommendations are handled accordingly. Applies to both CERT C and CERT C++.",
+      "source": "SEI CERT C and CERT C++ Secure Coding Standards (Carnegie Mellon SEI).",
+      "domains": [
+        {
+          "key": "rules-recommendations",
+          "label": "Rules vs Recommendations"
+        },
+        {
+          "key": "risk-assessment",
+          "label": "Risk Assessment"
+        },
+        {
+          "key": "prioritized-remediation",
+          "label": "Prioritized Remediation (L1/L2/L3)"
+        },
+        {
+          "key": "verification",
+          "label": "Verification & Enforcement"
+        },
+        {
+          "key": "deviations-records",
+          "label": "Deviations & Records"
+        }
+      ],
+      "policy_count": 11
     },
     {
       "id": "do-178c-software-assurance",
@@ -3579,6 +4228,39 @@
         }
       ],
       "policy_count": 11
+    },
+    {
+      "id": "jsf-av-cpp",
+      "name": "JSF Air Vehicle C++",
+      "org": "jsf",
+      "domain": "coding-standards",
+      "spec": "/spec/JSF_AV_CPP_PACK",
+      "summary": "The JSF++ (F-35) C++ compliance process — Shall/Will/Should categories, tiered deviation approval, verification, and safety-critical library/run-time obligations — as computable policies.",
+      "description": "Maps the JSF Air Vehicle C++ Coding Standards' compliance process onto ponens policies. The 221 coding rules are enforced by static analysis; this pack checks the process around them — the Shall/Will/Should deviation-approval chain (engineering lead for should; lead + product manager for shall/will; shall deviations documented in-file), shall-rule verification, run-time checking, certified libraries, and no dead code.",
+      "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Rev C, 2005).",
+      "domains": [
+        {
+          "key": "deviation-approval",
+          "label": "Deviation Approval (AV 4-7)"
+        },
+        {
+          "key": "categories",
+          "label": "Shall / Will / Should"
+        },
+        {
+          "key": "verification",
+          "label": "Verification & Enforcement"
+        },
+        {
+          "key": "safety-critical",
+          "label": "Safety-Critical (SEAL 1)"
+        },
+        {
+          "key": "records",
+          "label": "Deviation Records"
+        }
+      ],
+      "policy_count": 12
     },
     {
       "id": "misra-c",

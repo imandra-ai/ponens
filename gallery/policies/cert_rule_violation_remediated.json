@@ -1,0 +1,32 @@
+{
+  "id": "cert_rule_violation_remediated",
+  "name": "CERT: Rule Violation Remediated",
+  "category": "security",
+  "severity": "error",
+  "description": "Violations of CERT Rules (normative) are remediated, or covered by an approved deviation.",
+  "formula": "G(Finding ∧ cert_rule_violation → remediated ∨ deviation_approved)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT: Rules are normative requirements — a violation is a defect that must be corrected; an exception is permissible only via a documented, approved deviation.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "rules-recommendations",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "rules-recommendations",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

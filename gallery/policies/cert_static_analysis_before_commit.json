@@ -1,0 +1,32 @@
+{
+  "id": "cert_static_analysis_before_commit",
+  "name": "CERT: Static Analysis Before Commit",
+  "category": "workflow",
+  "severity": "error",
+  "description": "Source is checked against the CERT C / C++ ruleset by static analysis before it is committed.",
+  "formula": "G(GitCommit → P(StaticAnalysis ∧ cert_ruleset))",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT conformance: an analyzer diagnoses rule violations; conformance is established by analysis (plus manual review for undecidable rules) before code is accepted.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "verification",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "verification",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

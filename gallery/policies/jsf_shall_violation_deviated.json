@@ -1,0 +1,32 @@
+{
+  "id": "jsf_shall_violation_deviated",
+  "name": "JSF++: Shall Violation Has Deviation",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Any violation of a 'shall' rule is covered by an approved deviation.",
+  "formula": "G(shall_violation → P(deviation_approved))",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ §4.2.1: 'shall' rules are mandatory requirements; a violation is permissible only through the formal deviation process.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "categories",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "categories",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

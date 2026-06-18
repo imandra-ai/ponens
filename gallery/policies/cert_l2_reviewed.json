@@ -1,0 +1,32 @@
+{
+  "id": "cert_l2_reviewed",
+  "name": "CERT: L2 Findings Reviewed",
+  "category": "security",
+  "severity": "warning",
+  "description": "Medium-priority (Level L2) findings are reviewed.",
+  "formula": "G(level_l2 → reviewed)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT: L2 findings (Priority 6–9) are addressed after L1; they should be reviewed and dispositioned.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "prioritized-remediation",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "prioritized-remediation",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

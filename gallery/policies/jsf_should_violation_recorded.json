@@ -1,0 +1,32 @@
+{
+  "id": "jsf_should_violation_recorded",
+  "name": "JSF++: Should Violation Recorded",
+  "category": "conformance",
+  "severity": "warning",
+  "description": "Departures from 'should' (advisory) rules are recorded.",
+  "formula": "G(should_violation → recorded)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ §4.2.1: 'should' rules are advisory; departures are permissible but should be documented.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "categories",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "categories",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

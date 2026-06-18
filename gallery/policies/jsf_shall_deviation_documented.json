@@ -1,0 +1,32 @@
+{
+  "id": "jsf_shall_deviation_documented",
+  "name": "JSF++: Shall Deviation Documented In File",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Each deviation from a 'shall' rule is documented in the file that contains the deviation.",
+  "formula": "G(shall_deviation → documented_in_file)",
+  "language_level": "pure_temporal",
+  "rationale": "JSF++ AV Rule 6: each deviation from a 'shall' rule shall be documented in the file that contains the deviation; deviations from this rule are not allowed.",
+  "tags": [
+    "coding-standard",
+    "jsf",
+    "avionics",
+    "cpp",
+    "deviation-approval",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required approval/record is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "jsf-av-cpp",
+  "group": "deviation-approval",
+  "source": "JSF Air Vehicle C++ Coding Standards (Lockheed Martin, Doc. 2RDU00001 Rev C, Dec 2005). https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

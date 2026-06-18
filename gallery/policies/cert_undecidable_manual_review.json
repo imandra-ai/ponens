@@ -1,0 +1,32 @@
+{
+  "id": "cert_undecidable_manual_review",
+  "name": "CERT: Undecidable Rule Manually Reviewed",
+  "category": "workflow",
+  "severity": "warning",
+  "description": "Potential violations of undecidable rules (not fully checkable by static analysis) are manually reviewed.",
+  "formula": "G(undecidable_violation → manual_review)",
+  "language_level": "pure_temporal",
+  "rationale": "SEI CERT: some rules are undecidable; a sound analyzer over-approximates, and remaining cases require manual review to confirm conformance.",
+  "tags": [
+    "secure-coding",
+    "cert",
+    "sei",
+    "risk-based",
+    "verification",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the risk/remediation step is evidenced",
+    "fails": "the required assessment/remediation is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "cert-secure-coding",
+  "group": "verification",
+  "source": "SEI CERT Coding Standards (Carnegie Mellon Software Engineering Institute) — CERT C and CERT C++ Secure Coding Standards, with the CERT risk-assessment methodology (Severity × Likelihood × Remediation Cost → Priority → Level L1/L2/L3). https://wiki.sei.cmu.edu/confluence/display/seccode",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

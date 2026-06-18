@@ -1,0 +1,14 @@
+{
+  "id": "jsf",
+  "name": "JSF (Lockheed Martin)",
+  "full_name": "JSF Air Vehicle C++ Coding Standards — F-35 program (Lockheed Martin)",
+  "url": "https://www.stroustrup.com/JSF-AV-rules.pdf",
+  "description": "The JSF Air Vehicle C++ Coding Standards (\"JSF++\") were developed for the Lockheed Martin F-35 Joint Strike Fighter, with input from Bjarne Stroustrup. Like MISRA they are a safety-critical C++ standard, but with a distinctive three-tier rule scheme (Shall / Will / Should) and a tiered deviation-approval process — the basis for the pack below.",
+  "packs": [
+    "jsf-av-cpp"
+  ],
+  "mapping": [
+    "JSF++ is a C++ coding standard whose 221 numbered rules are checked by static analysis — so, as with MISRA, ponens does not re-encode the rules. What it governs is JSF++'s distinctive compliance process: its three rule categories (Shall = mandatory and verified, Will = mandatory without verification, Should = advisory) and its tiered deviation-approval chain (AV Rules 4-7). Each becomes a policy over a coding/CI trace — breaking a 'should' needs engineering-lead approval, breaking a 'shall' or 'will' needs the engineering lead AND the product manager, and every 'shall' deviation must be documented in the file that contains it.",
+    "The standard also carries explicit safety-critical obligations that map cleanly to per-trace policies: provision for run-time checking (AV Rule 15), use of only DO-178B Level A certifiable libraries for safety-critical code (AV Rule 16 — a direct link to the DO-178C pack), and the prohibition on dead code not traceable to a requirement. Running the pack with `ponens trace check` aggregates to Green / Amber / Red: an undeviated shall/will violation, a single-approved shall deviation, uncertified safety-critical libraries, or dead code is Red; should-rule deviations and records are Amber."
+  ]
+}

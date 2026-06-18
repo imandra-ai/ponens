@@ -1,0 +1,31 @@
+{
+  "id": "misra_cpp_required_violation_deviated",
+  "name": "MISRA C++: Required Violation Has Deviation",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Any violation of a Required guideline is covered by an approved deviation.",
+  "formula": "G(required_violation → P(deviation_approved))",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: Required guidelines should be followed, but documented and approved deviations are allowed where justified.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-cpp",
+    "categories",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-cpp",
+  "group": "categories",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C++:2023. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,31 @@
+{
+  "id": "misra_cpp_no_mandatory_violation",
+  "name": "MISRA C++: No Mandatory Violation",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Mandatory guidelines are never violated — no deviation is permitted against a Mandatory guideline.",
+  "formula": "G(¬mandatory_violation)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: all Mandatory guidelines must be followed to achieve compliance; deviations are not allowed.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-cpp",
+    "categories",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-cpp",
+  "group": "categories",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C++:2023. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

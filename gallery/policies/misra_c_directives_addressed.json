@@ -1,0 +1,31 @@
+{
+  "id": "misra_c_directives_addressed",
+  "name": "MISRA C: Directives Addressed With Evidence",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Directives (process/design guidelines, whose compliance depends on project context) are addressed with documented evidence.",
+  "formula": "G(Directive → addressed_with_evidence)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA: a Directive's compliance cannot be fully defined by the guideline alone; the project must show evidence it has been addressed.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-c",
+    "directives",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-c",
+  "group": "directives",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C:2012. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

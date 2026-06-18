@@ -1,0 +1,31 @@
+{
+  "id": "misra_c_mandatory_not_weakened",
+  "name": "MISRA C: Mandatory Not Weakened",
+  "category": "conformance",
+  "severity": "error",
+  "description": "A Mandatory guideline is never re-categorized to a less strict category; only Advisory guidelines may be re-categorized to Disapplied.",
+  "formula": "G(recategorization → ¬weakens_mandatory)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: Required and Advisory may be made stricter; Mandatory cannot be loosened, and only Advisory may be re-categorized to Disapplied.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-c",
+    "recategorization",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-c",
+  "group": "recategorization",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C:2012. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,31 @@
+{
+  "id": "misra_c_undecidable_manually_reviewed",
+  "name": "MISRA C: Undecidable Guideline Manually Reviewed",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "Potential violations of undecidable guidelines (not fully checkable by static analysis) are subject to manual review.",
+  "formula": "G(undecidable_violation → manual_review)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020 / guideline decidability: undecidable rules cannot be fully checked by a tool, so manual review is required to confirm compliance.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-c",
+    "compliance-summary",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-c",
+  "group": "compliance-summary",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C:2012. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

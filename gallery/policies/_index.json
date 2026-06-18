@@ -108,7 +108,31 @@
     "structural_coverage_achieved",
     "test_traces_to_requirement",
     "tests_requirements_based",
-    "verification_independent"
+    "verification_independent",
+    "misra_c_advisory_violation_recorded",
+    "misra_c_compliance_summary_produced",
+    "misra_c_deviation_documented",
+    "misra_c_directives_addressed",
+    "misra_c_enforcement_plan_defined",
+    "misra_c_mandatory_not_weakened",
+    "misra_c_no_mandatory_deviation",
+    "misra_c_no_mandatory_violation",
+    "misra_c_recategorization_in_grp",
+    "misra_c_required_violation_deviated",
+    "misra_c_static_analysis_before_commit",
+    "misra_c_undecidable_manually_reviewed",
+    "misra_cpp_advisory_violation_recorded",
+    "misra_cpp_compliance_summary_produced",
+    "misra_cpp_deviation_documented",
+    "misra_cpp_directives_addressed",
+    "misra_cpp_enforcement_plan_defined",
+    "misra_cpp_mandatory_not_weakened",
+    "misra_cpp_no_mandatory_deviation",
+    "misra_cpp_no_mandatory_violation",
+    "misra_cpp_recategorization_in_grp",
+    "misra_cpp_required_violation_deviated",
+    "misra_cpp_static_analysis_before_commit",
+    "misra_cpp_undecidable_manually_reviewed"
   ],
   "categories": [
     "auditability",
@@ -142,6 +166,8 @@
     "bugs",
     "ci",
     "cleanup",
+    "coding-standard",
+    "coding-standards",
     "communication",
     "completeness",
     "compliance",
@@ -187,6 +213,7 @@
     "memory-leak",
     "mifid-ii",
     "migration",
+    "misra",
     "ordering",
     "payments",
     "pci",
@@ -286,6 +313,12 @@
       "color": "#5b2a86",
       "icon": "&#9992;",
       "description": "Airborne software certification objectives (RTCA DO-178C) — traceability, verification, coverage and configuration management as machine-checkable rules over the software life-cycle record."
+    },
+    "coding-standards": {
+      "label": "Coding Standards",
+      "color": "#9c2c2c",
+      "icon": "&#128221;",
+      "description": "MISRA C/C++ compliance-process policies — enforcement, deviations, re-categorization and compliance summary as machine-checkable rules over a coding/CI trace."
     }
   }
 }

@@ -225,6 +225,8 @@ ACTION_TYPES = {
     'Plan', 'SystemRequirement', 'HLR', 'LLR', 'SourceCode', 'Test',
     'Change', 'ProblemReport', 'DerivedRequirement', 'CoverageAnalysis',
     'AccomplishmentSummary',
+    # Coding-standard compliance vocabulary (MISRA Compliance:2020 packs)
+    'StaticAnalysis', 'Deviation', 'ComplianceSummary', 'Directive',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
     'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',

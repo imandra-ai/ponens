@@ -1,0 +1,31 @@
+{
+  "id": "misra_cpp_advisory_violation_recorded",
+  "name": "MISRA C++: Advisory Violation Recorded",
+  "category": "conformance",
+  "severity": "warning",
+  "description": "Violations of Advisory guidelines are recorded (a formal deviation is not required, but the decision is documented).",
+  "formula": "G(advisory_violation → recorded)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: Advisory guidelines are best practice; departures need not be formal deviations but should be recorded.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-cpp",
+    "categories",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-cpp",
+  "group": "categories",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C++:2023. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

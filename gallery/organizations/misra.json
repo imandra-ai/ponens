@@ -1,0 +1,15 @@
+{
+  "id": "misra",
+  "name": "MISRA",
+  "full_name": "The MISRA Consortium",
+  "url": "https://misra.org.uk/",
+  "description": "MISRA publishes the most widely used C and C++ coding guidelines for safety- and security-critical software. Its Compliance:2020 document defines how a project demonstrates compliance — enforcement, deviations, re-categorization, and a compliance summary — which is the basis for the packs below.",
+  "packs": [
+    "misra-c",
+    "misra-cpp"
+  ],
+  "mapping": [
+    "MISRA's individual guidelines (143+ rules and directives) are checked by static analysis of source code, not by a trace — so ponens does not re-encode the rules. What ponens governs is the MISRA Compliance:2020 *process*: the four required artifacts (Guidelines Enforcement Plan, Re-categorization Plan, Compliance Summary, and deviation records) and the category rules (Mandatory / Required / Advisory). Each becomes a policy over a coding/CI trace — that static analysis runs against the ruleset before commit, that Mandatory guidelines are never deviated, that every Required violation carries an approved deviation with rationale, that re-categorizations are recorded in the GRP, and that a Compliance Summary is produced.",
+    "This is the natural division of labour for an AI coding agent: the analyzer finds the rule violations, and ponens checks that the agent followed the compliance process around them — making the analyzer's output auditable rather than advisory. The two packs share this process; they differ only in the ruleset they enforce (`misra_c_ruleset` for MISRA C:2012, `misra_cpp_ruleset` for MISRA C++:2023) and the guidelines they reference. Running a pack with `ponens trace check` aggregates to Green / Amber / Red: a Mandatory violation, an undeviated Required violation, or a missing Compliance Summary is Red; advisory records, enforcement-plan coverage, and undecidable-rule review are Amber."
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "misra_cpp_compliance_summary_produced",
+  "name": "MISRA C++: Compliance Summary Produced",
+  "category": "auditability",
+  "severity": "error",
+  "description": "A Guidelines Compliance Summary (GCS) is produced as the primary record of overall project compliance.",
+  "formula": "F(ComplianceSummary)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: the GCS is the primary record of compliance, with an entry for every guideline, its compliance level, deviations and re-categorizations.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-cpp",
+    "compliance-summary",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-cpp",
+  "group": "compliance-summary",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C++:2023. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

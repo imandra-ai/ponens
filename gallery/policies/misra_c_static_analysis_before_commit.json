@@ -1,0 +1,31 @@
+{
+  "id": "misra_c_static_analysis_before_commit",
+  "name": "MISRA C: Static Analysis Before Commit",
+  "category": "workflow",
+  "severity": "error",
+  "description": "Source is checked against the MISRA C:2012 ruleset by static analysis before it is committed.",
+  "formula": "G(GitCommit → P(StaticAnalysis ∧ misra_c_ruleset))",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020 Guidelines Enforcement Plan (GEP): every guideline has a defined technical enforcement means; analysis must run before code is accepted.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-c",
+    "analysis",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-c",
+  "group": "analysis",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C:2012. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

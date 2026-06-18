@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 108,
+  "policy_count": 132,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -1336,6 +1336,582 @@
       "tier": "A-C"
     },
     {
+      "id": "misra_c_advisory_violation_recorded",
+      "name": "MISRA C: Advisory Violation Recorded",
+      "category": "conformance",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "categories",
+        "coding-standard",
+        "misra",
+        "misra-c",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Violations of Advisory guidelines are recorded (a formal deviation is not required, but the decision is documented).",
+      "formula": "G(advisory_violation → recorded)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:20d864d6680ec25df73f3139d19e791931422c8550ee6eff33d8e751537ba728",
+      "file": "misra_c_advisory_violation_recorded.json",
+      "pack": "misra-c",
+      "group": "categories"
+    },
+    {
+      "id": "misra_c_compliance_summary_produced",
+      "name": "MISRA C: Compliance Summary Produced",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "compliance-summary",
+        "misra",
+        "misra-c",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A Guidelines Compliance Summary (GCS) is produced as the primary record of overall project compliance.",
+      "formula": "F(ComplianceSummary)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:dc1d761326570002acf4690124608236ceac5eac8acbc1378f209321d8a7d794",
+      "file": "misra_c_compliance_summary_produced.json",
+      "pack": "misra-c",
+      "group": "compliance-summary"
+    },
+    {
+      "id": "misra_c_deviation_documented",
+      "name": "MISRA C: Deviation Documented",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "deviations",
+        "misra",
+        "misra-c",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every deviation records the violation and its supporting rationale, and is approved through the deviation procedure.",
+      "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:bb630034c0c952c37180c8d5f6d2a395955bf328389cd9e26df2af0b28a8d535",
+      "file": "misra_c_deviation_documented.json",
+      "pack": "misra-c",
+      "group": "deviations"
+    },
+    {
+      "id": "misra_c_directives_addressed",
+      "name": "MISRA C: Directives Addressed With Evidence",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "directives",
+        "misra",
+        "misra-c",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Directives (process/design guidelines, whose compliance depends on project context) are addressed with documented evidence.",
+      "formula": "G(Directive → addressed_with_evidence)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:8f63280b59441e0c1267468ff551280f5bc0aebd09fcbfa808eedd2342a36d4c",
+      "file": "misra_c_directives_addressed.json",
+      "pack": "misra-c",
+      "group": "directives"
+    },
+    {
+      "id": "misra_c_enforcement_plan_defined",
+      "name": "MISRA C: Enforcement Plan Defined",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "analysis",
+        "coding-standard",
+        "misra",
+        "misra-c",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Each guideline analysed has a defined enforcement means in the Guidelines Enforcement Plan.",
+      "formula": "G(StaticAnalysis → enforcement_plan)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b8e7de20589e2144fb7bd7ade62d17cbe514ac8f9337a6112c4320514c52fb15",
+      "file": "misra_c_enforcement_plan_defined.json",
+      "pack": "misra-c",
+      "group": "analysis"
+    },
+    {
+      "id": "misra_c_mandatory_not_weakened",
+      "name": "MISRA C: Mandatory Not Weakened",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "misra",
+        "misra-c",
+        "rag-red",
+        "recategorization"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A Mandatory guideline is never re-categorized to a less strict category; only Advisory guidelines may be re-categorized to Disapplied.",
+      "formula": "G(recategorization → ¬weakens_mandatory)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:df942750e573875c1c2143b1d2e3109198791ef943157c20372dcc484de98fb7",
+      "file": "misra_c_mandatory_not_weakened.json",
+      "pack": "misra-c",
+      "group": "recategorization"
+    },
+    {
+      "id": "misra_c_no_mandatory_deviation",
+      "name": "MISRA C: No Deviation Against Mandatory",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "deviations",
+        "misra",
+        "misra-c",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "No deviation is raised against a Mandatory guideline.",
+      "formula": "G(Deviation → ¬targets_mandatory)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:0be28243cc1f20f4afb41e18be59d3dfd01cd3c840beb462d24afee7330ca0e2",
+      "file": "misra_c_no_mandatory_deviation.json",
+      "pack": "misra-c",
+      "group": "deviations"
+    },
+    {
+      "id": "misra_c_no_mandatory_violation",
+      "name": "MISRA C: No Mandatory Violation",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "categories",
+        "coding-standard",
+        "misra",
+        "misra-c",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Mandatory guidelines are never violated — no deviation is permitted against a Mandatory guideline.",
+      "formula": "G(¬mandatory_violation)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:d4ad0a27ce3be194d26dc6924cd4e1706ea1c00583cda74a014a1c32e4a2dcd7",
+      "file": "misra_c_no_mandatory_violation.json",
+      "pack": "misra-c",
+      "group": "categories"
+    },
+    {
+      "id": "misra_c_recategorization_in_grp",
+      "name": "MISRA C: Re-categorization in GRP",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "misra",
+        "misra-c",
+        "rag-red",
+        "recategorization"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Any change to a guideline's category is documented in the Guidelines Re-categorization Plan (GRP).",
+      "formula": "G(recategorization → P(grp_documented))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:3e79e50b6d99f6f91a71407bd7d562eba3a5cfdcddfa01ada6b61ed30170679c",
+      "file": "misra_c_recategorization_in_grp.json",
+      "pack": "misra-c",
+      "group": "recategorization"
+    },
+    {
+      "id": "misra_c_required_violation_deviated",
+      "name": "MISRA C: Required Violation Has Deviation",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "categories",
+        "coding-standard",
+        "misra",
+        "misra-c",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Any violation of a Required guideline is covered by an approved deviation.",
+      "formula": "G(required_violation → P(deviation_approved))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:34dfa52036554b08f8683ef7e107bfa3e38be374cb125c12f101eb84707c3d18",
+      "file": "misra_c_required_violation_deviated.json",
+      "pack": "misra-c",
+      "group": "categories"
+    },
+    {
+      "id": "misra_c_static_analysis_before_commit",
+      "name": "MISRA C: Static Analysis Before Commit",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "analysis",
+        "coding-standard",
+        "misra",
+        "misra-c",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Source is checked against the MISRA C:2012 ruleset by static analysis before it is committed.",
+      "formula": "G(GitCommit → P(StaticAnalysis ∧ misra_c_ruleset))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:85d7079766a52c96129b3ca0265a668941f1528f25cb0da0c666d9cc11e6f3b5",
+      "file": "misra_c_static_analysis_before_commit.json",
+      "pack": "misra-c",
+      "group": "analysis"
+    },
+    {
+      "id": "misra_c_undecidable_manually_reviewed",
+      "name": "MISRA C: Undecidable Guideline Manually Reviewed",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "compliance-summary",
+        "misra",
+        "misra-c",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Potential violations of undecidable guidelines (not fully checkable by static analysis) are subject to manual review.",
+      "formula": "G(undecidable_violation → manual_review)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4a0bd7b289d3dfde1dc325af23781d4512d65cd4398a26dda70881aff1b82236",
+      "file": "misra_c_undecidable_manually_reviewed.json",
+      "pack": "misra-c",
+      "group": "compliance-summary"
+    },
+    {
+      "id": "misra_cpp_advisory_violation_recorded",
+      "name": "MISRA C++: Advisory Violation Recorded",
+      "category": "conformance",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "categories",
+        "coding-standard",
+        "misra",
+        "misra-cpp",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Violations of Advisory guidelines are recorded (a formal deviation is not required, but the decision is documented).",
+      "formula": "G(advisory_violation → recorded)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4c9651f492870978497c1651c93e9e822ff9fb3826d7c4ed2cd957c7e93fcbd4",
+      "file": "misra_cpp_advisory_violation_recorded.json",
+      "pack": "misra-cpp",
+      "group": "categories"
+    },
+    {
+      "id": "misra_cpp_compliance_summary_produced",
+      "name": "MISRA C++: Compliance Summary Produced",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "compliance-summary",
+        "misra",
+        "misra-cpp",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A Guidelines Compliance Summary (GCS) is produced as the primary record of overall project compliance.",
+      "formula": "F(ComplianceSummary)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:69c266f211d5b458ba8688a6896586dcec08b0d1ef7047473ca25e9a40bda0c7",
+      "file": "misra_cpp_compliance_summary_produced.json",
+      "pack": "misra-cpp",
+      "group": "compliance-summary"
+    },
+    {
+      "id": "misra_cpp_deviation_documented",
+      "name": "MISRA C++: Deviation Documented",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "deviations",
+        "misra",
+        "misra-cpp",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every deviation records the violation and its supporting rationale, and is approved through the deviation procedure.",
+      "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:31b343de94e93210de582b62b7a74d876f28eb63c9be557039a0bc06f04588e9",
+      "file": "misra_cpp_deviation_documented.json",
+      "pack": "misra-cpp",
+      "group": "deviations"
+    },
+    {
+      "id": "misra_cpp_directives_addressed",
+      "name": "MISRA C++: Directives Addressed With Evidence",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "directives",
+        "misra",
+        "misra-cpp",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Directives (process/design guidelines, whose compliance depends on project context) are addressed with documented evidence.",
+      "formula": "G(Directive → addressed_with_evidence)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:25c01587c29dbeaafb791cec83da0588fb5a9015194ca71f51f7266ac43c530f",
+      "file": "misra_cpp_directives_addressed.json",
+      "pack": "misra-cpp",
+      "group": "directives"
+    },
+    {
+      "id": "misra_cpp_enforcement_plan_defined",
+      "name": "MISRA C++: Enforcement Plan Defined",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "analysis",
+        "coding-standard",
+        "misra",
+        "misra-cpp",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Each guideline analysed has a defined enforcement means in the Guidelines Enforcement Plan.",
+      "formula": "G(StaticAnalysis → enforcement_plan)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:bd35d52fa047a6e323a83ca85ac91e5a88cdfe8f40c9988d3fda477a0bb030fa",
+      "file": "misra_cpp_enforcement_plan_defined.json",
+      "pack": "misra-cpp",
+      "group": "analysis"
+    },
+    {
+      "id": "misra_cpp_mandatory_not_weakened",
+      "name": "MISRA C++: Mandatory Not Weakened",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "misra",
+        "misra-cpp",
+        "rag-red",
+        "recategorization"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A Mandatory guideline is never re-categorized to a less strict category; only Advisory guidelines may be re-categorized to Disapplied.",
+      "formula": "G(recategorization → ¬weakens_mandatory)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:0f5822046c53b0e0403093f813b7fc11d87a7cafb46c4318b9930b5a83dfd908",
+      "file": "misra_cpp_mandatory_not_weakened.json",
+      "pack": "misra-cpp",
+      "group": "recategorization"
+    },
+    {
+      "id": "misra_cpp_no_mandatory_deviation",
+      "name": "MISRA C++: No Deviation Against Mandatory",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "deviations",
+        "misra",
+        "misra-cpp",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "No deviation is raised against a Mandatory guideline.",
+      "formula": "G(Deviation → ¬targets_mandatory)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:3d576d4ae516fe9570e22cb7d1d4a4dc1d241b8c2072591b540de510042ea93b",
+      "file": "misra_cpp_no_mandatory_deviation.json",
+      "pack": "misra-cpp",
+      "group": "deviations"
+    },
+    {
+      "id": "misra_cpp_no_mandatory_violation",
+      "name": "MISRA C++: No Mandatory Violation",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "categories",
+        "coding-standard",
+        "misra",
+        "misra-cpp",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Mandatory guidelines are never violated — no deviation is permitted against a Mandatory guideline.",
+      "formula": "G(¬mandatory_violation)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:50e776d13c6dede2291b1bec561e9e97d199bff23b355f4c3ae7afc226ba609d",
+      "file": "misra_cpp_no_mandatory_violation.json",
+      "pack": "misra-cpp",
+      "group": "categories"
+    },
+    {
+      "id": "misra_cpp_recategorization_in_grp",
+      "name": "MISRA C++: Re-categorization in GRP",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "misra",
+        "misra-cpp",
+        "rag-red",
+        "recategorization"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Any change to a guideline's category is documented in the Guidelines Re-categorization Plan (GRP).",
+      "formula": "G(recategorization → P(grp_documented))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:234aea221654be206cdf9bac2ec47cfc91199c6fac9cd85fc1963c2157af8142",
+      "file": "misra_cpp_recategorization_in_grp.json",
+      "pack": "misra-cpp",
+      "group": "recategorization"
+    },
+    {
+      "id": "misra_cpp_required_violation_deviated",
+      "name": "MISRA C++: Required Violation Has Deviation",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "categories",
+        "coding-standard",
+        "misra",
+        "misra-cpp",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Any violation of a Required guideline is covered by an approved deviation.",
+      "formula": "G(required_violation → P(deviation_approved))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:00cf78e23b79e7ec958f5ab5b714f235be948d57213c73c5a6ea9b4f20ddfbdd",
+      "file": "misra_cpp_required_violation_deviated.json",
+      "pack": "misra-cpp",
+      "group": "categories"
+    },
+    {
+      "id": "misra_cpp_static_analysis_before_commit",
+      "name": "MISRA C++: Static Analysis Before Commit",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "coding-standards",
+      "tags": [
+        "analysis",
+        "coding-standard",
+        "misra",
+        "misra-cpp",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Source is checked against the MISRA C++:2023 ruleset by static analysis before it is committed.",
+      "formula": "G(GitCommit → P(StaticAnalysis ∧ misra_cpp_ruleset))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:9fce57591b031ab5f647c9bc6e0d9db778b6851767de7b58a2329826e6c336cf",
+      "file": "misra_cpp_static_analysis_before_commit.json",
+      "pack": "misra-cpp",
+      "group": "analysis"
+    },
+    {
+      "id": "misra_cpp_undecidable_manually_reviewed",
+      "name": "MISRA C++: Undecidable Guideline Manually Reviewed",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "coding-standards",
+      "tags": [
+        "coding-standard",
+        "compliance-summary",
+        "misra",
+        "misra-cpp",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Potential violations of undecidable guidelines (not fully checkable by static analysis) are subject to manual review.",
+      "formula": "G(undecidable_violation → manual_review)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:e65d04aafc4d1a01efd542ff3b28bcde559af67db65e347f2a0dd94c356a649c",
+      "file": "misra_cpp_undecidable_manually_reviewed.json",
+      "pack": "misra-cpp",
+      "group": "compliance-summary"
+    },
+    {
       "id": "no_ai_washing",
       "name": "No AI-Washing",
       "category": "communication",
@@ -2586,6 +3162,7 @@
     "actionable",
     "agentic-ai",
     "ai-governance",
+    "analysis",
     "animation",
     "api",
     "approval",
@@ -2604,13 +3181,16 @@
     "breaking-changes",
     "bugs",
     "capability",
+    "categories",
     "certification-liaison",
     "ci",
     "cleanup",
+    "coding-standard",
     "commit",
     "communication",
     "completeness",
     "compliance",
+    "compliance-summary",
     "configuration-management",
     "conformance",
     "consistency",
@@ -2630,6 +3210,8 @@
     "destructive",
     "determinism",
     "development",
+    "deviations",
+    "directives",
     "disclosure",
     "do-178c",
     "edge-cases",
@@ -2662,6 +3244,9 @@
     "memory-leak",
     "mifid-ii",
     "migration",
+    "misra",
+    "misra-c",
+    "misra-cpp",
     "navigable",
     "negative-space",
     "ordering",
@@ -2678,6 +3263,7 @@
     "reachability",
     "react",
     "reasoning",
+    "recategorization",
     "recordkeeping",
     "reducer",
     "redux",
@@ -2780,6 +3366,12 @@
       "color": "#5b2a86",
       "icon": "&#9992;",
       "description": "Airborne software certification objectives (RTCA DO-178C) — traceability, verification, coverage and configuration management as machine-checkable rules over the software life-cycle record."
+    },
+    "coding-standards": {
+      "label": "Coding Standards",
+      "color": "#9c2c2c",
+      "icon": "&#128221;",
+      "description": "MISRA C/C++ compliance-process policies — enforcement, deviations, re-categorization and compliance summary as machine-checkable rules over a coding/CI trace."
     }
   },
   "organizations": [
@@ -2823,6 +3415,21 @@
       "mapping": [
         "The IOSCO Supervisory Toolkit is supervisor-facing: for each area it lists the “Supporting Evidence for Review” a firm must be able to produce. ponens treats that evidence column as the specification. Each recordkeeping and disclosure expectation from Tables 5 and 6 becomes a policy over the AI system's decision/output trace — that decisions and outputs are logged and model-version-stamped, traceable to the actions they drive, explainable, human-overseen where material, incident-recorded with root cause, and properly disclosed to clients. ponens makes that evidence computable rather than a manual document review.",
         "Where the FIX pack is preventive — gating execution in real time — this pack is evidentiary: it computes the audit trail a supervisor would otherwise inspect by hand. `ponens trace check` returns pass / warning / error per requirement and aggregates to a Green / Amber / Red picture of exactly which records or disclosures are missing. The toolkit's organisational layers — monitoring indicators, third-party concentration, and firm-level governance such as board oversight and training — are population- or firm-level rather than per-trace, and so are intentionally out of scope for this pack."
+      ]
+    },
+    {
+      "id": "misra",
+      "name": "MISRA",
+      "full_name": "The MISRA Consortium",
+      "url": "https://misra.org.uk/",
+      "description": "MISRA publishes the most widely used C and C++ coding guidelines for safety- and security-critical software. Its Compliance:2020 document defines how a project demonstrates compliance — enforcement, deviations, re-categorization, and a compliance summary — which is the basis for the packs below.",
+      "packs": [
+        "misra-c",
+        "misra-cpp"
+      ],
+      "mapping": [
+        "MISRA's individual guidelines (143+ rules and directives) are checked by static analysis of source code, not by a trace — so ponens does not re-encode the rules. What ponens governs is the MISRA Compliance:2020 *process*: the four required artifacts (Guidelines Enforcement Plan, Re-categorization Plan, Compliance Summary, and deviation records) and the category rules (Mandatory / Required / Advisory). Each becomes a policy over a coding/CI trace — that static analysis runs against the ruleset before commit, that Mandatory guidelines are never deviated, that every Required violation carries an approved deviation with rationale, that re-categorizations are recorded in the GRP, and that a Compliance Summary is produced.",
+        "This is the natural division of labour for an AI coding agent: the analyzer finds the rule violations, and ponens checks that the agent followed the compliance process around them — making the analyzer's output auditable rather than advisory. The two packs share this process; they differ only in the ruleset they enforce (`misra_c_ruleset` for MISRA C:2012, `misra_cpp_ruleset` for MISRA C++:2023) and the guidelines they reference. Running a pack with `ponens trace check` aggregates to Green / Amber / Red: a Mandatory violation, an undeviated Required violation, or a missing Compliance Summary is Red; advisory records, enforcement-plan coverage, and undecidable-rule review are Amber."
       ]
     },
     {
@@ -2972,6 +3579,80 @@
         }
       ],
       "policy_count": 11
+    },
+    {
+      "id": "misra-c",
+      "name": "MISRA C",
+      "org": "misra",
+      "domain": "coding-standards",
+      "spec": "/spec/MISRA_COMPLIANCE_PACK",
+      "summary": "The MISRA Compliance:2020 process for MISRA C:2012 — enforcement, deviations, re-categorization, and compliance summary — as computable policies over a coding/CI trace.",
+      "description": "Maps the MISRA Compliance:2020 framework onto ponens policies for MISRA C:2012. The individual coding rules are enforced by static analysis; this pack checks the compliance process around them — analysis before commit, Mandatory never deviated, Required violations covered by approved deviations, re-categorizations recorded in the GRP, and a Guidelines Compliance Summary produced.",
+      "source": "MISRA Compliance:2020 (MISRA C:2012 ruleset).",
+      "domains": [
+        {
+          "key": "analysis",
+          "label": "Analysis & Enforcement (GEP)"
+        },
+        {
+          "key": "categories",
+          "label": "Guideline Categories"
+        },
+        {
+          "key": "deviations",
+          "label": "Deviations"
+        },
+        {
+          "key": "recategorization",
+          "label": "Re-categorization (GRP)"
+        },
+        {
+          "key": "compliance-summary",
+          "label": "Compliance Summary (GCS)"
+        },
+        {
+          "key": "directives",
+          "label": "Directives"
+        }
+      ],
+      "policy_count": 12
+    },
+    {
+      "id": "misra-cpp",
+      "name": "MISRA C++",
+      "org": "misra",
+      "domain": "coding-standards",
+      "spec": "/spec/MISRA_COMPLIANCE_PACK",
+      "summary": "The MISRA Compliance:2020 process for MISRA C++:2023 — enforcement, deviations, re-categorization, and compliance summary — as computable policies over a coding/CI trace.",
+      "description": "Maps the MISRA Compliance:2020 framework onto ponens policies for MISRA C++:2023 (based on C++17). The individual coding rules are enforced by static analysis; this pack checks the compliance process around them — analysis before commit, Mandatory never deviated, Required violations covered by approved deviations, re-categorizations recorded in the GRP, and a Guidelines Compliance Summary produced.",
+      "source": "MISRA Compliance:2020 (MISRA C++:2023 ruleset).",
+      "domains": [
+        {
+          "key": "analysis",
+          "label": "Analysis & Enforcement (GEP)"
+        },
+        {
+          "key": "categories",
+          "label": "Guideline Categories"
+        },
+        {
+          "key": "deviations",
+          "label": "Deviations"
+        },
+        {
+          "key": "recategorization",
+          "label": "Re-categorization (GRP)"
+        },
+        {
+          "key": "compliance-summary",
+          "label": "Compliance Summary (GCS)"
+        },
+        {
+          "key": "directives",
+          "label": "Directives"
+        }
+      ],
+      "policy_count": 12
     }
   ]
 }

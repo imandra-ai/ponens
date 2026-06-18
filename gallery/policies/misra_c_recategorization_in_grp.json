@@ -1,0 +1,31 @@
+{
+  "id": "misra_c_recategorization_in_grp",
+  "name": "MISRA C: Re-categorization in GRP",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Any change to a guideline's category is documented in the Guidelines Re-categorization Plan (GRP).",
+  "formula": "G(recategorization → P(grp_documented))",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: the GRP records all agreed category changes for the project before they take effect.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-c",
+    "recategorization",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-c",
+  "group": "recategorization",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C:2012. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

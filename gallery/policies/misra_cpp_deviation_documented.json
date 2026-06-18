@@ -1,0 +1,31 @@
+{
+  "id": "misra_cpp_deviation_documented",
+  "name": "MISRA C++: Deviation Documented",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Every deviation records the violation and its supporting rationale, and is approved through the deviation procedure.",
+  "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: a deviation is a documented violation of a guideline with supporting rationale, approved via the formal deviation procedure.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-cpp",
+    "deviations",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-cpp",
+  "group": "deviations",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C++:2023. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

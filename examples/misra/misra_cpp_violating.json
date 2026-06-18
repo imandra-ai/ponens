@@ -1,0 +1,171 @@
+{
+  "trace_id": "misra-cpp-violating-001",
+  "spec_version": "1.6",
+  "assistant": "coding-agent",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "MISRA compliance step",
+      "detail": "mandatory violation",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "MISRA compliance step",
+      "detail": "required violation",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "MISRA compliance step",
+      "detail": "advisory violation",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "GitCommit",
+      "category": "activity",
+      "rationale": "MISRA compliance step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "misra_cpp_advisory_violation_recorded",
+      "name": "misra_cpp_advisory_violation_recorded",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(advisory_violation → recorded)",
+      "description": "Violations of Advisory guidelines are recorded (a formal deviation is not required, but the decision is documented)."
+    },
+    {
+      "policy_id": "misra_cpp_compliance_summary_produced",
+      "name": "misra_cpp_compliance_summary_produced",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "F(ComplianceSummary)",
+      "description": "A Guidelines Compliance Summary (GCS) is produced as the primary record of overall project compliance."
+    },
+    {
+      "policy_id": "misra_cpp_deviation_documented",
+      "name": "misra_cpp_deviation_documented",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+      "description": "Every deviation records the violation and its supporting rationale, and is approved through the deviation procedure."
+    },
+    {
+      "policy_id": "misra_cpp_directives_addressed",
+      "name": "misra_cpp_directives_addressed",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Directive → addressed_with_evidence)",
+      "description": "Directives (process/design guidelines, whose compliance depends on project context) are addressed with documented evidence."
+    },
+    {
+      "policy_id": "misra_cpp_enforcement_plan_defined",
+      "name": "misra_cpp_enforcement_plan_defined",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(StaticAnalysis → enforcement_plan)",
+      "description": "Each guideline analysed has a defined enforcement means in the Guidelines Enforcement Plan."
+    },
+    {
+      "policy_id": "misra_cpp_mandatory_not_weakened",
+      "name": "misra_cpp_mandatory_not_weakened",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(recategorization → ¬weakens_mandatory)",
+      "description": "A Mandatory guideline is never re-categorized to a less strict category; only Advisory guidelines may be re-categorized to Disapplied."
+    },
+    {
+      "policy_id": "misra_cpp_no_mandatory_deviation",
+      "name": "misra_cpp_no_mandatory_deviation",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deviation → ¬targets_mandatory)",
+      "description": "No deviation is raised against a Mandatory guideline."
+    },
+    {
+      "policy_id": "misra_cpp_no_mandatory_violation",
+      "name": "misra_cpp_no_mandatory_violation",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(¬mandatory_violation)",
+      "description": "Mandatory guidelines are never violated — no deviation is permitted against a Mandatory guideline."
+    },
+    {
+      "policy_id": "misra_cpp_recategorization_in_grp",
+      "name": "misra_cpp_recategorization_in_grp",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(recategorization → P(grp_documented))",
+      "description": "Any change to a guideline's category is documented in the Guidelines Re-categorization Plan (GRP)."
+    },
+    {
+      "policy_id": "misra_cpp_required_violation_deviated",
+      "name": "misra_cpp_required_violation_deviated",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(required_violation → P(deviation_approved))",
+      "description": "Any violation of a Required guideline is covered by an approved deviation."
+    },
+    {
+      "policy_id": "misra_cpp_static_analysis_before_commit",
+      "name": "misra_cpp_static_analysis_before_commit",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(StaticAnalysis ∧ misra_cpp_ruleset))",
+      "description": "Source is checked against the MISRA C++:2023 ruleset by static analysis before it is committed."
+    },
+    {
+      "policy_id": "misra_cpp_undecidable_manually_reviewed",
+      "name": "misra_cpp_undecidable_manually_reviewed",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(undecidable_violation → manual_review)",
+      "description": "Potential violations of undecidable guidelines (not fully checkable by static analysis) are subject to manual review."
+    }
+  ]
+}

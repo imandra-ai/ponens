@@ -1,0 +1,36 @@
+{
+  "id": "misra-c",
+  "name": "MISRA C",
+  "org": "misra",
+  "domain": "coding-standards",
+  "spec": "/spec/MISRA_COMPLIANCE_PACK",
+  "summary": "The MISRA Compliance:2020 process for MISRA C:2012 — enforcement, deviations, re-categorization, and compliance summary — as computable policies over a coding/CI trace.",
+  "description": "Maps the MISRA Compliance:2020 framework onto ponens policies for MISRA C:2012. The individual coding rules are enforced by static analysis; this pack checks the compliance process around them — analysis before commit, Mandatory never deviated, Required violations covered by approved deviations, re-categorizations recorded in the GRP, and a Guidelines Compliance Summary produced.",
+  "source": "MISRA Compliance:2020 (MISRA C:2012 ruleset).",
+  "domains": [
+    {
+      "key": "analysis",
+      "label": "Analysis & Enforcement (GEP)"
+    },
+    {
+      "key": "categories",
+      "label": "Guideline Categories"
+    },
+    {
+      "key": "deviations",
+      "label": "Deviations"
+    },
+    {
+      "key": "recategorization",
+      "label": "Re-categorization (GRP)"
+    },
+    {
+      "key": "compliance-summary",
+      "label": "Compliance Summary (GCS)"
+    },
+    {
+      "key": "directives",
+      "label": "Directives"
+    }
+  ]
+}

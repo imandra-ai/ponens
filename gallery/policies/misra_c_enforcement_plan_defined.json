@@ -1,0 +1,31 @@
+{
+  "id": "misra_c_enforcement_plan_defined",
+  "name": "MISRA C: Enforcement Plan Defined",
+  "category": "workflow",
+  "severity": "warning",
+  "description": "Each guideline analysed has a defined enforcement means in the Guidelines Enforcement Plan.",
+  "formula": "G(StaticAnalysis → enforcement_plan)",
+  "language_level": "pure_temporal",
+  "rationale": "MISRA Compliance:2020: the GEP records, for every guideline, the analysis tool(s), manual review, or other means used to enforce it.",
+  "tags": [
+    "coding-standard",
+    "misra",
+    "misra-c",
+    "analysis",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the compliance-process step is evidenced",
+    "fails": "the required compliance artifact/step is absent"
+  },
+  "domain": "coding-standards",
+  "pack": "misra-c",
+  "group": "analysis",
+  "source": "MISRA Compliance:2020 — Achieving compliance with MISRA Coding Guidelines, applied to MISRA C:2012. https://misra.org.uk/",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

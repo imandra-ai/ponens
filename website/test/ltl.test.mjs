@@ -2,8 +2,8 @@
 import { evaluate } from "../src/lib/ltl.mjs";
 
 let pass = 0, fail = 0;
-function check(name, formula, trace, expected) {
-  const r = evaluate(formula, trace);
+function check(name, formula, trace, expected, meta = {}) {
+  const r = evaluate(formula, trace, meta);
   let got;
   if (!r.ok) got = `ERR:${r.error}`;
   else if (!r.supported) got = `UNSUPPORTED:${r.reason}`;
@@ -37,8 +37,10 @@ const F_AHR = "G(action → rationale ≠ ∅)";
 check("ahr pass", F_AHR, [A("ReadFile", { rationale: true }), A("EditFile", { rationale: true })], true);
 check("ahr fail", F_AHR, [A("ReadFile", { rationale: true }), A("EditFile", { rationale: false })], false);
 
-// lifecycle — start_event ∧ F end_event
-check("lifecycle pass", "start_event ∧ F end_event", [A("ReadFile"), A("GitCommit")], true);
+// lifecycle — start_event ∧ F end_event (trace-level trigger/outcome)
+const LIFECYCLE_META = { trigger: { type: "TaskReceived" }, outcome: { type: "ProcessCompleted" } };
+check("lifecycle pass", "start_event ∧ F end_event", [A("ReadFile"), A("GitCommit")], true, LIFECYCLE_META);
+check("lifecycle fail (no outcome)", "start_event ∧ F end_event", [A("ReadFile"), A("GitCommit")], false, { trigger: { type: "TaskReceived" } });
 
 // counterexample_triggers_fix — G(Verify ∧ refuted → F(EditFile))
 const F_CTF = "G(Verify ∧ refuted → F(EditFile))";

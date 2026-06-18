@@ -31,6 +31,11 @@ import Layout from "../layouts/Layout.astro";
           <button id="pgReset" type="button" class="chip">Reset example</button>
         </div>
       </div>
+      <div class="pg-meta">
+        <label>trigger <select id="pgTrigger"></select></label>
+        <label>outcome <select id="pgOutcome"></select></label>
+        <span class="pg-meta-hint">read by <code>start_event</code> / <code>end_event</code></span>
+      </div>
       <div id="pgRows"></div>
     </div>
   </div>
@@ -46,11 +51,22 @@ import Layout from "../layouts/Layout.astro";
     ];
 
     let trace = EXAMPLE();
+    // Trace-level lifecycle context, read by start_event / end_event.
+    let meta = { trigger: { type: "TaskReceived" }, outcome: { type: "ProcessCompleted" } };
     const fEl = document.getElementById("pgFormula");
     const rowsEl = document.getElementById("pgRows");
     const resEl = document.getElementById("pgResult");
     const stepsEl = document.getElementById("pgSteps");
+    const trigEl = document.getElementById("pgTrigger");
+    const outEl = document.getElementById("pgOutcome");
     fEl.value = "G(GitCommit → P(RunTests ∧ completed))";
+
+    const metaOptions = (vals, sel) =>
+      vals.map((v) => `<option value="${v}" ${v === sel ? "selected" : ""}>${v || "—"}</option>`).join("");
+    trigEl.innerHTML = metaOptions(VOCAB.triggers, meta.trigger.type);
+    outEl.innerHTML = metaOptions(VOCAB.outcomes, meta.outcome.type);
+    trigEl.addEventListener("change", () => { meta.trigger = { type: trigEl.value }; run(); });
+    outEl.addEventListener("change", () => { meta.outcome = { type: outEl.value }; run(); });
 
     const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -70,7 +86,7 @@ import Layout from "../layouts/Layout.astro";
           <select class="pg-type" data-k="type">${typeOptions(a.type)}</select>
           <select class="pg-status" data-k="status">${statusOptions(a.status)}</select>
           <input class="pg-target" data-k="target" placeholder="target (file)" value="${esc(a.target)}" />
-          <input class="pg-flags" data-k="flags" placeholder="flags, comma-sep" value="${esc(a.flags)}" />
+          <input class="pg-flags" data-k="flags" placeholder="tags / predicates, comma-sep" value="${esc(a.flags)}" />
           <label class="pg-rat"><input type="checkbox" data-k="rationale" ${a.rationale ? "checked" : ""}/> rationale</label>
           <button type="button" class="pg-mv" data-mv="up" title="Move up">↑</button>
           <button type="button" class="pg-mv" data-mv="down" title="Move down">↓</button>
@@ -92,7 +108,7 @@ import Layout from "../layouts/Layout.astro";
     }
 
     function run() {
-      const r = evaluate(fEl.value, toTrace());
+      const r = evaluate(fEl.value, toTrace(), meta);
       if (!r.ok) {
         resEl.className = "pg-result err";
         resEl.innerHTML = `<strong>Parse error</strong> — ${esc(r.error)}`;
@@ -177,4 +193,11 @@ import Layout from "../layouts/Layout.astro";
     renderRows();
     run();
   </script>
+
+  <style>
+    .pg-meta { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 0.75rem; font-size: 0.85rem; }
+    .pg-meta label { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .pg-meta select { font: inherit; padding: 0.1rem 0.25rem; }
+    .pg-meta-hint { color: var(--muted, #888); }
+  </style>
 </Layout>

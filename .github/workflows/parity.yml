@@ -1,0 +1,39 @@
+name: Evaluator parity
+
+# Cross-checks the two independent implementations of the policy language —
+# the browser evaluator (website/src/lib/ltl.mjs) and the CLI runtime evaluator
+# (cli/ponens/trace.py) — against a shared corpus. The playground must never
+# report a verdict `ponens trace check` would contradict. See parity/README.md.
+
+on:
+  pull_request:
+    paths:
+      - "website/src/lib/ltl.mjs"
+      - "cli/ponens/trace.py"
+      - "cli/ponens/policy_compiler.py"
+      - "parity/**"
+      - ".github/workflows/parity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "website/src/lib/ltl.mjs"
+      - "cli/ponens/trace.py"
+      - "cli/ponens/policy_compiler.py"
+      - "parity/**"
+      - ".github/workflows/parity.yml"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the CLI
+        run: pip install -e ./cli
+      - name: Check browser/CLI evaluator parity
+        run: python3 parity/check_parity.py

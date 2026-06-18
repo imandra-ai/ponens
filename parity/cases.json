@@ -1,0 +1,275 @@
+{
+  "_doc": "Shared parity corpus. Each case is a (formula, canonical trace) pair. The canonical trace is rendered into BOTH the browser evaluator's flat shape (website/src/lib/ltl.mjs) and the CLI runtime evaluator's action-list shape (cli/ponens/trace.py), then the two verdicts are compared. After the evaluator-consistency work both engines accept all operator dialects (∧ ∨ ¬ → ≠ ∅, /\\ \\/, && ||), resolve CamelCase atoms by exact type match, read start_event/end_event from the trace-level trigger/outcome, and match lowercase custom predicates by substring keyword (underscores read as spaces) against the action text. Canonical case fields: trace (list of actions), trigger {type}, outcome {type}. Canonical action fields: type (required), category (gateway|reasoning|activity), target (string; also drives high_stakes_path), status (completed|failed|proved|refuted|sat), rationale (bool), flags (list of predicate words surfaced as action text). Past/scoped/X operators must appear under G (their bare top-level semantics differ between the engines and never occur in real policies). 'expect' is the intended verdict and locks the JS side as a regression guard. 'divergent: true' marks a case the engines are still expected to disagree on; the harness records it without failing.",
+
+  "cases": [
+    {
+      "name": "tests_before_commit / pass",
+      "formula": "G(GitCommit → P(RunTests ∧ completed))",
+      "expect": true,
+      "trace": [
+        {"type": "ReadFile"},
+        {"type": "RunTests", "status": "completed"},
+        {"type": "EditFile"},
+        {"type": "GitCommit"}
+      ]
+    },
+    {
+      "name": "tests_before_commit / fail (no test)",
+      "formula": "G(GitCommit → P(RunTests ∧ completed))",
+      "expect": false,
+      "trace": [{"type": "EditFile"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "tests_before_commit / fail (test failed)",
+      "formula": "G(GitCommit → P(RunTests ∧ completed))",
+      "expect": false,
+      "trace": [{"type": "RunTests", "status": "failed"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "tests_before_commit / vacuous (no commit)",
+      "formula": "G(GitCommit → P(RunTests ∧ completed))",
+      "expect": true,
+      "trace": [{"type": "ReadFile"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "research_before_edit / pass (same target)",
+      "formula": "G(EditFile → P_target(ReadFile ∨ SearchCode))",
+      "expect": true,
+      "trace": [
+        {"type": "ReadFile", "target": "a.py"},
+        {"type": "EditFile", "target": "a.py"}
+      ]
+    },
+    {
+      "name": "research_before_edit / fail (different target)",
+      "formula": "G(EditFile → P_target(ReadFile ∨ SearchCode))",
+      "expect": false,
+      "trace": [
+        {"type": "ReadFile", "target": "b.py"},
+        {"type": "EditFile", "target": "a.py"}
+      ]
+    },
+    {
+      "name": "research_before_edit / fail (no prior read)",
+      "formula": "G(EditFile → P_target(ReadFile ∨ SearchCode))",
+      "expect": false,
+      "trace": [{"type": "EditFile", "target": "a.py"}]
+    },
+    {
+      "name": "no_flag / pass (flag absent)",
+      "formula": "G(¬(GitCommit ∧ force))",
+      "expect": true,
+      "trace": [{"type": "GitCommit"}]
+    },
+    {
+      "name": "no_flag / fail (flag present)",
+      "formula": "G(¬(GitCommit ∧ force))",
+      "expect": false,
+      "trace": [{"type": "GitCommit", "flags": ["force"]}]
+    },
+    {
+      "name": "all_actions_have_rationale / pass",
+      "formula": "G(action → rationale ≠ ∅)",
+      "expect": true,
+      "trace": [
+        {"type": "ReadFile", "rationale": true},
+        {"type": "EditFile", "rationale": true}
+      ]
+    },
+    {
+      "name": "all_actions_have_rationale / fail",
+      "formula": "G(action → rationale ≠ ∅)",
+      "expect": false,
+      "trace": [
+        {"type": "ReadFile", "rationale": true},
+        {"type": "EditFile", "rationale": false}
+      ]
+    },
+    {
+      "name": "counterexample_triggers_fix / pass",
+      "formula": "G(Verify ∧ refuted → F(EditFile))",
+      "expect": true,
+      "trace": [{"type": "Verify", "status": "refuted"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "counterexample_triggers_fix / fail",
+      "formula": "G(Verify ∧ refuted → F(EditFile))",
+      "expect": false,
+      "trace": [{"type": "Verify", "status": "refuted"}]
+    },
+    {
+      "name": "finally / pass",
+      "formula": "F(GitCommit)",
+      "expect": true,
+      "trace": [{"type": "ReadFile"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "finally / fail",
+      "formula": "F(GitCommit)",
+      "expect": false,
+      "trace": [{"type": "ReadFile"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "category / pass (gateway)",
+      "formula": "G(GitCommit → gateway)",
+      "expect": true,
+      "trace": [{"type": "GitCommit", "category": "gateway"}]
+    },
+    {
+      "name": "category / fail (activity)",
+      "formula": "G(GitCommit → gateway)",
+      "expect": false,
+      "trace": [{"type": "GitCommit", "category": "activity"}]
+    },
+    {
+      "name": "next / pass",
+      "formula": "G(RunTests → X GitCommit)",
+      "expect": true,
+      "trace": [{"type": "RunTests"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "next / fail",
+      "formula": "G(RunTests → X GitCommit)",
+      "expect": false,
+      "trace": [{"type": "RunTests"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "historically / pass (no prior failure)",
+      "formula": "G(GitCommit → H(¬ failed))",
+      "expect": true,
+      "trace": [{"type": "RunTests", "status": "completed"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "historically / fail (prior failure)",
+      "formula": "G(GitCommit → H(¬ failed))",
+      "expect": false,
+      "trace": [{"type": "RunTests", "status": "failed"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "until / pass",
+      "formula": "(¬GitCommit) U RunTests",
+      "expect": true,
+      "trace": [{"type": "ReadFile"}, {"type": "RunTests"}]
+    },
+    {
+      "name": "until / fail (commit before tests)",
+      "formula": "(¬GitCommit) U RunTests",
+      "expect": false,
+      "trace": [{"type": "GitCommit"}, {"type": "RunTests"}]
+    },
+    {
+      "name": "since / pass (read at or before)",
+      "formula": "G(EditFile → action S ReadFile)",
+      "expect": true,
+      "trace": [{"type": "ReadFile"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "since / fail (no prior read)",
+      "formula": "G(EditFile → action S ReadFile)",
+      "expect": false,
+      "trace": [{"type": "EditFile"}]
+    },
+    {
+      "name": "since_last / tests since last commit / pass",
+      "formula": "G(GitCommit → (RunTests ∧ completed) S_last GitCommit)",
+      "expect": true,
+      "trace": [
+        {"type": "RunTests", "status": "completed"},
+        {"type": "GitCommit"},
+        {"type": "RunTests", "status": "completed"},
+        {"type": "GitCommit"}
+      ]
+    },
+    {
+      "name": "since_last / no test since last commit / fail",
+      "formula": "G(GitCommit → (RunTests ∧ completed) S_last GitCommit)",
+      "expect": false,
+      "trace": [
+        {"type": "RunTests", "status": "completed"},
+        {"type": "GitCommit"},
+        {"type": "EditFile"},
+        {"type": "GitCommit"}
+      ]
+    },
+    {
+      "name": "dialect / browser ASCII (/\\) now parses in the CLI too",
+      "formula": "G(GitCommit → P(RunTests /\\ completed))",
+      "expect": true,
+      "note": "Both engines accept the /\\ \\/ dialect after the dialect unification.",
+      "trace": [{"type": "RunTests", "status": "completed"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "dialect / CLI ASCII (&&) now parses in the browser too",
+      "formula": "G(GitCommit → P(RunTests && completed))",
+      "expect": true,
+      "note": "Both engines accept the && || dialect after the dialect unification.",
+      "trace": [{"type": "RunTests", "status": "completed"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "lifecycle / pass (trigger + outcome set)",
+      "formula": "start_event ∧ F end_event",
+      "expect": true,
+      "note": "start_event/end_event are trace-level: both engines read the trigger/outcome type.",
+      "trigger": {"type": "TaskReceived"},
+      "outcome": {"type": "ProcessCompleted"},
+      "trace": [{"type": "ReadFile"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "lifecycle / fail (no terminal outcome)",
+      "formula": "start_event ∧ F end_event",
+      "expect": false,
+      "trigger": {"type": "TaskReceived"},
+      "trace": [{"type": "ReadFile"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "atom / exact type-match pass (ReadFile)",
+      "formula": "F(ReadFile)",
+      "expect": true,
+      "trace": [{"type": "ReadFile"}]
+    },
+    {
+      "name": "atom / exact type-match: 'Read' does not match 'ReadFile'",
+      "formula": "F(Read)",
+      "expect": false,
+      "note": "A CamelCase atom is an exact action/artifact type match in both engines, so the prefix 'Read' does not match the type 'ReadFile'.",
+      "trace": [{"type": "ReadFile"}]
+    },
+    {
+      "name": "high_stakes_path / pass (payments path)",
+      "formula": "G(EditFile → high_stakes_path)",
+      "expect": true,
+      "trace": [{"type": "EditFile", "target": "payments/charge.py"}]
+    },
+    {
+      "name": "high_stakes_path / fail (ordinary path)",
+      "formula": "G(EditFile → high_stakes_path)",
+      "expect": false,
+      "trace": [{"type": "EditFile", "target": "src/util.py"}]
+    },
+    {
+      "name": "no_secrets_committed / fail (snake_case predicate matches)",
+      "formula": "G(GitCommit → ¬P(CreateFile ∧ secret_pattern))",
+      "expect": false,
+      "note": "Custom snake_case predicate: matched by substring keyword (underscores read as spaces) against the action text in both engines.",
+      "trace": [{"type": "CreateFile", "flags": ["secret_pattern"]}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "no_secrets_committed / pass (predicate absent)",
+      "formula": "G(GitCommit → ¬P(CreateFile ∧ secret_pattern))",
+      "expect": true,
+      "trace": [{"type": "CreateFile"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "unsupported / lineage operator P_chain (JS abstains)",
+      "formula": "G(EditFile → P_chain(Verify))",
+      "unsupported": true,
+      "trace": [{"type": "Verify"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "unsupported / quantifier over residuals (JS abstains)",
+      "formula": "¬∃ r ∈ residuals . r.severity = Critical",
+      "unsupported": true,
+      "trace": [{"type": "ReadFile"}]
+    }
+  ]
+}

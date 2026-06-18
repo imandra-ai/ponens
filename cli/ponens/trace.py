@@ -385,6 +385,12 @@ def evaluate_formula(node, trace, ctx=None):
         if name == 'high_stakes_path':
             target = get_action_target(a, trace)
             return any(p in target for p in ['payments/', 'risk/', 'stripe_payment_flow'])
+        # A CamelCase atom names a specific action/artifact type. If it matched no
+        # known type above it simply does not hold here — exact-match semantics,
+        # matching the browser evaluator. Only lowercase atoms fall through to the
+        # keyword substring match (custom domain predicates against action text).
+        if name[:1].isupper():
+            return False
         keyword = name.replace('_', ' ').lower()
         text = f"{a.get('type','')} {a.get('label','')} {a.get('detail','')} {a.get('rationale','')} {a.get('result_summary','')}".lower()
         if keyword in text:

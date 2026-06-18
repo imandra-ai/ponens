@@ -203,7 +203,8 @@ ACTION_TYPES = {
     'CreateFile', 'DeleteFile', 'RenameFile',
     'RunTests', 'TypeCheck', 'Lint', 'ManualVerification',
     'RunCommand', 'ExploreDirectory',
-    'GitCommit', 'GitStatus', 'GitDiff',
+    'GitCommit', 'GitStatus', 'GitDiff', 'GitPush',
+    'Deploy',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
     'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',
@@ -306,6 +307,17 @@ def tokenize(formula: str) -> list[Token]:
             continue
         if c == '&' and i + 1 < n and formula[i + 1] == '&':
             tokens.append(Token('OP', '&&', i))
+            i += 2
+            continue
+
+        # ASCII slash dialect: /\ (and), \/ (or) — the form the browser evaluator
+        # uses. Accepted here too so a formula written for either engine parses.
+        if c == '/' and i + 1 < n and formula[i + 1] == '\\':
+            tokens.append(Token('OP', '&&', i))
+            i += 2
+            continue
+        if c == '\\' and i + 1 < n and formula[i + 1] == '/':
+            tokens.append(Token('OP', '||', i))
             i += 2
             continue
 

@@ -21,7 +21,10 @@ const BINTEMP = new Set(["U", "S", "S_last"]);
 const STATUS = new Set(["completed", "failed", "proved", "refuted", "sat", "unknown"]);
 const CATS = new Set(["gateway", "reasoning", "activity"]);
 
-const ASCII2 = { "->": "→", "/\\": "∧", "\\/": "∨", "!=": "≠", ">=": "≥", "<=": "≤" };
+// Both ASCII dialects are accepted: /\ \/ (the browser's historical form) AND
+// && || (the form `ponens trace check` uses), so a formula written for either
+// engine parses here. Unicode ∧ ∨ are handled directly below.
+const ASCII2 = { "->": "→", "/\\": "∧", "\\/": "∨", "&&": "∧", "||": "∨", "!=": "≠", ">=": "≥", "<=": "≤" };
 const SYMS = "→∧∨¬∀∃∈∅≠≥≤=().,⊨";
 
 function tokenize(src) {
@@ -100,21 +103,40 @@ function parse(src) {
   return ast;
 }
 
-function atomHolds(name, i, trace) {
-  const a = trace[i];
-  if (name === "action") return true;
-  if (name === "start_event") return i === 0;
-  if (name === "end_event") return i === trace.length - 1;
-  if (STATUS.has(name)) return a.status === name;
-  if (CATS.has(name)) return a.category === name;
-  if (/^[A-Z]/.test(name)) return a.type === name; // CamelCase → action type
-  return (a.flags || []).includes(name); // lowercase → flag
+// Path patterns that mark an action as touching a high-stakes area. Kept in
+// sync with the CLI (cli/ponens/trace.py).
+const HIGH_STAKES = ["payments/", "risk/", "stripe_payment_flow"];
+const START_TRIGGERS = new Set(["TaskReceived", "TriggeredByEvent"]);
+const END_OUTCOMES = new Set(["ProcessCompleted", "ProcessAborted", "ProcessInterrupted"]);
+
+// The keyword surface a custom predicate matches against — the action type plus
+// its free text, mirroring the CLI's `type label detail rationale result_summary`
+// blob. The playground's `flags` stand in for the action's text; underscores in a
+// predicate name match spaces, so expand them here too.
+function searchText(a) {
+  const flags = (a.flags || []).map((f) => f.replace(/_/g, " "));
+  return [a.type, a.detail, ...flags].filter(Boolean).join(" ").toLowerCase();
 }
 
-function evalAt(n, i, trace) {
+function atomHolds(name, i, trace, meta) {
+  const a = trace[i];
+  if (name === "action") return true;
+  // Trace-level lifecycle predicates — properties of the trigger/outcome, not of
+  // any position (matches the CLI exactly).
+  if (name === "start_event") return START_TRIGGERS.has((meta.trigger || {}).type);
+  if (name === "end_event") return END_OUTCOMES.has((meta.outcome || {}).type);
+  if (STATUS.has(name)) return a.status === name;
+  if (CATS.has(name)) return a.category === name;
+  if (name === "high_stakes_path") return HIGH_STAKES.some((p) => (a.target || "").includes(p));
+  if (/^[A-Z]/.test(name)) return a.type === name; // CamelCase → exact action/artifact type
+  // lowercase custom predicate → substring keyword match against the action text
+  return searchText(a).includes(name.replace(/_/g, " ").toLowerCase());
+}
+
+function evalAt(n, i, trace, meta) {
   switch (n.k) {
-    case "atom": return atomHolds(n.name, i, trace);
-    case "call": return atomHolds(n.type, i, trace) && evalAt(n.arg, i, trace);
+    case "atom": return atomHolds(n.name, i, trace, meta);
+    case "call": return atomHolds(n.type, i, trace, meta) && evalAt(n.arg, i, trace, meta);
     case "cmp": {
       if (n.left === "rationale" && (n.right === "∅" || n.right === "EMPTY")) {
         const has = !!trace[i].rationale;
@@ -122,43 +144,43 @@ function evalAt(n, i, trace) {
       }
       throw { unsupported: true, reason: `comparison \`${n.left} ${n.op} ${n.right}\` isn't in the v1 simulator` };
     }
-    case "not": return !evalAt(n.x, i, trace);
+    case "not": return !evalAt(n.x, i, trace, meta);
     case "bin": {
       const { op, a, b } = n;
-      if (op === "∧") return evalAt(a, i, trace) && evalAt(b, i, trace);
-      if (op === "∨") return evalAt(a, i, trace) || evalAt(b, i, trace);
-      if (op === "→") return !evalAt(a, i, trace) || evalAt(b, i, trace);
+      if (op === "∧") return evalAt(a, i, trace, meta) && evalAt(b, i, trace, meta);
+      if (op === "∨") return evalAt(a, i, trace, meta) || evalAt(b, i, trace, meta);
+      if (op === "→") return !evalAt(a, i, trace, meta) || evalAt(b, i, trace, meta);
       if (op === "U") {
         for (let k = i; k < trace.length; k++) {
-          if (evalAt(b, k, trace)) { for (let m = i; m < k; m++) if (!evalAt(a, m, trace)) return false; return true; }
+          if (evalAt(b, k, trace, meta)) { for (let m = i; m < k; m++) if (!evalAt(a, m, trace, meta)) return false; return true; }
         }
         return false;
       }
       if (op === "S") {
         for (let k = i; k >= 0; k--) {
-          if (evalAt(b, k, trace)) { for (let m = k + 1; m <= i; m++) if (!evalAt(a, m, trace)) return false; return true; }
+          if (evalAt(b, k, trace, meta)) { for (let m = k + 1; m <= i; m++) if (!evalAt(a, m, trace, meta)) return false; return true; }
         }
         return false;
       }
       if (op === "S_last") {
         let k = -1;
-        for (let j = i - 1; j >= 0; j--) if (evalAt(b, j, trace)) { k = j; break; }
-        for (let m = k + 1; m <= i; m++) if (evalAt(a, m, trace)) return true;
+        for (let j = i - 1; j >= 0; j--) if (evalAt(b, j, trace, meta)) { k = j; break; }
+        for (let m = k + 1; m <= i; m++) if (evalAt(a, m, trace, meta)) return true;
         return false;
       }
       throw { unsupported: true, reason: `operator ${op}` };
     }
     case "un": {
       const { op, x } = n;
-      if (op === "G") { for (let j = i; j < trace.length; j++) if (!evalAt(x, j, trace)) return false; return true; }
-      if (op === "F") { for (let j = i; j < trace.length; j++) if (evalAt(x, j, trace)) return true; return false; }
-      if (op === "X") return i + 1 < trace.length && evalAt(x, i + 1, trace);
-      if (op === "P") { for (let j = 0; j < i; j++) if (evalAt(x, j, trace)) return true; return false; }
-      if (op === "H") { for (let j = 0; j < i; j++) if (!evalAt(x, j, trace)) return false; return true; }
+      if (op === "G") { for (let j = i; j < trace.length; j++) if (!evalAt(x, j, trace, meta)) return false; return true; }
+      if (op === "F") { for (let j = i; j < trace.length; j++) if (evalAt(x, j, trace, meta)) return true; return false; }
+      if (op === "X") return i + 1 < trace.length && evalAt(x, i + 1, trace, meta);
+      if (op === "P") { for (let j = 0; j < i; j++) if (evalAt(x, j, trace, meta)) return true; return false; }
+      if (op === "H") { for (let j = 0; j < i; j++) if (!evalAt(x, j, trace, meta)) return false; return true; }
       if (op === "P_target") {
         const tg = trace[i].target;
         if (tg == null || tg === "") return false;
-        for (let j = 0; j < i; j++) if (trace[j].target === tg && evalAt(x, j, trace)) return true;
+        for (let j = 0; j < i; j++) if (trace[j].target === tg && evalAt(x, j, trace, meta)) return true;
         return false;
       }
       throw { unsupported: true, reason: op };
@@ -173,7 +195,8 @@ function evalAt(n, i, trace) {
 //   { ok:true, supported:false, reason }         — uses a construct outside v1
 //   { ok:true, supported:true, verdict, per, witness, witnessKind, bodyOp }
 // `per[i]` is the truth of the formula's inner body at position i (for the step-through).
-export function evaluate(formula, trace) {
+// `meta` carries trace-level context the lifecycle predicates read: { trigger, outcome }.
+export function evaluate(formula, trace, meta = {}) {
   let ast;
   try { ast = parse(formula); }
   catch (e) { if (e && e.unsupported) return { ok: true, supported: false, reason: e.reason }; return { ok: false, error: String((e && e.message) || e) }; }
@@ -182,8 +205,8 @@ export function evaluate(formula, trace) {
     const topTemporal = ast.k === "un" && ["G", "F", "H", "X", "P"].includes(ast.op);
     const body = topTemporal ? ast.x : ast;
     const per = [];
-    for (let i = 0; i < n; i++) per.push(evalAt(body, i, trace));
-    const verdict = evalAt(ast, 0, trace);
+    for (let i = 0; i < n; i++) per.push(evalAt(body, i, trace, meta));
+    const verdict = evalAt(ast, 0, trace, meta);
     let witness = null, witnessKind = null;
     if (ast.k === "un" && ast.op === "G") { const idx = per.findIndex((v) => !v); if (idx >= 0) { witness = idx; witnessKind = "violates"; } }
     else if (ast.k === "un" && ast.op === "F") { const idx = per.findIndex((v) => v); if (idx >= 0) { witness = idx; witnessKind = "satisfies"; } }
@@ -199,4 +222,7 @@ export const VOCAB = {
     "ReadDocumentation", "RunTests", "Lint", "TypeCheck", "GitCommit", "GitPush",
     "Formalize", "Verify", "Decompose", "GenerateTests", "DefineVG", "UserApproval", "Deploy"],
   statuses: ["", "completed", "failed", "proved", "refuted", "sat"],
+  // Trace-level lifecycle values the start_event / end_event predicates read.
+  triggers: ["", "TaskReceived", "TriggeredByEvent"],
+  outcomes: ["", "ProcessCompleted", "ProcessAborted", "ProcessInterrupted"],
 };

@@ -1,0 +1,31 @@
+{
+  "id": "training_data_representative",
+  "name": "Training Data Representative",
+  "category": "safety",
+  "severity": "error",
+  "description": "Data used as input for AI systems is relevant, sufficient and representative, and algorithms are trained and validated on accurate, comprehensive and sufficiently broad datasets.",
+  "formula": "G(Deploy → data_representative)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶12: firms should ensure the data used as input is relevant, sufficient and representative, and that algorithms are trained and validated on accurate and comprehensive datasets.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "risk-management",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "risk-management",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

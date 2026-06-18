@@ -1,0 +1,31 @@
+{
+  "id": "ai_output_accuracy_controlled",
+  "name": "AI Output Accuracy Controlled (ex-ante)",
+  "category": "safety",
+  "severity": "error",
+  "description": "Ex-ante controls verify the accuracy of information supplied to or by AI before it is disseminated to clients, preventing erroneous or misleading investment advice.",
+  "formula": "G(client_facing → P(accuracy_checked))",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶16: robust controls should be established to ensure — ex-ante — the accuracy of information supplied to and/or utilised by AI systems, to prevent the dissemination of erroneous information or misleading advice.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "accuracy",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "accuracy",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,31 @@
+{
+  "id": "ai_tested_before_deployment",
+  "name": "AI Tested Before Deployment",
+  "category": "safety",
+  "severity": "error",
+  "description": "AI systems are tested and validated before deployment in the provision of investment services.",
+  "formula": "G(Deploy → P(tested ∧ validated))",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶11/13/21: firms should conduct regular AI model testing; implement comprehensive testing and monitoring; and thorough testing of algorithms and their outcomes for accuracy, fairness and reliability.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "risk-management",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "risk-management",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

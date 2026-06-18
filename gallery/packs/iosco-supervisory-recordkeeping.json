@@ -1,0 +1,20 @@
+{
+  "id": "iosco-supervisory-recordkeeping",
+  "name": "Supervisory Recordkeeping & Disclosure",
+  "org": "iosco",
+  "domain": "ai-supervision",
+  "spec": "/spec/IOSCO_SUPERVISORY_PACK",
+  "summary": "The IOSCO Supervisory Toolkit's recordkeeping, audit-trail and disclosure expectations, expressed as computable policies over an AI system's decision/execution trace.",
+  "description": "Maps Tables 5 (Disclosure) and 6 (Recordkeeping & reporting) of the IOSCO FR/02/2026 Supervisory Toolkit onto ponens policies. Where the FIX pack is preventive runtime governance, this pack is evidentiary: it checks that AI decisions and outputs are logged, traceable to the actions they drive, explainable, human-overseen where material, incident-recorded, and properly disclosed to clients — i.e. it computes the 'Supporting Evidence for Review' a supervisor would otherwise inspect by hand.",
+  "source": "IOSCO FR/02/2026 — Supervisory Toolkit for AI Use in Capital Markets (May 2026).",
+  "domains": [
+    {
+      "key": "recordkeeping",
+      "label": "Recordkeeping & Audit Trail"
+    },
+    {
+      "key": "disclosure",
+      "label": "Disclosure & Transparency"
+    }
+  ]
+}

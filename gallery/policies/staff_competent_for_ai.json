@@ -1,0 +1,31 @@
+{
+  "id": "staff_competent_for_ai",
+  "name": "Staff Competent for AI",
+  "category": "workflow",
+  "severity": "warning",
+  "description": "Staff using AI to provide information about investment products to clients do so under heightened vigilance and with adequate AI competence and training.",
+  "formula": "G(client_information → staff_competent)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶15/17: given the importance MiFID II gives to staff knowledge and competence, firms using AI for such activities must do so under heightened vigilance, with adequate AI training covering risks, ethics, and bias.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "outsourcing",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "outsourcing",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

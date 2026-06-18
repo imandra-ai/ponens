@@ -1,0 +1,31 @@
+{
+  "id": "acts_in_client_best_interest",
+  "name": "Acts in Client Best Interest",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Every AI-supported recommendation is assessed against the overarching MiFID II obligation to act in the client's best interest.",
+  "formula": "G(Recommendation → best_interest_assessed)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶7: central to the use of AI is the unwavering commitment to act in clients' best interest — an overarching requirement that applies irrespective of the tools the firm adopts.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "best-interest",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "best-interest",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

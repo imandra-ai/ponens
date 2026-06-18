@@ -1,0 +1,31 @@
+{
+  "id": "recommendation_suitable",
+  "name": "Recommendation Suitable",
+  "category": "conformance",
+  "severity": "error",
+  "description": "AI-supported recommendations are subject to a suitability assessment aligning them to the client's situation, objectives, sustainability preferences, risk tolerance, and knowledge.",
+  "formula": "G(Recommendation → suitability_assessed)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶20: in the assessment of suitability, recommendations and decisions must align with the client's financial situation, investment objectives (including sustainability preferences and risk tolerance), and knowledge and experience.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "suitability",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "suitability",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,31 @@
+{
+  "id": "product_governance_aligned",
+  "name": "Product Governance Aligned",
+  "category": "conformance",
+  "severity": "error",
+  "description": "AI-driven distribution aligns the products distributed to their identified target market (product governance).",
+  "formula": "G(Distribution → target_market_aligned)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶20: AI systems must be designed and monitored, for example in the context of product governance, to align the distribution of products to the target market.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "suitability",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "suitability",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

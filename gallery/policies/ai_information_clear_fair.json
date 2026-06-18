@@ -1,0 +1,31 @@
+{
+  "id": "ai_information_clear_fair",
+  "name": "AI Information Clear, Fair, Not Misleading",
+  "category": "communication",
+  "severity": "warning",
+  "description": "Information provided to clients on the firm's use of AI is presented in a clear, fair and not misleading manner.",
+  "formula": "G(client_facing → clear_fair_not_misleading)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶8: when firms provide clients with information on how they use AI tools, they ensure such information is presented in a clear, fair and not misleading manner.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "best-interest",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "best-interest",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

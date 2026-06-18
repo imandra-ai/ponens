@@ -1,0 +1,31 @@
+{
+  "id": "outsourced_ai_due_diligence",
+  "name": "Outsourced AI Due Diligence",
+  "category": "workflow",
+  "severity": "error",
+  "description": "Third-party AI used for critical or important operational functions is subject to MiFID II outsourcing due diligence and adequate controls.",
+  "formula": "G(third_party_ai → due_diligence_done)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶14: where AI is acquired from third-party providers, firms are reminded of the MiFID II requirements regarding outsourcing of critical and important operational functions — adequate due diligence and adequate controls along the value chain.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "outsourcing",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "outsourcing",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

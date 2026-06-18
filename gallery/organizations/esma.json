@@ -1,0 +1,14 @@
+{
+  "id": "esma",
+  "name": "ESMA",
+  "full_name": "European Securities and Markets Authority",
+  "url": "https://www.esma.europa.eu/",
+  "description": "ESMA is the EU's securities-markets regulator. Its Public Statement on the use of AI in the provision of retail investment services maps AI use onto firms' existing MiFID II obligations — best interest, suitability, transparency, risk management, and recordkeeping — the basis for the pack below.",
+  "packs": [
+    "esma-mifid-ai-investment-services"
+  ],
+  "mapping": [
+    "ESMA's Public Statement does not create new AI rules; it reads AI use through existing MiFID II obligations, with one throughline — “firms' decisions remain the responsibility of management bodies, irrespective of whether those decisions are taken by people or AI-based tools,” and AI must always serve clients' best interest. ponens turns each of those obligations into a policy over the trace of an AI-assisted investment service: that the client is told when AI is involved, that recommendations are assessed for best interest and suitability, that AI outputs are accuracy-checked before reaching clients and monitored afterwards, and that models are tested on representative data before deployment.",
+    "The Statement's recordkeeping clause (¶24) and its ex-ante / ex-post accuracy controls (¶16) read almost directly as trace policies, so the mapping is tight rather than interpretive. Running the pack with `ponens trace check` aggregates the per-obligation verdicts to a Green / Amber / Red picture: an `error`-severity breach (e.g. an undisclosed AI interaction, an unsuitable recommendation, or missing AI records) is Red; softer expectations such as periodic stress-testing or staff competence are Amber. The firm-level MiFID II machinery the Statement also invokes — management-body oversight and outsourcing governance — is organisational rather than per-trace and sits outside this pack."
+  ]
+}

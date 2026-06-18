@@ -27,6 +27,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 POLICY_DIR = os.path.join(ROOT, "gallery", "policies")
+PACKS_DIR = os.path.join(ROOT, "gallery", "packs")
+ORGS_DIR = os.path.join(ROOT, "gallery", "organizations")
 INDEX_PATH = os.path.join(POLICY_DIR, "_index.json")
 CATALOG_PATH = os.path.join(POLICY_DIR, "_catalog.json")
 REASONER_INDEX = os.path.join(ROOT, "gallery", "reasoners", "_index.json")
@@ -192,7 +194,23 @@ def load_policies():
     return policies
 
 
+def load_manifests(directory):
+    """Load standalone JSON manifests (one object per file) from a directory,
+    sorted by id. Returns [] if the directory is absent (legacy layout)."""
+    if not os.path.isdir(directory):
+        return []
+    out = []
+    for path in sorted(glob.glob(os.path.join(directory, "*.json"))):
+        with open(path) as f:
+            out.append(json.load(f))
+    return sorted(out, key=lambda m: m.get("id", ""))
+
+
 def build_catalog(policies, index):
+    # Packs and organizations are first-class JSON manifests under gallery/.
+    # Fall back to inline _index.json arrays for the legacy layout.
+    packs = load_manifests(PACKS_DIR) or index.get("packs", [])
+    organizations = load_manifests(ORGS_DIR) or index.get("organizations", [])
     entries = []
     for _path, p in sorted(policies, key=lambda x: x[1].get("id", "")):
         status, _msg = compiler_status(p)
@@ -221,6 +239,13 @@ def build_catalog(policies, index):
         })
     categories = sorted({e["category"] for e in entries if e["category"]})
     tags = sorted({t for e in entries for t in (e["tags"] or [])})
+    # Stamp each pack with its policy membership count (derived from the policy
+    # files, so the manifest never drifts from the actual policies).
+    counts = {}
+    for e in entries:
+        if e.get("pack"):
+            counts[e["pack"]] = counts.get(e["pack"], 0) + 1
+    packs = [{**p, "policy_count": counts.get(p.get("id"), 0)} for p in packs]
     return {
         "schema_version": CATALOG_SCHEMA_VERSION,
         "source": "gallery/policies",
@@ -229,8 +254,8 @@ def build_catalog(policies, index):
         "categories": categories,
         "tags": tags,
         "domains": index.get("domains", {}),
-        "organizations": index.get("organizations", []),
-        "packs": index.get("packs", []),
+        "organizations": organizations,
+        "packs": packs,
     }
 
 
@@ -296,6 +321,21 @@ def main():
     if missing_files:
         all_ok = False
         print(f"FAIL  ids in _index.json with no policy file: {sorted(missing_files)}")
+
+    # Pack / organization manifest integrity
+    packs = load_manifests(PACKS_DIR)
+    orgs = load_manifests(ORGS_DIR)
+    pack_ids = {p.get("id") for p in packs}
+    org_ids = {o.get("id") for o in orgs}
+    for p in packs:
+        if p.get("org") and p["org"] not in org_ids:
+            all_ok = False
+            print(f"FAIL  pack '{p.get('id')}' references unknown org '{p['org']}'")
+    for _path, policy in policies:
+        pk = policy.get("pack")
+        if pk and pk not in pack_ids:
+            all_ok = False
+            print(f"FAIL  policy '{policy.get('id')}' references unknown pack '{pk}'")
 
     if not all_ok:
         print("\nValidation failed.")

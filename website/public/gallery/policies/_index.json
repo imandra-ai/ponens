@@ -75,7 +75,21 @@
     "incidents_root_caused",
     "no_ai_washing",
     "output_action_traceable",
-    "reportable_incident_notified"
+    "reportable_incident_notified",
+    "acts_in_client_best_interest",
+    "ai_complaints_recorded",
+    "ai_information_clear_fair",
+    "ai_information_monitored",
+    "ai_output_accuracy_controlled",
+    "ai_records_maintained",
+    "ai_stress_tested",
+    "ai_tested_before_deployment",
+    "ai_use_disclosed_to_client",
+    "outsourced_ai_due_diligence",
+    "product_governance_aligned",
+    "recommendation_suitable",
+    "staff_competent_for_ai",
+    "training_data_representative"
   ],
   "categories": [
     "auditability",
@@ -127,6 +141,7 @@
     "determinism",
     "edge-cases",
     "editing",
+    "esma",
     "files",
     "fix-ai-wg",
     "fixes",
@@ -149,6 +164,7 @@
     "liveness",
     "loading-states",
     "memory-leak",
+    "mifid-ii",
     "migration",
     "ordering",
     "payments",
@@ -236,90 +252,12 @@
       "color": "#1d4e8",
       "icon": "&#128202;",
       "description": "Supervisory recordkeeping, audit-trail and disclosure policies for AI in capital markets — the IOSCO toolkit's evidence requirements as machine-checkable rules."
-    }
-  },
-  "organizations": [
-    {
-      "id": "fix-community",
-      "name": "FIX Community",
-      "full_name": "FIX Trading Community — AI Working Group",
-      "url": "https://www.fixtrading.org/",
-      "description": "The FIX Trading Community standardises electronic trading. Its AI Working Group is developing runtime-governance standards for agentic AI in capital markets — the basis for the policy pack below.",
-      "packs": [
-        "agentic-ai-runtime-governance"
-      ],
-      "mapping": [
-        "The FIX AI Working Group's runtime-governance proposal defines a traffic-light scheme — Green (proceed), Amber (flag/refer), Red (halt) — across five domains: identity & authorisation, intent & constraint, capability & DCE, runtime telemetry & trajectory, and approval & release gating. ponens maps each traffic-light condition onto a temporal-logic policy evaluated over an agent's execution trace. This is exactly the form the proposal itself demands of any binding control (§10.3): “a deterministic function over the governed state… executing independently of the language model.” A ponens policy is precisely that function.",
-        "Each domain becomes a policy group, plus the Szpruch et al. capability failure modes (C1–C4); a policy's severity encodes Red (error) versus Amber (warning), and its tier tag selects the Assistive–to–Critical-Autonomous profile. Running the pack with `ponens trace check` aggregates the per-policy verdicts into the GovernanceState the proposal wants carried in a new FIX field — all-pass is Green, a warning-fail is Amber, an error-fail is Red. The genuinely population-level conditions (orchestration drift, compound-workflow market-disorder testing) are the proposal's own Gap 5 and sit outside per-trace policy."
-      ]
     },
-    {
-      "id": "iosco",
-      "name": "IOSCO",
-      "full_name": "International Organization of Securities Commissions",
-      "url": "https://www.iosco.org/",
-      "description": "IOSCO is the global standard-setter for securities markets. Its FR/02/2026 Supervisory Toolkit for AI Use in Capital Markets sets out the records, audit trail, and disclosures supervisors expect firms to be able to evidence — the basis for the pack below.",
-      "packs": [
-        "iosco-supervisory-recordkeeping"
-      ],
-      "mapping": [
-        "The IOSCO Supervisory Toolkit is supervisor-facing: for each area it lists the “Supporting Evidence for Review” a firm must be able to produce. ponens treats that evidence column as the specification. Each recordkeeping and disclosure expectation from Tables 5 and 6 becomes a policy over the AI system's decision/output trace — that decisions and outputs are logged and model-version-stamped, traceable to the actions they drive, explainable, human-overseen where material, incident-recorded with root cause, and properly disclosed to clients. ponens makes that evidence computable rather than a manual document review.",
-        "Where the FIX pack is preventive — gating execution in real time — this pack is evidentiary: it computes the audit trail a supervisor would otherwise inspect by hand. `ponens trace check` returns pass / warning / error per requirement and aggregates to a Green / Amber / Red picture of exactly which records or disclosures are missing. The toolkit's organisational layers — monitoring indicators, third-party concentration, and firm-level governance such as board oversight and training — are population- or firm-level rather than per-trace, and so are intentionally out of scope for this pack."
-      ]
+    "investment-services": {
+      "label": "Investment Services",
+      "color": "#0a5ad6",
+      "icon": "&#128188;",
+      "description": "MiFID II conduct policies for AI in retail investment services — ESMA's best-interest, suitability, accuracy, and recordkeeping expectations as machine-checkable rules."
     }
-  ],
-  "packs": [
-    {
-      "id": "agentic-ai-runtime-governance",
-      "name": "Agentic AI Runtime Governance",
-      "org": "fix-community",
-      "domain": "agentic-governance",
-      "spec": "/spec/AGENTIC_GOVERNANCE_PACK",
-      "summary": "The FIX AI Working Group's traffic-light (Green / Amber / Red) runtime-governance scheme, expressed as computable policies over an agent's execution trace.",
-      "description": "Maps the FIX AI WG proposal on Agentic AI Runtime Governance onto ponens policies. Each traffic-light condition across five domains — identity & authorisation, intent & constraint, capability & DCE, runtime telemetry & trajectory, and approval & release gating — plus the Szpruch et al. capability failure modes (C1–C4), becomes a deterministic check that `ponens trace check` aggregates into a Green/Amber/Red GovernanceState.",
-      "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, Jun 2026); Szpruch, Sudjianto, Bhatti & Ang (2026).",
-      "domains": [
-        {
-          "key": "identity",
-          "label": "Identity & Authorisation"
-        },
-        {
-          "key": "intent",
-          "label": "Intent & Constraint"
-        },
-        {
-          "key": "capability",
-          "label": "Capability & DCE"
-        },
-        {
-          "key": "telemetry",
-          "label": "Runtime Telemetry & Trajectory"
-        },
-        {
-          "key": "release",
-          "label": "Approval & Release Gating"
-        }
-      ]
-    },
-    {
-      "id": "iosco-supervisory-recordkeeping",
-      "name": "Supervisory Recordkeeping & Disclosure",
-      "org": "iosco",
-      "domain": "ai-supervision",
-      "spec": "/spec/IOSCO_SUPERVISORY_PACK",
-      "summary": "The IOSCO Supervisory Toolkit's recordkeeping, audit-trail and disclosure expectations, expressed as computable policies over an AI system's decision/execution trace.",
-      "description": "Maps Tables 5 (Disclosure) and 6 (Recordkeeping & reporting) of the IOSCO FR/02/2026 Supervisory Toolkit onto ponens policies. Where the FIX pack is preventive runtime governance, this pack is evidentiary: it checks that AI decisions and outputs are logged, traceable to the actions they drive, explainable, human-overseen where material, incident-recorded, and properly disclosed to clients — i.e. it computes the 'Supporting Evidence for Review' a supervisor would otherwise inspect by hand.",
-      "source": "IOSCO FR/02/2026 — Supervisory Toolkit for AI Use in Capital Markets (May 2026).",
-      "domains": [
-        {
-          "key": "recordkeeping",
-          "label": "Recordkeeping & Audit Trail"
-        },
-        {
-          "key": "disclosure",
-          "label": "Disclosure & Transparency"
-        }
-      ]
-    }
-  ]
+  }
 }

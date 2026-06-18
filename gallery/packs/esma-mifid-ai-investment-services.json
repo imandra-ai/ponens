@@ -1,0 +1,36 @@
+{
+  "id": "esma-mifid-ai-investment-services",
+  "name": "MiFID II AI in Investment Services",
+  "org": "esma",
+  "domain": "investment-services",
+  "spec": "/spec/ESMA_MIFID_AI_PACK",
+  "summary": "ESMA's MiFID II expectations for AI in retail investment services — best interest, suitability, transparency, accuracy controls, testing, and recordkeeping — as computable policies.",
+  "description": "Maps the ESMA Public Statement on AI in the provision of retail investment services onto ponens policies. Each MiFID II obligation ESMA highlights — acting in the client's best interest, disclosing AI use, suitability and product governance, ex-ante/ex-post accuracy controls, model testing on representative data, outsourcing due diligence, staff competence, and recordkeeping of AI decision processes — becomes a deterministic check over the trace of an AI-assisted investment service.",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 (30 May 2024).",
+  "domains": [
+    {
+      "key": "best-interest",
+      "label": "Best Interest & Transparency"
+    },
+    {
+      "key": "suitability",
+      "label": "Suitability & Conduct"
+    },
+    {
+      "key": "accuracy",
+      "label": "Accuracy Controls"
+    },
+    {
+      "key": "risk-management",
+      "label": "Risk Management & Testing"
+    },
+    {
+      "key": "outsourcing",
+      "label": "Outsourcing & Competence"
+    },
+    {
+      "key": "recordkeeping",
+      "label": "Record Keeping"
+    }
+  ]
+}

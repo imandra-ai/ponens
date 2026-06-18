@@ -219,6 +219,8 @@ ACTION_TYPES = {
     'ToolCall', 'Retrieve', 'Compute', 'Draft', 'Release',
     # Supervisory recordkeeping vocabulary (IOSCO toolkit pack)
     'Decision', 'Output', 'Incident',
+    # Investment-services vocabulary (ESMA MiFID II pack)
+    'Recommendation', 'Distribution',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
     'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',

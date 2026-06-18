@@ -1,0 +1,211 @@
+{
+  "trace_id": "esma-violating-001",
+  "spec_version": "1.6",
+  "assistant": "investment-ai",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "Output",
+      "category": "activity",
+      "rationale": "AI-assisted investment step",
+      "detail": "client facing | client interaction | ai driven information",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "Recommendation",
+      "category": "activity",
+      "rationale": "AI-assisted investment step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "Deploy",
+      "category": "activity",
+      "rationale": "AI-assisted investment step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "Distribution",
+      "category": "activity",
+      "rationale": "AI-assisted investment step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "Draft",
+      "category": "activity",
+      "rationale": "AI-assisted investment step",
+      "detail": "third party ai",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 6,
+      "type": "AskUser",
+      "category": "activity",
+      "rationale": "AI-assisted investment step",
+      "detail": "complaint",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "acts_in_client_best_interest",
+      "name": "acts_in_client_best_interest",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Recommendation → best_interest_assessed)",
+      "description": "Every AI-supported recommendation is assessed against the overarching MiFID II obligation to act in the client's best interest."
+    },
+    {
+      "policy_id": "ai_complaints_recorded",
+      "name": "ai_complaints_recorded",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(complaint → recorded)",
+      "description": "Firms maintain comprehensive records on AI-related client and potential-client complaints."
+    },
+    {
+      "policy_id": "ai_information_clear_fair",
+      "name": "ai_information_clear_fair",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(client_facing → clear_fair_not_misleading)",
+      "description": "Information provided to clients on the firm's use of AI is presented in a clear, fair and not misleading manner."
+    },
+    {
+      "policy_id": "ai_information_monitored",
+      "name": "ai_information_monitored",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ai_driven_information → post_review)",
+      "description": "Ex-post controls monitor and evaluate any process that delivers information to clients directly or indirectly through AI-driven mechanisms."
+    },
+    {
+      "policy_id": "ai_output_accuracy_controlled",
+      "name": "ai_output_accuracy_controlled",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(client_facing → P(accuracy_checked))",
+      "description": "Ex-ante controls verify the accuracy of information supplied to or by AI before it is disseminated to clients, preventing erroneous or misleading investment advice."
+    },
+    {
+      "policy_id": "ai_records_maintained",
+      "name": "ai_records_maintained",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Decision ∨ Output) → logged ∧ data_sources_recorded ∧ algorithm_recorded)",
+      "description": "Records document the use of AI, including the decision-making processes, data sources used, algorithms implemented, and any modifications made over time."
+    },
+    {
+      "policy_id": "ai_stress_tested",
+      "name": "ai_stress_tested",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → stress_tested)",
+      "description": "AI systems are periodically stress-tested to evaluate performance under extreme market conditions."
+    },
+    {
+      "policy_id": "ai_tested_before_deployment",
+      "name": "ai_tested_before_deployment",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(tested ∧ validated))",
+      "description": "AI systems are tested and validated before deployment in the provision of investment services."
+    },
+    {
+      "policy_id": "ai_use_disclosed_to_client",
+      "name": "ai_use_disclosed_to_client",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(client_interaction → ai_disclosed)",
+      "description": "Firms transparently disclose to clients when they are interacting with an AI system (e.g. chatbots or other AI-driven automated systems)."
+    },
+    {
+      "policy_id": "outsourced_ai_due_diligence",
+      "name": "outsourced_ai_due_diligence",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(third_party_ai → due_diligence_done)",
+      "description": "Third-party AI used for critical or important operational functions is subject to MiFID II outsourcing due diligence and adequate controls."
+    },
+    {
+      "policy_id": "product_governance_aligned",
+      "name": "product_governance_aligned",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Distribution → target_market_aligned)",
+      "description": "AI-driven distribution aligns the products distributed to their identified target market (product governance)."
+    },
+    {
+      "policy_id": "recommendation_suitable",
+      "name": "recommendation_suitable",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Recommendation → suitability_assessed)",
+      "description": "AI-supported recommendations are subject to a suitability assessment aligning them to the client's situation, objectives, sustainability preferences, risk tolerance, and knowledge."
+    },
+    {
+      "policy_id": "staff_competent_for_ai",
+      "name": "staff_competent_for_ai",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(client_information → staff_competent)",
+      "description": "Staff using AI to provide information about investment products to clients do so under heightened vigilance and with adequate AI competence and training."
+    },
+    {
+      "policy_id": "training_data_representative",
+      "name": "training_data_representative",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → data_representative)",
+      "description": "Data used as input for AI systems is relevant, sufficient and representative, and algorithms are trained and validated on accurate, comprehensive and sufficiently broad datasets."
+    }
+  ]
+}

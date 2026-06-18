@@ -1,0 +1,31 @@
+{
+  "id": "ai_stress_tested",
+  "name": "AI Stress Tested",
+  "category": "safety",
+  "severity": "warning",
+  "description": "AI systems are periodically stress-tested to evaluate performance under extreme market conditions.",
+  "formula": "G(Deploy → stress_tested)",
+  "language_level": "pure_temporal",
+  "rationale": "ESMA ¶21: firms should conduct periodic stress tests to evaluate how these AI systems perform under extreme market conditions.",
+  "tags": [
+    "ai-governance",
+    "mifid-ii",
+    "esma",
+    "risk-management",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "see rationale",
+    "fails": "the required control/record is absent"
+  },
+  "domain": "investment-services",
+  "pack": "esma-mifid-ai-investment-services",
+  "group": "risk-management",
+  "source": "ESMA Public Statement ESMA35-335435667-5924 — On the use of Artificial Intelligence (AI) in the provision of retail investment services (30 May 2024), mapping AI use onto MiFID II obligations.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

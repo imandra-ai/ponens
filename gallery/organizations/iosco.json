@@ -1,0 +1,14 @@
+{
+  "id": "iosco",
+  "name": "IOSCO",
+  "full_name": "International Organization of Securities Commissions",
+  "url": "https://www.iosco.org/",
+  "description": "IOSCO is the global standard-setter for securities markets. Its FR/02/2026 Supervisory Toolkit for AI Use in Capital Markets sets out the records, audit trail, and disclosures supervisors expect firms to be able to evidence — the basis for the pack below.",
+  "packs": [
+    "iosco-supervisory-recordkeeping"
+  ],
+  "mapping": [
+    "The IOSCO Supervisory Toolkit is supervisor-facing: for each area it lists the “Supporting Evidence for Review” a firm must be able to produce. ponens treats that evidence column as the specification. Each recordkeeping and disclosure expectation from Tables 5 and 6 becomes a policy over the AI system's decision/output trace — that decisions and outputs are logged and model-version-stamped, traceable to the actions they drive, explainable, human-overseen where material, incident-recorded with root cause, and properly disclosed to clients. ponens makes that evidence computable rather than a manual document review.",
+    "Where the FIX pack is preventive — gating execution in real time — this pack is evidentiary: it computes the audit trail a supervisor would otherwise inspect by hand. `ponens trace check` returns pass / warning / error per requirement and aggregates to a Green / Amber / Red picture of exactly which records or disclosures are missing. The toolkit's organisational layers — monitoring indicators, third-party concentration, and firm-level governance such as board oversight and training — are population- or firm-level rather than per-trace, and so are intentionally out of scope for this pack."
+  ]
+}

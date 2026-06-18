@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 75,
+  "policy_count": 89,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -24,6 +24,30 @@
       "reference_compiler": "ok",
       "hash": "sha256:8b137c528d8fba08d751b63cc49df4e89448b25ee94d812f385a3228e7650f27",
       "file": "accessibility_state_managed.json"
+    },
+    {
+      "id": "acts_in_client_best_interest",
+      "name": "Acts in Client Best Interest",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "best-interest",
+        "esma",
+        "mifid-ii",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every AI-supported recommendation is assessed against the overarching MiFID II obligation to act in the client's best interest.",
+      "formula": "G(Recommendation → best_interest_assessed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:452fed1b78b352bd35b821d7ee118d734fe62d62a4f19910970e87479b4d9ffa",
+      "file": "acts_in_client_best_interest.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "best-interest"
     },
     {
       "id": "agent_identity_resolved",
@@ -52,6 +76,30 @@
       "tier": "1-4"
     },
     {
+      "id": "ai_complaints_recorded",
+      "name": "AI Complaints Recorded",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-amber",
+        "recordkeeping"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Firms maintain comprehensive records on AI-related client and potential-client complaints.",
+      "formula": "G(complaint → recorded)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:be99064485d5c76da67f6cd6fc700cd79a6e5deb3da411e0910a41fb3e336196",
+      "file": "ai_complaints_recorded.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "recordkeeping"
+    },
+    {
       "id": "ai_content_marked",
       "name": "AI Content Marked",
       "category": "communication",
@@ -76,6 +124,54 @@
       "pack": "iosco-supervisory-recordkeeping",
       "group": "disclosure",
       "tier": "1-4"
+    },
+    {
+      "id": "ai_information_clear_fair",
+      "name": "AI Information Clear, Fair, Not Misleading",
+      "category": "communication",
+      "severity": "warning",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "best-interest",
+        "esma",
+        "mifid-ii",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Information provided to clients on the firm's use of AI is presented in a clear, fair and not misleading manner.",
+      "formula": "G(client_facing → clear_fair_not_misleading)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:803dbca681930d2526a8c5abd0c0f90ef383b515a5fefbad0f36f5827f412077",
+      "file": "ai_information_clear_fair.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "best-interest"
+    },
+    {
+      "id": "ai_information_monitored",
+      "name": "AI Information Monitored (ex-post)",
+      "category": "safety",
+      "severity": "warning",
+      "domain": "investment-services",
+      "tags": [
+        "accuracy",
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Ex-post controls monitor and evaluate any process that delivers information to clients directly or indirectly through AI-driven mechanisms.",
+      "formula": "G(ai_driven_information → post_review)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:d8970310615670bd102aed7db5810919d4d4a4d01ec23b14e8822ed4ae535a4c",
+      "file": "ai_information_monitored.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "accuracy"
     },
     {
       "id": "ai_inventory_recorded",
@@ -130,6 +226,102 @@
       "tier": "2-4"
     },
     {
+      "id": "ai_output_accuracy_controlled",
+      "name": "AI Output Accuracy Controlled (ex-ante)",
+      "category": "safety",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "accuracy",
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Ex-ante controls verify the accuracy of information supplied to or by AI before it is disseminated to clients, preventing erroneous or misleading investment advice.",
+      "formula": "G(client_facing → P(accuracy_checked))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:e44922ccdb75bed69478c71319849feb9a56b3311c459a9ea22a7a3fb30d503c",
+      "file": "ai_output_accuracy_controlled.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "accuracy"
+    },
+    {
+      "id": "ai_records_maintained",
+      "name": "AI Records Maintained",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-red",
+        "recordkeeping"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Records document the use of AI, including the decision-making processes, data sources used, algorithms implemented, and any modifications made over time.",
+      "formula": "G((Decision ∨ Output) → logged ∧ data_sources_recorded ∧ algorithm_recorded)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f7d56449771432af64ccbc87260ab84a8792bf7c1c3271136b237dd18353e79c",
+      "file": "ai_records_maintained.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "recordkeeping"
+    },
+    {
+      "id": "ai_stress_tested",
+      "name": "AI Stress Tested",
+      "category": "safety",
+      "severity": "warning",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-amber",
+        "risk-management"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "AI systems are periodically stress-tested to evaluate performance under extreme market conditions.",
+      "formula": "G(Deploy → stress_tested)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:2038689df6d16426472559a014317850a7bf94eb39628cbe0c80b24f832a9963",
+      "file": "ai_stress_tested.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "risk-management"
+    },
+    {
+      "id": "ai_tested_before_deployment",
+      "name": "AI Tested Before Deployment",
+      "category": "safety",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-red",
+        "risk-management"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "AI systems are tested and validated before deployment in the provision of investment services.",
+      "formula": "G(Deploy → P(tested ∧ validated))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:014cc284e740ab9310266238712e57b07733e83fe338f3d8af31937ed4840579",
+      "file": "ai_tested_before_deployment.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "risk-management"
+    },
+    {
       "id": "ai_use_disclosed",
       "name": "AI Use Disclosed",
       "category": "communication",
@@ -154,6 +346,30 @@
       "pack": "iosco-supervisory-recordkeeping",
       "group": "disclosure",
       "tier": "1-4"
+    },
+    {
+      "id": "ai_use_disclosed_to_client",
+      "name": "AI Use Disclosed to Client",
+      "category": "communication",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "best-interest",
+        "esma",
+        "mifid-ii",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Firms transparently disclose to clients when they are interacting with an AI system (e.g. chatbots or other AI-driven automated systems).",
+      "formula": "G(client_interaction → ai_disclosed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:2bc8cdb622f4a15e057db9acfe85586eb850d6775ae7f842f13aa29d31835c49",
+      "file": "ai_use_disclosed_to_client.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "best-interest"
     },
     {
       "id": "all_actions_have_rationale",
@@ -1103,6 +1319,30 @@
       "tier": "1-3"
     },
     {
+      "id": "outsourced_ai_due_diligence",
+      "name": "Outsourced AI Due Diligence",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "outsourcing",
+        "rag-red"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Third-party AI used for critical or important operational functions is subject to MiFID II outsourcing due diligence and adequate controls.",
+      "formula": "G(third_party_ai → due_diligence_done)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:a4408197a863b413d9d9f1c767acc238258e49bf5885555afd979f7e31a282f9",
+      "file": "outsourced_ai_due_diligence.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "outsourcing"
+    },
+    {
       "id": "pci_compliance_review",
       "name": "PCI Compliance Review",
       "category": "conformance",
@@ -1173,6 +1413,30 @@
       "tier": "2-4"
     },
     {
+      "id": "product_governance_aligned",
+      "name": "Product Governance Aligned",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-red",
+        "suitability"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "AI-driven distribution aligns the products distributed to their identified target market (product governance).",
+      "formula": "G(Distribution → target_market_aligned)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:273fd1de3577f11a0ccc1e5895cbaaf84cf517bd4992fef7bdac046c15b62b2a",
+      "file": "product_governance_aligned.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "suitability"
+    },
+    {
       "id": "react_effect_cleanup_verified",
       "name": "React Effect Cleanup Verified",
       "category": "reasoning",
@@ -1214,6 +1478,30 @@
       "reference_compiler": "ok",
       "hash": "sha256:894599b79b522d44f60fd547c4f0cafc06b99389e7cc955b7e3fe4bdadf83fba",
       "file": "reasoning_required_for_high_stakes.json"
+    },
+    {
+      "id": "recommendation_suitable",
+      "name": "Recommendation Suitable",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-red",
+        "suitability"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "AI-supported recommendations are subject to a suitability assessment aligning them to the client's situation, objectives, sustainability preferences, risk tolerance, and knowledge.",
+      "formula": "G(Recommendation → suitability_assessed)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:0b492091a4b993087186e87fa8797ee11b6a0e236c72490fd1e79319ce671a8b",
+      "file": "recommendation_suitable.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "suitability"
     },
     {
       "id": "reducer_action_coverage",
@@ -1354,6 +1642,30 @@
       "reference_compiler": "ok",
       "hash": "sha256:a7b87c1690be2a243940715770841396bd5494846dfae7361778023a55554d62",
       "file": "route_guard_complete.json"
+    },
+    {
+      "id": "staff_competent_for_ai",
+      "name": "Staff Competent for AI",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "outsourcing",
+        "rag-amber"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Staff using AI to provide information about investment products to clients do so under heightened vigilance and with adequate AI competence and training.",
+      "formula": "G(client_information → staff_competent)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:29a48ceadaffdee26bb384e1a8a95b94d15dc18ba4bed293c9d47ff2f0d1c461",
+      "file": "staff_competent_for_ai.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "outsourcing"
     },
     {
       "id": "stripe_conformance_required",
@@ -1513,6 +1825,30 @@
       "reference_compiler": "ok",
       "hash": "sha256:c649bf2365691dc0b177fa5a68ac2a69baa3a670f6d8596141aa3754825da7ce",
       "file": "trace_has_proper_lifecycle.json"
+    },
+    {
+      "id": "training_data_representative",
+      "name": "Training Data Representative",
+      "category": "safety",
+      "severity": "error",
+      "domain": "investment-services",
+      "tags": [
+        "ai-governance",
+        "esma",
+        "mifid-ii",
+        "rag-red",
+        "risk-management"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Data used as input for AI systems is relevant, sufficient and representative, and algorithms are trained and validated on accurate, comprehensive and sufficiently broad datasets.",
+      "formula": "G(Deploy → data_representative)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:67191b7e98a5fb50f2375a3fe35eb0f6e89972f2385191d16d5ecc12de34377d",
+      "file": "training_data_representative.json",
+      "pack": "esma-mifid-ai-investment-services",
+      "group": "risk-management"
     },
     {
       "id": "trajectory_within_bound",
@@ -1752,6 +2088,7 @@
   "tags": [
     "a11y",
     "accessibility",
+    "accuracy",
     "actionable",
     "agentic-ai",
     "ai-governance",
@@ -1767,6 +2104,7 @@
     "auth",
     "authorization",
     "backward-compatibility",
+    "best-interest",
     "best-practice",
     "breaking-changes",
     "bugs",
@@ -1794,6 +2132,7 @@
     "disclosure",
     "edge-cases",
     "editing",
+    "esma",
     "files",
     "fix-ai-wg",
     "fixes",
@@ -1819,10 +2158,12 @@
     "liveness",
     "loading-states",
     "memory-leak",
+    "mifid-ii",
     "migration",
     "navigable",
     "negative-space",
     "ordering",
+    "outsourcing",
     "payments",
     "pci",
     "plaid",
@@ -1844,6 +2185,7 @@
     "residuals",
     "reversibility",
     "review",
+    "risk-management",
     "routing",
     "safety",
     "secrets",
@@ -1852,6 +2194,7 @@
     "state-machine",
     "stripe",
     "structure",
+    "suitability",
     "supervisory",
     "telemetry",
     "testing",
@@ -1920,9 +2263,29 @@
       "color": "#1d4e8",
       "icon": "&#128202;",
       "description": "Supervisory recordkeeping, audit-trail and disclosure policies for AI in capital markets — the IOSCO toolkit's evidence requirements as machine-checkable rules."
+    },
+    "investment-services": {
+      "label": "Investment Services",
+      "color": "#0a5ad6",
+      "icon": "&#128188;",
+      "description": "MiFID II conduct policies for AI in retail investment services — ESMA's best-interest, suitability, accuracy, and recordkeeping expectations as machine-checkable rules."
     }
   },
   "organizations": [
+    {
+      "id": "esma",
+      "name": "ESMA",
+      "full_name": "European Securities and Markets Authority",
+      "url": "https://www.esma.europa.eu/",
+      "description": "ESMA is the EU's securities-markets regulator. Its Public Statement on the use of AI in the provision of retail investment services maps AI use onto firms' existing MiFID II obligations — best interest, suitability, transparency, risk management, and recordkeeping — the basis for the pack below.",
+      "packs": [
+        "esma-mifid-ai-investment-services"
+      ],
+      "mapping": [
+        "ESMA's Public Statement does not create new AI rules; it reads AI use through existing MiFID II obligations, with one throughline — “firms' decisions remain the responsibility of management bodies, irrespective of whether those decisions are taken by people or AI-based tools,” and AI must always serve clients' best interest. ponens turns each of those obligations into a policy over the trace of an AI-assisted investment service: that the client is told when AI is involved, that recommendations are assessed for best interest and suitability, that AI outputs are accuracy-checked before reaching clients and monitored afterwards, and that models are tested on representative data before deployment.",
+        "The Statement's recordkeeping clause (¶24) and its ex-ante / ex-post accuracy controls (¶16) read almost directly as trace policies, so the mapping is tight rather than interpretive. Running the pack with `ponens trace check` aggregates the per-obligation verdicts to a Green / Amber / Red picture: an `error`-severity breach (e.g. an undisclosed AI interaction, an unsuitable recommendation, or missing AI records) is Red; softer expectations such as periodic stress-testing or staff competence are Amber. The firm-level MiFID II machinery the Statement also invokes — management-body oversight and outsourcing governance — is organisational rather than per-trace and sits outside this pack."
+      ]
+    },
     {
       "id": "fix-community",
       "name": "FIX Community",
@@ -1983,7 +2346,45 @@
           "key": "release",
           "label": "Approval & Release Gating"
         }
-      ]
+      ],
+      "policy_count": 21
+    },
+    {
+      "id": "esma-mifid-ai-investment-services",
+      "name": "MiFID II AI in Investment Services",
+      "org": "esma",
+      "domain": "investment-services",
+      "spec": "/spec/ESMA_MIFID_AI_PACK",
+      "summary": "ESMA's MiFID II expectations for AI in retail investment services — best interest, suitability, transparency, accuracy controls, testing, and recordkeeping — as computable policies.",
+      "description": "Maps the ESMA Public Statement on AI in the provision of retail investment services onto ponens policies. Each MiFID II obligation ESMA highlights — acting in the client's best interest, disclosing AI use, suitability and product governance, ex-ante/ex-post accuracy controls, model testing on representative data, outsourcing due diligence, staff competence, and recordkeeping of AI decision processes — becomes a deterministic check over the trace of an AI-assisted investment service.",
+      "source": "ESMA Public Statement ESMA35-335435667-5924 (30 May 2024).",
+      "domains": [
+        {
+          "key": "best-interest",
+          "label": "Best Interest & Transparency"
+        },
+        {
+          "key": "suitability",
+          "label": "Suitability & Conduct"
+        },
+        {
+          "key": "accuracy",
+          "label": "Accuracy Controls"
+        },
+        {
+          "key": "risk-management",
+          "label": "Risk Management & Testing"
+        },
+        {
+          "key": "outsourcing",
+          "label": "Outsourcing & Competence"
+        },
+        {
+          "key": "recordkeeping",
+          "label": "Record Keeping"
+        }
+      ],
+      "policy_count": 14
     },
     {
       "id": "iosco-supervisory-recordkeeping",
@@ -2003,7 +2404,8 @@
           "key": "disclosure",
           "label": "Disclosure & Transparency"
         }
-      ]
+      ],
+      "policy_count": 11
     }
   ]
 }

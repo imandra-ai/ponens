@@ -1,0 +1,14 @@
+{
+  "id": "fix-community",
+  "name": "FIX Community",
+  "full_name": "FIX Trading Community — AI Working Group",
+  "url": "https://www.fixtrading.org/",
+  "description": "The FIX Trading Community standardises electronic trading. Its AI Working Group is developing runtime-governance standards for agentic AI in capital markets — the basis for the policy pack below.",
+  "packs": [
+    "agentic-ai-runtime-governance"
+  ],
+  "mapping": [
+    "The FIX AI Working Group's runtime-governance proposal defines a traffic-light scheme — Green (proceed), Amber (flag/refer), Red (halt) — across five domains: identity & authorisation, intent & constraint, capability & DCE, runtime telemetry & trajectory, and approval & release gating. ponens maps each traffic-light condition onto a temporal-logic policy evaluated over an agent's execution trace. This is exactly the form the proposal itself demands of any binding control (§10.3): “a deterministic function over the governed state… executing independently of the language model.” A ponens policy is precisely that function.",
+    "Each domain becomes a policy group, plus the Szpruch et al. capability failure modes (C1–C4); a policy's severity encodes Red (error) versus Amber (warning), and its tier tag selects the Assistive–to–Critical-Autonomous profile. Running the pack with `ponens trace check` aggregates the per-policy verdicts into the GovernanceState the proposal wants carried in a new FIX field — all-pass is Green, a warning-fail is Amber, an error-fail is Red. The genuinely population-level conditions (orchestration drift, compound-workflow market-disorder testing) are the proposal's own Gap 5 and sit outside per-trace policy."
+  ]
+}

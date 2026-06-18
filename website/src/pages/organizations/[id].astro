@@ -21,9 +21,9 @@ function groupsFor(pack) {
   const ps = policies.filter((p) => p.pack === pack.id);
   const doms = (pack.domains && pack.domains.length)
     ? pack.domains
-    : [...new Set(ps.map((p) => p.fix_domain))].map((k) => ({ key: k, label: k }));
+    : [...new Set(ps.map((p) => p.group))].map((k) => ({ key: k, label: k }));
   return doms
-    .map((d) => ({ ...d, items: ps.filter((p) => p.fix_domain === d.key) }))
+    .map((d) => ({ ...d, items: ps.filter((p) => p.group === d.key) }))
     .filter((g) => g.items.length);
 }
 const total = (pack) => policies.filter((p) => p.pack === pack.id).length;
@@ -36,6 +36,15 @@ const total = (pack) => policies.filter((p) => p.pack === pack.id).length;
     <p class="org-full">{org.full_name}{org.url && (<> · <a href={org.url}>{org.url.replace(/^https?:\/\//, "")}</a></>)}</p>
     <p class="org-desc">{org.description}</p>
   </section>
+
+  {org.mapping && org.mapping.length > 0 && (
+    <section class="org-mapping">
+      <h2>How the publications map to ponens policies</h2>
+      {org.mapping.map((para) => (
+        <p set:html={para.replace(/`([^`]+)`/g, "<code>$1</code>")} />
+      ))}
+    </section>
+  )}
 
   {packs.map((pack) => (
     <section class="pack">
@@ -78,6 +87,11 @@ const total = (pack) => policies.filter((p) => p.pack === pack.id).length;
     .crumb span { opacity: 0.5; }
     .org-full { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.6rem; }
     .org-desc { max-width: 70ch; }
+    .org-mapping { max-width: 75ch; margin: 1.75rem 0 0.5rem; padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; background: rgba(127,127,127,0.04); }
+    .org-mapping h2 { font-size: 1.05rem; margin: 0 0 0.6rem; }
+    .org-mapping p { margin: 0 0 0.7rem; font-size: 0.92rem; }
+    .org-mapping p:last-child { margin-bottom: 0; }
+    .org-mapping code { font-size: 0.85em; background: rgba(127,127,127,0.12); padding: 0.05rem 0.3rem; border-radius: 4px; }
     .pack { margin: 2.5rem 0; }
     .pack-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 1.5rem; }
     .pack-head h2 { margin: 0 0 0.25rem; }

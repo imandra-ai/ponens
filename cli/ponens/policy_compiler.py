@@ -217,6 +217,8 @@ ACTION_TYPES = {
     'Deploy',
     # Agentic governance vocabulary (FIX AI WG runtime-governance pack)
     'ToolCall', 'Retrieve', 'Compute', 'Draft', 'Release',
+    # Supervisory recordkeeping vocabulary (IOSCO toolkit pack)
+    'Decision', 'Output', 'Incident',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
     'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',

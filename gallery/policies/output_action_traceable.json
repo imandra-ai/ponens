@@ -1,0 +1,33 @@
+{
+  "id": "output_action_traceable",
+  "name": "Output-to-Action Traceable",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Every consequential action is traceable to a logged AI output that preceded it.",
+  "formula": "G((Release ∨ Deploy) → P(Output ∧ logged))",
+  "language_level": "pure_temporal",
+  "rationale": "IOSCO Table 6.3: 'What processes ensure traceability between AI outputs and final actions taken?' The action must link back to the recorded output that drove it.",
+  "tags": [
+    "ai-governance",
+    "supervisory",
+    "iosco",
+    "recordkeeping",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "Output(logged) → Release",
+    "fails": "a Release with no logged AI output in its history"
+  },
+  "domain": "ai-supervision",
+  "pack": "iosco-supervisory-recordkeeping",
+  "group": "recordkeeping",
+  "tier": "2-4",
+  "source": "IOSCO FR/02/2026 — Supervisory Toolkit for AI Use in Capital Markets (May 2026), Ch.3 Tables 5 (Disclosure) and 6 (Recordkeeping & reporting).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

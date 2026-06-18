@@ -1,0 +1,33 @@
+{
+  "id": "no_ai_washing",
+  "name": "No AI-Washing",
+  "category": "communication",
+  "severity": "error",
+  "description": "Public claims about the firm's AI are substantiated and not overstated (no 'AI-washing').",
+  "formula": "G(ai_claim → claim_substantiated)",
+  "language_level": "pure_temporal",
+  "rationale": "IOSCO Box 4 / Table 5.4: misleading, inaccurate, or false AI claims ('AI-washing') can be the basis for enforcement. Claims must be evidence-based and substantiated before appearing in disclosures.",
+  "tags": [
+    "ai-governance",
+    "supervisory",
+    "iosco",
+    "disclosure",
+    "rag-red",
+    "tier-1-4"
+  ],
+  "examples": {
+    "passes": "ai_claim with claim_substantiated",
+    "fails": "a marketing claim of advanced AI use unsupported by facts"
+  },
+  "domain": "ai-supervision",
+  "pack": "iosco-supervisory-recordkeeping",
+  "group": "disclosure",
+  "tier": "1-4",
+  "source": "IOSCO FR/02/2026 — Supervisory Toolkit for AI Use in Capital Markets (May 2026), Ch.3 Tables 5 (Disclosure) and 6 (Recordkeeping & reporting).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

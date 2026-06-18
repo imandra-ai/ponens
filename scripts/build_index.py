@@ -212,9 +212,11 @@ def build_catalog(policies, index):
             "hash": policy_hash(p),
             "file": f"{p.get('id')}.json",
             # Pack membership (optional) — lets the gallery group/filter by pack
-            # and lets organization pages list a pack's policies.
+            # and lets organization pages list a pack's policies. `group` is the
+            # pack's sub-grouping key (accepts the legacy `fix_domain` name).
             **({"pack": p["pack"]} if p.get("pack") else {}),
-            **({"fix_domain": p["fix_domain"]} if p.get("fix_domain") else {}),
+            **({"group": p.get("group") or p.get("fix_domain")}
+               if (p.get("group") or p.get("fix_domain")) else {}),
             **({"tier": p["tier"]} if p.get("tier") else {}),
         })
     categories = sorted({e["category"] for e in entries if e["category"]})

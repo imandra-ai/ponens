@@ -1,0 +1,33 @@
+{
+  "id": "reportable_incident_notified",
+  "name": "Reportable Incident Notified",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Reportable AI incidents are notified to the supervisory authority.",
+  "formula": "G(Incident ∧ reportable → F(supervisor_notified))",
+  "language_level": "pure_temporal",
+  "rationale": "IOSCO Table 6.6: timely, high-quality reporting; firms notify supervisors of significant AI failures, biases, cybersecurity events, data breaches, or incorrect outputs that meet the reportable threshold.",
+  "tags": [
+    "ai-governance",
+    "supervisory",
+    "iosco",
+    "recordkeeping",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "reportable Incident followed by supervisor_notified",
+    "fails": "a reportable AI incident never notified to the regulator"
+  },
+  "domain": "ai-supervision",
+  "pack": "iosco-supervisory-recordkeeping",
+  "group": "recordkeeping",
+  "tier": "2-4",
+  "source": "IOSCO FR/02/2026 — Supervisory Toolkit for AI Use in Capital Markets (May 2026), Ch.3 Tables 5 (Disclosure) and 6 (Recordkeeping & reporting).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

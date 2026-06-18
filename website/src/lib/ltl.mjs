@@ -252,7 +252,8 @@ export const VOCAB = {
   types: ["ReadFile", "EditFile", "CreateFile", "DeleteFile", "SearchCode", "AnalyzeCode",
     "ReadDocumentation", "RunTests", "Lint", "TypeCheck", "GitCommit", "GitPush",
     "Formalize", "Verify", "Decompose", "GenerateTests", "DefineVG", "UserApproval", "Deploy",
-    "ToolCall", "Retrieve", "Compute", "Draft", "Release"],
+    "ToolCall", "Retrieve", "Compute", "Draft", "Release",
+    "Decision", "Output", "Incident"],
   statuses: ["", "completed", "failed", "proved", "refuted", "sat"],
   // Trace-level lifecycle values the start_event / end_event predicates read.
   triggers: ["", "TaskReceived", "TriggeredByEvent"],

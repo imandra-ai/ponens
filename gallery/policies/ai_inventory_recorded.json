@@ -1,0 +1,33 @@
+{
+  "id": "ai_inventory_recorded",
+  "name": "AI Inventory Recorded",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "AI systems producing decisions or outputs are recorded in the firm's AI inventory.",
+  "formula": "G((Decision ∨ Output) → inventory_recorded)",
+  "language_level": "pure_temporal",
+  "rationale": "IOSCO §3.1(d) / Table 6.1: firms maintain an AI inventory capturing each system's purpose, scope, data and model usage, and dependencies. A flag (Amber) where inventory coverage is incomplete.",
+  "tags": [
+    "ai-governance",
+    "supervisory",
+    "iosco",
+    "recordkeeping",
+    "rag-amber",
+    "tier-1-4"
+  ],
+  "examples": {
+    "passes": "Output whose system is inventory_recorded",
+    "fails": "an AI output from a system absent from the AI inventory"
+  },
+  "domain": "ai-supervision",
+  "pack": "iosco-supervisory-recordkeeping",
+  "group": "recordkeeping",
+  "tier": "1-4",
+  "source": "IOSCO FR/02/2026 — Supervisory Toolkit for AI Use in Capital Markets (May 2026), Ch.3 Tables 5 (Disclosure) and 6 (Recordkeeping & reporting).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

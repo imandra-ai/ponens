@@ -1,0 +1,184 @@
+{
+  "trace_id": "iosco-governed-001",
+  "spec_version": "1.6",
+  "assistant": "ai-system",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "Decision",
+      "category": "activity",
+      "rationale": "recorded AI step",
+      "detail": "logged | model version recorded | inventory recorded | explainability recorded | client consent",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "Output",
+      "category": "activity",
+      "rationale": "recorded AI step",
+      "detail": "logged | model version recorded | inventory recorded | explainability recorded | client facing | ai disclosed | marked ai generated",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "Output",
+      "category": "activity",
+      "rationale": "recorded AI step",
+      "detail": "logged | model version recorded | inventory recorded | explainability recorded | material impact | human reviewed",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "Release",
+      "category": "activity",
+      "rationale": "recorded AI step",
+      "detail": "logged",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "Draft",
+      "category": "activity",
+      "rationale": "recorded AI step",
+      "detail": "ai claim | claim substantiated",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 6,
+      "type": "Output",
+      "category": "activity",
+      "rationale": "recorded AI step",
+      "detail": "logged | model version recorded | inventory recorded | explainability recorded | ai affects client rights",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "ai_content_marked",
+      "name": "ai_content_marked",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Output ∧ client_facing → marked_ai_generated)",
+      "description": "AI-generated client-facing content is marked or labelled as AI-generated/synthetic."
+    },
+    {
+      "policy_id": "ai_inventory_recorded",
+      "name": "ai_inventory_recorded",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Decision ∨ Output) → inventory_recorded)",
+      "description": "AI systems producing decisions or outputs are recorded in the firm's AI inventory."
+    },
+    {
+      "policy_id": "ai_outcomes_logged",
+      "name": "ai_outcomes_logged",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Decision ∨ Output) → logged ∧ model_version_recorded)",
+      "description": "Every AI decision or output is recorded, with the model version that produced it, throughout the AI system lifecycle."
+    },
+    {
+      "policy_id": "ai_use_disclosed",
+      "name": "ai_use_disclosed",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Output ∧ client_facing → ai_disclosed)",
+      "description": "Clients are informed when an AI system is generating client-facing responses or analysis."
+    },
+    {
+      "policy_id": "consent_for_ai_decisions",
+      "name": "consent_for_ai_decisions",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ai_affects_client_rights → P(client_consent))",
+      "description": "Client consent is recorded where AI materially affects client rights, account access, or privacy."
+    },
+    {
+      "policy_id": "decision_logic_recorded",
+      "name": "decision_logic_recorded",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Output → explainability_recorded)",
+      "description": "Each AI output documents the decision-making logic and reasoning behind it (explainability)."
+    },
+    {
+      "policy_id": "human_oversight_evidenced",
+      "name": "human_oversight_evidenced",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(material_impact → human_reviewed)",
+      "description": "Investor- or market-impacting AI outcomes carry evidence of human oversight or intervention."
+    },
+    {
+      "policy_id": "incidents_root_caused",
+      "name": "incidents_root_caused",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Incident → root_cause_recorded ∧ remediation_recorded)",
+      "description": "AI-related incidents are recorded with root-cause analysis and remediation actions."
+    },
+    {
+      "policy_id": "no_ai_washing",
+      "name": "no_ai_washing",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ai_claim → claim_substantiated)",
+      "description": "Public claims about the firm's AI are substantiated and not overstated (no 'AI-washing')."
+    },
+    {
+      "policy_id": "output_action_traceable",
+      "name": "output_action_traceable",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Release ∨ Deploy) → P(Output ∧ logged))",
+      "description": "Every consequential action is traceable to a logged AI output that preceded it."
+    },
+    {
+      "policy_id": "reportable_incident_notified",
+      "name": "reportable_incident_notified",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Incident ∧ reportable → F(supervisor_notified))",
+      "description": "Reportable AI incidents are notified to the supervisory authority."
+    }
+  ]
+}

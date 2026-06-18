@@ -1,0 +1,32 @@
+{
+  "id": "cms_prompts_versioned",
+  "name": "CMS: Production Prompts Versioned",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "AI system prompts used in production are versioned and their performance reviewed over time.",
+  "formula": "G(production_ai → prompts_versioned)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS Versioning (BR-SCM-1): AI system prompts used for production CMS systems should be versioned; store prompts/recipes and measure their performance over time.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "observability-records",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "observability-records",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

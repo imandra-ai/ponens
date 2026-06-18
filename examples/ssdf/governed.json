@@ -1,0 +1,200 @@
+{
+  "trace_id": "ssdf-governed-001",
+  "spec_version": "1.6",
+  "assistant": "coding-agent",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "Plan",
+      "category": "activity",
+      "rationale": "secure-dev step",
+      "detail": "security requirements defined | security roles defined | secure toolchain | threat modeled | security review | artifact signed | provenance recorded | release archived | security tested | vuln analysis",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "GitCommit",
+      "category": "activity",
+      "rationale": "secure-dev step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "Finding",
+      "category": "activity",
+      "rationale": "secure-dev step",
+      "detail": "assessed | remediated",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "secure-dev step",
+      "detail": "root cause recorded",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "Release",
+      "category": "activity",
+      "rationale": "secure-dev step",
+      "detail": "secure defaults",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "ssdf_po_roles_defined",
+      "name": "ssdf_po_roles_defined",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → P(security_roles_defined))",
+      "description": "Roles and responsibilities for the secure development process are defined (PO.2)."
+    },
+    {
+      "policy_id": "ssdf_po_security_requirements_defined",
+      "name": "ssdf_po_security_requirements_defined",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(security_requirements_defined))",
+      "description": "Security requirements for the software and its development are defined (PO.1)."
+    },
+    {
+      "policy_id": "ssdf_po_toolchain_secured",
+      "name": "ssdf_po_toolchain_secured",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(secure_toolchain))",
+      "description": "Supporting toolchains and development environments are configured to improve security (PO.3)."
+    },
+    {
+      "policy_id": "ssdf_ps_provenance_recorded",
+      "name": "ssdf_ps_provenance_recorded",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → P(provenance_recorded))",
+      "description": "Provenance data (e.g. an SBOM) for each release is recorded (PS.3)."
+    },
+    {
+      "policy_id": "ssdf_ps_release_archived",
+      "name": "ssdf_ps_release_archived",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → P(release_archived))",
+      "description": "Each release and its associated files are archived and protected (PS.1/PS.3)."
+    },
+    {
+      "policy_id": "ssdf_ps_release_signed",
+      "name": "ssdf_ps_release_signed",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → P(artifact_signed))",
+      "description": "Each software release is integrity-protected (e.g. cryptographically signed) against tampering (PS.2)."
+    },
+    {
+      "policy_id": "ssdf_pw_no_open_vuln_at_release",
+      "name": "ssdf_pw_no_open_vuln_at_release",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → ¬open_vulnerability)",
+      "description": "No known unaddressed vulnerability remains open at release."
+    },
+    {
+      "policy_id": "ssdf_pw_secure_defaults",
+      "name": "ssdf_pw_secure_defaults",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → secure_defaults)",
+      "description": "Software is configured with secure default settings (PW.9)."
+    },
+    {
+      "policy_id": "ssdf_pw_security_review",
+      "name": "ssdf_pw_security_review",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(security_review ∨ static_analysis))",
+      "description": "Code is reviewed and/or analyzed for security before it is accepted (PW.7/PW.8)."
+    },
+    {
+      "policy_id": "ssdf_pw_security_tested",
+      "name": "ssdf_pw_security_tested",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → P(security_tested))",
+      "description": "Executable code is security-tested before release (PW.8)."
+    },
+    {
+      "policy_id": "ssdf_pw_threat_modeled",
+      "name": "ssdf_pw_threat_modeled",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(GitCommit → P(threat_modeled))",
+      "description": "The design is reviewed against security requirements and threats (threat modeling) (PW.1/PW.2)."
+    },
+    {
+      "policy_id": "ssdf_rv_root_cause_analysis",
+      "name": "ssdf_rv_root_cause_analysis",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Finding → F(root_cause_recorded))",
+      "description": "Root-cause analysis is performed to reduce the frequency of future vulnerabilities (RV.3)."
+    },
+    {
+      "policy_id": "ssdf_rv_vulnerability_analysis",
+      "name": "ssdf_rv_vulnerability_analysis",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release → P(vuln_analysis))",
+      "description": "Releases are continuously analyzed to identify vulnerabilities (RV.1)."
+    },
+    {
+      "policy_id": "ssdf_rv_vulnerability_remediated",
+      "name": "ssdf_rv_vulnerability_remediated",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Finding → assessed ∧ (remediated ∨ mitigated))",
+      "description": "Each identified vulnerability is assessed and remediated or mitigated (RV.2)."
+    }
+  ]
+}

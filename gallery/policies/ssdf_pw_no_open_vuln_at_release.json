@@ -1,0 +1,32 @@
+{
+  "id": "ssdf_pw_no_open_vuln_at_release",
+  "name": "NIST SSDF: PW — No Open Vulnerability at Release",
+  "category": "security",
+  "severity": "error",
+  "description": "No known unaddressed vulnerability remains open at release.",
+  "formula": "G(Release → ¬open_vulnerability)",
+  "language_level": "pure_temporal",
+  "rationale": "SSDF PW/RV: identified vulnerabilities are remediated before release; a known open vulnerability shipping is a security gap.",
+  "tags": [
+    "secure-development",
+    "nist",
+    "ssdf",
+    "supply-chain",
+    "pw",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the practice's evidence is present",
+    "fails": "the required secure-development step is absent"
+  },
+  "domain": "secure-development",
+  "pack": "nist-ssdf",
+  "group": "pw",
+  "source": "NIST SP 800-218 — Secure Software Development Framework (SSDF) v1.1, organised into PO (Prepare the Organization), PS (Protect the Software), PW (Produce Well-Secured Software), RV (Respond to Vulnerabilities). https://csrc.nist.gov/Projects/ssdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,242 @@
+{
+  "trace_id": "nist-rmf-governed-001",
+  "spec_version": "1.6",
+  "assistant": "ai-system",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "Plan",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "risk policy in place | legal requirements mapped | context established | system categorized | impacts characterized | validity reliability measured | safety measured | security resilience measured | privacy measured | transparency measured | explainability measured | fairness measured | bias managed | risks prioritized | risk treated | thirdparty risk managed",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "Decision",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "accountable role",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "Deploy",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "accountable role",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "Output",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "tracked",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "identified risk",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 6,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "third party ai",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 7,
+      "type": "Incident",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 8,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "AI lifecycle step",
+      "detail": "responded | recovered",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "rmf_govern_accountability_assigned",
+      "name": "rmf_govern_accountability_assigned",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Deploy ∨ Decision) → accountable_role)",
+      "description": "Clear roles, responsibilities and lines of accountability for the AI system are established."
+    },
+    {
+      "policy_id": "rmf_govern_legal_requirements_mapped",
+      "name": "rmf_govern_legal_requirements_mapped",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(legal_requirements_mapped))",
+      "description": "Applicable legal and regulatory requirements involving AI are understood and managed."
+    },
+    {
+      "policy_id": "rmf_govern_policies_in_place",
+      "name": "rmf_govern_policies_in_place",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Deploy ∨ Decision) → P(risk_policy_in_place))",
+      "description": "AI risk management policies and processes are in place and applied across the AI lifecycle."
+    },
+    {
+      "policy_id": "rmf_manage_incident_response",
+      "name": "rmf_manage_incident_response",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Incident → F(responded ∧ recovered))",
+      "description": "AI incidents and negative impacts are responded to, recovered from, and communicated."
+    },
+    {
+      "policy_id": "rmf_manage_risk_treated",
+      "name": "rmf_manage_risk_treated",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(identified_risk → P(risk_treated))",
+      "description": "Each identified risk is treated — mitigated, transferred, avoided, or formally accepted."
+    },
+    {
+      "policy_id": "rmf_manage_risks_prioritized",
+      "name": "rmf_manage_risks_prioritized",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(risks_prioritized))",
+      "description": "AI risks are prioritized and acted upon based on assessment and impact."
+    },
+    {
+      "policy_id": "rmf_manage_thirdparty_risks",
+      "name": "rmf_manage_thirdparty_risks",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(third_party_ai → P(thirdparty_risk_managed))",
+      "description": "Risks from third-party AI resources (models, data, services) are identified and managed."
+    },
+    {
+      "policy_id": "rmf_map_context_established",
+      "name": "rmf_map_context_established",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(context_established))",
+      "description": "The context — intended purpose, setting, and the AI system's role — is established and documented before deployment."
+    },
+    {
+      "policy_id": "rmf_map_impacts_characterized",
+      "name": "rmf_map_impacts_characterized",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(impacts_characterized))",
+      "description": "Potential impacts, benefits and risks to individuals, groups, communities and society are mapped."
+    },
+    {
+      "policy_id": "rmf_map_system_categorized",
+      "name": "rmf_map_system_categorized",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(system_categorized))",
+      "description": "The AI system is categorized by its capabilities, intended use, and risk level."
+    },
+    {
+      "policy_id": "rmf_measure_fairness_bias",
+      "name": "rmf_measure_fairness_bias",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(fairness_measured ∧ bias_managed))",
+      "description": "The AI system is measured for fairness, with harmful bias identified and managed."
+    },
+    {
+      "policy_id": "rmf_measure_ongoing_tracking",
+      "name": "rmf_measure_ongoing_tracking",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Output → tracked)",
+      "description": "Mechanisms are in place to track identified AI risks and system performance over time."
+    },
+    {
+      "policy_id": "rmf_measure_security_privacy",
+      "name": "rmf_measure_security_privacy",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(security_resilience_measured ∧ privacy_measured))",
+      "description": "The AI system is measured for the secure-&-resilient and privacy-enhanced characteristics."
+    },
+    {
+      "policy_id": "rmf_measure_transparency_explainability",
+      "name": "rmf_measure_transparency_explainability",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(transparency_measured ∧ explainability_measured))",
+      "description": "The AI system is measured for the accountable-&-transparent and explainable-&-interpretable characteristics."
+    },
+    {
+      "policy_id": "rmf_measure_validity_safety",
+      "name": "rmf_measure_validity_safety",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Deploy → P(validity_reliability_measured ∧ safety_measured))",
+      "description": "The AI system is measured for the validity & reliability and safety trustworthiness characteristics before deployment."
+    }
+  ]
+}

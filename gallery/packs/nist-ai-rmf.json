@@ -1,0 +1,28 @@
+{
+  "id": "nist-ai-rmf",
+  "name": "NIST AI Risk Management Framework",
+  "org": "nist",
+  "domain": "ai-risk-management",
+  "spec": "/spec/NIST_AI_RMF_PACK",
+  "summary": "The NIST AI RMF 1.0 — GOVERN, MAP, MEASURE, MANAGE and the seven trustworthiness characteristics — as computable policies over an AI system's lifecycle record.",
+  "description": "Maps the NIST AI Risk Management Framework (AI RMF 1.0) onto ponens policies. The four core functions become policy groups and the seven trustworthiness characteristics land under MEASURE, making voluntary AI-RMF adoption auditable: risk policies and accountability in place (GOVERN), context/categorization/impacts mapped (MAP), trustworthiness characteristics measured (MEASURE), and risks prioritized/treated with incident response (MANAGE).",
+  "source": "NIST AI 100-1, AI Risk Management Framework 1.0 (2023).",
+  "domains": [
+    {
+      "key": "govern",
+      "label": "GOVERN"
+    },
+    {
+      "key": "map",
+      "label": "MAP"
+    },
+    {
+      "key": "measure",
+      "label": "MEASURE (Trustworthiness)"
+    },
+    {
+      "key": "manage",
+      "label": "MANAGE"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "cms-ai-guidance",
+  "name": "CMS AI Guidance (TRA)",
+  "org": "cms",
+  "domain": "ai-risk-management",
+  "spec": "/spec/CMS_AI_GUIDANCE_PACK",
+  "summary": "The CMS Technical Reference Architecture AI Guidance — business rules BR-AI-1..6 plus operational practices (provenance, zero-trust, observability) — as computable policies over an AI system's operation record.",
+  "description": "Maps the CMS TRA AI Guidance onto ponens policies: high-impact use-case governance and human oversight (BR-AI-2/4/5), sensitive-data and data-residency rules (BR-AI-1/3), AI supply-chain provenance and zero-trust security, and observability/prompt-versioning/records-retention (BR-AI-6). The operational enforcement layer above the NIST AI RMF, for federal healthcare AI.",
+  "source": "CMS TRA Artificial Intelligence Guidance (BR-AI-1..6).",
+  "domains": [
+    {
+      "key": "use-case-governance",
+      "label": "Use-Case Governance & Oversight"
+    },
+    {
+      "key": "data-protection",
+      "label": "Data Protection & Residency"
+    },
+    {
+      "key": "supply-chain-security",
+      "label": "Supply-Chain & Zero-Trust"
+    },
+    {
+      "key": "observability-records",
+      "label": "Observability & Records"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "ssdf_pw_security_review",
+  "name": "NIST SSDF: PW — Security Review / Analysis",
+  "category": "security",
+  "severity": "error",
+  "description": "Code is reviewed and/or analyzed for security before it is accepted (PW.7/PW.8).",
+  "formula": "G(GitCommit → P(security_review ∨ static_analysis))",
+  "language_level": "pure_temporal",
+  "rationale": "SSDF PW.7/PW.8: review and/or analyze human-readable code, and test executable code, to identify vulnerabilities and verify compliance with security requirements.",
+  "tags": [
+    "secure-development",
+    "nist",
+    "ssdf",
+    "supply-chain",
+    "pw",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the practice's evidence is present",
+    "fails": "the required secure-development step is absent"
+  },
+  "domain": "secure-development",
+  "pack": "nist-ssdf",
+  "group": "pw",
+  "source": "NIST SP 800-218 — Secure Software Development Framework (SSDF) v1.1, organised into PO (Prepare the Organization), PS (Protect the Software), PW (Produce Well-Secured Software), RV (Respond to Vulnerabilities). https://csrc.nist.gov/Projects/ssdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

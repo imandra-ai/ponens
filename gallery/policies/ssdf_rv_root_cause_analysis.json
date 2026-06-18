@@ -1,0 +1,32 @@
+{
+  "id": "ssdf_rv_root_cause_analysis",
+  "name": "NIST SSDF: RV — Root-Cause Analysis",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "Root-cause analysis is performed to reduce the frequency of future vulnerabilities (RV.3).",
+  "formula": "G(Finding → F(root_cause_recorded))",
+  "language_level": "pure_temporal",
+  "rationale": "SSDF RV.3: analyze vulnerabilities to identify root causes, and use that to improve the development process.",
+  "tags": [
+    "secure-development",
+    "nist",
+    "ssdf",
+    "supply-chain",
+    "rv",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the practice's evidence is present",
+    "fails": "the required secure-development step is absent"
+  },
+  "domain": "secure-development",
+  "pack": "nist-ssdf",
+  "group": "rv",
+  "source": "NIST SP 800-218 — Secure Software Development Framework (SSDF) v1.1, organised into PO (Prepare the Organization), PS (Protect the Software), PW (Produce Well-Secured Software), RV (Respond to Vulnerabilities). https://csrc.nist.gov/Projects/ssdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

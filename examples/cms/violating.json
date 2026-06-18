@@ -1,0 +1,213 @@
+{
+  "trace_id": "cms-violating-001",
+  "spec_version": "1.6",
+  "assistant": "ai-system",
+  "model": "demo",
+  "trigger": {
+    "type": "TaskReceived"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "Decision",
+      "category": "activity",
+      "rationale": "CMS AI operation",
+      "detail": "high impact ai | high impact decision",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "type": "Deploy",
+      "category": "activity",
+      "rationale": "CMS AI operation",
+      "detail": "production ai",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 3,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "CMS AI operation",
+      "detail": "sensitive data use",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 4,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "CMS AI operation",
+      "detail": "foreign ai",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 5,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "CMS AI operation",
+      "detail": "ai component",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 6,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "CMS AI operation",
+      "detail": "ai outbound capable",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "id": 7,
+      "type": "EditFile",
+      "category": "activity",
+      "rationale": "CMS AI operation",
+      "detail": "ai supported action",
+      "result_summary": "",
+      "evidence": [],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "artifacts": [],
+  "residuals": [],
+  "telemetry": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "policies": [
+    {
+      "policy_id": "cms_ai_policy_human_review",
+      "name": "cms_ai_policy_human_review",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ai_written_policy → human_review)",
+      "description": "Use of AI tools to draft CMS policies is followed by human review; AI supports but does not substitute for human decisions."
+    },
+    {
+      "policy_id": "cms_ai_provenance_verified",
+      "name": "cms_ai_provenance_verified",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ai_component → provenance_verified)",
+      "description": "The provenance and integrity of AI components (models, data, code) used in production are verified."
+    },
+    {
+      "policy_id": "cms_continuous_human_oversight",
+      "name": "cms_continuous_human_oversight",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Deploy ∨ Output) → P(human_oversight))",
+      "description": "Continuous human oversight is in place to ensure AI/ML output meets CMS and federal guidelines."
+    },
+    {
+      "policy_id": "cms_data_residency",
+      "name": "cms_data_residency",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(foreign_ai → on_cms_infrastructure ∧ no_internet_egress)",
+      "description": "Foreign-entity AI tools are used only if deployed on CMS infrastructure with no data sent to the internet (CMS data stays in the U.S.)."
+    },
+    {
+      "policy_id": "cms_external_ai_data_agreement",
+      "name": "cms_external_ai_data_agreement",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(external_ai → P(data_use_agreement))",
+      "description": "External AI tools that can access non-public CMS data have appropriate data-use agreements in place beforehand."
+    },
+    {
+      "policy_id": "cms_high_impact_human_final_decision",
+      "name": "cms_high_impact_human_final_decision",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(high_impact_decision → human_final_decision ∧ documented_oversight)",
+      "description": "For high-impact cases, AI provides advice/recommendations only; the final decision is made by qualified staff with documented oversight."
+    },
+    {
+      "policy_id": "cms_high_impact_risk_assessed",
+      "name": "cms_high_impact_risk_assessed",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(high_impact_ai → P(risk_assessment_done))",
+      "description": "High-impact AI use cases (per OMB M-25-21) undergo a CMS AI governance risk assessment and apply minimum risk-management practices."
+    },
+    {
+      "policy_id": "cms_privacy_preserving_nonprod",
+      "name": "cms_privacy_preserving_nonprod",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(nonprod_data → synthetic_or_deidentified)",
+      "description": "Development and lower environments use synthetic or de-identified data rather than real PII/PHI."
+    },
+    {
+      "policy_id": "cms_production_observability",
+      "name": "cms_production_observability",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G((Deploy ∨ Output) → P(observability_enabled))",
+      "description": "Production AI systems implement observability — traces, evaluations (EVALs), and key metrics tracked over time."
+    },
+    {
+      "policy_id": "cms_prompts_versioned",
+      "name": "cms_prompts_versioned",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(production_ai → prompts_versioned)",
+      "description": "AI system prompts used in production are versioned and their performance reviewed over time."
+    },
+    {
+      "policy_id": "cms_records_retention",
+      "name": "cms_records_retention",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ai_supported_action → records_retained)",
+      "description": "AI-supported official actions and AI-generated content are retained per records-retention and FOIA requirements."
+    },
+    {
+      "policy_id": "cms_sensitive_data_compliant_tool",
+      "name": "cms_sensitive_data_compliant_tool",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(sensitive_data_use → approved_tool)",
+      "description": "PHI / sensitive PII and other sensitive data are used only with AI tools that meet HHS/CMS cybersecurity & privacy standards."
+    },
+    {
+      "policy_id": "cms_zero_trust_for_ai",
+      "name": "cms_zero_trust_for_ai",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ai_outbound_capable → data_minimization ∧ network_segmented)",
+      "description": "AI tools that can make outbound requests are constrained by data minimization and network segmentation to contain the blast radius."
+    }
+  ]
+}

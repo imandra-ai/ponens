@@ -1,0 +1,32 @@
+{
+  "id": "cms_zero_trust_for_ai",
+  "name": "CMS: Zero-Trust for AI",
+  "category": "security",
+  "severity": "error",
+  "description": "AI tools that can make outbound requests are constrained by data minimization and network segmentation to contain the blast radius.",
+  "formula": "G(ai_outbound_capable → data_minimization ∧ network_segmented)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS Zero-Trust Architecture for AI: perform threat modeling, segment networks, and apply data minimization so an AI tool accesses only the resources strictly necessary.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "supply-chain-security",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "supply-chain-security",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

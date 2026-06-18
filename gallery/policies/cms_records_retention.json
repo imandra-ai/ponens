@@ -1,0 +1,32 @@
+{
+  "id": "cms_records_retention",
+  "name": "CMS: AI-Supported Actions Retained",
+  "category": "auditability",
+  "severity": "error",
+  "description": "AI-supported official actions and AI-generated content are retained per records-retention and FOIA requirements.",
+  "formula": "G(ai_supported_action → records_retained)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS BR-AI-6: AI-supported official actions are subject to records retention requirements; AI-generated content may be subject to data retention and FOIA.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "observability-records",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "observability-records",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

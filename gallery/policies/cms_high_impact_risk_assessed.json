@@ -1,0 +1,32 @@
+{
+  "id": "cms_high_impact_risk_assessed",
+  "name": "CMS: High-Impact Use Case Risk-Assessed",
+  "category": "conformance",
+  "severity": "error",
+  "description": "High-impact AI use cases (per OMB M-25-21) undergo a CMS AI governance risk assessment and apply minimum risk-management practices.",
+  "formula": "G(high_impact_ai → P(risk_assessment_done))",
+  "language_level": "pure_temporal",
+  "rationale": "CMS BR-AI-2: a high-impact use case must meet minimum risk management practices in accordance with OMB M-25-21; a CMS AI governance risk assessment determines high-impact status.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "use-case-governance",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "use-case-governance",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

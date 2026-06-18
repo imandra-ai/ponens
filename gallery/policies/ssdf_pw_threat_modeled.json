@@ -1,0 +1,32 @@
+{
+  "id": "ssdf_pw_threat_modeled",
+  "name": "NIST SSDF: PW — Threat Modeled",
+  "category": "security",
+  "severity": "error",
+  "description": "The design is reviewed against security requirements and threats (threat modeling) (PW.1/PW.2).",
+  "formula": "G(GitCommit → P(threat_modeled))",
+  "language_level": "pure_temporal",
+  "rationale": "SSDF PW.1/PW.2: design software to meet security requirements and mitigate risks, and review the design (e.g. threat modeling).",
+  "tags": [
+    "secure-development",
+    "nist",
+    "ssdf",
+    "supply-chain",
+    "pw",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the practice's evidence is present",
+    "fails": "the required secure-development step is absent"
+  },
+  "domain": "secure-development",
+  "pack": "nist-ssdf",
+  "group": "pw",
+  "source": "NIST SP 800-218 — Secure Software Development Framework (SSDF) v1.1, organised into PO (Prepare the Organization), PS (Protect the Software), PW (Produce Well-Secured Software), RV (Respond to Vulnerabilities). https://csrc.nist.gov/Projects/ssdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

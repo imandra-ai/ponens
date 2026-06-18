@@ -1,0 +1,32 @@
+{
+  "id": "cms_external_ai_data_agreement",
+  "name": "CMS: External AI Data-Use Agreement",
+  "category": "security",
+  "severity": "warning",
+  "description": "External AI tools that can access non-public CMS data have appropriate data-use agreements in place beforehand.",
+  "formula": "G(external_ai → P(data_use_agreement))",
+  "language_level": "pure_temporal",
+  "rationale": "CMS Data Rights: ensure data-use agreements are in place before incorporating external AI that can access non-public CMS data; beware terms enabling training/sharing of CMS data.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "data-protection",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "data-protection",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

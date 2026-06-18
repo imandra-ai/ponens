@@ -1,0 +1,32 @@
+{
+  "id": "ssdf_ps_release_archived",
+  "name": "NIST SSDF: PS — Release Archived",
+  "category": "security",
+  "severity": "warning",
+  "description": "Each release and its associated files are archived and protected (PS.1/PS.3).",
+  "formula": "G(Release → P(release_archived))",
+  "language_level": "pure_temporal",
+  "rationale": "SSDF PS.1/PS.3: protect all forms of code from unauthorized access and tampering, and archive each release.",
+  "tags": [
+    "secure-development",
+    "nist",
+    "ssdf",
+    "supply-chain",
+    "ps",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the practice's evidence is present",
+    "fails": "the required secure-development step is absent"
+  },
+  "domain": "secure-development",
+  "pack": "nist-ssdf",
+  "group": "ps",
+  "source": "NIST SP 800-218 — Secure Software Development Framework (SSDF) v1.1, organised into PO (Prepare the Organization), PS (Protect the Software), PW (Produce Well-Secured Software), RV (Respond to Vulnerabilities). https://csrc.nist.gov/Projects/ssdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,32 @@
+{
+  "id": "cms_data_residency",
+  "name": "CMS: Data Residency / On-Prem Foreign AI",
+  "category": "security",
+  "severity": "error",
+  "description": "Foreign-entity AI tools are used only if deployed on CMS infrastructure with no data sent to the internet (CMS data stays in the U.S.).",
+  "formula": "G(foreign_ai → on_cms_infrastructure ∧ no_internet_egress)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS BR-AI-3: foreign-entity AI may only be used if deployed on CMS infrastructure and does not send data to the internet; CMS data must reside in the U.S.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "data-protection",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "data-protection",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

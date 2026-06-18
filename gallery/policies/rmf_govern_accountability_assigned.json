@@ -1,0 +1,32 @@
+{
+  "id": "rmf_govern_accountability_assigned",
+  "name": "NIST AI RMF: GOVERN — Accountability Assigned",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Clear roles, responsibilities and lines of accountability for the AI system are established.",
+  "formula": "G((Deploy ∨ Decision) → accountable_role)",
+  "language_level": "pure_temporal",
+  "rationale": "NIST AI RMF GOVERN 2: accountability structures are in place so the appropriate teams and individuals are empowered, responsible, and trained.",
+  "tags": [
+    "ai-governance",
+    "nist",
+    "ai-rmf",
+    "risk-management",
+    "govern",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the function's evidence is present",
+    "fails": "the required risk-management step is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "nist-ai-rmf",
+  "group": "govern",
+  "source": "NIST AI Risk Management Framework (AI RMF 1.0), NIST AI 100-1, 26 Jan 2023 — voluntary framework organised around GOVERN, MAP, MEASURE, MANAGE. https://www.nist.gov/itl/ai-risk-management-framework",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

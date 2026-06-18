@@ -1,0 +1,32 @@
+{
+  "id": "rmf_map_impacts_characterized",
+  "name": "NIST AI RMF: MAP — Impacts Characterized",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Potential impacts, benefits and risks to individuals, groups, communities and society are mapped.",
+  "formula": "G(Deploy → P(impacts_characterized))",
+  "language_level": "pure_temporal",
+  "rationale": "NIST AI RMF MAP 5: impacts to individuals, groups, communities, organizations and society are characterized.",
+  "tags": [
+    "ai-governance",
+    "nist",
+    "ai-rmf",
+    "risk-management",
+    "map",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the function's evidence is present",
+    "fails": "the required risk-management step is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "nist-ai-rmf",
+  "group": "map",
+  "source": "NIST AI Risk Management Framework (AI RMF 1.0), NIST AI 100-1, 26 Jan 2023 — voluntary framework organised around GOVERN, MAP, MEASURE, MANAGE. https://www.nist.gov/itl/ai-risk-management-framework",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,32 @@
+{
+  "id": "cms_ai_policy_human_review",
+  "name": "CMS: Human Review of AI-Written Policy",
+  "category": "conformance",
+  "severity": "warning",
+  "description": "Use of AI tools to draft CMS policies is followed by human review; AI supports but does not substitute for human decisions.",
+  "formula": "G(ai_written_policy → human_review)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS BR-AI-4: human review must follow use of AI tools to write CMS policies; humans must be in the loop for strategic/compliance activities.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "use-case-governance",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "use-case-governance",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

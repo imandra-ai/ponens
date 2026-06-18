@@ -1,0 +1,15 @@
+{
+  "id": "nist",
+  "name": "NIST",
+  "full_name": "National Institute of Standards and Technology",
+  "url": "https://www.nist.gov/itl/ai-risk-management-framework",
+  "description": "NIST publishes the foundational AI and software-security frameworks used worldwide. Its AI Risk Management Framework (AI RMF 1.0) manages AI risk across the lifecycle (Govern/Map/Measure/Manage), and its Secure Software Development Framework (SSDF, SP 800-218) defines secure-development practices (Prepare / Protect / Produce / Respond). Both are voluntary, and both are the basis for the packs below.",
+  "packs": [
+    "nist-ai-rmf",
+    "nist-ssdf"
+  ],
+  "mapping": [
+    "The NIST AI RMF is a lifecycle risk-management framework, not a runtime or conduct regime, so it brings a shape distinct from the financial-regulator packs: four functions — GOVERN (policies, accountability, culture), MAP (context, categorization, impacts), MEASURE (evaluate the seven trustworthiness characteristics), and MANAGE (prioritize, treat, respond, third-party). ponens turns each function's subcategories into policies over an AI system's lifecycle record: that risk policies and accountable roles exist, that context and impacts were mapped and the system categorized before deployment, that the trustworthiness characteristics were measured, and that risks are treated and incidents responded to.",
+    "The seven trustworthiness characteristics — valid & reliable, safe, secure & resilient, accountable & transparent, explainable & interpretable, privacy-enhanced, and fair (harmful bias managed) — land under MEASURE as the conditions a system must be evaluated against before deployment. Running the pack with `ponens trace check` aggregates to Green / Amber / Red: missing risk policies, no impact mapping, unmeasured safety/fairness, or an unhandled incident is Red; legal-requirement mapping, transparency/explainability measurement, ongoing tracking and third-party risk are Amber. The framework is voluntary, so this pack is a way to make AI-RMF adoption auditable rather than aspirational."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "cms_continuous_human_oversight",
+  "name": "CMS: Continuous Human Oversight",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Continuous human oversight is in place to ensure AI/ML output meets CMS and federal guidelines.",
+  "formula": "G((Deploy ∨ Output) → P(human_oversight))",
+  "language_level": "pure_temporal",
+  "rationale": "CMS Accountability & Oversight: all teams employing AI/ML are responsible for the system's output, and continuous human oversight is required.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "use-case-governance",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "use-case-governance",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

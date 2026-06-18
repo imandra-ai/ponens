@@ -1,0 +1,14 @@
+{
+  "id": "cms",
+  "name": "CMS",
+  "full_name": "Centers for Medicare & Medicaid Services (Technical Reference Architecture)",
+  "url": "https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "description": "CMS — the US agency for Medicare & Medicaid — publishes AI Guidance in its Technical Reference Architecture: concrete business rules (BR-AI-1..6) and operational practices for using AI responsibly with sensitive healthcare data. Where the NIST AI RMF is the generic risk lifecycle, CMS is the operational enforcement layer, and it is the basis for the pack below.",
+  "packs": [
+    "cms-ai-guidance"
+  ],
+  "mapping": [
+    "CMS AI Guidance is an operational, enforceable layer on top of the federal frameworks (it references OMB M-25-21/M-25-22 and the NIST AI RMF). Its six business rules and recommended practices map directly to ponens policies over an AI system's operation record: high-impact use cases (the OMB M-25-21 definition) get a risk assessment and a human final decision; sensitive data (PHI/SPII) is used only with approved tools; foreign-entity AI may run only on CMS infrastructure with no internet egress; AI-supported official actions are retained; and continuous human oversight is required.",
+    "It also specifies concrete operational security that distinguishes it from the lifecycle frameworks: verify the provenance and integrity of AI components (System Composition Analysis), apply zero-trust — data minimization and network segmentation — to AI tools that can reach outbound, and instrument production AI with observability. Notably, CMS mandates tracking 'traces, EVALs, prompt management/versioning, and key metrics' — which is precisely the governance-semantic telemetry ponens evaluates, so this pack is close to a literal implementation of the guidance. Running it with `ponens trace check` aggregates to Green / Amber / Red across use-case governance, data protection & residency, supply-chain/zero-trust, and observability/records."
+  ]
+}

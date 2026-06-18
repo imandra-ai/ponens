@@ -1,0 +1,32 @@
+{
+  "id": "rmf_measure_security_privacy",
+  "name": "NIST AI RMF: MEASURE — Security & Privacy",
+  "category": "security",
+  "severity": "error",
+  "description": "The AI system is measured for the secure-&-resilient and privacy-enhanced characteristics.",
+  "formula": "G(Deploy → P(security_resilience_measured ∧ privacy_measured))",
+  "language_level": "pure_temporal",
+  "rationale": "NIST AI RMF MEASURE 2: trustworthy characteristics include secure & resilient and privacy-enhanced.",
+  "tags": [
+    "ai-governance",
+    "nist",
+    "ai-rmf",
+    "risk-management",
+    "measure",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the function's evidence is present",
+    "fails": "the required risk-management step is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "nist-ai-rmf",
+  "group": "measure",
+  "source": "NIST AI Risk Management Framework (AI RMF 1.0), NIST AI 100-1, 26 Jan 2023 — voluntary framework organised around GOVERN, MAP, MEASURE, MANAGE. https://www.nist.gov/itl/ai-risk-management-framework",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

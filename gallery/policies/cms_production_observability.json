@@ -1,0 +1,32 @@
+{
+  "id": "cms_production_observability",
+  "name": "CMS: Production AI Observability",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "Production AI systems implement observability — traces, evaluations (EVALs), and key metrics tracked over time.",
+  "formula": "G((Deploy ∨ Output) → P(observability_enabled))",
+  "language_level": "pure_temporal",
+  "rationale": "CMS Monitoring & Observability: track traces, EVALs, prompt management/versioning and key metrics for production AI systems, aligned with OMB M-25-21/M-25-22.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "observability-records",
+    "rag-amber"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "observability-records",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

@@ -1,0 +1,32 @@
+{
+  "id": "ssdf_po_security_requirements_defined",
+  "name": "NIST SSDF: PO — Security Requirements Defined",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Security requirements for the software and its development are defined (PO.1).",
+  "formula": "G(GitCommit → P(security_requirements_defined))",
+  "language_level": "pure_temporal",
+  "rationale": "SSDF PO.1: define security requirements for software development, and maintain them over time.",
+  "tags": [
+    "secure-development",
+    "nist",
+    "ssdf",
+    "supply-chain",
+    "po",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the practice's evidence is present",
+    "fails": "the required secure-development step is absent"
+  },
+  "domain": "secure-development",
+  "pack": "nist-ssdf",
+  "group": "po",
+  "source": "NIST SP 800-218 — Secure Software Development Framework (SSDF) v1.1, organised into PO (Prepare the Organization), PS (Protect the Software), PW (Produce Well-Secured Software), RV (Respond to Vulnerabilities). https://csrc.nist.gov/Projects/ssdf",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

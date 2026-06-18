@@ -1,0 +1,32 @@
+{
+  "id": "cms_sensitive_data_compliant_tool",
+  "name": "CMS: Sensitive Data Only With Compliant Tool",
+  "category": "security",
+  "severity": "error",
+  "description": "PHI / sensitive PII and other sensitive data are used only with AI tools that meet HHS/CMS cybersecurity & privacy standards.",
+  "formula": "G(sensitive_data_use → approved_tool)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS BR-AI-1: sensitive data (PHI, SPII, etc.) may only be used with AI tools and services that meet HHS and CMS cybersecurity standards.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "data-protection",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "data-protection",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

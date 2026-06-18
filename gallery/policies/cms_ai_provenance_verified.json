@@ -1,0 +1,32 @@
+{
+  "id": "cms_ai_provenance_verified",
+  "name": "CMS: AI Component Provenance Verified",
+  "category": "security",
+  "severity": "error",
+  "description": "The provenance and integrity of AI components (models, data, code) used in production are verified.",
+  "formula": "G(ai_component → provenance_verified)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS AI Model Supply Chain & Provenance: implement System Composition Analysis to verify the origin and integrity of AI dependencies (cf. the 'Model Namespace Reuse' attack).",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "supply-chain-security",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "supply-chain-security",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

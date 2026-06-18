@@ -1,0 +1,28 @@
+{
+  "id": "nist-ssdf",
+  "name": "NIST SSDF (Secure Software Development)",
+  "org": "nist",
+  "domain": "secure-development",
+  "spec": "/spec/NIST_SSDF_PACK",
+  "summary": "The NIST SSDF (SP 800-218) secure-development practices — Prepare the Organization, Protect the Software (integrity/provenance), Produce Well-Secured Software, Respond to Vulnerabilities — as computable policies over a development/release trace.",
+  "description": "Maps the NIST Secure Software Development Framework onto ponens policies. The four SSDF practice groups become policy groups: PO (security requirements, roles, secure toolchain), PS (release signing, provenance/SBOM, archival), PW (threat modeling, security review/analysis/testing, secure defaults, no open vulnerabilities at release), and RV (ongoing vulnerability analysis, assessment & remediation, root-cause analysis).",
+  "source": "NIST SP 800-218 SSDF v1.1.",
+  "domains": [
+    {
+      "key": "po",
+      "label": "PO — Prepare the Organization"
+    },
+    {
+      "key": "ps",
+      "label": "PS — Protect the Software"
+    },
+    {
+      "key": "pw",
+      "label": "PW — Produce Well-Secured Software"
+    },
+    {
+      "key": "rv",
+      "label": "RV — Respond to Vulnerabilities"
+    }
+  ]
+}

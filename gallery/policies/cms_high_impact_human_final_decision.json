@@ -1,0 +1,32 @@
+{
+  "id": "cms_high_impact_human_final_decision",
+  "name": "CMS: Human Makes High-Impact Final Decision",
+  "category": "conformance",
+  "severity": "error",
+  "description": "For high-impact cases, AI provides advice/recommendations only; the final decision is made by qualified staff with documented oversight.",
+  "formula": "G(high_impact_decision → human_final_decision ∧ documented_oversight)",
+  "language_level": "pure_temporal",
+  "rationale": "CMS BR-AI-5: do not rely on AI for final decisions for high-impact cases; AI advises, qualified staff decide with documented oversight.",
+  "tags": [
+    "ai-governance",
+    "cms",
+    "federal",
+    "healthcare",
+    "use-case-governance",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the CMS AI rule's evidence is present",
+    "fails": "the required control is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "cms-ai-guidance",
+  "group": "use-case-governance",
+  "source": "CMS Technical Reference Architecture (TRA) — Artificial Intelligence Guidance (Business Rules BR-AI-1..6 and recommended practices; references OMB M-25-21/M-25-22, NIST AI RMF, HHS AI policy). https://www.cms.gov/tra/Foundation/FD_0080_Foundation_AI_Guidance.htm",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

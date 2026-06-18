@@ -1,0 +1,32 @@
+{
+  "id": "rmf_map_context_established",
+  "name": "NIST AI RMF: MAP — Context Established",
+  "category": "conformance",
+  "severity": "error",
+  "description": "The context — intended purpose, setting, and the AI system's role — is established and documented before deployment.",
+  "formula": "G(Deploy → P(context_established))",
+  "language_level": "pure_temporal",
+  "rationale": "NIST AI RMF MAP 1: context is established and understood, including intended purpose, deployment setting, and the system's role.",
+  "tags": [
+    "ai-governance",
+    "nist",
+    "ai-rmf",
+    "risk-management",
+    "map",
+    "rag-red"
+  ],
+  "examples": {
+    "passes": "the function's evidence is present",
+    "fails": "the required risk-management step is absent"
+  },
+  "domain": "ai-risk-management",
+  "pack": "nist-ai-rmf",
+  "group": "map",
+  "source": "NIST AI Risk Management Framework (AI RMF 1.0), NIST AI 100-1, 26 Jan 2023 — voluntary framework organised around GOVERN, MAP, MEASURE, MANAGE. https://www.nist.gov/itl/ai-risk-management-framework",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

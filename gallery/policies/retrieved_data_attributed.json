@@ -1,0 +1,34 @@
+{
+  "id": "retrieved_data_attributed",
+  "name": "Retrieved Data Attributed (C1)",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Capability C1 (Retrieval & Attribution): retrieved data must carry provenance and recency checks before it is relied upon.",
+  "formula": "G(Retrieve → provenance_checked ∧ recency_checked)",
+  "language_level": "pure_temporal",
+  "rationale": "Szpruch C1 failure mode: stale data used without flagging, or prompt injection via a retrieved document. The fix is enforceable attribution, not model self-report.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "capability",
+    "rag-red",
+    "tier-1-4"
+  ],
+  "examples": {
+    "passes": "Retrieve with provenance_checked and recency_checked",
+    "fails": "Retrieve of stale data used without a recency flag"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "capability",
+  "governance_state": "R",
+  "tier": "1-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

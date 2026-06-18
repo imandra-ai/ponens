@@ -211,6 +211,11 @@ def build_catalog(policies, index):
             "reference_compiler": status,
             "hash": policy_hash(p),
             "file": f"{p.get('id')}.json",
+            # Pack membership (optional) — lets the gallery group/filter by pack
+            # and lets organization pages list a pack's policies.
+            **({"pack": p["pack"]} if p.get("pack") else {}),
+            **({"fix_domain": p["fix_domain"]} if p.get("fix_domain") else {}),
+            **({"tier": p["tier"]} if p.get("tier") else {}),
         })
     categories = sorted({e["category"] for e in entries if e["category"]})
     tags = sorted({t for e in entries for t in (e["tags"] or [])})
@@ -222,6 +227,8 @@ def build_catalog(policies, index):
         "categories": categories,
         "tags": tags,
         "domains": index.get("domains", {}),
+        "organizations": index.get("organizations", []),
+        "packs": index.get("packs", []),
     }
 
 

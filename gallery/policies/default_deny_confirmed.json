@@ -1,0 +1,34 @@
+{
+  "id": "default_deny_confirmed",
+  "name": "Default-Deny Confirmed",
+  "category": "safety",
+  "severity": "error",
+  "description": "At Tier 4 a default-deny authorisation must be confirmed before any tool call.",
+  "formula": "G(ToolCall → P(default_deny_confirmed))",
+  "language_level": "pure_temporal",
+  "rationale": "Tier 4 capability control: default-deny-not-confirmed is a Red halt. Continuous authorisation must be established before the agent may invoke tools.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "capability",
+    "rag-red",
+    "tier-4"
+  ],
+  "examples": {
+    "passes": "default_deny_confirmed established before any ToolCall",
+    "fails": "ToolCall with no confirmed default-deny authority"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "capability",
+  "governance_state": "R",
+  "tier": "4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

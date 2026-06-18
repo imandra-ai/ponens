@@ -1,0 +1,34 @@
+{
+  "id": "dual_approval_critical",
+  "name": "Dual Approval for Critical Autonomous",
+  "category": "safety",
+  "severity": "error",
+  "description": "Tier 4 (Critical Autonomous) release requires two distinct authenticated approvals before proceeding.",
+  "formula": "G(Release → P(UserApproval ∧ approver_1) ∧ P(UserApproval ∧ approver_2))",
+  "language_level": "pure_temporal",
+  "rationale": "Tier 4 default-deny governance: dual approval must be logged before a Critical Autonomous release. Distinctness of the two approvers is guaranteed by the governance layer.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "capability",
+    "rag-red",
+    "tier-4"
+  ],
+  "examples": {
+    "passes": "UserApproval(approver_1) and UserApproval(approver_2) before Release",
+    "fails": "Release with a single approver at Tier 4"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "capability",
+  "governance_state": "R",
+  "tier": "4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

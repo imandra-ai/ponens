@@ -1,0 +1,34 @@
+{
+  "id": "numeric_recomputed_deterministically",
+  "name": "Numeric Recomputed Deterministically (C2)",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "Capability C2 (Deterministic Numeric Computation): numeric results must be recomputed by a deterministic (non-LLM) calculator, not asserted by the model.",
+  "formula": "G(Compute → deterministic_recompute)",
+  "language_level": "pure_temporal",
+  "rationale": "Szpruch C2 failure mode: silent numeric error with LLM plausibility masking the arithmetic error. Ratios and thresholds must be recomputed deterministically.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "capability",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "Compute with deterministic_recompute of the ratio",
+    "fails": "a P&L figure asserted by the model without deterministic recomputation"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "capability",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

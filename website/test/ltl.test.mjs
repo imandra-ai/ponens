@@ -55,6 +55,11 @@ check("s_last fail (no test since last commit)", F_TPBC, [A("RunTests", { status
 // ASCII operators should parse the same
 check("ascii ops", "G(GitCommit -> P(RunTests /\\ completed))", [A("RunTests", { status: "completed" }), A("GitCommit")], true);
 
+// count() aggregate — trajectory length / tool budget
+check("count trajectory pass", "count(action) <= 3", [A("ReadFile"), A("EditFile")], true);
+check("count trajectory fail", "count(action) <= 3", [A("ReadFile"), A("EditFile"), A("RunTests"), A("GitCommit")], false);
+check("count by type", "count(RunTests) >= 2", [A("RunTests"), A("EditFile"), A("RunTests")], true);
+
 // Unsupported (structural / lineage) — must NOT guess a verdict
 check("unsupported P_chain", "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))",
   [A("EditFile", { flags: ["high_stakes_path"] })], "UNSUPPORTED:lineage operator P_chain isn't in the v1 simulator — try `ponens trace check`");

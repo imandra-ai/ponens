@@ -1,0 +1,60 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+// Read the same catalog the gallery serves; prepare-site syncs it before build.
+let cat = { organizations: [], packs: [], policies: [] };
+try {
+  cat = JSON.parse(readFileSync(resolve("public/gallery/policies/_catalog.json"), "utf8"));
+} catch {}
+const orgs = cat.organizations || [];
+const packs = cat.packs || [];
+const packsByOrg = (oid) => packs.filter((p) => p.org === oid);
+const policyCount = (packId) => (cat.policies || []).filter((p) => p.pack === packId).length;
+---
+
+<Layout title="Organizations — ponens">
+  <section class="page-head">
+    <h1>Organizations</h1>
+    <p>Policy <strong>packs</strong> published by standards bodies and industry groups. A pack is a
+      curated set of policies that govern one domain end to end — the same machine-checkable rules
+      the <a href="/gallery">gallery</a> lists and <code>ponens trace check</code> evaluates.</p>
+  </section>
+
+  <div class="org-list">
+    {orgs.map((o) => (
+      <a class="org-card" href={`/organizations/${o.id}`}>
+        <h2>{o.name}</h2>
+        <p class="org-full">{o.full_name}</p>
+        <p class="org-desc">{o.description}</p>
+        <div class="org-packs">
+          {packsByOrg(o.id).map((pk) => (
+            <span class="pack-chip">{pk.name}<em>{policyCount(pk.id)}</em></span>
+          ))}
+        </div>
+      </a>
+    ))}
+    {orgs.length === 0 && <p class="empty">No organizations published yet.</p>}
+  </div>
+
+  <style>
+    .org-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+    .org-card {
+      display: block; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;
+      background: var(--card, transparent); color: inherit; text-decoration: none; transition: border-color .15s, transform .15s;
+    }
+    .org-card:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
+    .org-card h2 { margin: 0 0 0.15rem; font-size: 1.25rem; }
+    .org-full { margin: 0 0 0.6rem; color: var(--muted); font-size: 0.85rem; }
+    .org-desc { margin: 0 0 0.9rem; font-size: 0.92rem; }
+    .org-packs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .pack-chip {
+      display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600;
+      padding: 0.18rem 0.55rem; border-radius: 999px;
+      background: color-mix(in srgb, #b3541e 16%, transparent); color: #b3541e;
+      border: 1px solid color-mix(in srgb, #b3541e 35%, transparent);
+    }
+    .pack-chip em { font-style: normal; opacity: 0.7; font-weight: 700; }
+  </style>
+</Layout>

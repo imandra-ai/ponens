@@ -1,0 +1,34 @@
+{
+  "id": "agent_identity_resolved",
+  "name": "Agent Identity Resolved",
+  "category": "security",
+  "severity": "error",
+  "description": "Every agentic action must carry a resolvable AgentID bound to a valid KYA credential (NIST IAL2 human principal).",
+  "formula": "G(action → agent_id_resolved ∧ kya_valid)",
+  "language_level": "pure_temporal",
+  "rationale": "FIX Gap 1 / Identity & Authorisation. A Red condition: an action by an agent whose identity cannot be resolved to a verified human principal is an authorisation failure requiring containment.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "identity",
+    "rag-red",
+    "tier-1-4"
+  ],
+  "examples": {
+    "passes": "ToolCall with agent_id_resolved and kya_valid",
+    "fails": "ToolCall with no resolvable AgentID / KYA"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "identity",
+  "governance_state": "R",
+  "tier": "1-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

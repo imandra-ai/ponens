@@ -1,0 +1,34 @@
+{
+  "id": "tool_calls_allowlisted",
+  "name": "Tool Calls Allowlisted",
+  "category": "safety",
+  "severity": "error",
+  "description": "Every tool/capability invocation must lie within the certified allowlist for the agent's tier.",
+  "formula": "G(ToolCall → in_allowlist)",
+  "language_level": "pure_temporal",
+  "rationale": "Szpruch capability control: a tool call outside all approved lists is a Red halt. Tier 2 governance enforces the allowlist as policy-as-code, not prompt guidance.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "capability",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "ToolCall with in_allowlist",
+    "fails": "ToolCall to a capability outside the certified allowlist"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "capability",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

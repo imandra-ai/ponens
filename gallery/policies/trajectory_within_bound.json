@@ -1,0 +1,34 @@
+{
+  "id": "trajectory_within_bound",
+  "name": "Trajectory Within Bound (Lmax)",
+  "category": "auditability",
+  "severity": "error",
+  "description": "The execution trajectory length must stay within the certified maximum (Lmax). Bound shown as 50; set per deployment.",
+  "formula": "count(action) ≤ 50",
+  "language_level": "structural",
+  "rationale": "Szpruch maximum-trajectory-length guard. Exceeding Lmax indicates a runaway or looping workflow and is a Red halt; the bound is part of the certified DCE.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "telemetry",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "a 12-step trajectory under an Lmax of 50",
+    "fails": "a trajectory that exceeds the certified Lmax"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "telemetry",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

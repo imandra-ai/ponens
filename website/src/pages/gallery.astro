@@ -13,8 +13,11 @@ import Layout from "../layouts/Layout.astro";
       is what <code>ponens registry update</code> pulls. Want your own?
       <a href="/docs/writing-policies">Write a policy →</a></p>
     <input id="q" type="search" placeholder="Search policies, formulas, tags…" autocomplete="off" />
+    <div id="packRow" class="filter-row" hidden><span class="filter-label">Pack</span><div id="packFilters" class="filters"></div></div>
     <div class="filter-row"><span class="filter-label">Domain</span><div id="domFilters" class="filters"></div></div>
     <div class="filter-row"><span class="filter-label">Category</span><div id="catFilters" class="filters"></div></div>
+    <p class="gallery-orglink">Curated by an organization?
+      <a href="/organizations">Browse policy packs by publisher →</a></p>
   </section>
 
   <div id="count" class="count"></div>
@@ -27,6 +30,8 @@ import Layout from "../layouts/Layout.astro";
     let all = [];
     let activeDomain = null;
     let activeCategory = null;
+    let activePack = null;
+    let packNames = {};
 
     const LL_LABEL = {
       pure_temporal: "Pure temporal",
@@ -54,6 +59,7 @@ import Layout from "../layouts/Layout.astro";
     function render() {
       const query = q.value.trim().toLowerCase();
       const items = all.filter((p) => {
+        if (activePack && p.pack !== activePack) return false;
         if (activeDomain && p.domain !== activeDomain) return false;
         if (activeCategory && p.category !== activeCategory) return false;
         if (!query) return true;
@@ -73,6 +79,7 @@ import Layout from "../layouts/Layout.astro";
           <p>${p.description ?? ""}</p>
           ${p.formula ? `<pre class="pf"><code>${highlightFormula(p.formula)}</code></pre>` : ""}
           <div class="policy-meta">
+            ${p.pack ? `<span class="pack-badge">${packNames[p.pack] ?? p.pack}</span>` : ""}
             <span class="dom">${p.domain ?? ""}</span>
             ${(p.tags || []).map((t) => `<span class="tag">${t}</span>`).join("")}
             ${p.language_level ? `<span class="ll ll-${p.language_level}">${LL_LABEL[p.language_level] ?? p.language_level}</span>` : ""}
@@ -82,16 +89,18 @@ import Layout from "../layouts/Layout.astro";
         .join("");
     }
 
-    function buildFilters(container, key, setActive) {
+    function buildFilters(container, key, setActive, labelOf) {
       const counts = {};
       all.forEach((p) => {
         const v = p[key];
         if (v) counts[v] = (counts[v] || 0) + 1;
       });
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
       const vals = Object.keys(counts).sort();
+      const label = labelOf || ((v) => v);
       container.innerHTML =
-        `<button class="chip active" data-v="">All <em>${all.length}</em></button>` +
-        vals.map((v) => `<button class="chip" data-v="${v}">${v} <em>${counts[v]}</em></button>`).join("");
+        `<button class="chip active" data-v="">All <em>${total}</em></button>` +
+        vals.map((v) => `<button class="chip" data-v="${v}">${label(v)} <em>${counts[v]}</em></button>`).join("");
       container.querySelectorAll("button").forEach((b) =>
         b.addEventListener("click", () => {
           setActive(b.dataset.v || null);
@@ -106,9 +115,26 @@ import Layout from "../layouts/Layout.astro";
       .then((r) => r.json())
       .then((cat) => {
         all = cat.policies || [];
+        packNames = Object.fromEntries((cat.packs || []).map((p) => [p.id, p.name]));
+        if ((cat.packs || []).length && all.some((p) => p.pack)) {
+          document.getElementById("packRow").hidden = false;
+          buildFilters(document.getElementById("packFilters"), "pack",
+            (v) => (activePack = v), (v) => packNames[v] ?? v);
+        }
         buildFilters(document.getElementById("domFilters"), "domain", (v) => (activeDomain = v));
         buildFilters(document.getElementById("catFilters"), "category", (v) => (activeCategory = v));
         render();
+        // Deep link from an organization page: /gallery?pack=<id>
+        const wantPack = new URLSearchParams(location.search).get("pack");
+        if (wantPack && packNames[wantPack]) {
+          activePack = wantPack;
+          const btn = document.querySelector(`#packFilters button[data-v="${wantPack}"]`);
+          if (btn) {
+            document.querySelectorAll("#packFilters button").forEach((x) => x.classList.remove("active"));
+            btn.classList.add("active");
+          }
+          render();
+        }
       })
       .catch(() => {
         grid.innerHTML = `<p class="empty">Could not load the catalog. Run <code>npm run sync-gallery</code> in <code>website/</code>.</p>`;
@@ -116,4 +142,13 @@ import Layout from "../layouts/Layout.astro";
 
     q.addEventListener("input", render);
   </script>
+
+  <style>
+    .gallery-orglink { margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--muted); }
+    .pack-badge {
+      font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px;
+      background: color-mix(in srgb, #b3541e 16%, transparent); color: #b3541e;
+      border: 1px solid color-mix(in srgb, #b3541e 35%, transparent); white-space: nowrap;
+    }
+  </style>
 </Layout>

@@ -25,7 +25,7 @@ const CATS = new Set(["gateway", "reasoning", "activity"]);
 // && || (the form `ponens trace check` uses), so a formula written for either
 // engine parses here. Unicode ∧ ∨ are handled directly below.
 const ASCII2 = { "->": "→", "/\\": "∧", "\\/": "∨", "&&": "∧", "||": "∨", "!=": "≠", ">=": "≥", "<=": "≤" };
-const SYMS = "→∧∨¬∀∃∈∅≠≥≤=().,⊨";
+const SYMS = "→∧∨¬∀∃∈∅≠≥≤<>=().,⊨";
 
 function tokenize(src) {
   const toks = [];
@@ -37,6 +37,8 @@ function tokenize(src) {
     if (ASCII2[t2]) { toks.push({ t: "sym", v: ASCII2[t2] }); i += 2; continue; }
     if (c === "!") { toks.push({ t: "sym", v: "¬" }); i++; continue; }
     if (SYMS.includes(c)) { toks.push({ t: "sym", v: c }); i++; continue; }
+    const num = src.slice(i).match(/^[0-9]+/);
+    if (num) { toks.push({ t: "num", v: num[0] }); i += num[0].length; continue; }
     const m = src.slice(i).match(/^[A-Za-z_][A-Za-z0-9_]*/);
     if (m) { toks.push({ t: "id", v: m[0] }); i += m[0].length; continue; }
     throw { unsupported: true, reason: `unexpected character '${c}'` };
@@ -87,6 +89,21 @@ function parse(src) {
     if (isSym("(")) { eat(); const e = implication(); if (!isSym(")")) throw { unsupported: true, reason: "expected )" }; eat(); return e; }
     if (peek() && peek().t === "id") {
       const name = eat().v;
+      // count(φ) <op> N — trace-level aggregate over positions
+      if (name === "count" && isSym("(")) {
+        eat(); const body = implication();
+        if (!isSym(")")) throw { unsupported: true, reason: "expected )" };
+        eat();
+        const opTok = peek();
+        if (!opTok || opTok.t !== "sym" || !"≤<≥>=≠".includes(opTok.v))
+          throw { unsupported: true, reason: "count(...) must be followed by a comparison and a number" };
+        const op = eat().v;
+        const numTok = peek();
+        if (!numTok || numTok.t !== "num")
+          throw { unsupported: true, reason: "count(...) comparison expects an integer" };
+        eat();
+        return { k: "count", body, op, n: parseInt(numTok.v, 10) };
+      }
       if (isSym("(")) { eat(); const arg = implication(); if (!isSym(")")) throw { unsupported: true, reason: "expected )" }; eat(); return { k: "call", type: name, arg }; }
       if (isSym("≠") || isSym("=") || isSym("≥") || isSym("≤")) {
         const op = eat().v;
@@ -137,6 +154,20 @@ function evalAt(n, i, trace, meta) {
   switch (n.k) {
     case "atom": return atomHolds(n.name, i, trace, meta);
     case "call": return atomHolds(n.type, i, trace, meta) && evalAt(n.arg, i, trace, meta);
+    case "count": {
+      let c = 0;
+      for (let j = 0; j < trace.length; j++) if (evalAt(n.body, j, trace, meta)) c++;
+      const v = n.n;
+      switch (n.op) {
+        case "≤": return c <= v;
+        case "<": return c < v;
+        case "≥": return c >= v;
+        case ">": return c > v;
+        case "=": return c === v;
+        case "≠": return c !== v;
+      }
+      return false;
+    }
     case "cmp": {
       if (n.left === "rationale" && (n.right === "∅" || n.right === "EMPTY")) {
         const has = !!trace[i].rationale;
@@ -220,7 +251,8 @@ export function evaluate(formula, trace, meta = {}) {
 export const VOCAB = {
   types: ["ReadFile", "EditFile", "CreateFile", "DeleteFile", "SearchCode", "AnalyzeCode",
     "ReadDocumentation", "RunTests", "Lint", "TypeCheck", "GitCommit", "GitPush",
-    "Formalize", "Verify", "Decompose", "GenerateTests", "DefineVG", "UserApproval", "Deploy"],
+    "Formalize", "Verify", "Decompose", "GenerateTests", "DefineVG", "UserApproval", "Deploy",
+    "ToolCall", "Retrieve", "Compute", "Draft", "Release"],
   statuses: ["", "completed", "failed", "proved", "refuted", "sat"],
   // Trace-level lifecycle values the start_event / end_event predicates read.
   triggers: ["", "TaskReceived", "TriggeredByEvent"],

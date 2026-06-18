@@ -1,0 +1,34 @@
+{
+  "id": "policy_reference_current",
+  "name": "Policy Reference Current",
+  "category": "conformance",
+  "severity": "error",
+  "description": "The governing PolicyRefID must reference a current, certified policy document (not superseded or revoked).",
+  "formula": "G(action → policy_current)",
+  "language_level": "pure_temporal",
+  "rationale": "Acting under a superseded or revoked policy is a Red failure; PolicyRefID is the FIX analogue of a certified policy reference.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "intent",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "action governed by a current certified policy",
+    "fails": "action governed by a revoked PolicyRefID"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "intent",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

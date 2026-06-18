@@ -1,0 +1,105 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+export function getStaticPaths() {
+  let cat = { organizations: [] };
+  try {
+    cat = JSON.parse(readFileSync(resolve("public/gallery/policies/_catalog.json"), "utf8"));
+  } catch {}
+  return (cat.organizations || []).map((o) => ({ params: { id: o.id }, props: { org: o, cat } }));
+}
+
+const { org, cat } = Astro.props;
+const packs = (cat.packs || []).filter((p) => p.org === org.id);
+const policies = cat.policies || [];
+
+// Group a pack's policies by its declared domains (fall back to whatever
+// fix_domain values are present).
+function groupsFor(pack) {
+  const ps = policies.filter((p) => p.pack === pack.id);
+  const doms = (pack.domains && pack.domains.length)
+    ? pack.domains
+    : [...new Set(ps.map((p) => p.fix_domain))].map((k) => ({ key: k, label: k }));
+  return doms
+    .map((d) => ({ ...d, items: ps.filter((p) => p.fix_domain === d.key) }))
+    .filter((g) => g.items.length);
+}
+const total = (pack) => policies.filter((p) => p.pack === pack.id).length;
+---
+
+<Layout title={`${org.name} — ponens`} description={org.description}>
+  <section class="page-head">
+    <p class="crumb"><a href="/organizations">Organizations</a> <span>/</span> {org.name}</p>
+    <h1>{org.name}</h1>
+    <p class="org-full">{org.full_name}{org.url && (<> · <a href={org.url}>{org.url.replace(/^https?:\/\//, "")}</a></>)}</p>
+    <p class="org-desc">{org.description}</p>
+  </section>
+
+  {packs.map((pack) => (
+    <section class="pack">
+      <div class="pack-head">
+        <div>
+          <h2>{pack.name}</h2>
+          <p class="pack-summary">{pack.summary}</p>
+        </div>
+        <div class="pack-actions">
+          <a class="chip" href={`/gallery?pack=${pack.id}`}>Open in gallery <em>{total(pack)}</em></a>
+          {pack.spec && <a class="chip" href={pack.spec}>Read the spec →</a>}
+        </div>
+      </div>
+      <p class="pack-desc">{pack.description}</p>
+      {pack.source && <p class="pack-source">Source: {pack.source}</p>}
+
+      {groupsFor(pack).map((g) => (
+        <div class="pack-group">
+          <h3>{g.label} <span class="g-count">{g.items.length}</span></h3>
+          <div class="policy-grid">
+            {g.items.map((p) => (
+              <a class="policy-card" href={`/policies/${p.id}`}>
+                <div class="policy-top">
+                  <code class="pid">{p.id}</code>
+                  <span class={`sev sev-${p.severity}`}>{p.severity}</span>
+                </div>
+                <h4>{p.name}</h4>
+                <p>{p.description}</p>
+                {p.formula && <pre class="pf"><code>{p.formula}</code></pre>}
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  ))}
+
+  <style>
+    .crumb { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.5rem; }
+    .crumb span { opacity: 0.5; }
+    .org-full { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.6rem; }
+    .org-desc { max-width: 70ch; }
+    .pack { margin: 2.5rem 0; }
+    .pack-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+    .pack-head h2 { margin: 0 0 0.25rem; }
+    .pack-summary { margin: 0; color: var(--muted); max-width: 60ch; }
+    .pack-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .pack-actions .chip em { font-style: normal; opacity: 0.6; margin-left: 0.3rem; }
+    .pack-desc { max-width: 75ch; margin: 1rem 0 0.4rem; font-size: 0.95rem; }
+    .pack-source { color: var(--muted); font-size: 0.8rem; margin: 0 0 0.5rem; }
+    .pack-group { margin: 1.5rem 0; }
+    .pack-group h3 { font-size: 1.05rem; margin: 0 0 0.75rem; }
+    .g-count { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+    .policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.85rem; }
+    .policy-card { display: block; border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+    .policy-card:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
+    .policy-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+    .pid { font-size: 0.78rem; color: var(--muted); }
+    .sev { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; padding: 0.08rem 0.4rem; border-radius: 999px; }
+    .sev-error { background: color-mix(in srgb, #c0392b 18%, transparent); color: #c0392b; }
+    .sev-warning { background: color-mix(in srgb, #b8860b 20%, transparent); color: #b8860b; }
+    .sev-info { background: color-mix(in srgb, #2c7 18%, transparent); color: #2a8; }
+    .policy-card h4 { margin: 0.4rem 0 0.3rem; font-size: 0.98rem; }
+    .policy-card p { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--muted); }
+    .pf { margin: 0; overflow-x: auto; background: var(--code-bg, rgba(127,127,127,0.08)); border-radius: 6px; padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+  </style>
+</Layout>

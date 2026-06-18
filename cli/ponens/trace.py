@@ -18,7 +18,7 @@ from .policy_compiler import (
     PTarget, PChain, SinceLast, Since, Until,
     Implies, And, Or, Not,
     Atom, AtomWithArgs, FieldNeEmpty, StartEvent, EndEvent,
-    ForAll, Exists, ExistsUnique, FieldAccess, Compare,
+    ForAll, Exists, ExistsUnique, FieldAccess, Compare, Count,
     RawStructural, FuncApp, SetLiteral, Ancestors,
     ACTION_TYPES, ARTIFACT_TYPES, PREDICATES,
     STRUCTURAL_POLICIES,
@@ -229,6 +229,13 @@ def evaluate_formula(node, trace, ctx=None):
         if isinstance(node, ExistsUnique):
             return sum(1 for r in results if r) == 1
         return any(results)
+
+    if isinstance(node, Count):
+        c = sum(1 for a in trace.get('actions', [])
+                if evaluate_formula(node.body, trace, {'action': a}))
+        n, op = node.n, node.op
+        return {'>=': c >= n, '<=': c <= n, '>': c > n, '<': c < n,
+                '=': c == n, '!=': c != n}[op]
 
     if isinstance(node, Compare):
         return _eval_compare(node, ctx)

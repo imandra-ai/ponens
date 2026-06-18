@@ -1,0 +1,34 @@
+{
+  "id": "no_release_without_authenticated_approval",
+  "name": "No Release Without Authenticated Approval",
+  "category": "workflow",
+  "severity": "error",
+  "description": "External-facing release or dispatch may occur only after an authenticated approval event whose scope covers the intended action (Szpruch capability C4: Gated Release & Dispatch).",
+  "formula": "G(Release ∨ Deploy → P(UserApproval ∧ authenticated ∧ approval_scope_covers))",
+  "language_level": "pure_temporal",
+  "rationale": "FIX Approval & Release Gating + Szpruch C4. Release with conversational or implicit approval, or approval whose scope does not cover the action, is a Red halt.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "release",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "UserApproval(authenticated, scope covers) → Release",
+    "fails": "Release whose approval scope does not cover the dispatched action"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "release",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

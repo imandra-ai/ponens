@@ -1,0 +1,34 @@
+{
+  "id": "dce_current_for_consequential",
+  "name": "DCE Current for Consequential Actions",
+  "category": "security",
+  "severity": "error",
+  "description": "Consequential actions may proceed only while the referenced Deterministic Control Envelope (AlgoCertificate) is current and not invalidated.",
+  "formula": "G(ToolCall ∨ Release ∨ Deploy → dce_current)",
+  "language_level": "pure_temporal",
+  "rationale": "A DCE is invalidated by any material change to model version, prompt class, or inference configuration; acting under an invalidated DCE is a Red containment event.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "identity",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "ToolCall with dce_current",
+    "fails": "Release after the DCE was invalidated by a model-version change"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "identity",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

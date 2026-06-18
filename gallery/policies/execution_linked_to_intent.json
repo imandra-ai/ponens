@@ -1,0 +1,34 @@
+{
+  "id": "execution_linked_to_intent",
+  "name": "Execution Linked to Intent",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Every consequential action must resolve to a declared IntentID — the pre-declared objective and constraint set that authorised it.",
+  "formula": "G(ToolCall ∨ Release ∨ Deploy → intent_resolved)",
+  "language_level": "pure_temporal",
+  "rationale": "FIX Gap 2. Without an IntentID the execution cannot be linked back to the governance-layer decision that initiated it; minimum required for regulatory decision-chain reconstruction.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "intent",
+    "rag-red",
+    "tier-1-4"
+  ],
+  "examples": {
+    "passes": "ToolCall carrying a resolvable IntentID",
+    "fails": "Release with no linkable intent record"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "intent",
+  "governance_state": "R",
+  "tier": "1-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

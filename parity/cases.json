@@ -260,6 +260,30 @@
       "trace": [{"type": "CreateFile"}, {"type": "GitCommit"}]
     },
     {
+      "name": "count / trajectory bounded pass (<= 3)",
+      "formula": "count(action) ≤ 3",
+      "expect": true,
+      "trace": [{"type": "ReadFile"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "count / trajectory bounded fail (<= 3)",
+      "formula": "count(action) ≤ 3",
+      "expect": false,
+      "trace": [{"type": "ReadFile"}, {"type": "EditFile"}, {"type": "RunTests"}, {"type": "GitCommit"}]
+    },
+    {
+      "name": "count / tool budget by type (count(RunTests) <= 1)",
+      "formula": "count(RunTests) ≤ 1",
+      "expect": false,
+      "trace": [{"type": "RunTests"}, {"type": "RunTests"}]
+    },
+    {
+      "name": "count / at-least-one commit (>= 1)",
+      "formula": "count(GitCommit) ≥ 1",
+      "expect": true,
+      "trace": [{"type": "EditFile"}, {"type": "GitCommit"}]
+    },
+    {
       "name": "unsupported / lineage operator P_chain (JS abstains)",
       "formula": "G(EditFile → P_chain(Verify))",
       "unsupported": true,

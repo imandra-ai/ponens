@@ -175,6 +175,16 @@ class FuncApp:
     arg: str
 
 @dataclass
+class Count:
+    """Trace-level aggregate: count(φ) <op> N — the number of positions at which
+    φ holds, compared against an integer bound. Position-independent (evaluated
+    once over the whole trace). Used for trajectory-length / tool-budget policies,
+    e.g. count(ToolCall) <= 20 or count(action) <= 50."""
+    body: 'Formula'
+    op: str           # '=', '!=', '>=', '>', '<=', '<'
+    n: int
+
+@dataclass
 class RawStructural:
     """Structural formula that doesn't parse into pure temporal LTL.
     Emitted as a comment + reference to hand-written combinator."""
@@ -188,7 +198,7 @@ Formula = Union[
     Atom, FieldNeEmpty, AtomWithArgs, StartEvent, EndEvent,
     MemberOf, Ancestors, SetComprehension, SetLiteral,
     Equals, ForAll, Exists, ExistsUnique, LessThan, FuncApp,
-    FieldAccess, Compare,
+    FieldAccess, Compare, Count,
     RawStructural,
 ]
 
@@ -205,6 +215,8 @@ ACTION_TYPES = {
     'RunCommand', 'ExploreDirectory',
     'GitCommit', 'GitStatus', 'GitDiff', 'GitPush',
     'Deploy',
+    # Agentic governance vocabulary (FIX AI WG runtime-governance pack)
+    'ToolCall', 'Retrieve', 'Compute', 'Draft', 'Release',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
     'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',
@@ -359,6 +371,14 @@ def tokenize(formula: str) -> list[Token]:
             else:
                 tokens.append(Token('OP', '!', i))
                 i += 1
+            continue
+
+        # Integer literals (for count(...) bounds)
+        if c.isdigit():
+            start = i
+            while i < n and formula[i].isdigit():
+                i += 1
+            tokens.append(Token('NUMBER', formula[start:i], start))
             continue
 
         # Identifiers and keywords
@@ -570,6 +590,20 @@ class Parser:
             return StartEvent()
         if name == 'end_event':
             return EndEvent()
+
+        # count(φ) <op> N — trace-level aggregate over positions
+        if name == 'count' and self.at('LPAREN'):
+            self.advance()
+            body = self.parse_implies()
+            self.expect('RPAREN')
+            for op in ('>=', '<=', '!=', '>', '<', '='):
+                if self.at('OP', op):
+                    self.advance()
+                    num = self.advance()
+                    if num.kind != 'NUMBER':
+                        raise ParseError(f"count(...) {op} expects a number, got {num.kind}:{num.value}")
+                    return Count(body, op, int(num.value))
+            raise ParseError("count(...) must be followed by a comparison and an integer")
 
         # field access on a bound variable: r.severity = Critical, r.suggested_check != EMPTY
         if self.at('DOT'):
@@ -849,6 +883,10 @@ def gen_iml(node: Formula, var: str = 'a') -> str:
             r = gen_iml(right, var)
             return f"(* {l} = {r} — structural, see combinator library *)"
 
+        case Count(body, op, n):
+            inner = gen_iml(body, 'a')
+            return f"(* count: ({inner}) {op} {n} — aggregate, see combinator library *)"
+
         case _:
             return f"(* unhandled: {node} *)"
 
@@ -1039,6 +1077,9 @@ def check_formula(node: Formula, policy_name: str) -> tuple[list[CheckError], li
             case Equals(left, right):
                 walk(left, f"{path} > Equals.left", inside_temporal, inside_global)
                 walk(right, f"{path} > Equals.right", inside_temporal, inside_global)
+
+            case Count(body, _, _):
+                walk(body, f"{path} > count", True, inside_global)
 
             case _:
                 pass

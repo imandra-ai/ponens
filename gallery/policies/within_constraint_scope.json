@@ -1,0 +1,34 @@
+{
+  "id": "within_constraint_scope",
+  "name": "Within Constraint Scope",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Every action must fall within the active ConstraintSet binding the execution (limits, permissions, risk envelope).",
+  "formula": "G(action → within_constraint_scope)",
+  "language_level": "pure_temporal",
+  "rationale": "FIX Intent & Constraint. An action outside the certified constraint scope is a Red hard failure; the ConstraintSet enables post-trade verification that execution was within declared scope.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "intent",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "action within_constraint_scope",
+    "fails": "order sized outside the active ConstraintSet limits"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "intent",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

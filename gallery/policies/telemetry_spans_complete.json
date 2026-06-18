@@ -1,0 +1,34 @@
+{
+  "id": "telemetry_spans_complete",
+  "name": "Telemetry Spans Complete",
+  "category": "auditability",
+  "severity": "error",
+  "description": "Every required governance-semantic telemetry span (capability invocations, tool calls, guard evaluations, approval events) must be recorded.",
+  "formula": "∀ s ∈ telemetry . s.status = recorded",
+  "language_level": "structural",
+  "rationale": "FIX Gap 3 / DecisionPathID substrate. Telemetry that is absent or cannot be reconstructed is a Red halt: the execution trajectory cannot be audited.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "telemetry",
+    "rag-red",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "all telemetry spans status=recorded",
+    "fails": "a required span missing from the trajectory record"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "telemetry",
+  "governance_state": "R",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

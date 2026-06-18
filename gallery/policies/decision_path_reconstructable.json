@@ -1,0 +1,34 @@
+{
+  "id": "decision_path_reconstructable",
+  "name": "Decision Path Reconstructable",
+  "category": "workflow",
+  "severity": "warning",
+  "description": "Each consequential message should carry a DecisionPathID linking to a reconstructable decision graph.",
+  "formula": "G(Release ∨ Deploy → decision_path_present)",
+  "language_level": "pure_temporal",
+  "rationale": "Amber / flag: a DecisionPathID populated but not yet fully attributed is a soft condition — continue, but the decision graph must be reconstructable for audit.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "release",
+    "rag-amber",
+    "tier-2-4"
+  ],
+  "examples": {
+    "passes": "Release carrying a decision_path_present reference",
+    "fails": "Release with no DecisionPathID"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "release",
+  "governance_state": "A",
+  "tier": "2-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

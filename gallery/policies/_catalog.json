@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 43,
+  "policy_count": 64,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -24,6 +24,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:8b137c528d8fba08d751b63cc49df4e89448b25ee94d812f385a3228e7650f27",
       "file": "accessibility_state_managed.json"
+    },
+    {
+      "id": "agent_identity_resolved",
+      "name": "Agent Identity Resolved",
+      "category": "security",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "identity",
+        "rag-red",
+        "tier-1-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every agentic action must carry a resolvable AgentID bound to a valid KYA credential (NIST IAL2 human principal).",
+      "formula": "G(action → agent_id_resolved ∧ kya_valid)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:e017dbc7ab0287d802987abc022d41891f17b6cd730715b9cdc44142e24241d3",
+      "file": "agent_identity_resolved.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "identity",
+      "tier": "1-4"
     },
     {
       "id": "all_actions_have_rationale",
@@ -172,6 +198,32 @@
       "file": "async_state_transitions_verified.json"
     },
     {
+      "id": "consequential_action_approved",
+      "name": "Consequential Action Approved",
+      "category": "safety",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "capability",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A consequential action must be preceded by a passed, authenticated approval gate.",
+      "formula": "G(Release ∨ Deploy → P(UserApproval ∧ authenticated))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:538aa792caf5858afbc43d1dc565cee59cc3723f28b5a1df7095a3ff7e8f36bf",
+      "file": "consequential_action_approved.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "capability",
+      "tier": "2-4"
+    },
+    {
       "id": "counterexample_triggers_fix",
       "name": "Counterexample Triggers Fix",
       "category": "reasoning",
@@ -190,6 +242,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:ca3d8ee1099a70464d983f964ab0d738126a4f53cb3e77b972dc516b795c5448",
       "file": "counterexample_triggers_fix.json"
+    },
+    {
+      "id": "credential_not_expiring",
+      "name": "Credential Not Expiring",
+      "category": "security",
+      "severity": "warning",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "identity",
+        "rag-amber",
+        "tier-1-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "KYA/vLEI credentials must not be within the expiry window (proposed threshold < 30 days).",
+      "formula": "G(action → ¬credential_expiring)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f31815a9a9ad72a6eb6d52eda89c0cde60b617b012ce105754e3d4113949cfdf",
+      "file": "credential_not_expiring.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "identity",
+      "tier": "1-4"
     },
     {
       "id": "data_flow_integrity",
@@ -234,6 +312,84 @@
       "file": "database_migration_verified.json"
     },
     {
+      "id": "dce_current_for_consequential",
+      "name": "DCE Current for Consequential Actions",
+      "category": "security",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "identity",
+        "rag-red",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Consequential actions may proceed only while the referenced Deterministic Control Envelope (AlgoCertificate) is current and not invalidated.",
+      "formula": "G(ToolCall ∨ Release ∨ Deploy → dce_current)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:e8c884aaa4da0d85a79885faa62902e0daf75d181eb094414a6e310643fab54f",
+      "file": "dce_current_for_consequential.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "identity",
+      "tier": "2-4"
+    },
+    {
+      "id": "decision_path_reconstructable",
+      "name": "Decision Path Reconstructable",
+      "category": "workflow",
+      "severity": "warning",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "rag-amber",
+        "release",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Each consequential message should carry a DecisionPathID linking to a reconstructable decision graph.",
+      "formula": "G(Release ∨ Deploy → decision_path_present)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:8f2b796c1a38d623149d1511e97619905dae708382d43cec0997db9d4d7ed4af",
+      "file": "decision_path_reconstructable.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "release",
+      "tier": "2-4"
+    },
+    {
+      "id": "default_deny_confirmed",
+      "name": "Default-Deny Confirmed",
+      "category": "safety",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "capability",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "tier-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "At Tier 4 a default-deny authorisation must be confirmed before any tool call.",
+      "formula": "G(ToolCall → P(default_deny_confirmed))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:0e9cac33d89d52ccd7eb4c76a46397cf68ba38771836cbd6218f8c07c47b4549",
+      "file": "default_deny_confirmed.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "capability",
+      "tier": "4"
+    },
+    {
       "id": "destructive_actions_confirmed",
       "name": "Destructive Actions Confirmed",
       "category": "safety",
@@ -252,6 +408,58 @@
       "reference_compiler": "ok",
       "hash": "sha256:9230a3047694de84679d73a87cadede93704e244ea3e923f77be30eb702d0472",
       "file": "destructive_actions_confirmed.json"
+    },
+    {
+      "id": "dual_approval_critical",
+      "name": "Dual Approval for Critical Autonomous",
+      "category": "safety",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "capability",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "tier-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Tier 4 (Critical Autonomous) release requires two distinct authenticated approvals before proceeding.",
+      "formula": "G(Release → P(UserApproval ∧ approver_1) ∧ P(UserApproval ∧ approver_2))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:72bd5e740c306884d22fbb17f88a1610b10f9286f059b05e9f678526faf5bc18",
+      "file": "dual_approval_critical.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "capability",
+      "tier": "4"
+    },
+    {
+      "id": "execution_linked_to_intent",
+      "name": "Execution Linked to Intent",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "intent",
+        "rag-red",
+        "tier-1-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every consequential action must resolve to a declared IntentID — the pre-declared objective and constraint set that authorised it.",
+      "formula": "G(ToolCall ∨ Release ∨ Deploy → intent_resolved)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:6596cfdfc8862f11cfb831ae0f9cb079c3d27f411f510feb3aed1282b60abc02",
+      "file": "execution_linked_to_intent.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "intent",
+      "tier": "1-4"
     },
     {
       "id": "explain_before_complex_change",
@@ -398,6 +606,32 @@
       "file": "high_severity_residuals_acknowledged_before_commit.json"
     },
     {
+      "id": "legal_entity_vlei_present",
+      "name": "Legal Entity (vLEI) Present",
+      "category": "security",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "identity",
+        "rag-red",
+        "tier-1-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every action must carry the verifiable LEI (vLEI / AgentOwnerLEI) of the regulated entity on whose behalf the agent acts.",
+      "formula": "G(action → vlei_present)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5dcc6fddfbb7348725c441fd5e5fca1ebb9dab26164a98adb4f9d08681b082bc",
+      "file": "legal_entity_vlei_present.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "identity",
+      "tier": "1-4"
+    },
+    {
       "id": "lint_before_commit",
       "name": "Lint Before Commit",
       "category": "workflow",
@@ -438,6 +672,32 @@
       "file": "no_force_push.json"
     },
     {
+      "id": "no_guard_violation",
+      "name": "No Guard Violation",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "telemetry",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "No runtime guard (alignment/confidence/policy-boundary) violation may occur in the trajectory.",
+      "formula": "G(¬guard_violation)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:46389652550b48b9f01489b9dfc28022c5bfeaf7105cfdbb064bcb4ca5273f2d",
+      "file": "no_guard_violation.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "telemetry",
+      "tier": "2-4"
+    },
+    {
       "id": "no_open_critical_residuals",
       "name": "No Open Critical Residuals",
       "category": "safety",
@@ -459,6 +719,58 @@
       "file": "no_open_critical_residuals.json"
     },
     {
+      "id": "no_prohibited_transition",
+      "name": "No Prohibited Transition",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "telemetry",
+        "tier-3-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "No action may attempt a transition that is not defined in the governed transition system for the current state.",
+      "formula": "G(¬prohibited_transition)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:183cd9f2a315ed24936a384f0658b5e853e4c0ea0c155c85451434814f566f78",
+      "file": "no_prohibited_transition.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "telemetry",
+      "tier": "3-4"
+    },
+    {
+      "id": "no_release_without_authenticated_approval",
+      "name": "No Release Without Authenticated Approval",
+      "category": "workflow",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "release",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "External-facing release or dispatch may occur only after an authenticated approval event whose scope covers the intended action (Szpruch capability C4: Gated Release & Dispatch).",
+      "formula": "G(Release ∨ Deploy → P(UserApproval ∧ authenticated ∧ approval_scope_covers))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f3487ef09658ee2a809ea635e3caed0ab6107e8944fe4870853b820089f82975",
+      "file": "no_release_without_authenticated_approval.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "release",
+      "tier": "2-4"
+    },
+    {
       "id": "no_secrets_committed",
       "name": "No Secrets Committed",
       "category": "security",
@@ -477,6 +789,58 @@
       "reference_compiler": "ok",
       "hash": "sha256:ea2bbdca307416bd4ad9a50eb8cfe2c1a560520de04683ca70c78041a0eb0a7d",
       "file": "no_secrets_committed.json"
+    },
+    {
+      "id": "numeric_recomputed_deterministically",
+      "name": "Numeric Recomputed Deterministically (C2)",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "capability",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Capability C2 (Deterministic Numeric Computation): numeric results must be recomputed by a deterministic (non-LLM) calculator, not asserted by the model.",
+      "formula": "G(Compute → deterministic_recompute)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:c6067cbe4d189502860de2fb5e058271207d0626de9721f5066b25f27e858b64",
+      "file": "numeric_recomputed_deterministically.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "capability",
+      "tier": "2-4"
+    },
+    {
+      "id": "outputs_policy_constrained",
+      "name": "Outputs Policy-Constrained (C3)",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "capability",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "tier-1-3"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Capability C3 (Policy-Constrained Drafting): drafted outputs must comply with approved templates and policy rules.",
+      "formula": "G(Draft → template_compliant)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:5ccfc52136ebb9b58d0cced51864eacf0052677e5386926a8067227eafb18695",
+      "file": "outputs_policy_constrained.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "capability",
+      "tier": "1-3"
     },
     {
       "id": "pci_compliance_review",
@@ -521,6 +885,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:99deddc993abbcdf53f85b19fe2457fce4107c17d2acf37c0146ca67cfaf3298",
       "file": "plaid_token_lifecycle_conformance.json"
+    },
+    {
+      "id": "policy_reference_current",
+      "name": "Policy Reference Current",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "intent",
+        "rag-red",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "The governing PolicyRefID must reference a current, certified policy document (not superseded or revoked).",
+      "formula": "G(action → policy_current)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:9d8497a41e012538d36027b2cdebc801bb1a5782ace75ad7d656f05d2d51a18e",
+      "file": "policy_reference_current.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "intent",
+      "tier": "2-4"
     },
     {
       "id": "react_effect_cleanup_verified",
@@ -631,6 +1021,32 @@
       "file": "research_before_edit.json"
     },
     {
+      "id": "retrieved_data_attributed",
+      "name": "Retrieved Data Attributed (C1)",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "capability",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "tier-1-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Capability C1 (Retrieval & Attribution): retrieved data must carry provenance and recency checks before it is relied upon.",
+      "formula": "G(Retrieve → provenance_checked ∧ recency_checked)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ed6327ff68fe25579d3e4debcabc13a319ebcad1ab1e20b3a0fea77345dfc9d5",
+      "file": "retrieved_data_attributed.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "capability",
+      "tier": "1-4"
+    },
+    {
       "id": "route_guard_complete",
       "name": "Route Guard Complete",
       "category": "reasoning",
@@ -675,6 +1091,32 @@
       "file": "stripe_conformance_required.json"
     },
     {
+      "id": "telemetry_spans_complete",
+      "name": "Telemetry Spans Complete",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "telemetry",
+        "tier-2-4"
+      ],
+      "language_level": "structural",
+      "reasoner": null,
+      "description": "Every required governance-semantic telemetry span (capability invocations, tool calls, guard evaluations, approval events) must be recorded.",
+      "formula": "∀ s ∈ telemetry . s.status = recorded",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:233902e01feb79f30fe068c05fee1396e0168f327e5b83a854f1a1baf0a97d61",
+      "file": "telemetry_spans_complete.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "telemetry",
+      "tier": "2-4"
+    },
+    {
       "id": "tests_before_commit",
       "name": "Tests Before Commit",
       "category": "workflow",
@@ -715,6 +1157,58 @@
       "file": "tests_pass_before_commit.json"
     },
     {
+      "id": "tool_call_budget",
+      "name": "Tool-Call Budget",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "rag-amber",
+        "telemetry",
+        "tier-2-4"
+      ],
+      "language_level": "structural",
+      "reasoner": null,
+      "description": "The number of tool calls in a single workflow must stay within the per-workflow budget. Budget shown as 20; set per deployment.",
+      "formula": "count(ToolCall) ≤ 20",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b715565e4e816fdb0f0cc7d7931d70fb463ed173eeb7f0dfc69ef67cab4cadeb",
+      "file": "tool_call_budget.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "telemetry",
+      "tier": "2-4"
+    },
+    {
+      "id": "tool_calls_allowlisted",
+      "name": "Tool Calls Allowlisted",
+      "category": "safety",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "capability",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every tool/capability invocation must lie within the certified allowlist for the agent's tier.",
+      "formula": "G(ToolCall → in_allowlist)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:47a0f6e053b118045ddc58eb46be882bb056a69695e061b9a20ed13d5564f8f6",
+      "file": "tool_calls_allowlisted.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "capability",
+      "tier": "2-4"
+    },
+    {
       "id": "trace_has_proper_lifecycle",
       "name": "Trace Has Proper Lifecycle",
       "category": "structural",
@@ -733,6 +1227,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:c649bf2365691dc0b177fa5a68ac2a69baa3a670f6d8596141aa3754825da7ce",
       "file": "trace_has_proper_lifecycle.json"
+    },
+    {
+      "id": "trajectory_within_bound",
+      "name": "Trajectory Within Bound (Lmax)",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "rag-red",
+        "telemetry",
+        "tier-2-4"
+      ],
+      "language_level": "structural",
+      "reasoner": null,
+      "description": "The execution trajectory length must stay within the certified maximum (Lmax). Bound shown as 50; set per deployment.",
+      "formula": "count(action) ≤ 50",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b69b7d8f8e20cafff9a20d558204f58012f027cab3d52e3795e912c489dfb682",
+      "file": "trajectory_within_bound.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "telemetry",
+      "tier": "2-4"
     },
     {
       "id": "two_person_approval_for_infra",
@@ -819,6 +1339,32 @@
       "reference_compiler": "ok",
       "hash": "sha256:6cec9549d030e0929033306dcee6a785d1ddc3ccea6f6cd0f25ade579bda2b76",
       "file": "unverified_residuals_have_suggested_check.json"
+    },
+    {
+      "id": "within_constraint_scope",
+      "name": "Within Constraint Scope",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "agentic-governance",
+      "tags": [
+        "agentic-ai",
+        "fix-ai-wg",
+        "governance",
+        "intent",
+        "rag-red",
+        "tier-2-4"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Every action must fall within the active ConstraintSet binding the execution (limits, permissions, risk envelope).",
+      "formula": "G(action → within_constraint_scope)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:9afc648c7bdd4c0da3d2b8bca9e005021ca653a5e9a38dcd4ce8b55e56c19be1",
+      "file": "within_constraint_scope.json",
+      "pack": "agentic-ai-runtime-governance",
+      "fix_domain": "intent",
+      "tier": "2-4"
     },
     {
       "id": "xstate_deadlock_free",
@@ -921,6 +1467,7 @@
     "a11y",
     "accessibility",
     "actionable",
+    "agentic-ai",
     "animation",
     "api",
     "approval",
@@ -936,6 +1483,7 @@
     "best-practice",
     "breaking-changes",
     "bugs",
+    "capability",
     "ci",
     "cleanup",
     "commit",
@@ -959,6 +1507,7 @@
     "edge-cases",
     "editing",
     "files",
+    "fix-ai-wg",
     "fixes",
     "formal-verification",
     "formalization",
@@ -972,8 +1521,10 @@
     "high-stakes",
     "hipaa",
     "iam",
+    "identity",
     "infrastructure",
     "integrity",
+    "intent",
     "lifecycle",
     "linting",
     "liveness",
@@ -987,6 +1538,8 @@
     "pci",
     "plaid",
     "quality",
+    "rag-amber",
+    "rag-red",
     "rationale",
     "reachability",
     "react",
@@ -996,6 +1549,7 @@
     "reference-model",
     "references",
     "regulated",
+    "release",
     "research",
     "residuals",
     "reversibility",
@@ -1008,7 +1562,13 @@
     "state-machine",
     "stripe",
     "structure",
+    "telemetry",
     "testing",
+    "tier-1-3",
+    "tier-1-4",
+    "tier-2-4",
+    "tier-3-4",
+    "tier-4",
     "token-lifecycle",
     "transparency",
     "two-person",
@@ -1057,6 +1617,58 @@
       "color": "#b82030",
       "icon": "&#128736;",
       "description": "Frontend UI logic, routing, forms, animations, accessibility"
+    },
+    "agentic-governance": {
+      "label": "Agentic AI Governance",
+      "color": "#b3541e",
+      "icon": "&#128737;",
+      "description": "Runtime governance for agentic AI workflows — the FIX AI WG traffic-light scheme (identity, intent, capability, telemetry, approval) as computable policies."
     }
-  }
+  },
+  "organizations": [
+    {
+      "id": "fix-community",
+      "name": "FIX Community",
+      "full_name": "FIX Trading Community — AI Working Group",
+      "url": "https://www.fixtrading.org/",
+      "description": "The FIX Trading Community standardises electronic trading. Its AI Working Group is developing runtime-governance standards for agentic AI in capital markets — the basis for the policy pack below.",
+      "packs": [
+        "agentic-ai-runtime-governance"
+      ]
+    }
+  ],
+  "packs": [
+    {
+      "id": "agentic-ai-runtime-governance",
+      "name": "Agentic AI Runtime Governance",
+      "org": "fix-community",
+      "domain": "agentic-governance",
+      "spec": "/spec/AGENTIC_GOVERNANCE_PACK",
+      "summary": "The FIX AI Working Group's traffic-light (Green / Amber / Red) runtime-governance scheme, expressed as computable policies over an agent's execution trace.",
+      "description": "Maps the FIX AI WG proposal on Agentic AI Runtime Governance onto ponens policies. Each traffic-light condition across five domains — identity & authorisation, intent & constraint, capability & DCE, runtime telemetry & trajectory, and approval & release gating — plus the Szpruch et al. capability failure modes (C1–C4), becomes a deterministic check that `ponens trace check` aggregates into a Green/Amber/Red GovernanceState.",
+      "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, Jun 2026); Szpruch, Sudjianto, Bhatti & Ang (2026).",
+      "domains": [
+        {
+          "key": "identity",
+          "label": "Identity & Authorisation"
+        },
+        {
+          "key": "intent",
+          "label": "Intent & Constraint"
+        },
+        {
+          "key": "capability",
+          "label": "Capability & DCE"
+        },
+        {
+          "key": "telemetry",
+          "label": "Runtime Telemetry & Trajectory"
+        },
+        {
+          "key": "release",
+          "label": "Approval & Release Gating"
+        }
+      ]
+    }
+  ]
 }

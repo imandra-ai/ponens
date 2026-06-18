@@ -1,0 +1,34 @@
+{
+  "id": "legal_entity_vlei_present",
+  "name": "Legal Entity (vLEI) Present",
+  "category": "security",
+  "severity": "error",
+  "description": "Every action must carry the verifiable LEI (vLEI / AgentOwnerLEI) of the regulated entity on whose behalf the agent acts.",
+  "formula": "G(action → vlei_present)",
+  "language_level": "pure_temporal",
+  "rationale": "FIX Identity domain. GLEIF vLEI binds the legal entity at transaction time; absence is a Red hard-identity failure.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "identity",
+    "rag-red",
+    "tier-1-4"
+  ],
+  "examples": {
+    "passes": "action with vlei_present",
+    "fails": "action with no vLEI reference"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "identity",
+  "governance_state": "R",
+  "tier": "1-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

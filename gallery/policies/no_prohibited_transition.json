@@ -1,0 +1,34 @@
+{
+  "id": "no_prohibited_transition",
+  "name": "No Prohibited Transition",
+  "category": "auditability",
+  "severity": "error",
+  "description": "No action may attempt a transition that is not defined in the governed transition system for the current state.",
+  "formula": "G(¬prohibited_transition)",
+  "language_level": "pure_temporal",
+  "rationale": "Szpruch governed transition system: a prohibited-transition attempt is the highest-priority Red halt after a hard identity failure — block, log the attempt, require root-cause analysis before restart.",
+  "tags": [
+    "agentic-ai",
+    "governance",
+    "fix-ai-wg",
+    "telemetry",
+    "rag-red",
+    "tier-3-4"
+  ],
+  "examples": {
+    "passes": "all transitions defined in the governed state machine",
+    "fails": "an action attempting a transition not in the governed system"
+  },
+  "domain": "agentic-governance",
+  "pack": "agentic-ai-runtime-governance",
+  "fix_domain": "telemetry",
+  "governance_state": "R",
+  "tier": "3-4",
+  "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, 12 Jun 2026); governance conditions per Szpruch, Sudjianto, Bhatti & Ang (2026), 'Scalable Runtime Governance for Agentic AI in Financial Services'.",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "deniseignatovich"
+  },
+  "date_added": "2026-06-18",
+  "downloads": 0
+}

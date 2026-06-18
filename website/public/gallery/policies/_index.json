@@ -43,7 +43,28 @@
     "no_open_critical_residuals",
     "high_severity_residuals_acknowledged_before_commit",
     "unverified_residuals_have_suggested_check",
-    "assumptions_are_located"
+    "assumptions_are_located",
+    "agent_identity_resolved",
+    "consequential_action_approved",
+    "credential_not_expiring",
+    "dce_current_for_consequential",
+    "decision_path_reconstructable",
+    "default_deny_confirmed",
+    "dual_approval_critical",
+    "execution_linked_to_intent",
+    "legal_entity_vlei_present",
+    "no_guard_violation",
+    "no_prohibited_transition",
+    "no_release_without_authenticated_approval",
+    "numeric_recomputed_deterministically",
+    "outputs_policy_constrained",
+    "policy_reference_current",
+    "retrieved_data_attributed",
+    "telemetry_spans_complete",
+    "tool_call_budget",
+    "tool_calls_allowlisted",
+    "trajectory_within_bound",
+    "within_constraint_scope"
   ],
   "categories": [
     "auditability",
@@ -58,6 +79,7 @@
   "tags": [
     "a11y",
     "accessibility",
+    "agentic-ai",
     "animation",
     "api",
     "approval",
@@ -94,6 +116,7 @@
     "edge-cases",
     "editing",
     "files",
+    "fix-ai-wg",
     "fixes",
     "formal-verification",
     "formalization",
@@ -101,6 +124,7 @@
     "framer-motion",
     "frontend",
     "git",
+    "governance",
     "guards",
     "high-stakes",
     "hipaa",
@@ -186,6 +210,58 @@
       "color": "#b82030",
       "icon": "&#128736;",
       "description": "Frontend UI logic, routing, forms, animations, accessibility"
+    },
+    "agentic-governance": {
+      "label": "Agentic AI Governance",
+      "color": "#b3541e",
+      "icon": "&#128737;",
+      "description": "Runtime governance for agentic AI workflows — the FIX AI WG traffic-light scheme (identity, intent, capability, telemetry, approval) as computable policies."
     }
-  }
+  },
+  "organizations": [
+    {
+      "id": "fix-community",
+      "name": "FIX Community",
+      "full_name": "FIX Trading Community — AI Working Group",
+      "url": "https://www.fixtrading.org/",
+      "description": "The FIX Trading Community standardises electronic trading. Its AI Working Group is developing runtime-governance standards for agentic AI in capital markets — the basis for the policy pack below.",
+      "packs": [
+        "agentic-ai-runtime-governance"
+      ]
+    }
+  ],
+  "packs": [
+    {
+      "id": "agentic-ai-runtime-governance",
+      "name": "Agentic AI Runtime Governance",
+      "org": "fix-community",
+      "domain": "agentic-governance",
+      "spec": "/spec/AGENTIC_GOVERNANCE_PACK",
+      "summary": "The FIX AI Working Group's traffic-light (Green / Amber / Red) runtime-governance scheme, expressed as computable policies over an agent's execution trace.",
+      "description": "Maps the FIX AI WG proposal on Agentic AI Runtime Governance onto ponens policies. Each traffic-light condition across five domains — identity & authorisation, intent & constraint, capability & DCE, runtime telemetry & trajectory, and approval & release gating — plus the Szpruch et al. capability failure modes (C1–C4), becomes a deterministic check that `ponens trace check` aggregates into a Green/Amber/Red GovernanceState.",
+      "source": "FIX AI WG — Proposal on Agentic AI Runtime Governance (Healey & Houston, Jun 2026); Szpruch, Sudjianto, Bhatti & Ang (2026).",
+      "domains": [
+        {
+          "key": "identity",
+          "label": "Identity & Authorisation"
+        },
+        {
+          "key": "intent",
+          "label": "Intent & Constraint"
+        },
+        {
+          "key": "capability",
+          "label": "Capability & DCE"
+        },
+        {
+          "key": "telemetry",
+          "label": "Runtime Telemetry & Trajectory"
+        },
+        {
+          "key": "release",
+          "label": "Approval & Release Gating"
+        }
+      ]
+    }
+  ]
 }

@@ -451,11 +451,126 @@ def cmd_policies_add(args):
 
 
 # ----------------------------------------------------------------------------
+# Commands — unified search (policies, packs, organizations)
+# ----------------------------------------------------------------------------
+
+def _q_in(query, *vals):
+    if not query:
+        return True
+    hay = " ".join(str(v or "") for v in vals).lower()
+    return query.lower() in hay
+
+
+def _packs_of(cat):
+    """A source's packs: from the catalog if present (gallery), else derived
+    from policy `pack` membership (local sources carry no pack manifests)."""
+    packs = cat.get("packs")
+    if packs is not None:
+        return packs
+    counts = {}
+    for e in cat.get("policies", []):
+        if e.get("pack"):
+            counts[e["pack"]] = counts.get(e["pack"], 0) + 1
+    return [{"id": k, "name": k, "policy_count": v} for k, v in sorted(counts.items())]
+
+
+def cmd_search(args):
+    """Search policies, packs, and organizations across configured sources."""
+    only = getattr(args, "source", None)
+    sources = [get_source(only)] if only else load_sources()
+    q = args.query or ""
+    want = getattr(args, "type", None)  # None | policy | pack | org
+    orgs, packs, pols = [], [], []
+    for s in sources:
+        try:
+            cat = source_catalog(s)
+        except (FileNotFoundError, RuntimeError):
+            if only:
+                _err(f"source '{s['name']}' not available — run: ponens registry update --source {s['name']}")
+            continue
+        sn = s["name"]
+        if want in (None, "org"):
+            for o in cat.get("organizations", []):
+                if _q_in(q, o.get("id"), o.get("name"), o.get("full_name"), o.get("description")):
+                    orgs.append({**o, "_source": sn})
+        if want in (None, "pack"):
+            for p in _packs_of(cat):
+                if _q_in(q, p.get("id"), p.get("name"), p.get("summary"),
+                         p.get("description"), p.get("org"), p.get("domain")):
+                    packs.append({**p, "_source": sn})
+        if want in (None, "policy"):
+            for e in cat.get("policies", []):
+                if _matches(e, q, args):
+                    pols.append({**e, "_source": sn})
+
+    if args.json:
+        print(json.dumps({"organizations": orgs, "packs": packs, "policies": pols},
+                         indent=2, ensure_ascii=False))
+        return
+
+    def _count_pack(pack):
+        return pack.get("policy_count", sum(1 for e in pols if e.get("pack") == pack["id"]))
+
+    if want in (None, "org"):
+        heading(f"Organizations ({len(orgs)})")
+        if orgs:
+            table(orgs, [
+                {"label": "Source", "get": lambda o: o["_source"], "color": blue},
+                {"label": "ID", "get": lambda o: o["id"], "color": cyan},
+                {"label": "Name", "get": lambda o: o.get("full_name") or o.get("name", "")},
+                {"label": "Packs", "get": lambda o: str(len(o.get("packs") or []))},
+            ])
+        else:
+            print(gray("  none"))
+    if want in (None, "pack"):
+        heading(f"Packs ({len(packs)})")
+        if packs:
+            table(packs, [
+                {"label": "Source", "get": lambda p: p["_source"], "color": blue},
+                {"label": "ID", "get": lambda p: p["id"], "color": cyan},
+                {"label": "Name", "get": lambda p: p.get("name", "")},
+                {"label": "Org", "get": lambda p: p.get("org", ""), "color": magenta},
+                {"label": "Policies", "get": lambda p: str(_count_pack(p))},
+            ])
+        else:
+            print(gray("  none"))
+    if want in (None, "policy"):
+        sev_color = {"error": red, "warning": yellow, "info": gray}
+        heading(f"Policies ({len(pols)})")
+        if pols:
+            table(pols, [
+                {"label": "Source", "get": lambda e: e["_source"], "color": blue},
+                {"label": "ID", "get": lambda e: e["id"], "color": cyan},
+                {"label": "Name", "get": lambda e: e.get("name", "")},
+                {"label": "Pack", "get": lambda e: e.get("pack", ""), "color": magenta},
+                {"label": "Severity", "get": lambda e: sev_color.get(e.get("severity"), gray)(e.get("severity", ""))},
+            ])
+        else:
+            print(gray("  none"))
+    if not args.json and not (orgs or packs or pols):
+        print(gray("\n  no matches — try `ponens registry update` or broaden the query"))
+    else:
+        print(gray("\n  ponens policies show <source/id>     # a policy's full definition"))
+
+
+# ----------------------------------------------------------------------------
 # Argparse registration
 # ----------------------------------------------------------------------------
 
 def register(subparsers):
-    """Register the 'sources', 'registry', and 'policies' command groups."""
+    """Register the 'search', 'sources', 'registry', and 'policies' command groups."""
+    se = subparsers.add_parser("search", help="Search policies, packs, and organizations")
+    se.add_argument("query", nargs="?", default="", help="Free-text query (id, name, description, tags)")
+    se.add_argument("--type", choices=["policy", "pack", "org"],
+                    help="Limit results to one kind (default: all three)")
+    se.add_argument("--source", help="Limit to one source")
+    se.add_argument("--category", help="Filter policies by category")
+    se.add_argument("--severity", choices=["info", "warning", "error"], help="Filter policies by severity")
+    se.add_argument("--domain", help="Filter policies by domain")
+    se.add_argument("--tag", help="Filter policies by tag")
+    se.add_argument("--json", action="store_true", help="Output raw JSON")
+    se.set_defaults(func=cmd_search)
+
     src = subparsers.add_parser("sources", help="Manage policy sources")
     src_sub = src.add_subparsers(dest="sources_command", required=True)
     src_sub.add_parser("list", help="List configured policy sources").set_defaults(func=cmd_sources_list)

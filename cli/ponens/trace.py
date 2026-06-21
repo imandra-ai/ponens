@@ -219,6 +219,21 @@ def _eval_compare(node, ctx):
     return {'>=': lr >= rr, '>': lr > rr, '<=': lr <= rr, '<': lr < rr}.get(op, False)
 
 
+# The full v1.4-schema formal-reasoning type names ← their back-compat aliases.
+# Atom matching compares canonical forms so a policy written with either spelling
+# (e.g. `Decomposition` or `StateSpaceAnalysisResult`) matches either artifact.
+TYPE_SYNONYMS = {
+    'DefineVerificationGoal': 'DefineVG',
+    'StateSpaceAnalysis': 'Decompose',
+    'StateSpaceAnalysisResult': 'Decomposition',
+    'FormalModel': 'IMLModel',
+}
+
+
+def _canon_type(name):
+    return TYPE_SYNONYMS.get(name, name)
+
+
 def evaluate_formula(node, trace, ctx=None):
     if isinstance(node, (ForAll, Exists, ExistsUnique)):
         coll = trace.get(node.set_name, []) if node.set_name else []
@@ -363,13 +378,13 @@ def evaluate_formula(node, trace, ctx=None):
         a = ctx['action']
         name = node.name
         if name in ACTION_TYPES:
-            return a.get('type') == name
+            return _canon_type(a.get('type')) == _canon_type(name)
         if name in ARTIFACT_TYPES:
-            if a.get('type') == name:
+            if _canon_type(a.get('type')) == _canon_type(name):
                 return True
             for out_id in a.get('outputs', []):
                 for art in trace.get('artifacts', []):
-                    if (art.get('artifact_id') == out_id or art.get('name') == out_id) and art.get('artifact_type') == name:
+                    if (art.get('artifact_id') == out_id or art.get('name') == out_id) and _canon_type(art.get('artifact_type')) == _canon_type(name):
                         return True
             return False
         if name in ('gateway', 'reasoning', 'activity'):
@@ -389,6 +404,12 @@ def evaluate_formula(node, trace, ctx=None):
         if name == 'sat':
             vr = a.get('vg_result', {})
             return vr.get('status') == 'sat'
+        if name in ('passed', 'partial'):
+            # Conformance (model<->code fidelity) status.
+            return a.get('conformance', {}).get('status') == name
+        if name in ('matched', 'mismatched'):
+            # Co-simulation (model-vs-implementation replay) status.
+            return a.get('cosimulation', {}).get('status') == name
         if name == 'high_stakes_path':
             target = get_action_target(a, trace)
             return any(p in target for p in ['payments/', 'risk/', 'stripe_payment_flow'])
@@ -408,11 +429,11 @@ def evaluate_formula(node, trace, ctx=None):
         if not ctx:
             return False
         a = ctx['action']
-        type_match = a.get('type') == node.name
+        type_match = _canon_type(a.get('type')) == _canon_type(node.name)
         if not type_match:
             for out_id in a.get('outputs', []):
                 for art in trace.get('artifacts', []):
-                    if (art.get('artifact_id') == out_id or art.get('name') == out_id) and art.get('artifact_type') == node.name:
+                    if (art.get('artifact_id') == out_id or art.get('name') == out_id) and _canon_type(art.get('artifact_type')) == _canon_type(node.name):
                         type_match = True
                         break
                 if type_match:
@@ -610,16 +631,20 @@ def normalize_trace(trace):
             if not art or 'payload' not in art:
                 continue
             at = art['artifact_type']
-            if at == 'IMLModel' and 'iml_code' in art['payload']:
+            if at in ('IMLModel', 'FormalModel') and 'iml_code' in art['payload']:
                 action['formalization'] = art['payload']
-            elif at == 'Formalization':
+            elif at in ('Formalization', 'FormalModel'):
                 action['formalization'] = art['payload']
             elif at == 'VerificationGoal':
                 action['vg_defined'] = art['payload']
             elif at == 'VerificationResult':
                 action['vg_result'] = art['payload']
-            elif at == 'Decomposition':
+            elif at in ('Decomposition', 'StateSpaceAnalysisResult'):
                 action['decomposition'] = art['payload']
+            elif at == 'ConformanceResult':
+                action['conformance'] = art['payload']
+            elif at == 'CoSimulationResult':
+                action['cosimulation'] = art['payload']
             elif at == 'GeneratedTests':
                 action['generated_tests'] = art['payload']
 

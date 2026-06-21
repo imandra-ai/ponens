@@ -231,13 +231,22 @@ ACTION_TYPES = {
     'Finding',
     'AskUser', 'ReportProgress', 'Explain',
     'FormulatePlan', 'DecomposeTask', 'EstimateImpact',
-    'Formalize', 'DefineVG', 'Verify', 'Decompose', 'GenerateTests',
+    # Formal-reasoning vocabulary (CodeLogician / SpecLogician). The short forms
+    # (DefineVG, Decompose) are kept for back-compat; the full v1.4-schema
+    # `reasoning_action_type` names are the canonical synonyms (see TYPE_SYNONYMS).
+    'Formalize', 'DefineVG', 'DefineVerificationGoal', 'Verify',
+    'Decompose', 'StateSpaceAnalysis', 'ConformanceCheck', 'CoSimulate',
+    'GenerateTests',
 }
 
 ARTIFACT_TYPES = {
     'SourceCode', 'Documentation', 'SearchResults', 'AnalysisNote', 'Plan',
     'Formalization', 'IMLModel', 'VerificationGoal', 'VerificationResult',
     'Decomposition', 'GeneratedTests',
+    # Full v1.4-schema formal-reasoning artifacts. `Decomposition` aliases
+    # `StateSpaceAnalysisResult`; `FormalModel` aliases `IMLModel`/`Formalization`.
+    'FormalModel', 'StateSpaceAnalysisResult', 'ConformanceResult',
+    'CoSimulationResult', 'ReproductionBundle',
     'CommandResult', 'Diff', 'Commit', 'UserApproval', 'UserInstruction',
 }
 
@@ -247,6 +256,8 @@ PREDICATES = {
     'completed', 'failed', 'proved', 'refuted', 'sat', 'unknown',
     'action', 'gateway', 'reasoning', 'activity',
     'start_event', 'end_event', 'high_stakes_path',
+    # Conformance (model<->code fidelity) and co-simulation result statuses.
+    'passed', 'partial', 'matched', 'mismatched',
 }
 FIELDS = {
     'rationale', 'target_artifact_id', 'files_modified',

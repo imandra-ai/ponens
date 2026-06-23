@@ -675,8 +675,9 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
   height: 1px; background: #ffffff10;
 }
 .usage code { color: #e6edf3; display: block; font-family: var(--mono); }
-.usage .line { display: block; white-space: pre; }
-/* Green prompt, rendered via generated content so it isn't copied with the command */
+/* The line break comes from the literal newline in the <pre>, so the layout
+   survives even if this stylesheet is stale/cached. The prompt is generated
+   content so it isn't copied with the command. */
 .usage .line::before { content: "$ "; color: #28c840; font-weight: 600; }
 .ex { font-size: 0.95rem; }
 .ex-pass strong { color: #56d364; } .ex-fail strong { color: var(--error); }

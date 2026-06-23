@@ -77,6 +77,47 @@ const active = (p) => (path === p || (p !== "/" && path.startsWith(p)) ? "active
         else el.removeAttribute("data-theme");
         try { localStorage.setItem("ponens-theme", next); } catch (e) {}
       });
+
+      // Floating glossary tooltip for formula tokens ([data-tip]). Rendered on
+      // <body> so it is never clipped by a formula box's overflow.
+      (() => {
+        let tip;
+        const ensure = () => {
+          if (!tip) {
+            tip = document.createElement("div");
+            tip.className = "formula-tip";
+            tip.setAttribute("role", "tooltip");
+            document.body.appendChild(tip);
+          }
+          return tip;
+        };
+        const show = (target) => {
+          const text = target.getAttribute("data-tip");
+          if (!text) return;
+          const el = ensure();
+          el.textContent = text;
+          el.style.display = "block";
+          const r = target.getBoundingClientRect();
+          const t = el.getBoundingClientRect();
+          let top = r.top - t.height - 8;
+          const below = top < 4;
+          if (below) top = r.bottom + 8;
+          let left = r.left + r.width / 2 - t.width / 2;
+          left = Math.max(6, Math.min(left, window.innerWidth - t.width - 6));
+          el.style.top = `${top + window.scrollY}px`;
+          el.style.left = `${left + window.scrollX}px`;
+          el.classList.toggle("below", below);
+        };
+        const hide = () => { if (tip) tip.style.display = "none"; };
+        document.addEventListener("mouseover", (e) => {
+          const target = e.target.closest?.("[data-tip]");
+          if (target) show(target);
+        });
+        document.addEventListener("mouseout", (e) => {
+          if (e.target.closest?.("[data-tip]")) hide();
+        });
+        window.addEventListener("scroll", hide, true);
+      })();
     </script>
   </body>
 </html>

@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Layout from "../../layouts/Layout.astro";
+import { highlightFormula } from "../../lib/formula-fmt.mjs";
 
 export function getStaticPaths() {
   const dir = path.resolve("../gallery/policies");
@@ -36,7 +37,7 @@ const ex = policy.examples || {};
     <p class="pd-desc">{policy.description}</p>
 
     <h2>Formula</h2>
-    <pre class="formula"><code>{policy.formula}</code></pre>
+    <pre class="formula"><code set:html={highlightFormula(policy.formula)} /></pre>
 
     {policy.reasoner && (
       <>

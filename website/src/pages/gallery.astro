@@ -23,7 +23,9 @@ import Layout from "../layouts/Layout.astro";
   <div id="count" class="count"></div>
   <div id="grid" class="policy-grid"></div>
 
-  <script is:inline>
+  <script>
+    import { highlightFormula } from "../lib/formula-fmt.mjs";
+
     const grid = document.getElementById("grid");
     const countEl = document.getElementById("count");
     const q = document.getElementById("q");
@@ -38,23 +40,6 @@ import Layout from "../layouts/Layout.astro";
       scoped_temporal: "Scoped temporal",
       structural: "Structural",
     };
-
-    // Lightweight syntax highlighting for a policy formula.
-    function highlightFormula(f) {
-      let s = f.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      // relational / logical symbols first (before any markup is inserted)
-      s = s.replace(/[→∧∨¬∀∃⊨∈∅≠≥≤=]/g, (c) => `<span class="t-sym">${c}</span>`);
-      // then word tokens
-      s = s.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (w) => {
-        if (/^(G|F|X|P|H|U|S|P_target|P_chain|H_target|H_chain|S_last)$/.test(w))
-          return `<span class="t-op">${w}</span>`;
-        if (/^(completed|failed|proved|refuted|sat|unknown)$/.test(w))
-          return `<span class="t-kw">${w}</span>`;
-        if (/^[A-Z][A-Za-z]+$/.test(w)) return `<span class="t-type">${w}</span>`;
-        return w;
-      });
-      return s;
-    }
 
     function render() {
       const query = q.value.trim().toLowerCase();

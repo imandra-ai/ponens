@@ -552,10 +552,26 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
   border-radius: 8px; padding: 0.6rem 0.7rem; margin: 0 0 0.85rem; overflow-x: auto;
 }
 .pf code { font-family: var(--mono); font-size: 0.82rem; line-height: 1.55; white-space: pre-wrap; }
-.pf .t-op { color: var(--accent-2); font-weight: 700; }
-.pf .t-type { color: var(--accent); }
-.pf .t-kw { color: #2da44e; }
-.pf .t-sym { color: var(--muted); }
+
+/* Formula syntax highlighting — shared by gallery cards (.pf) and detail (.formula) */
+.pf .t-op, .formula .t-op { color: var(--accent-2); font-weight: 700; }
+.pf .t-type, .formula .t-type { color: var(--accent); }
+.pf .t-kw, .formula .t-kw { color: #2da44e; }
+.pf .t-sym, .formula .t-sym { color: var(--muted); }
+.pf .t-flag, .formula .t-flag { color: var(--fg); }
+.pf .tok[data-tip], .formula .tok[data-tip] { cursor: help; }
+.pf .tok[data-tip]:hover, .formula .tok[data-tip]:hover {
+  text-decoration: underline dotted; text-underline-offset: 3px;
+}
+
+/* Floating glossary tooltip (positioned by the handler in Layout.astro) */
+.formula-tip {
+  position: absolute; z-index: 60; display: none; max-width: 280px;
+  padding: 0.45rem 0.6rem; border-radius: 8px;
+  background: var(--fg); color: var(--bg);
+  font-size: 0.8rem; line-height: 1.4; pointer-events: none;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+}
 
 /* Gallery: language-level badge */
 .ll { font-size: 0.7rem; padding: 0.12rem 0.5rem; border-radius: 6px; font-weight: 600; }

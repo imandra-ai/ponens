@@ -657,7 +657,27 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
 .pd-desc { font-size: 1.05rem; }
 .policy-detail h2 { margin: 1.75rem 0 0.6rem; font-size: 1.05rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .formula { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; overflow-x: auto; font-size: 1.05rem; }
-.usage { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; overflow-x: auto; }
+/* "Use it" — a dark terminal window (matches the home-page quickstart), always
+   dark regardless of the site theme so it reads as an actual screenshot. */
+.usage {
+  background: #0d1117; border: 1px solid #1f2630; border-radius: 12px;
+  padding: 2.7rem 1.5rem 1.4rem; overflow-x: auto; position: relative;
+  box-shadow: 0 14px 38px -16px rgba(0, 0, 0, 0.5);
+}
+/* macOS-style traffic lights: one dot + two box-shadow clones (red / yellow / green) */
+.usage::before {
+  content: ""; position: absolute; top: 1.05rem; left: 1.4rem;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #ff5f57; box-shadow: 20px 0 #febc2e, 40px 0 #28c840;
+}
+.usage::after {
+  content: ""; position: absolute; top: 2.45rem; left: 0; right: 0;
+  height: 1px; background: #ffffff10;
+}
+.usage code { color: #e6edf3; display: block; font-family: var(--mono); }
+.usage .line { display: block; white-space: pre; }
+/* Green prompt, rendered via generated content so it isn't copied with the command */
+.usage .line::before { content: "$ "; color: #28c840; font-weight: 600; }
 .ex { font-size: 0.95rem; }
 .ex-pass strong { color: #56d364; } .ex-fail strong { color: var(--error); }
 

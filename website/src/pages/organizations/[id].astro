@@ -1,5 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { highlightFormula } from "../../lib/formula-fmt.mjs";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -73,7 +74,7 @@ const total = (pack) => policies.filter((p) => p.pack === pack.id).length;
                 </div>
                 <h4>{p.name}</h4>
                 <p>{p.description}</p>
-                {p.formula && <pre class="pf"><code>{p.formula}</code></pre>}
+                {p.formula && <pre class="pf"><code set:html={highlightFormula(p.formula)} /></pre>}
               </a>
             ))}
           </div>

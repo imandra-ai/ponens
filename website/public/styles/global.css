@@ -633,6 +633,25 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
 .prose code { background: var(--panel); border: 1px solid var(--border); padding: 0.1rem 0.35rem; border-radius: 5px; font-size: 0.9em; }
 .prose pre { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; overflow-x: auto; }
 .prose pre code { background: none; border: none; padding: 0; }
+
+/* Reusable dark terminal window (matches the home-page quickstart) — for CLI
+   snippets that read as a screenshot. No per-line prompt, so comment lines and
+   aligned trailing comments render cleanly. `pre.term` outranks `.prose pre`. */
+pre.term {
+  background: #0d1117; border: 1px solid #1f2630; border-radius: 12px;
+  padding: 2.7rem 1.5rem 1.4rem; overflow-x: auto; position: relative;
+  box-shadow: 0 14px 38px -16px rgba(0, 0, 0, 0.5);
+}
+pre.term::before {
+  content: ""; position: absolute; top: 1.05rem; left: 1.4rem;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #ff5f57; box-shadow: 20px 0 #febc2e, 40px 0 #28c840;
+}
+pre.term::after {
+  content: ""; position: absolute; top: 2.45rem; left: 0; right: 0;
+  height: 1px; background: #ffffff10;
+}
+pre.term code { color: #e6edf3; font-family: var(--mono); display: block; background: none; border: none; padding: 0; }
 .prose table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.92rem; }
 .prose th, .prose td { border: 1px solid var(--border); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
 .prose th { background: var(--panel); }

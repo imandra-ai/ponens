@@ -3,8 +3,8 @@
   "name": "FIX Certification with IPL",
   "org": "imandra",
   "domain": "fix-certification",
-  "summary": "Best practice for certifying a counterparty against a venue's FIX specification using IPL — formalize the Rules of Engagement as an IPL model, generate the conformance suite by region decomposition, certify in Simulator or Proxy mode, and monitor for drift — as computable policies over the certification trace.",
-  "description": "Imandra Connectivity certifies a counterparty's FIX implementation against a venue's Rules of Engagement (ROE) by formalizing the ROE as an Imandra Protocol Language (IPL) model, then deriving everything downstream from it: a conformance test suite via Region Decomposition, on-demand simulators, a certification report, and continuous drift monitoring. This pack encodes the best practices of that workflow as deterministic checks over the certification trace — the ROE must be a valid, version-pinned IPL model; tests must be generated from the model's symbolic regions (covering invalid flows, not just happy paths); certification must run in a declared mode and produce a report; every failing region must be resolved; the model must be co-simulated against live traffic before sign-off; and no counterparty reaches production without a passed certification, after which spec-vs-system drift must surface as an observable failure. `ponens trace check` turns the per-policy verdicts into a single certification gate.",
+  "summary": "Best practice for certifying a counterparty against a venue's FIX specification using IPL — formalize the Rules of Engagement as an IPL model, generate the certification cases by region decomposition, certify in Simulator or Proxy mode, and monitor for drift — as computable policies over the certification trace.",
+  "description": "Imandra Connectivity certifies a counterparty's FIX implementation against a venue's Rules of Engagement (ROE) by formalizing the ROE as an Imandra Protocol Language (IPL) model, then deriving everything downstream from it: the certification cases — generated from the IPL model by the ImandraX reasoner's Region Decomposition — plus on-demand simulators, a certification report, and continuous drift monitoring. This pack encodes the best practices of that workflow as deterministic checks over the certification trace — the ROE must be a valid, version-pinned IPL model; the certification cases must be generated from the model's symbolic regions and an appropriately selected, justified subset run (covering invalid flows and risk-prioritised regions — not every case, and not an arbitrary few); certification must run in a declared mode and produce a report; every failing region must be resolved; the model must be co-simulated against live traffic before sign-off; and no counterparty reaches production without a passed certification, after which spec-vs-system drift must surface as an observable failure. `ponens trace check` turns the per-policy verdicts into a single certification gate.",
   "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
   "domains": [
     {
@@ -13,7 +13,7 @@
     },
     {
       "key": "testgen",
-      "label": "Test Generation & Coverage"
+      "label": "Case Generation & Selection"
     },
     {
       "key": "certification",

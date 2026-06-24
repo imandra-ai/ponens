@@ -13,7 +13,7 @@ import Layout from "../layouts/Layout.astro";
     <h2>Self-onboarding — one command</h2>
     <p>The whole workflow ships <em>inside</em> the CLI. An agent with only
       <code>pip install ponens</code> can learn it with no repo access:</p>
-    <pre><code>ponens agent            # how to produce a trace
+    <pre class="term"><code>ponens agent            # how to produce a trace
 ponens agent --review   # how to review one</code></pre>
     <p>It prints the two-layer model (faithful atomic actions + a curated narrative), the rigor
       principle (separate what was <em>established</em> from what was merely <em>asserted</em>, and
@@ -21,7 +21,7 @@ ponens agent --review   # how to review one</code></pre>
 
     <h2>Wire it into your agent</h2>
     <p>Drop the guide into your agent's instructions so it runs the workflow every time:</p>
-    <pre><code># add it to your project's agent memory
+    <pre class="term"><code># add it to your project's agent memory
 ponens agent >> AGENTS.md        # or CLAUDE.md, a system prompt, etc.</code></pre>
     <p>After the agent finishes a task, it runs the pipeline itself — no human in the capture loop.</p>
 

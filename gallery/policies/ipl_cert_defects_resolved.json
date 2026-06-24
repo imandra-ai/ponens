@@ -1,12 +1,12 @@
 {
   "id": "ipl_cert_defects_resolved",
-  "name": "Failing Regions Resolved Before Sign-off",
+  "name": "Failing Cases Resolved Before Sign-off",
   "category": "conformance",
   "severity": "error",
-  "description": "Certification cannot be signed off while any region or test is failing; every conformance failure — whether in the counterparty or in the IPL model — must be resolved and re-run first.",
+  "description": "Certification cannot be signed off while any selected certification case is failing; every conformance failure — whether in the counterparty or in the IPL model — must be resolved and re-run first.",
   "formula": "G(CertificationSignoff → ¬open_conformance_failure)",
   "language_level": "pure_temporal",
-  "rationale": "Certification & Onboarding. Sign-off attests conformance to the model. A failing region is either a real counterparty defect or a model that does not match the ROE; either way it must be fixed and re-tested green, not signed over.",
+  "rationale": "Certification & Onboarding. Sign-off attests conformance to the model. A failing case is either a real counterparty defect or a model that does not match the ROE; either way it must be fixed and re-tested green, not signed over.",
   "tags": [
     "ipl",
     "imandra",
@@ -15,8 +15,8 @@
     "conformance"
   ],
   "examples": {
-    "passes": "All decomposed regions pass on re-run → CertificationSignoff",
-    "fails": "CertificationSignoff while a cancel/replace region is still failing"
+    "passes": "All selected cases pass on re-run → CertificationSignoff",
+    "fails": "CertificationSignoff while a selected cancel/replace case is still failing"
   },
   "domain": "fix-certification",
   "pack": "ipl-fix-certification",

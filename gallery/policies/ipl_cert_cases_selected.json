@@ -1,0 +1,32 @@
+{
+  "id": "ipl_cert_cases_selected",
+  "name": "Certification Cases Appropriately Selected",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Region decomposition produces far more cases than can be executed exhaustively. Certification must run a deliberately selected subset of the generated cases — justified by a documented selection strategy and covering the required behaviour classes and risk-prioritised regions — not every generated case, and not an arbitrary few.",
+  "formula": "G(CertificationSignoff → P(case_selection_justified ∧ required_classes_covered))",
+  "language_level": "pure_temporal",
+  "reasoner": "imandrax",
+  "rationale": "Case Generation & Selection. ImandraX decomposition is exhaustive by construction, so the full set of regions is typically far too large to run. The certification value comes from a principled selection — representative across behaviour classes, weighted to risk, and always including the invalid and boundary regions — recorded so the choice can be reviewed. Running every case is infeasible; running an arbitrary handful is not certification.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix-certification",
+    "test-generation",
+    "test-selection"
+  ],
+  "examples": {
+    "passes": "Risk-based selection across all required behaviour classes (incl. invalid regions), rationale recorded → CertificationSignoff",
+    "fails": "CertificationSignoff after running an arbitrary handful of the generated cases with no selection rationale"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "testgen",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

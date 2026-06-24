@@ -5,15 +5,21 @@ import Layout from "../../layouts/Layout.astro";
 
 export function getStaticPaths() {
   const dir = path.resolve("../gallery/reasoners");
+  let policies = [];
+  try {
+    const catalog = JSON.parse(fs.readFileSync(path.resolve("../gallery/policies/_catalog.json"), "utf8"));
+    policies = catalog.policies || [];
+  } catch {}
   return fs.readdirSync(dir)
     .filter((f) => f.endsWith(".json") && !f.startsWith("_"))
     .map((f) => {
       const reasoner = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
-      return { params: { id: reasoner.id }, props: { reasoner } };
+      const usedBy = policies.filter((p) => p.reasoner === reasoner.id);
+      return { params: { id: reasoner.id }, props: { reasoner, usedBy } };
     });
 }
 
-const { reasoner } = Astro.props;
+const { reasoner, usedBy } = Astro.props;
 const kindLabel = (reasoner.kind || "").replace(/_/g, " ");
 ---
 
@@ -59,9 +65,41 @@ const kindLabel = (reasoner.kind || "").replace(/_/g, " ");
       </>
     )}
 
+    {usedBy.length > 0 && (
+      <>
+        <h2>Policies using {reasoner.name}</h2>
+        <p class="muted-note">Policies whose verification evidence is produced by this reasoner.</p>
+        <div class="reasoner-uses">
+          {usedBy.map((p) => (
+            <a class="ru" href={`/policies/${p.id}`}>
+              <div class="ru-top">
+                <code class="pid">{p.id}</code>
+                {p.pack && <span class="pack-badge">{p.pack}</span>}
+              </div>
+              <span class="ru-name">{p.name}</span>
+            </a>
+          ))}
+        </div>
+      </>
+    )}
+
     <h2>In a policy</h2>
     <p>Policies reference a reasoner with the <code>reasoner</code> field — e.g. require that a
       high-stakes change carry a <code>VerificationResult</code> produced by
       <code>{reasoner.id}</code> before commit. See the <a href="/gallery">policy gallery</a>.</p>
   </article>
+
+  <style>
+    .reasoner-uses { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.7rem; margin: 0.6rem 0 0; }
+    .ru { display: block; border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.85rem; color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+    .ru:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
+    .ru-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .ru .pid { font-size: 0.78rem; color: var(--muted); }
+    .ru-name { display: block; margin-top: 0.3rem; font-weight: 600; font-size: 0.95rem; }
+    .pack-badge {
+      font-size: 0.66rem; font-weight: 600; padding: 0.08rem 0.4rem; border-radius: 999px;
+      background: color-mix(in srgb, #b3541e 16%, transparent); color: #b3541e;
+      border: 1px solid color-mix(in srgb, #b3541e 35%, transparent); white-space: nowrap;
+    }
+  </style>
 </Layout>

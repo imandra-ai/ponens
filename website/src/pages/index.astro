@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { highlightFormula } from "../lib/formula-fmt.mjs";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -156,22 +157,22 @@ try {
       <div class="tc-bar"><span class="tc-file">policies.ltl</span><span class="tc-note">evaluated over the trace · PASS / FAIL</span></div>
       <div class="tc-pol">
         <div class="tc-name">tests_before_commit <span class="tc-lvl">pure temporal</span></div>
-        <div class="tc-f">G(GitCommit → P(RunTests ∧ completed))</div>
+        <div class="tc-f" set:html={highlightFormula("G(GitCommit → P(RunTests ∧ completed))")} />
         <div class="tc-g">every commit is preceded by a test run that completed</div>
       </div>
       <div class="tc-pol">
         <div class="tc-name">research_before_edit <span class="tc-lvl">scoped past</span></div>
-        <div class="tc-f">G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))</div>
+        <div class="tc-f" set:html={highlightFormula("G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))")} />
         <div class="tc-g">no edit without first reading or searching the relevant code</div>
       </div>
       <div class="tc-pol">
         <div class="tc-name">reasoning_required_for_high_stakes <span class="tc-lvl">scoped past</span></div>
-        <div class="tc-f">G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))</div>
+        <div class="tc-f" set:html={highlightFormula("G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))")} />
         <div class="tc-g">on a high-stakes path, an edit must be backed by a proof, a SAT result, or a decomposition</div>
       </div>
       <div class="tc-pol">
         <div class="tc-name">no_open_critical_residuals <span class="tc-lvl">structural</span></div>
-        <div class="tc-f">¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open</div>
+        <div class="tc-f" set:html={highlightFormula("¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open")} />
         <div class="tc-g">the trace can't ship with an unresolved critical gap</div>
       </div>
     </div>

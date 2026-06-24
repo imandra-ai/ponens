@@ -404,6 +404,14 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
   font-family: var(--mono); font-size: 0.92rem; color: #e6edf3;
   margin: 0.35rem 0 0.28rem; line-height: 1.5; white-space: nowrap;
 }
+/* Home formula showcase — syntax highlighting + hover glossary (dark box) */
+.tc-f .t-op   { color: #9d7bff; font-weight: 700; }
+.tc-f .t-type { color: #6ea8fe; }
+.tc-f .t-kw   { color: #56d364; }
+.tc-f .t-sym  { color: #8b97a7; }
+.tc-f .t-flag { color: #e6edf3; }
+.tc-f .tok[data-tip] { cursor: help; }
+.tc-f .tok[data-tip]:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
 .tc-g { font-size: 0.82rem; color: #8b97a7; }
 .tech-foot { text-align: center; margin: 1.1rem 0 0; font-size: 0.88rem; color: var(--muted); }
 

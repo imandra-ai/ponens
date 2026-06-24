@@ -37,21 +37,24 @@
       "kind": "formal_verification",
       "vendor": "Imandra",
       "status": "available",
-      "description": "The automated reasoning engine: a prover for IML that decides verification goals, returns proofs or counterexamples (sat models), and computes region decompositions.",
+      "description": "The automated reasoning engine: a prover for IML that decides verification goals, returns proofs or counterexamples (sat models), and computes region decompositions. It is the engine under IPL / Imandra Connectivity — decomposing a formalized FIX Rules-of-Engagement model into an exhaustive set of symbolic regions, one per certification case, from which a conformance suite is generated.",
       "produces": [
         "VerificationResult",
         "Decomposition"
       ],
       "domains": [
-        "general"
+        "general",
+        "fix-certification"
       ],
       "tags": [
         "engine",
         "formal-methods",
-        "prover"
+        "ipl",
+        "prover",
+        "region-decomposition"
       ],
       "url": "https://www.imandra.ai/",
-      "hash": "sha256:c7379d6f1e7120304fe4c8bf21511faddc760c1f72c2249c30e776d6027deba8",
+      "hash": "sha256:762f50e65ae4f12db9e5e9233df3e78368b222ec2102f18ccce9062d33206522",
       "file": "imandrax.json"
     },
     {

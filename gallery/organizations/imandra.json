@@ -1,0 +1,14 @@
+{
+  "id": "imandra",
+  "name": "Imandra",
+  "full_name": "Imandra (Aesthetic Integration)",
+  "url": "https://www.imandra.ai/",
+  "description": "Imandra builds automated reasoning for safety-critical systems. Its Imandra Protocol Language (IPL) formalizes a trading venue's Rules of Engagement as a precise, executable model — from which Imandra Connectivity derives conformance test suites, on-demand simulators, certification reports and drift monitoring. This pack captures the best practice for certifying counterparties against a FIX specification using IPL.",
+  "packs": [
+    "ipl-fix-certification"
+  ],
+  "mapping": [
+    "IPL compresses a venue's near-infinite FIX state space into a finite set of symbolic regions via Region Decomposition; each region becomes a conformance test the counterparty must pass. Where IPL establishes *whether* a counterparty conforms, ponens governs *that the certification process was actually followed* — the Rules of Engagement were formalized and version-pinned as an IPL model, the test suite was generated from the model's regions (not hand-written), invalid and rejection flows were exercised, every failing region was resolved, and no counterparty reached production without a passed, reported certification.",
+    "Each stage of the Imandra Connectivity workflow — formalize the ROE, generate tests, certify (Simulator or Proxy), co-simulate against live traffic, and monitor for drift — becomes a policy group evaluated by `ponens trace check` over the certification trace. A divergence between the IPL specification and a live session is the observable failure the digital twin is designed to surface, raised here as an error-severity policy."
+  ]
+}

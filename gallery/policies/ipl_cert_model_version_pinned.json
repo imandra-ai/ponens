@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_model_version_pinned",
+  "name": "IPL Model & ROE Version Pinned",
+  "category": "auditability",
+  "severity": "error",
+  "description": "A certification sign-off must pin the exact IPL model version and the ROE version it formalizes, so the result is traceable to a specific formal specification.",
+  "formula": "G(CertificationSignoff → ipl_model_version_pinned ∧ roe_version_pinned)",
+  "language_level": "pure_temporal",
+  "rationale": "ROE Formalization in IPL. A certification result is only meaningful relative to the model and ROE it tested. Pinning both versions is what later lets drift detection and re-certification know when a spec change has invalidated a prior pass.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix",
+    "fix-certification",
+    "audit-trail"
+  ],
+  "examples": {
+    "passes": "CertificationSignoff records IPL model v1.4 formalizing ROE v4.2",
+    "fails": "CertificationSignoff with no recorded IPL model or ROE version"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "formalization",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

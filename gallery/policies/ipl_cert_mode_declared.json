@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_mode_declared",
+  "name": "Certification Mode Declared",
+  "category": "auditability",
+  "severity": "warning",
+  "description": "Each certification run must declare its mode — Simulator (against an IPL-generated simulator) or Proxy (in-line with the live venue) — so its scope and fidelity are on the record.",
+  "formula": "G(CertificationRun → certification_mode_declared)",
+  "language_level": "pure_temporal",
+  "rationale": "Certification & Onboarding. Simulator and Proxy certifications give different guarantees: a simulator exercises the model exhaustively, a proxy observes the real venue. Which one was used materially changes what a pass means, so it must be recorded with the run.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix-certification",
+    "certification",
+    "audit-trail"
+  ],
+  "examples": {
+    "passes": "CertificationRun declares mode = Simulator",
+    "fails": "CertificationRun with no declared Simulator/Proxy mode"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "certification",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

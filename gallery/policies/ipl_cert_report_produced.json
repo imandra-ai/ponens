@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_report_produced",
+  "name": "Certification Report Produced",
+  "category": "auditability",
+  "severity": "error",
+  "description": "A completed certification run must produce a certification report tying each verdict back to the IPL model's regions; a run that finishes with no report is not an auditable certification.",
+  "formula": "G(CertificationComplete → F(certification_report_produced))",
+  "language_level": "pure_temporal",
+  "rationale": "Certification & Onboarding. The report is the durable evidence a venue gives the counterparty and keeps for itself — region-by-region verdicts traceable to the IPL model. Without it there is nothing to defend the onboarding decision to a regulator or to replay later.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix-certification",
+    "certification",
+    "audit-trail"
+  ],
+  "examples": {
+    "passes": "CertificationComplete → certification_report_produced (per-region verdicts)",
+    "fails": "CertificationComplete with no certification report generated"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "certification",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

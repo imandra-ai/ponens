@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_model_valid",
+  "name": "IPL Model Valid Before Generation",
+  "category": "conformance",
+  "severity": "error",
+  "description": "The IPL model must type-check and be free of errors before it is used to generate tests or simulators — only a valid model is guaranteed to produce a functioning implementation.",
+  "formula": "G(GenerateTests → P(ipl_model_valid))",
+  "language_level": "pure_temporal",
+  "rationale": "ROE Formalization in IPL. IPL's guarantee is that an error-free model can generate a functioning implementation, simulator and test suite. Generating from a model that still has type or validity errors produces artefacts that do not faithfully represent the ROE.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix",
+    "fix-certification",
+    "formal-model"
+  ],
+  "examples": {
+    "passes": "IPL model type-checks clean → GenerateTests",
+    "fails": "GenerateTests run against an IPL model that still has unresolved type errors"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "formalization",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

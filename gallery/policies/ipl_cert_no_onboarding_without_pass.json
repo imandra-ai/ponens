@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_no_onboarding_without_pass",
+  "name": "No Onboarding Without a Passed Certification",
+  "category": "safety",
+  "severity": "error",
+  "description": "No counterparty is enabled in production without a prior IPL-based certification that passed and was signed off.",
+  "formula": "G(EnableProduction → P(CertificationSignoff ∧ passed))",
+  "language_level": "pure_temporal",
+  "rationale": "Certification & Onboarding. This is the gate the whole pack exists to enforce: production access is the consequential action and must be preceded by a passed, signed-off certification generated from the IPL model. Informal or partial sign-off does not satisfy it.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix-certification",
+    "certification",
+    "approval"
+  ],
+  "examples": {
+    "passes": "CertificationSignoff(passed) → EnableProduction",
+    "fails": "EnableProduction with no prior passed IPL certification"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "certification",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_model_cosimulated",
+  "name": "Model Co-simulated Against Live Traffic",
+  "category": "conformance",
+  "severity": "warning",
+  "description": "Before sign-off the IPL model should be co-simulated against captured UAT or production traffic (the digital twin) to confirm the model and the real system agree.",
+  "formula": "G(CertificationSignoff → P(model_cosimulated ∧ consistent))",
+  "language_level": "pure_temporal",
+  "rationale": "Digital Twin & Drift Detection. Co-simulating the IPL model against real session data is what proves the model is a faithful twin of the venue rather than an idealisation. A model that disagrees with observed traffic will mis-certify; the disagreement should be caught before sign-off, not after go-live.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix-certification",
+    "drift",
+    "conformance"
+  ],
+  "examples": {
+    "passes": "IPL model co-simulated over captured UAT traffic, consistent → CertificationSignoff",
+    "fails": "CertificationSignoff with the model never co-simulated against real traffic"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "drift",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

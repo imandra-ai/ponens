@@ -197,7 +197,19 @@
     "cms_zero_trust_for_ai",
     "cms_production_observability",
     "cms_prompts_versioned",
-    "cms_records_retention"
+    "cms_records_retention",
+    "ipl_cert_roe_formalized",
+    "ipl_cert_model_valid",
+    "ipl_cert_model_version_pinned",
+    "ipl_cert_tests_from_decomposition",
+    "ipl_cert_region_coverage_complete",
+    "ipl_cert_invalid_flows_tested",
+    "ipl_cert_mode_declared",
+    "ipl_cert_report_produced",
+    "ipl_cert_no_onboarding_without_pass",
+    "ipl_cert_defects_resolved",
+    "ipl_cert_model_cosimulated",
+    "ipl_cert_drift_monitored"
   ],
   "categories": [
     "auditability",
@@ -409,6 +421,12 @@
       "color": "#7a4ea3",
       "icon": "&#128274;",
       "description": "Secure software development lifecycle practices — the NIST SSDF's Prepare/Protect/Produce/Respond groups, including supply-chain integrity and vulnerability response, as machine-checkable rules."
+    },
+    "fix-certification": {
+      "label": "FIX Certification",
+      "color": "#0f766e",
+      "icon": "&#128203;",
+      "description": "Best practice for certifying a counterparty against a venue's FIX specification using IPL (Imandra Protocol Language) — formalize the Rules of Engagement as an IPL model, generate the conformance suite by region decomposition, certify in Simulator or Proxy mode, and monitor for drift — as machine-checkable rules over the certification trace."
     }
   }
 }

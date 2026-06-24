@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 197,
+  "policy_count": 209,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -1836,6 +1836,294 @@
       "pack": "iosco-supervisory-recordkeeping",
       "group": "recordkeeping",
       "tier": "1-4"
+    },
+    {
+      "id": "ipl_cert_defects_resolved",
+      "name": "Failing Regions Resolved Before Sign-off",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "certification",
+        "conformance",
+        "fix-certification",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Certification cannot be signed off while any region or test is failing; every conformance failure — whether in the counterparty or in the IPL model — must be resolved and re-run first.",
+      "formula": "G(CertificationSignoff → ¬open_conformance_failure)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:40ceb6fd7938984cdf7819428d04a1b3239f44b738f3194181d3bb2ac96c63f6",
+      "file": "ipl_cert_defects_resolved.json",
+      "pack": "ipl-fix-certification",
+      "group": "certification"
+    },
+    {
+      "id": "ipl_cert_drift_monitored",
+      "name": "Production Drift Surfaced & Resolved",
+      "category": "safety",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "drift",
+        "fix-certification",
+        "imandra",
+        "ipl",
+        "monitoring"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "In production, live sessions must be checked against the IPL model; any drift between specification and running system must surface as an observable failure and be resolved or raised as an incident.",
+      "formula": "G(drift_detected → F(drift_resolved ∨ Incident))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:dfea63260ce305b0542e0670b1ebc43eccb8674dec66cefdc258626c089ee360",
+      "file": "ipl_cert_drift_monitored.json",
+      "pack": "ipl-fix-certification",
+      "group": "drift"
+    },
+    {
+      "id": "ipl_cert_invalid_flows_tested",
+      "name": "Invalid Flows Exercised",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "fix-certification",
+        "imandra",
+        "ipl",
+        "test-generation",
+        "validation"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Certification must exercise invalid and rejection behaviour, not just happy paths — the IPL model's invalid message flows (validity violations and the expected reject responses) must be tested.",
+      "formula": "G(CertificationSignoff → P(invalid_flows_tested))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:acf6356fda1f01adf6bb2a599e7163ea3d117c3cf1d847ad8ac16bf6c559b618",
+      "file": "ipl_cert_invalid_flows_tested.json",
+      "pack": "ipl-fix-certification",
+      "group": "testgen"
+    },
+    {
+      "id": "ipl_cert_mode_declared",
+      "name": "Certification Mode Declared",
+      "category": "auditability",
+      "severity": "warning",
+      "domain": "fix-certification",
+      "tags": [
+        "audit-trail",
+        "certification",
+        "fix-certification",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Each certification run must declare its mode — Simulator (against an IPL-generated simulator) or Proxy (in-line with the live venue) — so its scope and fidelity are on the record.",
+      "formula": "G(CertificationRun → certification_mode_declared)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:cfb79234852011fc09ee1ad1b903c2646cf6fbd05a7df5db680761994f213a13",
+      "file": "ipl_cert_mode_declared.json",
+      "pack": "ipl-fix-certification",
+      "group": "certification"
+    },
+    {
+      "id": "ipl_cert_model_cosimulated",
+      "name": "Model Co-simulated Against Live Traffic",
+      "category": "conformance",
+      "severity": "warning",
+      "domain": "fix-certification",
+      "tags": [
+        "conformance",
+        "drift",
+        "fix-certification",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Before sign-off the IPL model should be co-simulated against captured UAT or production traffic (the digital twin) to confirm the model and the real system agree.",
+      "formula": "G(CertificationSignoff → P(model_cosimulated ∧ consistent))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4bb2140599e555d52013cb8e4ba14d3017c44b7ed4714fd240a2ca8bd95427fe",
+      "file": "ipl_cert_model_cosimulated.json",
+      "pack": "ipl-fix-certification",
+      "group": "drift"
+    },
+    {
+      "id": "ipl_cert_model_valid",
+      "name": "IPL Model Valid Before Generation",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "fix",
+        "fix-certification",
+        "formal-model",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "The IPL model must type-check and be free of errors before it is used to generate tests or simulators — only a valid model is guaranteed to produce a functioning implementation.",
+      "formula": "G(GenerateTests → P(ipl_model_valid))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:f40bcccebaeca18f65dbe00a0590ec9fa411ee1f1c9e2527e1e82214bfa99066",
+      "file": "ipl_cert_model_valid.json",
+      "pack": "ipl-fix-certification",
+      "group": "formalization"
+    },
+    {
+      "id": "ipl_cert_model_version_pinned",
+      "name": "IPL Model & ROE Version Pinned",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "audit-trail",
+        "fix",
+        "fix-certification",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A certification sign-off must pin the exact IPL model version and the ROE version it formalizes, so the result is traceable to a specific formal specification.",
+      "formula": "G(CertificationSignoff → ipl_model_version_pinned ∧ roe_version_pinned)",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:6fc774679aaf0790309e74415d2a2ea01e1a26dd5ecabba7b3e8efc93b29d3bf",
+      "file": "ipl_cert_model_version_pinned.json",
+      "pack": "ipl-fix-certification",
+      "group": "formalization"
+    },
+    {
+      "id": "ipl_cert_no_onboarding_without_pass",
+      "name": "No Onboarding Without a Passed Certification",
+      "category": "safety",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "approval",
+        "certification",
+        "fix-certification",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "No counterparty is enabled in production without a prior IPL-based certification that passed and was signed off.",
+      "formula": "G(EnableProduction → P(CertificationSignoff ∧ passed))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:16fdabf0a8e0237c4b498fdd0c9880e17e7aeb9ac8e99063c84d836133cfcabf",
+      "file": "ipl_cert_no_onboarding_without_pass.json",
+      "pack": "ipl-fix-certification",
+      "group": "certification"
+    },
+    {
+      "id": "ipl_cert_region_coverage_complete",
+      "name": "All Regions Covered",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "coverage",
+        "fix-certification",
+        "imandra",
+        "ipl",
+        "test-generation"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "Sign-off requires that every symbolic region the decomposition identified — every edge case in the IPL model — has a generated test that was executed.",
+      "formula": "G(CertificationSignoff → P(region_coverage_complete))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:6024ad3312e2cf6ab32effc58349e310fdd27fdcad57ea7c8bca2b31c40fca6d",
+      "file": "ipl_cert_region_coverage_complete.json",
+      "pack": "ipl-fix-certification",
+      "group": "testgen"
+    },
+    {
+      "id": "ipl_cert_report_produced",
+      "name": "Certification Report Produced",
+      "category": "auditability",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "audit-trail",
+        "certification",
+        "fix-certification",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "A completed certification run must produce a certification report tying each verdict back to the IPL model's regions; a run that finishes with no report is not an auditable certification.",
+      "formula": "G(CertificationComplete → F(certification_report_produced))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:07e3268829b99d69be6eec5805ce37281086e49d32a70584896a2bf6294ea873",
+      "file": "ipl_cert_report_produced.json",
+      "pack": "ipl-fix-certification",
+      "group": "certification"
+    },
+    {
+      "id": "ipl_cert_roe_formalized",
+      "name": "ROE Formalized in IPL",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "fix",
+        "fix-certification",
+        "formal-model",
+        "imandra",
+        "ipl"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": null,
+      "description": "The venue's Rules of Engagement / FIX specification a counterparty is certified against must be formalized as an IPL model — an executable formal spec — before any certification run, not left as prose.",
+      "formula": "G(CertificationRun → P(Formalize ∧ ipl_model_formalizes_roe))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:b8ba387d225a3e5e205ab9860e99c6f9de9bec788c2b9233e9b808892f74cb97",
+      "file": "ipl_cert_roe_formalized.json",
+      "pack": "ipl-fix-certification",
+      "group": "formalization"
+    },
+    {
+      "id": "ipl_cert_tests_from_decomposition",
+      "name": "Tests Generated by Region Decomposition",
+      "category": "conformance",
+      "severity": "error",
+      "domain": "fix-certification",
+      "tags": [
+        "conformance",
+        "fix-certification",
+        "imandra",
+        "ipl",
+        "test-generation"
+      ],
+      "language_level": "scoped_temporal",
+      "reasoner": null,
+      "description": "Conformance tests must be generated from the IPL model by region decomposition — each test traceable to a symbolic region of the model — rather than hand-written ad hoc.",
+      "formula": "G(ConformanceTest → P_chain(RegionDecomposition ∧ ipl_model_valid))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:4371f528b1b53fefc1b076b018b1d60b74dd93b7eae973d0b47cd6a70edc1062",
+      "file": "ipl_cert_tests_from_decomposition.json",
+      "pack": "ipl-fix-certification",
+      "group": "testgen"
     },
     {
       "id": "jsf_certified_libraries_only",
@@ -4809,6 +5097,7 @@
     "capability",
     "categories",
     "cert",
+    "certification",
     "certification-liaison",
     "ci",
     "cleanup",
@@ -4846,13 +5135,17 @@
     "directives",
     "disclosure",
     "do-178c",
+    "drift",
     "edge-cases",
     "editing",
     "esma",
     "federal",
     "files",
+    "fix",
     "fix-ai-wg",
+    "fix-certification",
     "fixes",
+    "formal-model",
     "formal-verification",
     "formalization",
     "forms",
@@ -4868,10 +5161,12 @@
     "hipaa",
     "iam",
     "identity",
+    "imandra",
     "infrastructure",
     "integrity",
     "intent",
     "iosco",
+    "ipl",
     "jsf",
     "lifecycle",
     "linting",
@@ -4886,6 +5181,7 @@
     "misra",
     "misra-c",
     "misra-cpp",
+    "monitoring",
     "navigable",
     "negative-space",
     "nist",
@@ -4945,6 +5241,7 @@
     "supply-chain",
     "supply-chain-security",
     "telemetry",
+    "test-generation",
     "testing",
     "tier-1-3",
     "tier-1-4",
@@ -5042,6 +5339,12 @@
       "color": "#7a4ea3",
       "icon": "&#128274;",
       "description": "Secure software development lifecycle practices — the NIST SSDF's Prepare/Protect/Produce/Respond groups, including supply-chain integrity and vulnerability response, as machine-checkable rules."
+    },
+    "fix-certification": {
+      "label": "FIX Certification",
+      "color": "#0f766e",
+      "icon": "&#128203;",
+      "description": "Best practice for certifying a counterparty against a venue's FIX specification using IPL (Imandra Protocol Language) — formalize the Rules of Engagement as an IPL model, generate the conformance suite by region decomposition, certify in Simulator or Proxy mode, and monitor for drift — as machine-checkable rules over the certification trace."
     }
   },
   "organizations": [
@@ -5099,6 +5402,20 @@
       "mapping": [
         "The FIX AI Working Group's runtime-governance proposal defines a traffic-light scheme — Green (proceed), Amber (flag/refer), Red (halt) — across five domains: identity & authorisation, intent & constraint, capability & DCE, runtime telemetry & trajectory, and approval & release gating. ponens maps each traffic-light condition onto a temporal-logic policy evaluated over an agent's execution trace. This is exactly the form the proposal itself demands of any binding control (§10.3): “a deterministic function over the governed state… executing independently of the language model.” A ponens policy is precisely that function.",
         "Each domain becomes a policy group, plus the Szpruch et al. capability failure modes (C1–C4); a policy's severity encodes Red (error) versus Amber (warning), and its tier tag selects the Assistive–to–Critical-Autonomous profile. Running the pack with `ponens trace check` aggregates the per-policy verdicts into the GovernanceState the proposal wants carried in a new FIX field — all-pass is Green, a warning-fail is Amber, an error-fail is Red. The genuinely population-level conditions (orchestration drift, compound-workflow market-disorder testing) are the proposal's own Gap 5 and sit outside per-trace policy."
+      ]
+    },
+    {
+      "id": "imandra",
+      "name": "Imandra",
+      "full_name": "Imandra (Aesthetic Integration)",
+      "url": "https://www.imandra.ai/",
+      "description": "Imandra builds automated reasoning for safety-critical systems. Its Imandra Protocol Language (IPL) formalizes a trading venue's Rules of Engagement as a precise, executable model — from which Imandra Connectivity derives conformance test suites, on-demand simulators, certification reports and drift monitoring. This pack captures the best practice for certifying counterparties against a FIX specification using IPL.",
+      "packs": [
+        "ipl-fix-certification"
+      ],
+      "mapping": [
+        "IPL compresses a venue's near-infinite FIX state space into a finite set of symbolic regions via Region Decomposition; each region becomes a conformance test the counterparty must pass. Where IPL establishes *whether* a counterparty conforms, ponens governs *that the certification process was actually followed* — the Rules of Engagement were formalized and version-pinned as an IPL model, the test suite was generated from the model's regions (not hand-written), invalid and rejection flows were exercised, every failing region was resolved, and no counterparty reached production without a passed, reported certification.",
+        "Each stage of the Imandra Connectivity workflow — formalize the ROE, generate tests, certify (Simulator or Proxy), co-simulate against live traffic, and monitor for drift — becomes a policy group evaluated by `ponens trace check` over the certification trace. A divergence between the IPL specification and a live session is the observable failure the digital twin is designed to surface, raised here as an error-severity policy."
       ]
     },
     {
@@ -5368,6 +5685,34 @@
         }
       ],
       "policy_count": 11
+    },
+    {
+      "id": "ipl-fix-certification",
+      "name": "FIX Certification with IPL",
+      "org": "imandra",
+      "domain": "fix-certification",
+      "summary": "Best practice for certifying a counterparty against a venue's FIX specification using IPL — formalize the Rules of Engagement as an IPL model, generate the conformance suite by region decomposition, certify in Simulator or Proxy mode, and monitor for drift — as computable policies over the certification trace.",
+      "description": "Imandra Connectivity certifies a counterparty's FIX implementation against a venue's Rules of Engagement (ROE) by formalizing the ROE as an Imandra Protocol Language (IPL) model, then deriving everything downstream from it: a conformance test suite via Region Decomposition, on-demand simulators, a certification report, and continuous drift monitoring. This pack encodes the best practices of that workflow as deterministic checks over the certification trace — the ROE must be a valid, version-pinned IPL model; tests must be generated from the model's symbolic regions (covering invalid flows, not just happy paths); certification must run in a declared mode and produce a report; every failing region must be resolved; the model must be co-simulated against live traffic before sign-off; and no counterparty reaches production without a passed certification, after which spec-vs-system drift must surface as an observable failure. `ponens trace check` turns the per-policy verdicts into a single certification gate.",
+      "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+      "domains": [
+        {
+          "key": "formalization",
+          "label": "ROE Formalization in IPL"
+        },
+        {
+          "key": "testgen",
+          "label": "Test Generation & Coverage"
+        },
+        {
+          "key": "certification",
+          "label": "Certification & Onboarding"
+        },
+        {
+          "key": "drift",
+          "label": "Digital Twin & Drift Detection"
+        }
+      ],
+      "policy_count": 12
     },
     {
       "id": "jsf-av-cpp",

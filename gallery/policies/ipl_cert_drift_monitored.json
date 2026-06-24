@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_drift_monitored",
+  "name": "Production Drift Surfaced & Resolved",
+  "category": "safety",
+  "severity": "error",
+  "description": "In production, live sessions must be checked against the IPL model; any drift between specification and running system must surface as an observable failure and be resolved or raised as an incident.",
+  "formula": "G(drift_detected → F(drift_resolved ∨ Incident))",
+  "language_level": "pure_temporal",
+  "rationale": "Digital Twin & Drift Detection. A certification is a snapshot; systems and specs change. Overlaying the IPL model's regions onto live sessions turns spec-vs-system divergence into an observable signal — but only if every detected drift is then driven to resolution or escalated, never silently ignored.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix-certification",
+    "drift",
+    "monitoring"
+  ],
+  "examples": {
+    "passes": "drift_detected → root-caused and drift_resolved (or raised as an Incident)",
+    "fails": "drift_detected against the IPL model and the session continues with no response"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "drift",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

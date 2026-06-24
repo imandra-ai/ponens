@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_roe_formalized",
+  "name": "ROE Formalized in IPL",
+  "category": "conformance",
+  "severity": "error",
+  "description": "The venue's Rules of Engagement / FIX specification a counterparty is certified against must be formalized as an IPL model — an executable formal spec — before any certification run, not left as prose.",
+  "formula": "G(CertificationRun → P(Formalize ∧ ipl_model_formalizes_roe))",
+  "language_level": "pure_temporal",
+  "rationale": "ROE Formalization in IPL. Everything downstream — the test suite, the simulator, the report, drift monitoring — is derived from the IPL model. Certifying against a prose ROE that was never formalized means there is no machine-checkable spec to generate from or measure against.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix",
+    "fix-certification",
+    "formal-model"
+  ],
+  "examples": {
+    "passes": "Formalize(ROE v4.2 → IPL model) → CertificationRun",
+    "fails": "CertificationRun with no IPL model formalizing the venue's ROE"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "formalization",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

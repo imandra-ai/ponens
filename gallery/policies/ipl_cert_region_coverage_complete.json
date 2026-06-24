@@ -1,0 +1,31 @@
+{
+  "id": "ipl_cert_region_coverage_complete",
+  "name": "All Regions Covered",
+  "category": "conformance",
+  "severity": "error",
+  "description": "Sign-off requires that every symbolic region the decomposition identified — every edge case in the IPL model — has a generated test that was executed.",
+  "formula": "G(CertificationSignoff → P(region_coverage_complete))",
+  "language_level": "pure_temporal",
+  "rationale": "Test Generation & Coverage. The value of region decomposition is exhaustiveness: a finite set of regions that together cover all behaviour. Signing off with regions left untested re-introduces exactly the coverage gaps the formal model was meant to eliminate.",
+  "tags": [
+    "ipl",
+    "imandra",
+    "fix-certification",
+    "test-generation",
+    "coverage"
+  ],
+  "examples": {
+    "passes": "Every decomposed region has an executed test → CertificationSignoff",
+    "fails": "CertificationSignoff while several order-reject regions were never exercised"
+  },
+  "domain": "fix-certification",
+  "pack": "ipl-fix-certification",
+  "group": "testgen",
+  "source": "Imandra Connectivity / IPL — Imandra Protocol Language for formalizing FIX Rules of Engagement (https://www.imandra.ai/connectivity, https://ipl.dev).",
+  "author": {
+    "name": "Denis Ignatovich",
+    "github": "ignaden"
+  },
+  "date_added": "2026-06-24",
+  "downloads": 0
+}

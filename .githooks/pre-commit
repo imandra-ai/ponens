@@ -1,0 +1,31 @@
+#!/bin/sh
+# Keep the generated gallery catalogs in sync with their sources.
+#
+# Mirrors the CI "Validate gallery" job locally so a stale _catalog.json can't
+# be committed (the failure mode where editing a policy/reasoner file without
+# rerunning the build script ships a catalog that no longer matches its source).
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+#
+# Only runs when the commit actually touches the gallery or the build scripts,
+# so unrelated commits stay fast.
+
+changed=$(git diff --cached --name-only --diff-filter=ACMR)
+echo "$changed" | grep -qE '^(gallery/|scripts/build_)' || exit 0
+
+fail=0
+python3 scripts/build_index.py --check     || fail=1
+python3 scripts/build_reasoners.py --check || fail=1
+
+if [ "$fail" -ne 0 ]; then
+  cat >&2 <<'MSG'
+
+✗ Gallery catalog is stale — CI's "Validate gallery" job would fail.
+  Regenerate and stage the catalog(s):
+
+    python3 scripts/build_index.py && python3 scripts/build_reasoners.py
+    git add gallery/policies/_catalog.json gallery/reasoners/_catalog.json
+
+MSG
+  exit 1
+fi

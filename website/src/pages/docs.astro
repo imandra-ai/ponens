@@ -32,7 +32,7 @@ const sections = [
         escalation.</p>
 
       <h2 id="install">Install</h2>
-      <pre><code># from this repo
+      <pre class="term"><code># from this repo
 pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
 
 # or for local development
@@ -50,14 +50,14 @@ pip install -e ./cli</code></pre>
       <h2 id="emit">1 · Emit — capture the session</h2>
       <p>An agent emits the trace from its own session transcript; you write nothing. Emission
         captures the actions, file lineage, decisions, and reasoning as ground truth.</p>
-      <pre><code>ponens emit -o trace.json                            # newest session for this project
+      <pre class="term"><code>ponens emit -o trace.json                            # newest session for this project
 ponens emit transcript.jsonl -o trace.json --from claude-code</code></pre>
 
       <h2 id="curate">2 · Curate the narrative</h2>
       <p>Emission seeds each step's title from the raw directives ("yes", "ok now fix it"). Those are
         drafts — rewrite them into a clean account of what was built and why. The atomic actions
         underneath stay untouched and honest.</p>
-      <pre><code>ponens trace meta ls trace.json                      # the steps, and how curated each is
+      <pre class="term"><code>ponens trace meta ls trace.json                      # the steps, and how curated each is
 ponens trace meta set trace.json m3 --title "Add idempotency to capture" --status completed
 ponens trace meta merge trace.json m7 m8             # fold dead-ends into one step
 ponens trace retitle trace.json --title "…" --outcome "…"</code></pre>
@@ -65,7 +65,7 @@ ponens trace retitle trace.json --title "…" --outcome "…"</code></pre>
       <h2 id="enrich">3 · Enrich — declare what emission can't derive</h2>
       <p>The produced artifacts (so the lineage DAG is real) and the <strong>negative space</strong> —
         the gaps only the agent can declare.</p>
-      <pre><code>ponens trace artifact trace.json --type VerificationResult --name "no double-charge" --producer-action-id 12
+      <pre class="term"><code>ponens trace artifact trace.json --type VerificationResult --name "no double-charge" --producer-action-id 12
 ponens trace residual add trace.json --kind assumption --severity high \
     --statement "Assumes the gateway sends a stable idempotency key" \
     --suggested-check "confirm the retry contract"</code></pre>
@@ -74,12 +74,12 @@ ponens trace residual add trace.json --kind assumption --severity high \
       <p>A quality rubric — structure, rationale coverage, negative space, reproducibility,
         verification evidence, and lineage — plus a separate policy-compliance line. Treat the grade
         as a hygiene floor to <em>clear</em>, not a number to game.</p>
-      <pre><code>ponens trace grade trace.json</code></pre>
+      <pre class="term"><code>ponens trace grade trace.json</code></pre>
 
       <h2 id="govern">5 · Govern — Computable Governance</h2>
       <p>Check the trace against best-practice policies — conformance checks evaluated over the record.
         A real, automatic gate (exit code), fully offline.</p>
-      <pre><code>ponens registry update
+      <pre class="term"><code>ponens registry update
 ponens policies search testing
 ponens policies add tests_before_commit --into trace.json
 ponens trace check trace.json                        # → PASS / FAIL</code></pre>
@@ -87,12 +87,12 @@ ponens trace check trace.json                        # → PASS / FAIL</code></p
       <h2 id="view">6 · View it</h2>
       <p>Read the reasoning behind the commit — zoom from intent-named steps down to atomic actions,
         with the lineage DAG, decisions, and the residual surface.</p>
-      <pre><code>ponens trace view trace.json                         # self-contained page; opens in a browser
+      <pre class="term"><code>ponens trace view trace.json                         # self-contained page; opens in a browser
 ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI artifact)</code></pre>
       <p>Headless (SSH/CI)? It prints the file path instead. See it live in the <a href="/demo">demo</a>.</p>
 
       <h2 id="share">7 · Share it</h2>
-      <pre><code>ponens bind && ponens push                           # bind 1:1 to the commit, publish for review</code></pre>
+      <pre class="term"><code>ponens bind && ponens push                           # bind 1:1 to the commit, publish for review</code></pre>
       <p>Or post it on the pull request — the grade, the declared gaps, and a one-click interactive
         viewer — with the
         <a href="https://github.com/imandra-ai/ponens/tree/main/.github/actions/pr-trace">pr-trace</a>

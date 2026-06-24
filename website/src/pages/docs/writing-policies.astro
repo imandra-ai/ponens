@@ -96,10 +96,10 @@ G(EditFile ∧ high_stakes_path → P_chain(VerificationResult ∨ Decomposition
     <ol>
       <li>Create <code>.ponens/policies/my_rule.json</code> using the shape above.</li>
       <li>Register a local source:
-        <pre><code>{`ponens sources add team --type local --path .ponens/policies`}</code></pre>
+        <pre class="term"><code>{`ponens sources add team --type local --path .ponens/policies`}</code></pre>
         (or add a <code>[[source]]</code> block to <code>.ponens/sources.toml</code>).</li>
       <li>Find it, add it to a trace, and check:
-        <pre><code>{`ponens policies search my_rule          # shows source = team
+        <pre class="term"><code>{`ponens policies search my_rule          # shows source = team
 ponens policies add team/my_rule --into ./trace.json
 ponens trace check ./trace.json`}</code></pre></li>
     </ol>

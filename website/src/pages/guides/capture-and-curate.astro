@@ -12,14 +12,14 @@ import Layout from "../../layouts/Layout.astro";
 
     <h2>0. The one-command path</h2>
     <p>If you just want the whole flow run for you, point the agent at:</p>
-    <pre><code>ponens agent</code></pre>
+    <pre class="term"><code>ponens agent</code></pre>
     <p>It prints the full workflow (emit → curate → enrich → grade → govern) and the agent drives it.
       The rest of this guide is what that command does, step by step.</p>
 
     <h2>1. Emit — capture the session</h2>
     <p>An agent emits the trace from its own session transcript; you write nothing. Emission captures
       the actions, file lineage, decisions, and reasoning as ground truth.</p>
-    <pre><code>{`ponens emit -o trace.json                      # newest session for this project
+    <pre class="term"><code>{`ponens emit -o trace.json                      # newest session for this project
 ponens emit transcript.jsonl -o trace.json --from claude-code`}</code></pre>
     <p>The atomic actions it records are <em>never rewritten</em> — they're the ungameable layer a
       reviewer can trust. Everything below curates a readable narrative <em>on top</em> of them.</p>
@@ -27,7 +27,7 @@ ponens emit transcript.jsonl -o trace.json --from claude-code`}</code></pre>
     <h2>2. Curate the narrative</h2>
     <p>Emission seeds each step's title from the raw directives ("yes", "ok now fix it"). Those are
       drafts — rewrite them into a clean account of what was built and why.</p>
-    <pre><code>{`ponens trace meta ls trace.json                # the steps, and how curated each is
+    <pre class="term"><code>{`ponens trace meta ls trace.json                # the steps, and how curated each is
 ponens trace meta set trace.json m3 --title "Add idempotency to capture" --status completed
 ponens trace meta merge trace.json m7 m8       # fold a dead-end into one step
 ponens trace retitle trace.json --title "…" --outcome "…"`}</code></pre>
@@ -35,7 +35,7 @@ ponens trace retitle trace.json --title "…" --outcome "…"`}</code></pre>
     <h2>3. Enrich — declare what emission can't derive</h2>
     <p>Bind the artifacts you produced (so the lineage DAG is real), and declare the
       <strong>residual surface</strong> — the negative space only you can name.</p>
-    <pre><code>{`ponens trace artifact trace.json --type VerificationResult \\
+    <pre class="term"><code>{`ponens trace artifact trace.json --type VerificationResult \\
     --name "no double-charge" --producer-action-id 12
 
 ponens trace residual add trace.json --kind assumption --severity high \\
@@ -47,12 +47,12 @@ ponens trace residual add trace.json --kind assumption --severity high \\
     <h2>4. Grade it</h2>
     <p>A quality rubric — structure, rationale coverage, negative space, reproducibility, verification
       evidence, lineage — plus a separate policy-compliance line.</p>
-    <pre><code>ponens trace grade trace.json</code></pre>
+    <pre class="term"><code>ponens trace grade trace.json</code></pre>
     <p>Treat the grade as a <strong>hygiene floor to clear, not a number to game</strong>. The real
       bars are reproduction and review.</p>
 
     <h2>5. Check it reproduces</h2>
-    <pre><code>ponens trace reproduce trace.json</code></pre>
+    <pre class="term"><code>ponens trace reproduce trace.json</code></pre>
     <p>Reproducibility is what makes the curated narrative credible instead of vibes — it ties the
       record to the actual commit.</p>
 

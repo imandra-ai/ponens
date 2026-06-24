@@ -13,7 +13,7 @@ import Layout from "../../layouts/Layout.astro";
     <h2>1. Ship a trace with the change</h2>
     <p>The agent emits the trace during its session and commits it alongside the code. The default
       location the action looks for is <code>.ponens/trace.json</code>:</p>
-    <pre><code>{`ponens emit -o .ponens/trace.json
+    <pre class="term"><code>{`ponens emit -o .ponens/trace.json
 git add .ponens/trace.json`}</code></pre>
 
     <h2>2. Add the pr-trace action</h2>

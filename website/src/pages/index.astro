@@ -26,9 +26,9 @@ try {
     </p>
     <p class="tagline">
       <span class="pn">ponens</span> makes each agent session reviewable at a higher level — a curated,
-      verifiable <strong>reasoning trace</strong> of what was built and why. You can visualize it,
-      grade it, and govern it with <strong>Computable Governance</strong> — so your quality bar and
-      your governance keep pace with the code.
+      verifiable <strong>reasoning trace</strong> of what was built, why, and whether it met its
+      <strong>goal</strong>. You can visualize it, grade it, and govern it with
+      <strong>Computable Governance</strong> — so your quality bar and your governance keep pace with the code.
     </p>
     <div class="cta">
       <code>pip install ponens</code>
@@ -53,7 +53,11 @@ try {
     <div class="transform-head">
       <h2>From session to reasoning record</h2>
       <p><span class="pn">ponens</span> reads the agent's raw session and distills it into a higher-level <strong>reasoning
-        record</strong> — curated steps, the lineage of what changed, the gaps it left open, and a grade.</p>
+        record</strong> — the <strong>goal</strong> it was pursuing and whether it was met, curated steps,
+        the lineage of what changed, the gaps it left open, and a grade.</p>
+      <p class="transform-note">Whether the goal was met is <strong>resolved deterministically from the
+        trace's own evidence</strong> — not a model's opinion. Every "done" traces to a specific
+        artifact, and re-running it gives the same answer: grounded, reproducible, auditable.</p>
     </div>
 
     <div class="transform-row">
@@ -83,6 +87,7 @@ try {
         <span class="mv-title">A reasoning record</span>
         <span class="mv-tabs" aria-hidden="true">
           <span class="mv-tab active">Flow</span>
+          <span class="mv-tab">Goals</span>
           <span class="mv-tab">Lineage</span>
           <span class="mv-tab">Reasoning</span>
           <span class="mv-tab">Policies</span>
@@ -308,5 +313,12 @@ ponens trace view trace.json                    # Read the reasoning, zoomable</
     .hero-stats strong { color: var(--fg); font-weight: 700; }
     .hero-stats a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--border); }
     .hero-stats a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+    .transform-note {
+      margin: 0.75rem 0 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+      max-width: 60ch;
+    }
+    .transform-note strong { color: var(--fg); font-weight: 600; }
   </style>
 </Layout>

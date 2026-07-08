@@ -23,6 +23,7 @@ from .policy_compiler import (
     ACTION_TYPES, ARTIFACT_TYPES, PREDICATES,
     STRUCTURAL_POLICIES,
 )
+from . import goals as goalops
 
 
 # ================================================================
@@ -102,6 +103,8 @@ def create_empty_trace(model='example-model', assistant='ponens'):
         'artifacts': [],
         'policies': [],
         'policy_evaluations': [],
+        'residuals': [],
+        'goals': [],
         'files_modified': [],
         'metrics': {},
     }
@@ -1450,9 +1453,13 @@ def cmd_status(args):
 
 
 def cmd_residuals(args):
-    """List the trace's residual surface — its declared negative space (Trace Spec §13)."""
+    """List the trace's residual surface — its negative space (Trace Spec §13). With --derived,
+    also include computed stale-evidence residuals."""
     trace = load_trace(args.trace_file)
-    residuals = trace.get('residuals', [])
+    residuals = list(trace.get('residuals', []))
+    if getattr(args, 'derived', False):
+        seen = {r.get('residual_id') for r in residuals}
+        residuals += [r for r in goalops.stale_evidence(trace) if r.get('residual_id') not in seen]
 
     if getattr(args, 'web', False):
         return launch_viewer(trace, args.trace_file)
@@ -1493,6 +1500,62 @@ def cmd_residuals(args):
     return 0
 
 
+def _apply_goals_file(trace, goals_path):
+    """Merge an external goals file (a list, or {goals: [...]}) into the trace's `goals`.
+
+    Lets the desktop keep authoring goals app-side and hand them to ponens per call, without
+    surgically editing the emitted trace.
+    """
+    if not goals_path:
+        return
+    data = load_trace(goals_path)
+    goals = data.get('goals') if isinstance(data, dict) else data
+    if goals is not None:
+        trace['goals'] = goals
+
+
+def cmd_resolve(args):
+    """Resolve each goal's acceptance items against the trace evidence (status + evidence pointer)."""
+    trace = load_trace(args.trace_file)
+    _apply_goals_file(trace, getattr(args, 'goals', None))
+    out = []
+    for g in trace.get('goals', []):
+        items = []
+        for item in g.get('acceptance', []):
+            r = goalops.resolve_item(item, trace)
+            items.append({**item, 'status': r['status'], 'from_trace': r['from_trace'],
+                          'evidence': r['evidence']})
+        out.append({'id': g.get('id'), 'intent': g.get('intent'),
+                    'progress': goalops.progress_of(items), 'acceptance': items})
+    if getattr(args, 'json', False):
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    marks = {'done': '✓', 'blocked': '✗', 'doing': '◐', 'todo': '○'}
+    for g in out:
+        print(f"{g['id']}  {int(round(g['progress'] * 100))}%  {g['intent']}")
+        for it in g['acceptance']:
+            src = ' (trace)' if it.get('from_trace') else ''
+            print(f"  {marks.get(it['status'], '?')} [{it.get('kind')}] {it.get('label')}{src}")
+    return 0
+
+
+def cmd_enrich(args):
+    """Augment the trace with all derived views (resolved acceptance, derived residuals, per-goal
+    relevance cone, exploration) — one projection a thin viewer can render without re-implementing
+    the logic. The source trace is not modified."""
+    trace = load_trace(args.trace_file)
+    _apply_goals_file(trace, getattr(args, 'goals', None))
+    text = json.dumps(goalops.enrich(trace), indent=2, ensure_ascii=False)
+    out_path = getattr(args, 'output', None)
+    if out_path:
+        with open(out_path, 'w') as f:
+            f.write(text + '\n')
+        print(f"Wrote enriched trace -> {out_path}", file=sys.stderr)
+    else:
+        print(text)
+    return 0
+
+
 def _find_visualizer():
     here = os.path.dirname(__file__)
     candidates = [
@@ -1518,8 +1581,13 @@ def _render_viewer_html(trace):
     # block (those drive the HTML script-data tokenizer and would mis-end the tag);
     # JSON.parse handles U+2028/U+2029 natively, so the data can hold anything.
     trace_json = json.dumps(trace, ensure_ascii=False).replace('<', '\\u003c')
+    try:
+        grade_json = json.dumps(grade_trace(trace), ensure_ascii=False).replace('<', '\\u003c')
+    except Exception:
+        grade_json = 'null'
     loader = """
 <script id="ponens-trace-data" type="application/json">__PONENS_TRACE__</script>
+<script id="ponens-grade-data" type="application/json">__PONENS_GRADE__</script>
 <script>
 (function() {
   function _banner(msg, ok) {
@@ -1542,10 +1610,20 @@ def _render_viewer_html(trace):
       loadTrace(_cliTrace);
       var b = document.getElementById('demoBadge'); if (b) b.style.display = 'none';
       var s = document.getElementById('demoSelect'); if (s) s.value = '';
+      // A CLI-rendered trace is a specific trace, not the demo gallery — hide the demo picker.
+      var sel = document.getElementById('demoSelector'); if (sel) sel.style.display = 'none';
+      // Surface the Grade tab (computed by the CLI) and open it first.
+      try { window.__ponensGrade = JSON.parse(document.getElementById('ponens-grade-data').textContent); } catch (e) {}
+      var gb = document.getElementById('gradeViewBtn'); if (gb) gb.style.display = '';
+      if (window.__ponensGrade && typeof switchView === 'function') switchView('grade');
       var p = document.getElementById('flowPanel');
       if (!p || !p.innerHTML.trim()) {
-        _banner('loadTrace ran but produced no flow.\\nactions=' + ((_cliTrace.actions || []).length) +
-                '  spec_version=' + _cliTrace.spec_version, false);
+        if ((_cliTrace.actions || []).length === 0) {
+          if (p) p.innerHTML = '<div style="padding:28px;color:#8b949e;font:14px ui-sans-serif,system-ui;">No recorded activity in this session yet.</div>';
+        } else {
+          _banner('loadTrace ran but produced no flow.\\nactions=' + ((_cliTrace.actions || []).length) +
+                  '  spec_version=' + _cliTrace.spec_version, false);
+        }
       }
     } catch (e) {
       _banner('Viewer failed to render this trace:\\n\\n' + (e && e.stack || e), false);
@@ -1555,7 +1633,7 @@ def _render_viewer_html(trace):
   else setTimeout(_go, 50);
 })();
 </script>
-""".replace('__PONENS_TRACE__', trace_json)
+""".replace('__PONENS_TRACE__', trace_json).replace('__PONENS_GRADE__', grade_json)
     # Inject before the LAST </body> only — an earlier one lives inside a JS
     # template literal in the visualizer, and replacing it would splay our
     # <script> (with its </script>) into the page's main script and corrupt it.
@@ -1711,8 +1789,23 @@ def register(subparsers):
     p = trace_sub.add_parser("residuals", help="List the residual surface (declared negative space)")
     p.add_argument("trace_file")
     p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.add_argument("--derived", action="store_true", help="Also include computed stale-evidence residuals")
     p.add_argument("--web", action="store_true", help="Open the rich view in a browser")
     p.set_defaults(func=cmd_residuals)
+
+    # resolve (goal acceptance -> live status against the trace)
+    p = trace_sub.add_parser("resolve", help="Resolve each goal's acceptance items against the trace")
+    p.add_argument("trace_file")
+    p.add_argument("--goals", help="External goals file to merge before resolving")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_resolve)
+
+    # enrich (one projection carrying all derived views for a thin viewer)
+    p = trace_sub.add_parser("enrich", help="Augment the trace with resolved acceptance, derived residuals, cones")
+    p.add_argument("trace_file")
+    p.add_argument("--goals", help="External goals file to merge before enriching")
+    p.add_argument("-o", "--output", help="Write the enriched trace here (default: stdout)")
+    p.set_defaults(func=cmd_enrich)
 
     # residual (declare)
     rp = trace_sub.add_parser("residual", help="Declare a residual (a gap the trace does not establish)")

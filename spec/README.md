@@ -9,7 +9,7 @@ pins the current set.
 
 | Spec | Version | Status | What it defines |
 |---|---|---|---|
-| [`TRACE_SPEC_v1_6.md`](TRACE_SPEC_v1_6.md) | **1.6** | Draft | **The core.** The typed reasoning-trace format — actions, **meta-actions** (§8.4), artifacts & lineage (§7), the **residual surface** (§13), reproducibility (§12). Everything else is a companion over this. |
+| [`TRACE_SPEC_v1_7.md`](TRACE_SPEC_v1_7.md) | **1.7** | Draft | **The core.** The typed reasoning-trace format — actions, **meta-actions** (§8.4), artifacts & lineage (§7), the **residual surface** (§13), **goals & acceptance** (§18), reproducibility (§12). Everything else is a companion over this. |
 | [`POLICY_SPEC_v0_2.md`](POLICY_SPEC_v0_2.md) | 0.2 | Draft | **Computable Governance.** The policy object model and the temporal/structural DSL (LTL over finite traces + lineage/residual/field predicates) evaluated over a trace. |
 | [`POLICY_LANGUAGE_v0_2.md`](POLICY_LANGUAGE_v0_2.md) | 0.2 | Draft | **Operator reference** (reader-friendly companion to `POLICY_SPEC` §9–13). The full operator set — future/past/scoped-past LTLf, boolean connectives, atomic propositions, structural predicates, quantifiers — trace semantics, and the `language_level` fragments. |
 | [`REVIEW_CASE_SPEC_v0_2.md`](REVIEW_CASE_SPEC_v0_2.md) | 0.2 | Draft | The reviewer-side object — comments, review items, dispositions, and the verdict over a trace (or a chain). |

@@ -63,6 +63,22 @@ rigor is required" becomes a gate, not a hope.
 
 ---
 
+## Goals & acceptance — grounded, not asserted
+
+A trace can also carry the **goal** it was pursuing: the intent, and a checklist of typed
+**acceptance items** (a change to make, a property to prove, a policy to satisfy, a gap to close)
+that define what *done* means. The positive-target dual of the residual surface — where residuals
+declare what a trace does *not* establish, acceptance declares what it *must*.
+
+**No model decides whether a goal is met — the evidence does.** Each acceptance item **resolves**
+against machinery already in the trace: a proof, a policy evaluation, a residual, a diff. Resolution
+is a **deterministic** function of the trace — bindings matched against typed artifacts, the goal's
+relevance cone a walk over the existing lineage. No LLM, no scoring. So every "done" traces to a
+*specific artifact*, and re-running it always gives the same answer: progress that is **grounded,
+reproducible, and auditable**, not self-reported. (Trace Spec §18.)
+
+---
+
 ## The workflow
 
 The agent produces the trace as part of finishing the work — five steps, all from the CLI:

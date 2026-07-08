@@ -9,7 +9,7 @@ trace.v1_1/  schema.json + examples/
 trace.v1_4/  schema.json + schema.iml + concretize.iml + concrete_schema.iml + Makefile
 ```
 
-The canonical prose specs live one level up in [`../`](..) (`TRACE_SPEC_v1_6.md` etc.);
+The canonical prose specs live one level up in [`../`](..) (`TRACE_SPEC_v1_7.md` etc.);
 these are the derived schemas (see Trace Spec §16, "Interchange Projection").
 
 Provenance: imported from the `imandra-ai/reasoning-policies` repository.

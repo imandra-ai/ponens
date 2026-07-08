@@ -1,0 +1,72 @@
+
+<header>
+  <a href="https://ponens.dev" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
+    <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;display:block;" aria-hidden="true"><defs><linearGradient id="pvm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6ea8fe"/><stop offset="1" stop-color="#9d7bff"/></linearGradient></defs><circle cx="12" cy="6" r="3" fill="url(#pvm)"/><circle cx="6" cy="17.5" r="3" fill="url(#pvm)"/><circle cx="18" cy="17.5" r="3" fill="url(#pvm)"/></svg>
+    <h1>Ponens Trace Viewer</h1>
+    <span class="version-badge" id="headerVersionBadge" style="display:none"></span>
+  </a>
+  <div class="meta" id="traceMeta"></div>
+  <div class="demo-selector" id="demoSelector">
+    <select id="demoSelect" onchange="loadDemoTrace(this.value)">
+      <option value="" disabled>-- Select a demo --</option>
+    </select>
+    <span class="demo-badge" id="demoBadge" style="display:none">DEMO</span>
+    <span id="fileLabel" style="display:none;font-size:11px;font-family:'SF Mono','Fira Code',monospace;color:var(--text-secondary);max-width:350px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--bg-elevated);border:1px solid var(--border);border-radius:4px;padding:2px 8px;" title=""></span>
+  </div>
+  <button class="theme-toggle report-btn" onclick="generateReport()" title="Generate PDF report">
+    &#128196; Report
+  </button>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+    <span id="themeIcon">&#9790;</span> <span id="themeLabel">Light</span>
+  </button>
+</header>
+
+<div class="artifact-bar">
+  <div class="view-switcher">
+    <button id="gradeViewBtn" style="display:none" onclick="switchView('grade')">Grade</button>
+    <button class="active" onclick="switchView('flow')">Flow</button>
+    <button id="goalsViewBtn" style="display:none" onclick="switchView('goals')">Goals</button>
+    <button onclick="switchView('lineage')">Lineage</button>
+    <button id="dagViewBtn" onclick="switchView('dag')">Artifacts</button>
+    <button id="funnelViewBtn" onclick="switchView('funnel')">Reasoning</button>
+    <button id="policyViewBtn" onclick="switchView('policy')">Policies</button>
+  </div>
+  <span class="ab-label" style="margin-left:16px;">Artifacts</span>
+  <button class="artifact-btn" onclick="openModal('vg')">Verification Goals <span class="ab-count" id="vgCount">0</span></button>
+  <button class="artifact-btn" onclick="openModal('decomp')">Edge Cases <span class="ab-count" id="decompCount">0</span></button>
+  <button class="artifact-btn" onclick="openModal('formal')">Formalizations <span class="ab-count" id="formalCount">0</span></button>
+  <button class="artifact-btn" onclick="openModal('tests')">Generated Tests <span class="ab-count" id="testCount">0</span></button>
+  <button class="artifact-btn" onclick="openModal('props')">Properties <span class="ab-count" id="propsCount">0</span></button>
+  <button class="artifact-btn" id="refModelsBtn" style="display:none" onclick="openModal('refmodels')">Reference Models <span class="ab-count" id="refModelsCount">0</span></button>
+  <button class="artifact-btn" id="policiesBtn" style="display:none" onclick="openModal('policies')">Policies <span class="ab-count" id="policiesCount">0</span></button>
+  <button class="artifact-btn" id="residualsBtn" style="display:none" onclick="openModal('residuals')">Residuals <span class="ab-count" id="residualsCount">0</span></button>
+</div>
+
+<div class="top-view main-area active" id="view-flow">
+  <div class="flow-scroll" id="flowPanel"></div>
+  <div class="resize-handle" id="resizeHandle"></div>
+  <div class="detail-panel" id="detailPanel">
+    <h2>Details</h2>
+    <p style="color:#64748b; font-size:13px;">Click a node to inspect it.</p>
+  </div>
+</div>
+
+<div class="top-view grade-view" id="view-grade" style="overflow:auto;padding:20px;"></div>
+<div class="top-view goals-view" id="view-goals" style="overflow:auto;padding:20px;"></div>
+<div class="top-view lineage-view" id="view-lineage"></div>
+<div class="top-view dag-view" id="view-dag"></div>
+<div class="top-view funnel-view" id="view-funnel"></div>
+<div class="top-view policy-view" id="view-policy"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle"></h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="file-drop-zone" id="dropZone">Drop a trace JSON file here</div>

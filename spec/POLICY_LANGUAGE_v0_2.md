@@ -258,5 +258,5 @@ log.
 
 See also the [Policy Specification](./POLICY_SPEC_v0_2.md) (the policy object,
 selectors, and evaluation records) and the
-[Trace Specification](./TRACE_SPEC_v1_6.md) (the actions and artifacts these
+[Trace Specification](./TRACE_SPEC_v1_7.md) (the actions and artifacts these
 formulas range over).

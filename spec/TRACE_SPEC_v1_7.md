@@ -2,10 +2,12 @@
 
 ## Version
 
-**Version:** 1.6  
+**Version:** 1.7  
 **Status:** Draft  
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
+
+> **Changes in 1.7 (additive, backward-compatible).** Adds **Goals & Acceptance** (§18) — an optional, typed record of a trace's *intent and definition of done*. A **goal** states what is being changed and why, and decomposes it into **acceptance items** (change / property / obligation / gap): the *end node*, what "done" means. Acceptance introduces no new evaluator — each item **resolves** against machinery already in the trace (a verification result, a policy evaluation, a residual, a diff), so progress is grounded in evidence rather than self-reported. Where §8.4 meta-actions capture the *structure* of the work (how atomic actions group into intent), a goal captures its *target* (the conditions the work must meet), and may reference a meta-action via `meta_action_id`. The resolved state — per-item status, progress, the goal's relevance cone, and its open gaps — is a **derived** projection, not an authored field. Existing 1.6 traces remain valid; `goals` canonicalizes to the empty list.
 
 > **Changes in 1.6 (additive, backward-compatible).** Adds **Meta-actions** (§8.4) — an optional, typed *overlay* that groups the atomic `actions` into units of **intent** (a goal → steps → tool-calls hierarchy), so a trace can be read, reviewed, and graded at the level of *what was being attempted* rather than only *what tool ran*. The atomic actions remain the ground-truth record; meta-actions are a producer's claim about their structure, carrying their own intent, outcome, residuals, and produced artifacts. Existing 1.5 traces remain valid; `meta_actions` canonicalizes to the empty list and `meta_action_id` is optional.
 
@@ -183,6 +185,7 @@ type trace =
   ; comments : comment list
   ; review_items : review_item list
   ; residuals : residual list
+  ; goals : goal list
   ; trace_links : trace_link list
   ; trace_lineage : trace_lineage option
   ; files_modified : string list
@@ -191,6 +194,8 @@ type trace =
 ```
 
 `residuals` is the trace's **residual surface** — its declared negative space (§13).
+
+`goals` is the trace's **goals & acceptance** — its declared intent and definition of done (§18). It canonicalizes to the empty list.
 
 ## 5.1 Metrics
 
@@ -1363,6 +1368,154 @@ Validation should occur at two levels:
 
 2. **semantic decoding**  
    ensure the payload can inhabit the canonical strict model
+
+---
+
+# 18. Goals & Acceptance
+
+A trace records what an agent *did*. A **goal** records what it was *trying to do* and how you would know it *succeeded*: the **intent** (what is being changed and why) together with its **acceptance conditions** — the *end node*, an explicit, typed statement of what "done" means.
+
+Where §8.4 **meta-actions** capture the *structure* of the work (how atomic actions group into units of intent), a goal captures its *target* — the conditions the work must satisfy — and, crucially, whether the trace **meets** them. The two are complementary: a goal states the criteria; a meta-action carries them out. A goal may reference the meta-action pursuing it via `meta_action_id`, but neither requires the other.
+
+> Goals are the **positive-target** counterpart to the §13 residual surface's negative space. Residuals say what a trace does *not* establish; a goal's acceptance says what it *must* establish, and its resolution says whether it has. Read together, they let a reviewer see the target, the evidence for it, and the gaps against it in one place.
+
+## 18.1 Canonical model
+
+```ocaml
+type acceptance_kind =
+  | Change        (* an edit to a symbol *)
+  | Property      (* a property that must hold *)
+  | Obligation    (* a policy that must be satisfied *)
+  | Gap           (* a declared residual that must be closed *)
+
+type acceptance_status =
+  | AcceptTodo
+  | AcceptDoing
+  | AcceptDone
+  | AcceptBlocked
+
+(* the selector: which trace object resolves this criterion *)
+type acceptance_binding =
+  | ChangeBinding    of { symbol : string; file : string option }
+  | PropertyBinding  of { symbol : string option; property : string option }
+  | ObligationBinding of { policy_id : string }
+  | GapBinding       of { residual_id : string }
+
+type acceptance_item =
+  { acceptance_id : string
+  ; kind : acceptance_kind
+  ; label : string                        (* what this criterion means, in plain language *)
+  ; binding : acceptance_binding option    (* how it resolves; if absent, `status` is manual *)
+  ; status : acceptance_status option      (* authored fallback when unbound or unresolved *)
+  }
+
+type goal_status =
+  | GoalScratch      (* activity not yet attributed to a named intent *)
+  | GoalActive
+  | GoalDone
+  | GoalAbandoned
+
+type goal =
+  { goal_id : string
+  ; intent : string                       (* the change and why, in plain language *)
+  ; scope : string list                   (* files / symbols the goal touches *)
+  ; acceptance : acceptance_item list       (* the end node: what "done" means *)
+  ; status : goal_status option
+  ; meta_action_id : string option         (* the meta-action pursuing this goal, if any (§8.4) *)
+  }
+```
+
+The trace record (§5) carries `goals : goal list`, canonicalized as an empty list when no intent is declared.
+
+## 18.2 Semantics
+
+**Acceptance reuses existing evaluation — no new evaluator.** Each acceptance kind *binds* to machinery already in the trace, and its status is **resolved** from that evidence rather than asserted:
+
+- `Change` — resolves from a `Diff` / `IMLModel` artifact touching the bound `symbol` → `AcceptDone` when the edit has landed.
+- `Property` — resolves from a `VerificationGoal` (§10.3) matching the binding and its **latest** `VerificationResult` (§10.4) → `AcceptDone` when *proved*, `AcceptBlocked` when *refuted* (carrying the counterexample).
+- `Obligation` — resolves from the `policy_evaluation` for the bound `policy_id` → `AcceptDone` when *passed*, `AcceptBlocked` when *failed*.
+- `Gap` — resolves from the bound residual's status (§13) → `AcceptDone` when `ResidualAddressed` / `ResidualWaived`.
+
+An item with no binding falls back to its authored `status`. Because resolution reads only established evidence, **progress is grounded, not self-reported**: a goal cannot claim done without the trace object that backs it.
+
+**The end node.** A goal is **reached** when all of its required acceptance items resolve `AcceptDone`. This is the positive dual of the residual surface: the residual surface says a trace declares its gaps; the acceptance surface says a goal declares — and the trace evidences — its target.
+
+> **No evaluator decides whether a goal is met — the evidence does.** Resolution is a **deterministic** function of the trace: each binding is matched against the typed artifacts already present, and the relevance cone (§18.3) is a walk over the existing `derived_from` lineage. There is no model, no heuristic, no scoring in the loop. Every `AcceptDone` therefore traces to a *specific* artifact in the record, and re-running the resolution on the same trace always yields the same result. This is what makes a goal's progress **grounded** (backed by an artifact, not a claim), **auditable** (anyone can re-derive it), and **impossible to self-report** — the same discipline (§2.3) that makes the atomic actions the ground truth.
+
+## 18.3 Derived layer (resolution)
+
+Like the grade, and unlike the *authored* residual surface, a goal's **resolved state is computed from the trace, not stored in it**. It is a projection, produced by enriching the trace against its own evidence (in the reference implementation, `ponens trace enrich`):
+
+- each acceptance item's resolved `status` and an **evidence** pointer (the artifact / evaluation / residual that resolves it);
+- the goal's `progress` — resolved items over total (`AcceptDoing` counts as a half);
+- the goal's **relevance cone** — the set of `action`s that produced the goal's evidence, obtained by walking each resolved item's evidence artifact backward through `derived_from` lineage; this is the goal-scoped slice of the trace (the steps that mattered for *this* goal);
+- the goal's **open gaps** — the goal-scoped residuals: declared residuals bound to a `Gap` item or touching the goal's `scope`, plus derived stale-evidence residuals for the goal's symbols;
+- **exploration** — the actions in *no* goal's cone.
+
+These are **derived** and never mutate the record, preserving the ground-truth discipline of §2.3: the authored trace carries only `goals`; a consumer computes their resolution on demand.
+
+**Stale evidence.** A `Property` item is resolved from the *latest* verification result, and a proof is only as current as the code it verified. If the symbol a proof constrains is edited at a *later* action than the proof, the proof is stale — surfaced as a **derived** stale-evidence residual (a computed `Gap`, §13). Consequently a goal cannot silently remain reached after the code underlying one of its proofs changes; the reopened gap is visible in its open-gap set.
+
+## 18.4 Relationship to existing constructs
+
+- **Meta-actions (§8.4)** group actions by *intent* (structure); goals declare *acceptance* (target) and resolve it. A goal *may* be pursued by a meta-action (`meta_action_id`); they need not coincide — a meta-action may exist with no acceptance, and a goal may span several meta-actions.
+- **Residual surface (§13)** is the dual. A `Gap` acceptance item *binds to* a residual; a goal's open-gap set is its scoped residuals. Target and negative space are two readings of the same pursuit.
+- **Verification goals (§10.3)** are reasoner-level objects; a `Property` acceptance item is *not* a verification goal but a trace-level criterion that **resolves from** one (or more) `VerificationGoal` + `VerificationResult` artifacts. The acceptance item is the intent; the verification goal is the mechanism.
+- **Policies** express requirements checked over the whole trace; an `Obligation` acceptance item scopes one such requirement to a goal ("this policy must hold *for this goal*"), resolving from its `policy_evaluation`.
+
+## 18.5 Policy hooks
+
+Because goals and their acceptance are typed and queryable, policies (see the Policy Specification) can govern them. Illustrative:
+
+- **active goals declare acceptance** — every `GoalActive` goal must have a non-empty `acceptance` list.
+- **no commit against an unreached goal** — `G(GitCommit → ∀ i ∈ active_goal.acceptance . i.status = AcceptDone)` (for the required items).
+- **reached goals carry no open critical gaps** — `G(GoalDone → ¬∃ r ∈ open_gaps(goal) . r.severity = Critical ∧ r.status = ResidualOpen)`.
+- **proofs stay current** — a `Property` item whose evidence is stale (§18.3) must not resolve `AcceptDone`.
+
+As with the residual surface, the bar is not that goals be *trivially* met, but that their intent, criteria, and evidence be *declared and checkable*.
+
+## 18.6 Interchange projection
+
+A goal declaring its intent and acceptance (authored form):
+
+```json
+"goals": [
+  {
+    "goal_id": "g-3ds-approval",
+    "intent": "Add 3DS/SCA and a high-risk two-approval requirement to the capture flow",
+    "scope": ["stripe_payment_flow.py", "capture_payment", "confirm_payment_intent"],
+    "status": "GoalActive",
+    "meta_action_id": "m-payment-hardening",
+    "acceptance": [
+      { "acceptance_id": "a1", "kind": "Change", "label": "Require two approvals before capture",
+        "binding": { "symbol": "capture_payment" } },
+      { "acceptance_id": "a2", "kind": "Property", "label": "Capture blocked unless 3DS done and two approvals",
+        "binding": { "property": "blocked" } },
+      { "acceptance_id": "a3", "kind": "Obligation", "label": "Conforms to the payment reference model",
+        "binding": { "policy_id": "stripe_conformance_required" } },
+      { "acceptance_id": "a4", "kind": "Gap", "label": "Dispute / chargeback transitions unverified",
+        "binding": { "residual_id": "r2" } }
+    ]
+  }
+]
+```
+
+The same goal after resolution (derived; `status`, `evidence`, `progress`, `cone`, and `open_gaps` are computed, not authored):
+
+```json
+{
+  "goal_id": "g-3ds-approval",
+  "progress": 0.5,
+  "cone": [3, 7, 8, 9, 12],
+  "open_gaps": 2,
+  "acceptance": [
+    { "acceptance_id": "a1", "kind": "Change",     "status": "AcceptDone",    "evidence": "art-diff-14" },
+    { "acceptance_id": "a2", "kind": "Property",   "status": "AcceptDone",    "evidence": "art-vr-19" },
+    { "acceptance_id": "a3", "kind": "Obligation", "status": "AcceptTodo",    "evidence": null },
+    { "acceptance_id": "a4", "kind": "Gap",        "status": "AcceptTodo",    "evidence": "r2" }
+  ]
+}
+```
 
 ---
 

@@ -1742,7 +1742,7 @@ function normalizeTrace(data) {
           break;
         case 'Decomposition':
           action.decomposition = art.payload;
-          // Normalize target_symbol → target_function for rendering
+          // Normalize target_symbol \u2192 target_function for rendering
           if (art.payload.target_symbol && !art.payload.target_function) {
             art.payload.target_function = art.payload.target_symbol;
           }
@@ -1764,7 +1764,7 @@ function normalizeTrace(data) {
     });
   }
 
-  // Convert policies + policy_evaluations → process_properties
+  // Convert policies + policy_evaluations \u2192 process_properties
   if (data.policies && !data.process_properties) {
     const policyMap = {};
     for (const p of data.policies) policyMap[p.policy_id] = p;
@@ -1965,7 +1965,7 @@ function renderFocusBar(m, n) {
     <span class="meta-count">${n} action${n !== 1 ? 's' : ''}</span>
   </div>`;
   if (m.intent) h += `<div class="focus-intent">${esc(m.intent)}</div>`;
-  if (m.outcome) h += `<div class="focus-outcome">→ ${esc(m.outcome)}</div>`;
+  if (m.outcome) h += `<div class="focus-outcome">\u2192 ${esc(m.outcome)}</div>`;
   return h;
 }
 
@@ -1976,13 +1976,13 @@ function renderFlow(trace) {
   const hasMeta = (trace.meta_actions || []).length > 0;
   if (window._flowZoom === undefined) window._flowZoom = hasMeta ? 'meta' : 'actions';
 
-  // Meta zoom with no focus → the list of steps.
+  // Meta zoom with no focus \u2192 the list of steps.
   if (hasMeta && window._flowZoom === 'meta' && !window._focusMeta) {
     panel.innerHTML = zoomToolbar(trace) + renderMetaLevel(trace);
     return;
   }
 
-  // Drilled into one step → show ONLY that step's actions.
+  // Drilled into one step \u2192 show ONLY that step's actions.
   let focusM = null;
   if (hasMeta && window._flowZoom === 'meta' && window._focusMeta) {
     focusM = (trace.meta_actions || []).find(x => x.id === window._focusMeta);
@@ -2103,12 +2103,12 @@ function renderMetaCard(m, byId) {
     <span class="meta-caret">›</span>
   </div>`;
   if (m.intent) h += `<div class="meta-intent">${esc(m.intent)}</div>`;
-  if (m.outcome) h += `<div class="meta-outcome">→ ${esc(m.outcome)}</div>`;
+  if (m.outcome) h += `<div class="meta-outcome">\u2192 ${esc(m.outcome)}</div>`;
   h += `</div>`;
   return h;
 }
 
-// One action → one full card (used for singleton steps and gateways/reasoning).
+// One action \u2192 one full card (used for singleton steps and gateways/reasoning).
 function actionCardHTML(a, vgByAction) {
   const isGW = a.category === 'gateway';
   const isReasoning = a.category === 'reasoning';
@@ -2168,7 +2168,7 @@ function actionCardHTML(a, vgByAction) {
   if (ins.length || outs.length) {
     html += `<div class="card-data">`;
     for (const i of ins) html += `<span class="cd-tag cd-in">← ${esc(i)}</span>`;
-    for (const o of outs) html += `<span class="cd-tag cd-out">${esc(o)} →</span>`;
+    for (const o of outs) html += `<span class="cd-tag cd-out">${esc(o)} \u2192</span>`;
     html += `</div>`;
   }
 
@@ -2185,7 +2185,7 @@ function actionCardHTML(a, vgByAction) {
   return html;
 }
 
-// A run of same-rationale actions → one step card: rationale once, actions as rows.
+// A run of same-rationale actions \u2192 one step card: rationale once, actions as rows.
 function stepGroupHTML(items) {
   const first = items[0], last = items[items.length - 1];
   let html = `<div class="action-card step-group" data-action-id="${first.id}" onclick="selectAction(${first.id})">`;
@@ -2935,7 +2935,7 @@ function selectAction(actionId) {
 // ============================================================
 
 function buildOutputIndex() {
-  // Map: output name/ID → action that produces it
+  // Map: output name/ID \u2192 action that produces it
   // Use original artifact IDs for v1.1, display names for v1.0
   const idx = {};
   for (const a of (traceData?.actions || [])) {
@@ -3974,6 +3974,11 @@ function selectDAGNode(artifactId) {
   if (art.producer_action_id != null) html += `<div class="dd-field" style="display:flex;align-items:center;gap:6px;">Producer: <span>Action #${art.producer_action_id}</span> <button onclick="event.stopPropagation();switchView('flow');selectAction(${art.producer_action_id});document.querySelector('.action-card[data-action-id=&quot;${art.producer_action_id}&quot;]')?.scrollIntoView({behavior:'smooth',block:'center'});" style="background:var(--bg-deep);border:1px solid var(--accent);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;">View in Flow \u2192</button></div>`;
   if (art.summary) html += `<div class="dd-field" style="margin-top:6px;">${esc(art.summary)}</div>`;
 
+  // Host embedding (desktop): open the materialized artifact file in an editor tab.
+  if (typeof window.__ponensOpenArtifact === 'function') {
+    html += `<div style="margin-top:8px;"><button onclick="event.stopPropagation();window.__ponensOpenArtifact('${esc(art.artifact_id)}');" style="background:var(--bg-deep);border:1px solid var(--accent);color:var(--accent);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;">Open file \u2192</button></div>`;
+  }
+
   if (art.derived_from?.length) {
     html += `<div class="dd-label">Derived From</div>`;
     for (const pid of art.derived_from) {
@@ -4193,7 +4198,7 @@ function highlightLTL(formula) {
     [/¬/g, '<span class="ltl-logic">\u00AC</span>'],
     [/∧/g, '<span class="ltl-logic">\u2227</span>'],
     [/∨/g, '<span class="ltl-logic">\u2228</span>'],
-    [/→/g, '<span class="ltl-logic">\u2192</span>'],
+    [/\u2192/g, '<span class="ltl-logic">\u2192</span>'],
     [/↔/g, '<span class="ltl-logic">\u2194</span>'],
     // Set/quantifier operators
     [/∀/g, '<span class="ltl-logic">\u2200</span>'],

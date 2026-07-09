@@ -2885,6 +2885,15 @@ function renderGoalsView() {
   el.innerHTML = html;
 }
 
+// Expand + scroll to a specific policy card in the policy dashboard (host embedding: select()).
+function selectPolicy(policyId) {
+  const card = document.querySelector(`.policy-card[data-policy-id="${policyId}"]`);
+  if (!card) return;
+  card.classList.add('expanded', 'highlight');
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => card.classList.remove('highlight'), 1500);
+}
+
 function renderPolicyView() {
   const el = document.getElementById('view-policy');
   const policies = traceData?.policies || [];
@@ -2962,7 +2971,7 @@ function renderPolicyView() {
       const statusIcon = status === 'passed' ? '\u2705' : status === 'failed' ? '\u274C' : status === 'not_applicable' ? '\u2796' : '\u2753';
       const hasDef = p.applies_when || p.formula || p.formal_src;
 
-      html += `<div class="policy-card${hasDef ? '' : ''}" onclick="this.classList.toggle('expanded')">
+      html += `<div class="policy-card" data-policy-id="${esc(p.policy_id)}" onclick="this.classList.toggle('expanded')">
         <div class="pc-icon">${statusIcon}</div>
         <div class="pc-body">
           <div class="pc-name">${esc(p.name)}</div>
@@ -3332,7 +3341,14 @@ window.PonensViewer = {
   },
   loadTrace: function (t) { loadTrace(t); return this; },
   switchView: function (v) { switchView(v); return this; },
-  select: function (id) { selectAction(id); return this; },
+  select: function (id) {
+    var av = document.querySelector('.top-view.active');
+    var vid = av && av.id;
+    if (vid === 'view-dag') selectDAGNode(id);
+    else if (vid === 'view-policy') selectPolicy(id);
+    else selectAction(id);
+    return this;
+  },
   openModal: function (kind, id) { openModal(kind, id); return this; },
   setTheme: function (t) { document.documentElement.setAttribute('data-theme', t); return this; },
   destroy: function (rootEl) { if (rootEl) rootEl.innerHTML = ''; },

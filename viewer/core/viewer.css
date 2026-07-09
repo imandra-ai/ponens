@@ -797,6 +797,7 @@
     margin-bottom: 12px; overflow: hidden; transition: border-color 0.15s;
   }
   .mvg-card.highlight { border-color: #818cf8; }
+  .policy-card.highlight { border-color: #818cf8; box-shadow: 0 0 0 2px #818cf855; }
   .mvg-header {
     display: flex; align-items: center; gap: 10px;
     padding: 12px 16px; cursor: pointer;

@@ -1,0 +1,2041 @@
+{
+  "trace_id": "trace-stripe-payment-flow-001",
+  "spec_version": "1.5",
+  "assistant": "ponens",
+  "model": "example-model",
+  "timestamp": "2026-03-28T10:00:00Z",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Add high-risk approval (2 approvals) and 3DS/SCA challenge support to Stripe payment flow",
+    "from_user": "denis"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "a1",
+      "artifact_type": "SourceCode",
+      "name": "source_understanding",
+      "format": "python",
+      "revision": 1,
+      "producer_action_id": 1,
+      "summary": "Understanding of stripe_payment_flow.py: Flask app with 10 order statuses, 8 actions"
+    },
+    {
+      "artifact_id": "a2",
+      "artifact_type": "AnalysisNote",
+      "name": "state_machine_model",
+      "revision": 1,
+      "producer_action_id": 2,
+      "derived_from": [
+        "a1"
+      ],
+      "summary": "State machine mapping: Created -> PaymentIntentCreated -> Authorized -> ApprovedForCapture -> Captured, plus branches"
+    },
+    {
+      "artifact_id": "a3",
+      "artifact_type": "IMLModel",
+      "name": "original_iml_model",
+      "format": "iml",
+      "revision": 1,
+      "producer_action_id": 10,
+      "derived_from": [
+        "a2"
+      ],
+      "summary": "IML formalization of original payment flow state machine",
+      "payload": {
+        "status": "transparent",
+        "src_lang": "python",
+        "src_code": "class OrderStatus(str, Enum):\n    CREATED = \"created\"\n    PAYMENT_INTENT_CREATED = \"payment_intent_created\"\n    AUTHORIZED = \"authorized\"\n    APPROVED_FOR_CAPTURE = \"approved_for_capture\"\n    CAPTURED = \"captured\"\n    PARTIALLY_REFUNDED = \"partially_refunded\"\n    REFUNDED = \"refunded\"\n    DISPUTED = \"disputed\"\n    CANCELED = \"canceled\"\n    FAILED = \"failed\"\n\n@dataclass\nclass Order:\n    amount: int\n    amount_captured: int = 0\n    amount_refunded: int = 0\n    status: OrderStatus = OrderStatus.CREATED\n    requires_review: bool = False\n    approved_for_capture: bool = False\n    ...",
+        "iml_code": "type order_status =\n  | Created | PaymentIntentCreated | RequiresAction\n  | Authorized | ApprovedForCapture | Captured\n  | PartiallyRefunded | Refunded | Disputed | Canceled\n\ntype order = {\n  amount : int;\n  amount_captured : int;\n  amount_refunded : int;\n  status : order_status;\n  requires_review : bool;\n  high_risk : bool;\n  three_ds_required : bool;\n  three_ds_completed : bool;\n  approval_count : int;\n  payment_intent_exists : bool;\n  latest_charge_exists : bool;\n}\n\nlet capture_payment (amt: int) (o: order) : order =\n  if may_capture o && 0 < amt && amt <= o.amount then\n    { o with\n      amount_captured = amt;\n      status = Captured\n    }\n  else o",
+        "symbols": [
+          "order",
+          "order_status",
+          "create_payment_intent",
+          "confirm_payment_intent",
+          "approve_for_capture",
+          "capture_payment",
+          "refund_payment",
+          "cancel_payment_intent",
+          "open_dispute",
+          "step"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a4",
+      "artifact_type": "VerificationGoal",
+      "name": "amount_inv_vg",
+      "producer_action_id": 11,
+      "derived_from": [
+        "a3"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "kind": "verify",
+        "description": "capture_payment preserves amount invariant: 0 <= refunded <= captured <= amount",
+        "target_artifact_id": "a3",
+        "target_symbol": "capture_payment",
+        "src": "let prop_capture_preserves_amounts (amt: int) (o: order) =\n  inv_amounts o ==> inv_amounts (capture_payment amt o)"
+      }
+    },
+    {
+      "artifact_id": "a5",
+      "artifact_type": "VerificationResult",
+      "name": "amount_inv_refuted",
+      "producer_action_id": 12,
+      "derived_from": [
+        "a4"
+      ],
+      "payload": {
+        "goal_id": 1,
+        "goal_artifact_id": "a4",
+        "status": "refuted",
+        "engine": "imandrax",
+        "result": {
+          "refuted": {
+            "counterexample": "amt = 1\no = { amount = 8957;\n      amount_captured = 8957;\n      amount_refunded = 1238;\n      status = ApprovedForCapture;\n      ... }\n\nAfter capture_payment:\n  amount_captured = 1\n  amount_refunded = 1238  <- VIOLATES refunded <= captured"
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a6",
+      "artifact_type": "AnalysisNote",
+      "name": "bug_diagnosis",
+      "producer_action_id": 13,
+      "derived_from": [
+        "a5"
+      ],
+      "summary": "Bug: capture_payment sets amount_captured = amt but does not reset amount_refunded"
+    },
+    {
+      "artifact_id": "a7",
+      "artifact_type": "Diff",
+      "name": "bug_fix_applied",
+      "producer_action_id": 14,
+      "derived_from": [
+        "a6"
+      ],
+      "summary": "Fix: add amount_refunded = 0 to capture_payment"
+    },
+    {
+      "artifact_id": "a8",
+      "artifact_type": "IMLModel",
+      "name": "updated_iml_model",
+      "format": "iml",
+      "revision": 2,
+      "producer_action_id": 20,
+      "derived_from": [
+        "a7",
+        "a3"
+      ],
+      "supersedes": "a3",
+      "summary": "Updated IML model with 3DS, high-risk approvals, and capture bug fix",
+      "payload": {
+        "status": "transparent",
+        "src_lang": "iml",
+        "src_code": "(* Original capture - buggy *)\nlet capture_payment (amt: int) (o: order) : order =\n  if may_capture o && 0 < amt && amt <= o.amount then\n    { o with\n      amount_captured = amt;\n      status = Captured\n    }\n  else o",
+        "iml_code": "(* Fixed capture + new may_capture with 3DS/approval checks *)\nlet required_approvals (o: order) =\n  if o.high_risk then 2\n  else if o.requires_review then 1\n  else 0\n\nlet may_capture (o: order) =\n  (o.status = Authorized || o.status = ApprovedForCapture) &&\n  o.latest_charge_exists &&\n  ((not o.three_ds_required) || o.three_ds_completed) &&\n  o.approval_count >= required_approvals o\n\nlet capture_payment (amt: int) (o: order) : order =\n  if may_capture o && 0 < amt && amt <= o.amount then\n    { o with\n      amount_captured = amt;\n      amount_refunded = 0;    (* FIX: reset on re-capture *)\n      status = Captured\n    }\n  else o",
+        "symbols": [
+          "required_approvals",
+          "may_capture",
+          "capture_payment",
+          "complete_three_ds",
+          "approve_for_capture",
+          "step"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a9",
+      "artifact_type": "VerificationGoal",
+      "name": "all_amount_vgs",
+      "producer_action_id": 21,
+      "derived_from": [
+        "a8"
+      ],
+      "payload": {
+        "goal_id": 2,
+        "kind": "verify",
+        "description": "all 7 transitions preserve inv_amounts: create, confirm, 3ds, approve, capture, refund, cancel",
+        "target_artifact_id": "a8",
+        "src": "verify (prop_create_preserves_amounts)\nverify (prop_confirm_preserves_amounts)\nverify (prop_three_ds_preserves_amounts)\nverify (prop_approve_preserves_amounts)\nverify (prop_capture_preserves_amounts)\nverify (prop_refund_preserves_amounts)\nverify (prop_cancel_preserves_amounts)",
+        "properties": [
+          {
+            "name": "prop_create_preserves_amounts",
+            "status": "pending",
+            "src": "let prop_create_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (create_payment_intent o)"
+          },
+          {
+            "name": "prop_confirm_preserves_amounts",
+            "status": "pending",
+            "src": "let prop_confirm_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (confirm_payment_intent o)"
+          },
+          {
+            "name": "prop_three_ds_preserves_amounts",
+            "status": "pending",
+            "src": "let prop_three_ds_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (complete_three_ds o)"
+          },
+          {
+            "name": "prop_approve_preserves_amounts",
+            "status": "pending",
+            "src": "let prop_approve_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (approve_for_capture o)"
+          },
+          {
+            "name": "prop_capture_preserves_amounts",
+            "status": "pending",
+            "note": "previously refuted, now fixed",
+            "src": "let prop_capture_preserves_amounts (amt: int) (o: order) =\n  inv_amounts o ==> inv_amounts (capture_payment amt o)"
+          },
+          {
+            "name": "prop_refund_preserves_amounts",
+            "status": "pending",
+            "src": "let prop_refund_preserves_amounts (amt: int) (o: order) =\n  inv_amounts o ==> inv_amounts (refund_payment amt o)"
+          },
+          {
+            "name": "prop_cancel_preserves_amounts",
+            "status": "pending",
+            "src": "let prop_cancel_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (cancel_payment_intent o)"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a10",
+      "artifact_type": "VerificationResult",
+      "name": "amount_invs_proved",
+      "producer_action_id": 22,
+      "derived_from": [
+        "a9"
+      ],
+      "payload": {
+        "goal_id": 2,
+        "goal_artifact_id": "a9",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "All 7 amount-invariant properties proved:",
+            "properties": [
+              {
+                "name": "prop_create_preserves_amounts",
+                "status": "proved",
+                "src": "let prop_create_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (create_payment_intent o)"
+              },
+              {
+                "name": "prop_confirm_preserves_amounts",
+                "status": "proved",
+                "src": "let prop_confirm_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (confirm_payment_intent o)"
+              },
+              {
+                "name": "prop_three_ds_preserves_amounts",
+                "status": "proved",
+                "src": "let prop_three_ds_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (complete_three_ds o)"
+              },
+              {
+                "name": "prop_approve_preserves_amounts",
+                "status": "proved",
+                "src": "let prop_approve_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (approve_for_capture o)"
+              },
+              {
+                "name": "prop_capture_preserves_amounts",
+                "status": "proved",
+                "note": "after fix",
+                "src": "let prop_capture_preserves_amounts (amt: int) (o: order) =\n  inv_amounts o ==> inv_amounts (capture_payment amt o)"
+              },
+              {
+                "name": "prop_refund_preserves_amounts",
+                "status": "proved",
+                "src": "let prop_refund_preserves_amounts (amt: int) (o: order) =\n  inv_amounts o ==> inv_amounts (refund_payment amt o)"
+              },
+              {
+                "name": "prop_cancel_preserves_amounts",
+                "status": "proved",
+                "src": "let prop_cancel_preserves_amounts (o: order) =\n  inv_amounts o ==> inv_amounts (cancel_payment_intent o)"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a11",
+      "artifact_type": "VerificationGoal",
+      "name": "3ds_block_vg",
+      "producer_action_id": 23,
+      "derived_from": [
+        "a8"
+      ],
+      "payload": {
+        "goal_id": 3,
+        "kind": "verify",
+        "description": "3DS blocks authorization: confirm -> RequiresAction when 3DS required but not completed",
+        "target_artifact_id": "a8",
+        "target_symbol": "confirm_payment_intent",
+        "src": "let goal_3ds_blocks_authorization (o: order) =\n  o.status = PaymentIntentCreated &&\n  o.payment_intent_exists &&\n  o.three_ds_required &&\n  not o.three_ds_completed ==>\n  (confirm_payment_intent o).status = RequiresAction"
+      }
+    },
+    {
+      "artifact_id": "a12",
+      "artifact_type": "VerificationResult",
+      "name": "3ds_block_proved",
+      "producer_action_id": 24,
+      "derived_from": [
+        "a11"
+      ],
+      "payload": {
+        "goal_id": 3,
+        "goal_artifact_id": "a11",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "goal_3ds_blocks_authorization: proved by T_deduction"
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a13",
+      "artifact_type": "VerificationGoal",
+      "name": "high_risk_vg",
+      "producer_action_id": 25,
+      "derived_from": [
+        "a8"
+      ],
+      "payload": {
+        "goal_id": 4,
+        "kind": "verify",
+        "description": "high-risk orders require exactly 2 approvals before capture",
+        "target_artifact_id": "a8",
+        "target_symbol": "capture_payment",
+        "src": "let goal_high_risk_needs_two_approvals (amt: int) (o: order) =\n  inv_amounts o &&\n  o.high_risk &&\n  o.approval_count < 2 &&\n  o.status <> Captured ==>\n  (capture_payment amt o).status <> Captured"
+      }
+    },
+    {
+      "artifact_id": "a14",
+      "artifact_type": "VerificationResult",
+      "name": "high_risk_proved",
+      "producer_action_id": 26,
+      "derived_from": [
+        "a13"
+      ],
+      "payload": {
+        "goal_id": 4,
+        "goal_artifact_id": "a13",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "goal_high_risk_needs_two_approvals: proved by T_deduction"
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a15",
+      "artifact_type": "VerificationGoal",
+      "name": "combined_vg",
+      "producer_action_id": 27,
+      "derived_from": [
+        "a8"
+      ],
+      "payload": {
+        "goal_id": 5,
+        "kind": "verify",
+        "description": "high-risk + 3DS: capture blocked unless both 3DS completed AND 2 approvals",
+        "target_artifact_id": "a8",
+        "target_symbol": "capture_payment",
+        "src": "let goal_high_risk_3ds_requires_both (amt: int) (o: order) =\n  inv_amounts o &&\n  o.high_risk &&\n  o.three_ds_required &&\n  (not o.three_ds_completed || o.approval_count < 2) &&\n  o.status <> Captured ==>\n  (capture_payment amt o).status <> Captured"
+      }
+    },
+    {
+      "artifact_id": "a16",
+      "artifact_type": "VerificationResult",
+      "name": "combined_proved",
+      "producer_action_id": 28,
+      "derived_from": [
+        "a15"
+      ],
+      "payload": {
+        "goal_id": 5,
+        "goal_artifact_id": "a15",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "goal_high_risk_3ds_requires_both: proved by T_deduction"
+          }
+        }
+      }
+    },
+    {
+      "artifact_id": "a17",
+      "artifact_type": "Decomposition",
+      "name": "full_decomposition",
+      "producer_action_id": 30,
+      "derived_from": [
+        "a8"
+      ],
+      "summary": "84 exhaustive regions of step function",
+      "payload": {
+        "target_artifact_id": "a8",
+        "target_function": "step",
+        "target_symbol": "step",
+        "complete": true,
+        "regions": [
+          {
+            "constraints": [
+              "action = ActCreatePaymentIntent",
+              "status = Created",
+              "amount > 0"
+            ],
+            "invariant": "{ status = PaymentIntentCreated; payment_intent_exists = true; ... }",
+            "model": {
+              "action": "ActCreatePaymentIntent",
+              "amount": "100",
+              "status": "Created"
+            },
+            "model_eval": "PaymentIntentCreated"
+          },
+          {
+            "constraints": [
+              "action = ActCreatePaymentIntent",
+              "status != Created || amount <= 0"
+            ],
+            "invariant": "order unchanged",
+            "model": {
+              "action": "ActCreatePaymentIntent",
+              "amount": "0",
+              "status": "Created"
+            },
+            "model_eval": "unchanged"
+          },
+          {
+            "constraints": [
+              "action = ActConfirmPaymentIntent",
+              "status = PaymentIntentCreated",
+              "three_ds_required",
+              "!three_ds_completed"
+            ],
+            "invariant": "{ status = RequiresAction }",
+            "model": {
+              "action": "ActConfirmPaymentIntent",
+              "three_ds_required": "true",
+              "three_ds_completed": "false"
+            },
+            "model_eval": "RequiresAction"
+          },
+          {
+            "constraints": [
+              "action = ActConfirmPaymentIntent",
+              "status = PaymentIntentCreated",
+              "!three_ds_required || three_ds_completed"
+            ],
+            "invariant": "{ status = Authorized; latest_charge_exists = true }",
+            "model": {
+              "action": "ActConfirmPaymentIntent",
+              "three_ds_required": "false"
+            },
+            "model_eval": "Authorized"
+          },
+          {
+            "constraints": [
+              "action = ActCompleteThreeDS",
+              "status = RequiresAction",
+              "three_ds_required"
+            ],
+            "invariant": "{ status = Authorized; three_ds_completed = true }",
+            "model": {
+              "action": "ActCompleteThreeDS",
+              "status": "RequiresAction"
+            },
+            "model_eval": "Authorized"
+          },
+          {
+            "constraints": [
+              "action = ActCapture(amt)",
+              "may_capture o",
+              "0 < amt <= amount"
+            ],
+            "invariant": "{ status = Captured; amount_captured = amt; amount_refunded = 0 }",
+            "model": {
+              "action": "ActCapture(39)",
+              "high_risk": "true",
+              "approval_count": "2",
+              "amount": "39"
+            },
+            "model_eval": "Captured"
+          },
+          {
+            "constraints": [
+              "action = ActCapture(amt)",
+              "high_risk",
+              "approval_count < 2"
+            ],
+            "invariant": "order unchanged - blocked by insufficient approvals",
+            "model": {
+              "action": "ActCapture(50)",
+              "high_risk": "true",
+              "approval_count": "1"
+            },
+            "model_eval": "unchanged"
+          },
+          {
+            "constraints": [
+              "action = ActCapture(amt)",
+              "three_ds_required",
+              "!three_ds_completed"
+            ],
+            "invariant": "order unchanged - blocked by incomplete 3DS",
+            "model": {
+              "action": "ActCapture(50)",
+              "three_ds_required": "true",
+              "three_ds_completed": "false"
+            },
+            "model_eval": "unchanged"
+          },
+          {
+            "constraints": [
+              "action = ActRefund(amt)",
+              "status in {Captured, PartiallyRefunded}",
+              "0 < amt <= remaining",
+              "new_refunded = amount_captured"
+            ],
+            "invariant": "{ status = Refunded; amount_refunded = amount_captured }",
+            "model": {
+              "action": "ActRefund(100)",
+              "amount_captured": "100",
+              "amount_refunded": "0"
+            },
+            "model_eval": "Refunded"
+          },
+          {
+            "constraints": [
+              "action = ActRefund(amt)",
+              "status in {Captured, PartiallyRefunded}",
+              "0 < amt <= remaining",
+              "new_refunded < amount_captured"
+            ],
+            "invariant": "{ status = PartiallyRefunded }",
+            "model": {
+              "action": "ActRefund(50)",
+              "amount_captured": "100",
+              "amount_refunded": "0"
+            },
+            "model_eval": "PartiallyRefunded"
+          },
+          {
+            "constraints": [
+              "action = ActCancelPaymentIntent",
+              "payment_intent_exists",
+              "status not in {Captured, PartiallyRefunded, Refunded}"
+            ],
+            "invariant": "{ status = Canceled }",
+            "model": {
+              "action": "ActCancelPaymentIntent",
+              "status": "Authorized"
+            },
+            "model_eval": "Canceled"
+          },
+          {
+            "constraints": [
+              "action = ActOpenDispute",
+              "status in {Captured, PartiallyRefunded}"
+            ],
+            "invariant": "{ status = Disputed }",
+            "model": {
+              "action": "ActOpenDispute",
+              "status": "Captured"
+            },
+            "model_eval": "Disputed"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a18",
+      "artifact_type": "GeneratedTests",
+      "name": "generated_tests",
+      "producer_action_id": 31,
+      "derived_from": [
+        "a17"
+      ],
+      "summary": "84 tests from step decomposition",
+      "payload": {
+        "function": "step",
+        "language": "python",
+        "source_decomposition_artifact_id": "a17",
+        "tests": [
+          {
+            "name": "test_create_payment_intent_success",
+            "region_index": 0,
+            "constraints": [
+              "action = ActCreatePaymentIntent",
+              "status = Created",
+              "amount > 0"
+            ],
+            "inputs": {
+              "action": "ActCreatePaymentIntent",
+              "amount": 100,
+              "status": "Created"
+            },
+            "expected": "PaymentIntentCreated",
+            "code": "def test_create_payment_intent_success():\n    o = Order(amount=100, status=OrderStatus.CREATED)\n    result = step(Action(ActionKind.CREATE_PAYMENT_INTENT), o)\n    assert result.status == OrderStatus.PAYMENT_INTENT_CREATED\n    assert result.payment_intent_exists == True"
+          },
+          {
+            "name": "test_3ds_blocks_confirm",
+            "region_index": 2,
+            "constraints": [
+              "action = ActConfirmPaymentIntent",
+              "three_ds_required",
+              "!three_ds_completed"
+            ],
+            "inputs": {
+              "action": "ActConfirmPaymentIntent",
+              "three_ds_required": true,
+              "three_ds_completed": false
+            },
+            "expected": "RequiresAction",
+            "code": "def test_3ds_blocks_confirm():\n    o = Order(amount=100, status=OrderStatus.PAYMENT_INTENT_CREATED,\n              three_ds_required=True, three_ds_completed=False,\n              payment_intent_exists=True)\n    result = step(Action(ActionKind.CONFIRM_PAYMENT_INTENT), o)\n    assert result.status == OrderStatus.REQUIRES_ACTION"
+          },
+          {
+            "name": "test_high_risk_capture_with_2_approvals",
+            "region_index": 5,
+            "constraints": [
+              "action = ActCapture(amt)",
+              "high_risk",
+              "approval_count >= 2",
+              "0 < amt <= amount"
+            ],
+            "inputs": {
+              "action": "ActCapture(39)",
+              "high_risk": true,
+              "approval_count": 2,
+              "amount": 39
+            },
+            "expected": "Captured",
+            "code": "def test_high_risk_capture_with_2_approvals():\n    \"\"\"Region 67: high-risk capture succeeds with 2 approvals\"\"\"\n    o = Order(amount=39, amount_captured=1, amount_refunded=3,\n              status=OrderStatus.AUTHORIZED, high_risk=True,\n              approval_count=2, latest_charge_exists=True)\n    result = step(Action(ActionKind.CAPTURE, 39), o)\n    assert result.status == OrderStatus.CAPTURED\n    assert result.amount_captured == 39\n    assert result.amount_refunded == 0"
+          },
+          {
+            "name": "test_high_risk_capture_blocked_1_approval",
+            "region_index": 6,
+            "constraints": [
+              "action = ActCapture(amt)",
+              "high_risk",
+              "approval_count < 2"
+            ],
+            "inputs": {
+              "action": "ActCapture(50)",
+              "high_risk": true,
+              "approval_count": 1
+            },
+            "expected": "unchanged",
+            "code": "def test_high_risk_capture_blocked_1_approval():\n    o = Order(amount=100, status=OrderStatus.AUTHORIZED,\n              high_risk=True, approval_count=1,\n              latest_charge_exists=True)\n    result = step(Action(ActionKind.CAPTURE, 50), o)\n    assert result.status == OrderStatus.AUTHORIZED  # unchanged"
+          },
+          {
+            "name": "test_full_refund",
+            "region_index": 8,
+            "constraints": [
+              "action = ActRefund(amt)",
+              "new_refunded = amount_captured"
+            ],
+            "inputs": {
+              "action": "ActRefund(100)",
+              "amount_captured": 100,
+              "amount_refunded": 0
+            },
+            "expected": "Refunded",
+            "code": "def test_full_refund():\n    o = Order(amount=100, amount_captured=100,\n              status=OrderStatus.CAPTURED)\n    result = step(Action(ActionKind.REFUND, 100), o)\n    assert result.status == OrderStatus.REFUNDED\n    assert result.amount_refunded == 100"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a19",
+      "artifact_type": "Diff",
+      "name": "updated_python",
+      "format": "python",
+      "producer_action_id": 40,
+      "derived_from": [
+        "a8",
+        "a10",
+        "a16",
+        "a23"
+      ],
+      "summary": "Updated Python implementation with 3DS, high-risk gate, and capture bug fix"
+    },
+    {
+      "artifact_id": "a20",
+      "artifact_type": "CommandResult",
+      "name": "test_results",
+      "producer_action_id": 41,
+      "derived_from": [
+        "a18",
+        "a19"
+      ],
+      "summary": "84/84 generated tests pass"
+    },
+    {
+      "artifact_id": "a21",
+      "artifact_type": "Commit",
+      "name": "commit_hash",
+      "producer_action_id": 42,
+      "derived_from": [
+        "a20"
+      ],
+      "summary": "Git commit with 3DS + high-risk support, capture bug fix"
+    },
+    {
+      "artifact_id": "a22",
+      "artifact_type": "VerificationGoal",
+      "name": "ref_conformance_vgs",
+      "producer_action_id": 32,
+      "derived_from": [
+        "a8"
+      ],
+      "summary": "Conformance verification goals: agent's model must refine the Stripe reference model",
+      "payload": {
+        "goal_id": 6,
+        "kind": "verify",
+        "description": "Agent's formalization conforms to Stripe Payment Reference Model (capture + refund conformance, amount invariants)",
+        "target_artifact_id": "a8",
+        "src": "verify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (capture_payment amt o) = capture amt pi)\n\nverify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (refund_payment amt o) = refund amt pi)\n\nverify (fun (o : order) ->\n  let pi = order_to_pi o in\n  inv_pi_amounts pi ==> inv_pi_amounts (order_to_pi (capture_payment 1 o)))",
+        "properties": [
+          {
+            "name": "capture_refines_ref",
+            "status": "pending",
+            "src": "verify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (capture_payment amt o) = capture amt pi)"
+          },
+          {
+            "name": "refund_refines_ref",
+            "status": "pending",
+            "src": "verify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (refund_payment amt o) = refund amt pi)"
+          },
+          {
+            "name": "cancel_refines_ref",
+            "status": "pending",
+            "src": "verify (fun (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (cancel_payment_intent o) = cancel_pi pi)"
+          },
+          {
+            "name": "ref_amount_invariant_preserved",
+            "status": "pending",
+            "src": "verify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  inv_pi_amounts pi ==> inv_pi_amounts (order_to_pi (capture_payment amt o)))"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "a23",
+      "artifact_type": "VerificationResult",
+      "name": "ref_conformance_proved",
+      "producer_action_id": 33,
+      "derived_from": [
+        "a22"
+      ],
+      "summary": "All 4 reference model conformance properties proved",
+      "payload": {
+        "goal_id": 6,
+        "goal_artifact_id": "a22",
+        "status": "proved",
+        "engine": "imandrax",
+        "result": {
+          "proved": {
+            "proof_pp": "All 4 reference model conformance properties proved against Stripe Payment Reference Model (ref_stripe_payments v2024-12):",
+            "properties": [
+              {
+                "name": "capture_refines_ref",
+                "status": "proved",
+                "src": "verify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (capture_payment amt o) = capture amt pi)"
+              },
+              {
+                "name": "refund_refines_ref",
+                "status": "proved",
+                "src": "verify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (refund_payment amt o) = refund amt pi)"
+              },
+              {
+                "name": "cancel_refines_ref",
+                "status": "proved",
+                "src": "verify (fun (o : order) ->\n  let pi = order_to_pi o in\n  order_to_pi (cancel_payment_intent o) = cancel_pi pi)"
+              },
+              {
+                "name": "ref_amount_invariant_preserved",
+                "status": "proved",
+                "src": "verify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  inv_pi_amounts pi ==> inv_pi_amounts (order_to_pi (capture_payment amt o)))"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "category": "activity",
+      "type": "ReadFile",
+      "label": "Read: stripe_payment_flow.py (~700 lines)",
+      "detail": "Flask app with Stripe payment processing: order creation, PaymentIntent, manual capture, approval, refund, cancel, dispute webhooks. 10 order statuses, 8 actions.",
+      "rationale": "understand the existing payment flow before adding new features",
+      "inputs": [],
+      "outputs": [
+        "a1"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "stripe_payment_flow.py"
+        }
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "category": "activity",
+      "type": "AnalyzeCode",
+      "label": "Analyze: state machine with 10 statuses, 8 actions",
+      "detail": "Payment flow is a state machine: Created -> PaymentIntentCreated -> Authorized -> ApprovedForCapture -> Captured -> PartiallyRefunded/Refunded. Plus Canceled, Disputed, Failed branches.",
+      "rationale": "map the state machine before formalization",
+      "inputs": [
+        "a1"
+      ],
+      "outputs": [
+        "a2"
+      ],
+      "result_summary": "10 statuses, 8 actions, state machine mapped",
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "stripe_payment_flow.py"
+        }
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 10,
+      "category": "reasoning",
+      "type": "Formalize",
+      "label": "Formalize: original payment flow -> IML",
+      "rationale": "translate Python state machine into pure functional IML for formal analysis",
+      "inputs": [
+        "a2"
+      ],
+      "outputs": [
+        "a3"
+      ],
+      "request": {
+        "source_artifact_id": "a1"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a3"
+      },
+      "result_summary": "transparent formalization -> 10 IML symbols",
+      "execution": {
+        "tool": "codelogician",
+        "version": "2026.04",
+        "determinism": "deterministic"
+      },
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 11,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: amount invariant - 0 <= refunded <= captured <= amount",
+      "rationale": "the core safety property: monetary amounts must always be consistent across all transitions",
+      "inputs": [
+        "a3"
+      ],
+      "outputs": [
+        "a4"
+      ],
+      "request": {
+        "target_artifact_id": "a3",
+        "target_symbol": "capture_payment"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a4"
+      },
+      "result_summary": "verify: capture preserves 0 <= refunded <= captured <= amount",
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 12,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: amount invariant - REFUTED!",
+      "rationale": "ImandraX found a counterexample: re-capture after partial refund leaves amount_refunded > amount_captured",
+      "inputs": [
+        "a4"
+      ],
+      "outputs": [
+        "a5"
+      ],
+      "request": {
+        "goal_artifact_id": "a4",
+        "engine": "imandrax"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a5"
+      },
+      "result_summary": "refuted - counterexample: re-capture after partial refund",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 2100
+      },
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 13,
+      "category": "activity",
+      "type": "AnalyzeCode",
+      "label": "Analyze: capture_payment fails to reset amount_refunded",
+      "detail": "The bug: capture_payment sets amount_captured = amt but doesn't reset amount_refunded. After a partial refund (refunded=1238), re-capturing with amt=1 leaves refunded=1238 > captured=1.",
+      "rationale": "diagnose the root cause from the counterexample",
+      "inputs": [
+        "a5"
+      ],
+      "outputs": [
+        "a6"
+      ],
+      "result_summary": "root cause: amount_refunded not reset on re-capture",
+      "observations": [
+        {
+          "statement": "capture_payment overwrites amount_captured but preserves amount_refunded, violating the invariant after partial refund + re-capture",
+          "confidence": "high"
+        }
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "stripe_flow_original.iml"
+        }
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 14,
+      "category": "activity",
+      "type": "EditFile",
+      "label": "Fix: add amount_refunded = 0 to capture_payment",
+      "detail": "One-line fix: reset amount_refunded to 0 when re-capturing",
+      "rationale": "fix the bug discovered by formal verification",
+      "inputs": [
+        "a6"
+      ],
+      "outputs": [
+        "a7"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "stripe_flow_updated.iml"
+        }
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 20,
+      "category": "reasoning",
+      "type": "Formalize",
+      "label": "Formalize: updated flow with 3DS + high-risk",
+      "rationale": "extend the IML model with new features: RequiresAction status, 3DS flags, approval_count, high_risk requiring 2 approvals",
+      "inputs": [
+        "a7",
+        "a3"
+      ],
+      "outputs": [
+        "a8"
+      ],
+      "request": {
+        "source_artifact_id": "a3"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a8"
+      },
+      "result_summary": "transparent formalization -> 6 new/updated IML symbols",
+      "execution": {
+        "tool": "codelogician",
+        "version": "2026.04",
+        "determinism": "deterministic"
+      },
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 21,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: 7 amount invariant properties (one per transition)",
+      "rationale": "verify that EVERY transition function preserves the amount invariant",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a9"
+      ],
+      "request": {
+        "target_artifact_id": "a8"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a9"
+      },
+      "result_summary": "7 verify goals defined, one per transition function",
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 22,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: all 7 amount invariants - PROVED",
+      "rationale": "after the fix, all transition functions preserve the amount invariant",
+      "inputs": [
+        "a9"
+      ],
+      "outputs": [
+        "a10"
+      ],
+      "request": {
+        "goal_artifact_id": "a9",
+        "engine": "imandrax"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a10"
+      },
+      "result_summary": "proved - all 7 amount invariants hold",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 4200
+      },
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 23,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: 3DS blocks authorization until completed",
+      "rationale": "new feature property: if 3DS is required but not completed, confirm must move to RequiresAction, not Authorized",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a11"
+      ],
+      "request": {
+        "target_artifact_id": "a8",
+        "target_symbol": "confirm_payment_intent"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a11"
+      },
+      "result_summary": "verify: 3DS gates authorization flow",
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 24,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: 3DS blocks authorization - proved",
+      "rationale": "confirmed: 3DS challenge properly gates the authorization flow",
+      "inputs": [
+        "a11"
+      ],
+      "outputs": [
+        "a12"
+      ],
+      "request": {
+        "goal_artifact_id": "a11",
+        "engine": "imandrax"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a12"
+      },
+      "result_summary": "proved by T_deduction",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 980
+      },
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 25,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: high-risk needs 2 approvals before capture",
+      "rationale": "new feature property: high-risk orders with fewer than 2 approvals must not reach Captured status",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a13"
+      ],
+      "request": {
+        "target_artifact_id": "a8",
+        "target_symbol": "capture_payment"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a13"
+      },
+      "result_summary": "verify: high-risk capture requires 2 approvals",
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 26,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: high-risk 2-approval rule - proved",
+      "rationale": "confirmed: capture is blocked for high-risk orders with fewer than 2 approvals",
+      "inputs": [
+        "a13"
+      ],
+      "outputs": [
+        "a14"
+      ],
+      "request": {
+        "goal_artifact_id": "a13",
+        "engine": "imandrax"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a14"
+      },
+      "result_summary": "proved by T_deduction",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 1100
+      },
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 27,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: combined high-risk + 3DS requires both",
+      "rationale": "compound property: high-risk orders with 3DS need BOTH 3DS completion AND 2 approvals",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a15"
+      ],
+      "request": {
+        "target_artifact_id": "a8",
+        "target_symbol": "capture_payment"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a15"
+      },
+      "result_summary": "verify: combined 3DS + 2-approval gate",
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 28,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: combined high-risk + 3DS - proved",
+      "rationale": "confirmed: both conditions must be satisfied for capture",
+      "inputs": [
+        "a15"
+      ],
+      "outputs": [
+        "a16"
+      ],
+      "request": {
+        "goal_artifact_id": "a15",
+        "engine": "imandrax"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a16"
+      },
+      "result_summary": "proved by T_deduction",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 1340
+      },
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 30,
+      "category": "reasoning",
+      "type": "Decompose",
+      "label": "Decompose: step function - 84 exhaustive regions",
+      "rationale": "partition the entire input space of the step function to discover every distinct execution path",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a17"
+      ],
+      "request": {
+        "target_artifact_id": "a8",
+        "target_symbol": "step"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a17"
+      },
+      "result_summary": "84 exhaustive regions, complete coverage",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 12400
+      },
+      "meta_action_id": "m5"
+    },
+    {
+      "id": 31,
+      "category": "reasoning",
+      "type": "GenerateTests",
+      "label": "Generate: 84 tests from step decomposition",
+      "rationale": "produce concrete Python test cases from every region",
+      "inputs": [
+        "a17"
+      ],
+      "outputs": [
+        "a18"
+      ],
+      "request": {
+        "source_decomposition_artifact_id": "a17",
+        "language": "python"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a18"
+      },
+      "result_summary": "84 Python tests generated from decomposition",
+      "meta_action_id": "m5"
+    },
+    {
+      "id": 32,
+      "category": "reasoning",
+      "type": "DefineVG",
+      "label": "Define: conformance against Stripe Reference Model",
+      "rationale": "verify that the agent's formalization correctly refines the Stripe Payment Reference Model (ref_stripe_payments v2024-12) — capture, refund, and cancel must produce the same results as the reference implementation",
+      "inputs": [
+        "a8"
+      ],
+      "outputs": [
+        "a22"
+      ],
+      "request": {
+        "target_artifact_id": "a8",
+        "reference_model_id": "ref_stripe_payments"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a22"
+      },
+      "result_summary": "4 conformance goals defined against Stripe reference model",
+      "meta_action_id": "m5"
+    },
+    {
+      "id": 33,
+      "category": "reasoning",
+      "type": "Verify",
+      "label": "Verify: Stripe reference model conformance — PROVED",
+      "rationale": "ImandraX proves that the agent's formalization is a valid refinement of the Stripe reference model: capture, refund, cancel all conform, and the reference amount invariant is preserved",
+      "inputs": [
+        "a22"
+      ],
+      "outputs": [
+        "a23"
+      ],
+      "request": {
+        "goal_artifact_id": "a22",
+        "engine": "imandrax",
+        "reference_model_id": "ref_stripe_payments"
+      },
+      "result": {
+        "status": "completed",
+        "artifact_id": "a23"
+      },
+      "result_summary": "proved — all 4 reference model conformance properties hold",
+      "execution": {
+        "tool": "imandrax",
+        "version": "2026.04",
+        "determinism": "deterministic",
+        "duration_ms": 5600
+      },
+      "meta_action_id": "m5"
+    },
+    {
+      "id": 40,
+      "category": "activity",
+      "type": "EditFile",
+      "label": "Edit: stripe_payment_flow_updated.py",
+      "detail": "Apply all changes to Python implementation: add 3DS flow, high-risk 2-approval gate, fix capture_payment refund reset",
+      "rationale": "implement the verified model in production code",
+      "inputs": [
+        "a8",
+        "a10",
+        "a16",
+        "a23"
+      ],
+      "outputs": [
+        "a19"
+      ],
+      "evidence": [
+        {
+          "type": "FileRef",
+          "ref": "stripe_payment_flow_updated.py"
+        }
+      ],
+      "meta_action_id": "m5"
+    },
+    {
+      "id": 41,
+      "category": "activity",
+      "type": "RunTests",
+      "label": "Tests: 84/84 pass",
+      "detail": "all 84 generated test cases pass against the updated Python implementation",
+      "rationale": "validate that formal model and implementation agree on every execution path",
+      "inputs": [
+        "a18",
+        "a19"
+      ],
+      "outputs": [
+        "a20"
+      ],
+      "result_summary": "84/84 passed",
+      "evidence": [
+        {
+          "type": "CommandOutput",
+          "ref": "pytest stripe_flow_tests_generated.py",
+          "exit_code": 0
+        }
+      ],
+      "meta_action_id": "m5"
+    },
+    {
+      "id": 42,
+      "category": "activity",
+      "type": "GitCommit",
+      "label": "Commit: add 3DS + high-risk support, fix capture bug",
+      "detail": "Includes: updated IML model, updated Python, 84 generated tests, all 14 VGs proved",
+      "rationale": "all properties verified, all tests passing",
+      "inputs": [
+        "a20"
+      ],
+      "outputs": [
+        "a21"
+      ],
+      "evidence": [
+        {
+          "type": "CommandOutput",
+          "ref": "git commit",
+          "exit_code": 0
+        }
+      ],
+      "meta_action_id": "m5"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Check the logic",
+      "intent": "Formalize the payment flow and check the amount invariant on the original code.",
+      "action_ids": [
+        1,
+        2,
+        10,
+        11,
+        12
+      ],
+      "outcome": "Amount invariant 0 <= refunded <= captured <= amount REFUTED - over-refund bug found.",
+      "status": "completed",
+      "source": "plan_declared",
+      "produced_artifact_ids": [
+        "a1",
+        "a2",
+        "a3",
+        "a4",
+        "a5"
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Fix the over-refund bug",
+      "intent": "Diagnose and fix capture_payment so refunds can never exceed the captured amount.",
+      "action_ids": [
+        13,
+        14
+      ],
+      "outcome": "capture_payment corrected (resets amount_refunded); ready to re-verify.",
+      "status": "completed",
+      "source": "plan_declared",
+      "produced_artifact_ids": [
+        "a6",
+        "a7"
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Introduce 3DS/SCA + high-risk security features",
+      "intent": "Add the new security behavior: 3DS/SCA authorization gating and high-risk 2-approval capture.",
+      "action_ids": [
+        20
+      ],
+      "outcome": "Updated flow formalized with 3DS gating and high-risk 2-approval support.",
+      "status": "completed",
+      "source": "plan_declared",
+      "produced_artifact_ids": [
+        "a8"
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Verify the new security properties",
+      "intent": "Prove the amount invariant across all transitions plus the new 3DS and high-risk rules.",
+      "action_ids": [
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "outcome": "Amount invariant (7 transitions), 3DS gate, high-risk 2-approval, and the combined rule all PROVED.",
+      "status": "completed",
+      "source": "plan_declared",
+      "residual_ids": [
+        "r1",
+        "r2",
+        "r3"
+      ],
+      "produced_artifact_ids": [
+        "a9",
+        "a10",
+        "a11",
+        "a12",
+        "a13",
+        "a14",
+        "a15",
+        "a16"
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Generate tests & confirm conformance",
+      "intent": "Exhaustively decompose the flow, generate tests, prove conformance, run the suite, and commit.",
+      "action_ids": [
+        30,
+        31,
+        32,
+        33,
+        40,
+        41,
+        42
+      ],
+      "outcome": "84 regions -> 84 tests, Stripe reference conformance PROVED, 84/84 pass, committed.",
+      "status": "completed",
+      "source": "plan_declared",
+      "produced_artifact_ids": [
+        "a17",
+        "a18",
+        "a22",
+        "a23",
+        "a19",
+        "a20",
+        "a21"
+      ]
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Added 3DS/SCA and high-risk 2-approval support to Stripe payment flow. Formal verification discovered and fixed a re-capture bug. 14 domain properties proved, 4 reference model conformance properties proved against Stripe Payment Reference Model, 84 exhaustive test regions generated."
+  },
+  "files_modified": [
+    "stripe_flow_updated.iml",
+    "stripe_payment_flow_updated.py"
+  ],
+  "policies": [
+    {
+      "policy_id": "p1",
+      "name": "research_before_edit",
+      "description": "Every edit must be preceded by at least one research action targeting the same file or artifact",
+      "severity": "warning",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "applies_when": {
+        "action_type": "EditFile"
+      },
+      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
+    },
+    {
+      "policy_id": "p2",
+      "name": "all_decisions_justified",
+      "description": "All gateway nodes must have a non-empty rationale",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "applies_when": {
+        "category": "gateway"
+      },
+      "formula": "G(gateway → rationale ≠ ∅)"
+    },
+    {
+      "policy_id": "p3",
+      "name": "tests_before_commit",
+      "description": "Every commit must be preceded by a successful test run",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "applies_when": {
+        "action_type": "GitCommit"
+      },
+      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+    },
+    {
+      "policy_id": "p4",
+      "name": "tests_pass_before_commit",
+      "description": "No failing test results may exist before a commit",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "applies_when": {
+        "action_type": "GitCommit"
+      },
+      "formula": "G(GitCommit → (RunTests ∧ completed) S_last GitCommit)"
+    },
+    {
+      "policy_id": "p5",
+      "name": "destructive_actions_confirmed",
+      "description": "Delete actions require explicit prior user approval",
+      "severity": "error",
+      "scope": "action",
+      "kind": "approval_requirement",
+      "applies_when": {
+        "action_type": "DeleteFile"
+      },
+      "formula": "G(DeleteFile → P_chain UserApproval)"
+    },
+    {
+      "policy_id": "p6",
+      "name": "all_actions_have_rationale",
+      "description": "Every action must include a non-empty rationale field",
+      "severity": "error",
+      "scope": "action",
+      "kind": "trace_invariant",
+      "formula": "G(action → rationale ≠ ∅)"
+    },
+    {
+      "policy_id": "p7",
+      "name": "data_flow_integrity",
+      "description": "All consumed artifacts must have exactly one valid producer earlier in the trace",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(∀input ∈ inputs(a) → ∃!b . b < a ∧ input ∈ outputs(b))"
+    },
+    {
+      "policy_id": "p8",
+      "name": "goals_reference_valid_artifacts",
+      "description": "Every VerificationGoal must reference a valid IMLModel via target_artifact_id",
+      "severity": "error",
+      "scope": "artifact",
+      "kind": "reference_integrity",
+      "applies_when": {
+        "artifact_type": "VerificationGoal"
+      },
+      "formula": "G(VerificationGoal → target_artifact_id ∈ {a.id | a.type = IMLModel})"
+    },
+    {
+      "policy_id": "p9",
+      "name": "trace_has_proper_lifecycle",
+      "description": "Trace must have both a start event (trigger) and end event (outcome)",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "start_event ∧ F end_event"
+    },
+    {
+      "policy_id": "p10",
+      "name": "files_modified_consistent",
+      "description": "The files_modified list must match the actual files changed by EditFile/CreateFile/DeleteFile actions",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "files_modified = {target(a) | G(a ∧ (EditFile ∨ CreateFile ∨ DeleteFile))}"
+    },
+    {
+      "policy_id": "p11",
+      "name": "reasoning_required_for_high_stakes_changes",
+      "description": "Edits to payment or risk modules must be justified by prior formal reasoning artifacts in the dependency chain",
+      "severity": "error",
+      "scope": "module",
+      "kind": "reasoning_requirement",
+      "applies_when": {
+        "action_type": "EditFile",
+        "path_matches_any": [
+          "payments/**",
+          "risk/**",
+          "stripe_payment_flow*.py"
+        ]
+      },
+      "formula": "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))"
+    },
+    {
+      "policy_id": "p12",
+      "name": "generated_tests_require_decomposition",
+      "description": "Generated test artifacts must derive from a Decomposition artifact",
+      "severity": "error",
+      "scope": "artifact",
+      "kind": "lineage_requirement",
+      "applies_when": {
+        "artifact_type": "GeneratedTests"
+      },
+      "formula": "G(GeneratedTests → Decomposition ∈ ancestors(derived_from))"
+    },
+    {
+      "policy_id": "p13",
+      "name": "stripe_conformance_required",
+      "description": "Formalizations of Stripe payment code must be verified against the Stripe Payment Reference Model",
+      "severity": "error",
+      "scope": "module",
+      "kind": "conformance_requirement",
+      "applies_when": {
+        "action_type": "Formalize",
+        "path_matches_any": [
+          "stripe_*",
+          "payment_*"
+        ]
+      },
+      "reference_model_id": "ref_stripe_payments",
+      "formula": "G(Formalize ∧ stripe_domain → P_chain(VerificationResult(proved) ∧ ref_model(ref_stripe_payments)))"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "p1",
+      "status": "passed",
+      "note": "All edits preceded by research actions"
+    },
+    {
+      "policy_id": "p2",
+      "status": "not_applicable",
+      "note": "No gateway actions in this trace"
+    },
+    {
+      "policy_id": "p3",
+      "status": "passed",
+      "evidence_action_ids": [
+        41,
+        42
+      ],
+      "note": "RunTests action 6 before GitCommit action 7"
+    },
+    {
+      "policy_id": "p4",
+      "status": "passed",
+      "evidence_action_ids": [
+        41
+      ],
+      "note": "84/84 tests passed"
+    },
+    {
+      "policy_id": "p5",
+      "status": "not_applicable",
+      "note": "No delete actions in this trace"
+    },
+    {
+      "policy_id": "p6",
+      "status": "passed"
+    },
+    {
+      "policy_id": "p7",
+      "status": "passed"
+    },
+    {
+      "policy_id": "p8",
+      "status": "passed",
+      "note": "All VGs reference valid IML model artifacts"
+    },
+    {
+      "policy_id": "p9",
+      "status": "passed"
+    },
+    {
+      "policy_id": "p10",
+      "status": "passed"
+    },
+    {
+      "policy_id": "p11",
+      "status": "passed",
+      "checked_at_action_id": 40,
+      "evidence_action_ids": [
+        22,
+        28
+      ],
+      "evidence_artifact_ids": [
+        "a10",
+        "a16"
+      ],
+      "note": "EditFile action 5 has proved verification results (a10, a16) in its dependency chain"
+    },
+    {
+      "policy_id": "p12",
+      "status": "passed",
+      "evidence_artifact_ids": [
+        "a17",
+        "a18"
+      ],
+      "note": "GeneratedTests artifact a18 derives from Decomposition artifact a17"
+    },
+    {
+      "policy_id": "p13",
+      "status": "passed",
+      "evidence_action_ids": [
+        32,
+        33
+      ],
+      "evidence_artifact_ids": [
+        "a22",
+        "a23"
+      ],
+      "note": "Agent formalization verified against Stripe Payment Reference Model (ref_stripe_payments v2024-12): capture, refund, cancel conformance proved, reference amount invariant preserved"
+    }
+  ],
+  "metrics": {
+    "total_actions": 19,
+    "decision_points": 0,
+    "parallel_blocks": 0,
+    "loops": 0
+  },
+  "residuals": [
+    {
+      "residual_id": "r1",
+      "kind": "limitation",
+      "statement": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
+      "severity": "high",
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a8"
+      },
+      "related_artifact_ids": [
+        "a10"
+      ],
+      "rationale": "The formal model applies one transition at a time; interleavings are not modeled.",
+      "suggested_check": "Add a concurrency model (or a DB-level lock) and re-verify the amount invariant under interleaved capture/refund.",
+      "source": "agent_declared",
+      "status": "open",
+      "introduced_by_action_id": 22,
+      "tags": [
+        "concurrency",
+        "payments"
+      ]
+    },
+    {
+      "residual_id": "r2",
+      "kind": "unverified",
+      "statement": "Dispute and chargeback transitions were not formalized; only the transitions in the amount-invariant suite are covered by verification goals.",
+      "severity": "medium",
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a17"
+      },
+      "related_artifact_ids": [
+        "a9"
+      ],
+      "suggested_check": "Add verification goals for the dispute and chargeback transitions.",
+      "source": "agent_declared",
+      "status": "open",
+      "tags": [
+        "coverage"
+      ]
+    },
+    {
+      "residual_id": "r3",
+      "kind": "open_question",
+      "statement": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact.",
+      "severity": "low",
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a8"
+      },
+      "source": "agent_declared",
+      "status": "open",
+      "tags": [
+        "product-decision"
+      ]
+    }
+  ],
+  "reference_models": [
+    {
+      "reference_model_id": "ref_stripe_payments",
+      "name": "Stripe Payment Processing Model",
+      "description": "Formal IML specification of the Stripe PaymentIntent and Charge lifecycle. Covers: payment method attachment, confirmation, 3D Secure/SCA authentication, manual and automatic capture, refunds (partial and full), cancellation, and dispute handling. Based on the Stripe API v2024-12 documentation.",
+      "domain": "stripe",
+      "version": "2024-12",
+      "source": "stripe-api-v2024-12",
+      "iml": "(* ================================================================\n   Stripe Payment Reference Model\n   Version: 2024-12\n   Source: Stripe PaymentIntent + Charge API documentation\n   \n   This is the canonical formal model of the Stripe payment\n   lifecycle. Agent formalizations of payment code must be\n   verified against this model.\n   ================================================================ *)\n\n(* ---- PaymentIntent statuses ---- *)\n\ntype pi_status =\n  | RequiresPaymentMethod\n  | RequiresConfirmation\n  | RequiresAction        (* 3D Secure / SCA challenge *)\n  | Processing            (* async settlement *)\n  | RequiresCapture       (* manual capture: authorized, not captured *)\n  | Succeeded             (* terminal: payment complete *)\n  | Canceled              (* terminal: intent invalidated *)\n\n(* ---- Charge statuses ---- *)\n\ntype charge_status = Pending | ChargeSucceeded | ChargeFailed\n\n(* ---- Refund statuses ---- *)\n\ntype refund_status =\n  | RefundPending | RefundSucceeded | RefundFailed\n  | RefundCanceled | RefundRequiresAction\n\n(* ---- Dispute statuses ---- *)\n\ntype dispute_status =\n  | WarningNeedsResponse | WarningUnderReview | WarningClosed\n  | NeedsResponse | Won | Lost\n\n(* ---- Capture method ---- *)\n\ntype capture_method = Automatic | Manual\n\n(* ---- Core objects ---- *)\n\ntype charge = {\n  charge_amount : int;\n  amount_captured : int;\n  amount_refunded : int;\n  charge_status : charge_status;\n  captured : bool;\n  refunded : bool;\n  paid : bool;\n}\n\ntype payment_intent = {\n  pi_amount : int;\n  amount_capturable : int;\n  amount_received : int;\n  pi_status : pi_status;\n  capture_method : capture_method;\n  latest_charge : charge option;\n  three_ds_required : bool;\n  three_ds_completed : bool;\n}\n\n(* ---- Invariants ---- *)\n\n(* Core amount invariant on charges *)\nlet inv_charge_amounts (c : charge) : bool =\n  0 <= c.amount_refunded &&\n  c.amount_refunded <= c.amount_captured &&\n  c.amount_captured <= c.charge_amount &&\n  c.charge_amount > 0\n\n(* Refunded flag consistency *)\nlet inv_refunded_flag (c : charge) : bool =\n  c.refunded = (c.amount_refunded = c.amount_captured && c.amount_captured > 0)\n\n(* PaymentIntent amount consistency *)\nlet inv_pi_amounts (pi : payment_intent) : bool =\n  pi.pi_amount > 0 &&\n  0 <= pi.amount_capturable &&\n  0 <= pi.amount_received &&\n  pi.amount_capturable + pi.amount_received <= pi.pi_amount\n\n(* Terminal states cannot transition *)\nlet is_terminal (pi : payment_intent) : bool =\n  pi.pi_status = Succeeded || pi.pi_status = Canceled\n\n(* ---- State transitions ---- *)\n\n(* Attach payment method: RequiresPaymentMethod -> RequiresConfirmation *)\nlet attach_payment_method (pi : payment_intent) : payment_intent =\n  if pi.pi_status = RequiresPaymentMethod then\n    { pi with pi_status = RequiresConfirmation }\n  else pi\n\n(* Confirm payment intent *)\nlet confirm (pi : payment_intent) : payment_intent =\n  if pi.pi_status = RequiresConfirmation then\n    if pi.three_ds_required && not pi.three_ds_completed then\n      (* 3DS challenge needed *)\n      { pi with pi_status = RequiresAction }\n    else if pi.capture_method = Manual then\n      (* Manual capture: authorize only *)\n      { pi with\n        pi_status = RequiresCapture;\n        amount_capturable = pi.pi_amount;\n        latest_charge = Some {\n          charge_amount = pi.pi_amount;\n          amount_captured = 0;\n          amount_refunded = 0;\n          charge_status = Pending;\n          captured = false;\n          refunded = false;\n          paid = true;\n        }\n      }\n    else\n      (* Auto capture: charge immediately *)\n      { pi with\n        pi_status = Succeeded;\n        amount_received = pi.pi_amount;\n        amount_capturable = 0;\n        latest_charge = Some {\n          charge_amount = pi.pi_amount;\n          amount_captured = pi.pi_amount;\n          amount_refunded = 0;\n          charge_status = ChargeSucceeded;\n          captured = true;\n          refunded = false;\n          paid = true;\n        }\n      }\n  else pi\n\n(* Complete 3D Secure challenge *)\nlet complete_three_ds (pi : payment_intent) : payment_intent =\n  if pi.pi_status = RequiresAction && pi.three_ds_required then\n    let pi2 = { pi with three_ds_completed = true } in\n    if pi2.capture_method = Manual then\n      { pi2 with\n        pi_status = RequiresCapture;\n        amount_capturable = pi2.pi_amount;\n        latest_charge = Some {\n          charge_amount = pi2.pi_amount;\n          amount_captured = 0;\n          amount_refunded = 0;\n          charge_status = Pending;\n          captured = false;\n          refunded = false;\n          paid = true;\n        }\n      }\n    else\n      { pi2 with\n        pi_status = Succeeded;\n        amount_received = pi2.pi_amount;\n        latest_charge = Some {\n          charge_amount = pi2.pi_amount;\n          amount_captured = pi2.pi_amount;\n          amount_refunded = 0;\n          charge_status = ChargeSucceeded;\n          captured = true;\n          refunded = false;\n          paid = true;\n        }\n      }\n  else pi\n\n(* Fail 3D Secure -> back to requires_payment_method *)\nlet fail_three_ds (pi : payment_intent) : payment_intent =\n  if pi.pi_status = RequiresAction then\n    { pi with pi_status = RequiresPaymentMethod; three_ds_completed = false }\n  else pi\n\n(* Capture payment (manual capture mode) *)\nlet capture (amt : int) (pi : payment_intent) : payment_intent =\n  if pi.pi_status = RequiresCapture && amt > 0 && amt <= pi.amount_capturable then\n    match pi.latest_charge with\n    | None -> pi\n    | Some c ->\n      let new_captured = c.amount_captured + amt in\n      { pi with\n        pi_status = Succeeded;\n        amount_received = new_captured;\n        amount_capturable = 0;\n        latest_charge = Some {\n          c with\n          amount_captured = new_captured;\n          charge_status = ChargeSucceeded;\n          captured = true;\n        }\n      }\n  else pi\n\n(* Cancel payment intent *)\nlet cancel_pi (pi : payment_intent) : payment_intent =\n  if pi.pi_status <> Succeeded && pi.pi_status <> Canceled then\n    { pi with\n      pi_status = Canceled;\n      amount_capturable = 0;\n    }\n  else pi\n\n(* Refund (on a succeeded payment) *)\nlet refund (amt : int) (pi : payment_intent) : payment_intent =\n  if pi.pi_status = Succeeded && amt > 0 then\n    match pi.latest_charge with\n    | None -> pi\n    | Some c ->\n      let remaining = c.amount_captured - c.amount_refunded in\n      if amt <= remaining then\n        let new_refunded = c.amount_refunded + amt in\n        { pi with\n          latest_charge = Some {\n            c with\n            amount_refunded = new_refunded;\n            refunded = (new_refunded = c.amount_captured);\n          }\n        }\n      else pi\n  else pi\n\n(* ---- Verification goals ---- *)\n\n(* VG1: confirm preserves amount invariant *)\nverify (fun (pi : payment_intent) ->\n  inv_pi_amounts pi ==> inv_pi_amounts (confirm pi))\n\n(* VG2: capture preserves amount invariant *)\nverify (fun (amt : int) (pi : payment_intent) ->\n  inv_pi_amounts pi ==> inv_pi_amounts (capture amt pi))\n\n(* VG3: refund preserves charge amount invariant *)\nverify (fun (amt : int) (pi : payment_intent) ->\n  inv_pi_amounts pi ==>\n  match pi.latest_charge with\n  | None -> true\n  | Some c -> inv_charge_amounts c ==>\n    match (refund amt pi).latest_charge with\n    | None -> true\n    | Some c2 -> inv_charge_amounts c2)\n\n(* VG4: cancel from non-terminal is always valid *)\nverify (fun (pi : payment_intent) ->\n  not (is_terminal pi) ==>\n  (cancel_pi pi).pi_status = Canceled)\n\n(* VG5: succeeded is terminal *)\nverify (fun (pi : payment_intent) ->\n  pi.pi_status = Succeeded ==>\n  confirm pi = pi &&\n  capture 1 pi = pi &&\n  cancel_pi pi = pi)\n\n(* VG6: 3DS blocks authorization *)\nverify (fun (pi : payment_intent) ->\n  pi.pi_status = RequiresConfirmation &&\n  pi.three_ds_required &&\n  not pi.three_ds_completed ==>\n  (confirm pi).pi_status = RequiresAction)\n\n(* VG7: refunded flag consistency *)\nverify (fun (amt : int) (pi : payment_intent) ->\n  pi.pi_status = Succeeded ==>\n  match (refund amt pi).latest_charge with\n  | None -> true\n  | Some c -> inv_refunded_flag c)",
+      "symbols": [
+        "pi_status",
+        "charge_status",
+        "refund_status",
+        "dispute_status",
+        "capture_method",
+        "charge",
+        "payment_intent",
+        "inv_charge_amounts",
+        "inv_refunded_flag",
+        "inv_pi_amounts",
+        "is_terminal",
+        "attach_payment_method",
+        "confirm",
+        "complete_three_ds",
+        "fail_three_ds",
+        "capture",
+        "cancel_pi",
+        "refund"
+      ],
+      "verification_goals": [
+        {
+          "vg_id": "ref_vg_confirm_amounts",
+          "description": "confirm preserves the PaymentIntent amount invariant",
+          "kind": "invariant",
+          "iml": "verify (fun (pi : payment_intent) ->\n  inv_pi_amounts pi ==> inv_pi_amounts (confirm pi))"
+        },
+        {
+          "vg_id": "ref_vg_capture_amounts",
+          "description": "capture preserves the PaymentIntent amount invariant",
+          "kind": "invariant",
+          "iml": "verify (fun (amt : int) (pi : payment_intent) ->\n  inv_pi_amounts pi ==> inv_pi_amounts (capture amt pi))"
+        },
+        {
+          "vg_id": "ref_vg_refund_amounts",
+          "description": "refund preserves the Charge amount invariant",
+          "kind": "invariant",
+          "iml": "verify (fun (amt : int) (pi : payment_intent) ->\n  inv_pi_amounts pi ==>\n  match pi.latest_charge with\n  | None -> true\n  | Some c -> inv_charge_amounts c ==>\n    match (refund amt pi).latest_charge with\n    | None -> true\n    | Some c2 -> inv_charge_amounts c2)"
+        },
+        {
+          "vg_id": "ref_vg_cancel_valid",
+          "description": "cancel from non-terminal state always produces Canceled",
+          "kind": "invariant",
+          "iml": "verify (fun (pi : payment_intent) ->\n  not (is_terminal pi) ==>\n  (cancel_pi pi).pi_status = Canceled)"
+        },
+        {
+          "vg_id": "ref_vg_succeeded_terminal",
+          "description": "succeeded is a terminal state (no transitions out)",
+          "kind": "invariant",
+          "iml": "verify (fun (pi : payment_intent) ->\n  pi.pi_status = Succeeded ==>\n  confirm pi = pi && capture 1 pi = pi && cancel_pi pi = pi)"
+        },
+        {
+          "vg_id": "ref_vg_3ds_blocks",
+          "description": "3D Secure blocks authorization until challenge is completed",
+          "kind": "invariant",
+          "iml": "verify (fun (pi : payment_intent) ->\n  pi.pi_status = RequiresConfirmation &&\n  pi.three_ds_required && not pi.three_ds_completed ==>\n  (confirm pi).pi_status = RequiresAction)"
+        },
+        {
+          "vg_id": "ref_vg_refund_flag",
+          "description": "refunded flag is consistent with amount_refunded = amount_captured",
+          "kind": "invariant",
+          "iml": "verify (fun (amt : int) (pi : payment_intent) ->\n  pi.pi_status = Succeeded ==>\n  match (refund amt pi).latest_charge with\n  | None -> true\n  | Some c -> inv_refunded_flag c)"
+        },
+        {
+          "vg_id": "ref_vg_capture_conformance",
+          "description": "Agent's capture implementation refines the reference capture",
+          "kind": "conformance",
+          "iml": "(* Agent's capture_payment must produce the same result as\n   ref capture when mapped through order_to_payment_intent *)\nverify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  let agent_result = order_to_pi (capture_payment amt o) in\n  let ref_result = capture amt pi in\n  agent_result = ref_result)"
+        },
+        {
+          "vg_id": "ref_vg_refund_conformance",
+          "description": "Agent's refund implementation refines the reference refund",
+          "kind": "conformance",
+          "iml": "(* Agent's refund_payment must produce the same result as\n   ref refund when mapped through order_to_payment_intent *)\nverify (fun (amt : int) (o : order) ->\n  let pi = order_to_pi o in\n  let agent_result = order_to_pi (refund_payment amt o) in\n  let ref_result = refund amt pi in\n  agent_result = ref_result)"
+        }
+      ]
+    },
+    {
+      "reference_model_id": "ref_plaid_link",
+      "name": "Plaid Link & Transactions Model",
+      "description": "Formal IML specification of the Plaid Link token lifecycle and transaction sync protocol. Covers: link token creation, Link flow states, access token exchange, cursor-based transaction sync with pagination, and item connection states. Based on the Plaid API v2024-09 documentation.",
+      "domain": "plaid",
+      "version": "2024-09",
+      "source": "plaid-api-v2024-09",
+      "iml": "(* ================================================================\n   Plaid Link & Transactions Reference Model\n   Version: 2024-09\n   Source: Plaid API documentation\n   \n   Formal model of the Plaid Link token lifecycle and\n   transaction sync protocol. Covers: link token creation,\n   item connection, access token exchange, transaction sync\n   with cursor-based pagination, and webhook notifications.\n   ================================================================ *)\n\n(* ---- Link token lifecycle ---- *)\n\ntype link_token_status =\n  | LinkCreated          (* token created, not yet used *)\n  | LinkInProgress       (* user is in Link flow *)\n  | LinkSucceeded        (* user connected institution *)\n  | LinkExited           (* user exited without connecting *)\n  | LinkExpired          (* token expired (30 min TTL) *)\n\n(* ---- Item (connected account) states ---- *)\n\ntype item_status =\n  | ItemActive           (* healthy connection *)\n  | ItemNeedsUpdate      (* credentials need refresh *)\n  | ItemRevoked          (* user revoked access *)\n  | ItemSuspended        (* Plaid suspended due to errors *)\n\n(* ---- Transaction sync states ---- *)\n\ntype sync_status =\n  | SyncInitial          (* first sync, no cursor *)\n  | SyncInProgress       (* paginating through results *)\n  | SyncComplete         (* all pages consumed, has_more = false *)\n\ntype cursor = string option\n\n(* ---- Core objects ---- *)\n\ntype link_token = {\n  lt_client_id : string;\n  lt_user_id : string;\n  lt_status : link_token_status;\n  lt_expiration_ttl : int;  (* seconds, max 1800 *)\n}\n\ntype access_token = {\n  at_item_id : string;\n  at_status : item_status;\n  at_institution_id : string;\n}\n\ntype transaction = {\n  tx_id : string;\n  tx_amount : int;        (* in cents, positive = debit *)\n  tx_pending : bool;\n  tx_category : string;\n}\n\ntype sync_response = {\n  added : transaction list;\n  modified : transaction list;\n  removed : string list;   (* removed transaction IDs *)\n  next_cursor : string;\n  has_more : bool;\n}\n\ntype sync_state = {\n  ss_cursor : cursor;\n  ss_status : sync_status;\n  ss_total_added : int;\n  ss_total_modified : int;\n  ss_total_removed : int;\n}\n\n(* ---- Invariants ---- *)\n\n(* Link token TTL must be positive and <= 30 minutes *)\nlet inv_link_ttl (lt : link_token) : bool =\n  0 < lt.lt_expiration_ttl &&\n  lt.lt_expiration_ttl <= 1800\n\n(* Sync state counts must be non-negative *)\nlet inv_sync_counts (ss : sync_state) : bool =\n  ss.ss_total_added >= 0 &&\n  ss.ss_total_modified >= 0 &&\n  ss.ss_total_removed >= 0\n\n(* Transaction amounts are non-zero *)\nlet inv_transaction (tx : transaction) : bool =\n  tx.tx_amount <> 0\n\n(* ---- State transitions ---- *)\n\n(* Create a link token *)\nlet create_link_token (client_id : string) (user_id : string) : link_token =\n  { lt_client_id = client_id;\n    lt_user_id = user_id;\n    lt_status = LinkCreated;\n    lt_expiration_ttl = 1800; }\n\n(* User starts Link flow *)\nlet start_link (lt : link_token) : link_token =\n  if lt.lt_status = LinkCreated then\n    { lt with lt_status = LinkInProgress }\n  else lt\n\n(* User successfully connects institution *)\nlet complete_link (lt : link_token) : link_token =\n  if lt.lt_status = LinkInProgress then\n    { lt with lt_status = LinkSucceeded }\n  else lt\n\n(* User exits without connecting *)\nlet exit_link (lt : link_token) : link_token =\n  if lt.lt_status = LinkInProgress then\n    { lt with lt_status = LinkExited }\n  else lt\n\n(* Token expires *)\nlet expire_link (lt : link_token) : link_token =\n  if lt.lt_status = LinkCreated || lt.lt_status = LinkInProgress then\n    { lt with lt_status = LinkExpired }\n  else lt\n\n(* Exchange public token for access token *)\nlet exchange_token (lt : link_token) (institution_id : string) : access_token option =\n  if lt.lt_status = LinkSucceeded then\n    Some { at_item_id = \"item_\" ^ lt.lt_user_id;\n           at_status = ItemActive;\n           at_institution_id = institution_id; }\n  else None\n\n(* Process a sync response page *)\nlet process_sync_page (resp : sync_response) (ss : sync_state) : sync_state =\n  { ss_cursor = Some resp.next_cursor;\n    ss_status = if resp.has_more then SyncInProgress else SyncComplete;\n    ss_total_added = ss.ss_total_added + List.length resp.added;\n    ss_total_modified = ss.ss_total_modified + List.length resp.modified;\n    ss_total_removed = ss.ss_total_removed + List.length resp.removed; }\n\n(* Initial sync state *)\nlet initial_sync_state : sync_state =\n  { ss_cursor = None;\n    ss_status = SyncInitial;\n    ss_total_added = 0;\n    ss_total_modified = 0;\n    ss_total_removed = 0; }\n\n(* ---- Verification goals ---- *)\n\n(* VG1: link token lifecycle is monotonic (no going back) *)\nverify (fun (lt : link_token) ->\n  lt.lt_status = LinkSucceeded ==>\n  complete_link lt = lt &&\n  start_link lt = lt)\n\n(* VG2: exchange only works after successful link *)\nverify (fun (lt : link_token) (inst : string) ->\n  lt.lt_status <> LinkSucceeded ==>\n  exchange_token lt inst = None)\n\n(* VG3: sync counts are monotonically non-decreasing *)\nverify (fun (resp : sync_response) (ss : sync_state) ->\n  inv_sync_counts ss ==>\n  inv_sync_counts (process_sync_page resp ss))\n\n(* VG4: completed sync has a cursor *)\nverify (fun (resp : sync_response) (ss : sync_state) ->\n  not resp.has_more ==>\n  (process_sync_page resp ss).ss_status = SyncComplete &&\n  (process_sync_page resp ss).ss_cursor <> None)",
+      "symbols": [
+        "link_token_status",
+        "item_status",
+        "sync_status",
+        "link_token",
+        "access_token",
+        "transaction",
+        "sync_response",
+        "sync_state",
+        "inv_link_ttl",
+        "inv_sync_counts",
+        "inv_transaction",
+        "create_link_token",
+        "start_link",
+        "complete_link",
+        "exit_link",
+        "expire_link",
+        "exchange_token",
+        "process_sync_page",
+        "initial_sync_state"
+      ],
+      "verification_goals": [
+        {
+          "vg_id": "ref_vg_link_monotonic",
+          "description": "Link token lifecycle is monotonic — succeeded tokens cannot restart",
+          "kind": "invariant",
+          "iml": "verify (fun (lt : link_token) ->\n  lt.lt_status = LinkSucceeded ==>\n  complete_link lt = lt && start_link lt = lt)"
+        },
+        {
+          "vg_id": "ref_vg_exchange_requires_success",
+          "description": "Token exchange only succeeds after a completed Link flow",
+          "kind": "invariant",
+          "iml": "verify (fun (lt : link_token) (inst : string) ->\n  lt.lt_status <> LinkSucceeded ==>\n  exchange_token lt inst = None)"
+        },
+        {
+          "vg_id": "ref_vg_sync_counts_monotonic",
+          "description": "Transaction sync counts are monotonically non-decreasing",
+          "kind": "invariant",
+          "iml": "verify (fun (resp : sync_response) (ss : sync_state) ->\n  inv_sync_counts ss ==>\n  inv_sync_counts (process_sync_page resp ss))"
+        },
+        {
+          "vg_id": "ref_vg_sync_complete_has_cursor",
+          "description": "Completed sync always has a cursor for future incremental syncs",
+          "kind": "invariant",
+          "iml": "verify (fun (resp : sync_response) (ss : sync_state) ->\n  not resp.has_more ==>\n  (process_sync_page resp ss).ss_status = SyncComplete &&\n  (process_sync_page resp ss).ss_cursor <> None)"
+        }
+      ]
+    }
+  ],
+  "goals": [
+    {
+      "id": "stripe-demo",
+      "intent": "Add 3DS/SCA and high-risk 2-approval support to the Stripe payment flow",
+      "scope": [
+        "stripe_payment_flow.py",
+        "capture_payment",
+        "confirm_payment_intent"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "s1",
+          "kind": "change",
+          "label": "Add 3DS branch to confirm_payment_intent",
+          "binding": {
+            "symbol": "confirm_payment_intent"
+          },
+          "status": "done",
+          "required": true
+        },
+        {
+          "id": "s2",
+          "kind": "change",
+          "label": "Require 2 approvals before capture in capture_payment",
+          "binding": {
+            "symbol": "capture_payment"
+          },
+          "status": "done",
+          "required": true
+        },
+        {
+          "id": "s3",
+          "kind": "property",
+          "label": "Amount invariant: 0 <= refunded <= captured <= amount",
+          "binding": {
+            "property": "amount"
+          },
+          "status": "done",
+          "required": true
+        },
+        {
+          "id": "s4",
+          "kind": "property",
+          "label": "3DS blocks authorization when required but not completed",
+          "binding": {
+            "property": "3ds"
+          },
+          "status": "done",
+          "required": true
+        },
+        {
+          "id": "s5",
+          "kind": "property",
+          "label": "High-risk orders require exactly 2 approvals before capture",
+          "binding": {
+            "property": "approval"
+          },
+          "status": "done",
+          "required": true
+        },
+        {
+          "id": "s6",
+          "kind": "property",
+          "label": "Capture blocked unless BOTH 3DS completed AND 2 approvals",
+          "binding": {
+            "property": "blocked"
+          },
+          "status": "blocked",
+          "required": true
+        },
+        {
+          "id": "s7",
+          "kind": "obligation",
+          "label": "Conforms to Stripe Payment Reference Model",
+          "binding": {
+            "policy_id": "stripe_conformance_required"
+          },
+          "status": "todo",
+          "required": true
+        },
+        {
+          "id": "s8",
+          "kind": "obligation",
+          "label": "Tests pass before commit",
+          "binding": {
+            "policy_id": "tests_pass_before_commit"
+          },
+          "status": "todo",
+          "required": true
+        },
+        {
+          "id": "s9",
+          "kind": "gap",
+          "label": "Dispute & chargeback transitions unverified",
+          "binding": {
+            "residual_id": "r2"
+          },
+          "status": "todo",
+          "required": true
+        },
+        {
+          "id": "s10",
+          "kind": "gap",
+          "label": "Amount invariant not proved under concurrent capture/refund",
+          "binding": {
+            "residual_id": "r1"
+          },
+          "status": "todo",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

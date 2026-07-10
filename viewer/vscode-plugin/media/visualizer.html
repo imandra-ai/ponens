@@ -1741,6 +1741,7 @@ function normalizeTrace(data) {
           action.vg_result = art.payload;
           break;
         case 'Decomposition':
+        case 'StateSpaceAnalysisResult':
           action.decomposition = art.payload;
           // Normalize target_symbol \u2192 target_function for rendering
           if (art.payload.target_symbol && !art.payload.target_function) {
@@ -1822,7 +1823,7 @@ function loadTrace(data) {
   document.getElementById('vgCount').textContent = collectVGs().length;
   document.getElementById('formalCount').textContent = collectFormalizations().length;
   document.getElementById('decompCount').textContent = collectDecomps().length;
-  document.getElementById('testCount').textContent = collectTests().reduce((s, g) => s + g.tests.length, 0);
+  document.getElementById('testCount').textContent = collectTests().reduce((s, g) => s + (g.tests?.length ?? g.count ?? 0), 0);
   document.getElementById('propsCount').textContent = (data.process_properties || []).length;
 
   // Show policies button for v1.1 traces
@@ -2152,11 +2153,11 @@ function actionCardHTML(a, vgByAction) {
     }
   }
   if (a.decomposition) {
-    const nRegions = a.decomposition.regions.length;
+    const nRegions = a.decomposition.regions?.length ?? 0;
     html += `<span class="card-status-badge transparent">${nRegions} region${nRegions !== 1 ? 's' : ''}${a.decomposition.complete ? ' — complete' : ''}</span>`;
   }
   if (a.generated_tests) {
-    const nTests = a.generated_tests.tests.length;
+    const nTests = a.generated_tests.tests?.length ?? a.generated_tests.count ?? 0;
     html += `<span class="card-status-badge transparent">${nTests} test${nTests !== 1 ? 's' : ''} generated</span>`;
   }
 
@@ -2881,9 +2882,10 @@ function selectAction(actionId) {
   // ---- Generated tests detail ----
   if (d.generated_tests) {
     const gt = d.generated_tests;
+    const gtLabel = gt.function ? esc(gt.function) + (gt.language ? ` (${esc(gt.language)})` : '') : esc(gt.summary || `${gt.count ?? 0} tests`);
     html += `<div class="detail-section">
-      <p class="label">Generated Tests: <span class="clr-purple" style="font-family:'SF Mono','Fira Code',monospace;text-transform:none;">${esc(gt.function)}</span> (${esc(gt.language)})</p>`;
-    for (const t of gt.tests) {
+      <p class="label">Generated Tests: <span class="clr-purple" style="font-family:'SF Mono','Fira Code',monospace;text-transform:none;">${gtLabel}</span></p>`;
+    for (const t of (gt.tests || [])) {
       html += `<div class="dp-test-item" onclick="this.querySelector('.dp-code-block')?.classList.toggle('collapsed')">
         <div class="dp-test-name">${esc(t.name)}</div>
         <div class="dp-test-meta">R${t.region_index + 1}: ${(t.constraints || []).join(' AND ')} \u2192 expected: ${esc(String(t.expected))}</div>
@@ -3043,11 +3045,12 @@ function collectArtifacts() {
       });
     }
     if (a.generated_tests) {
+      const gt = a.generated_tests;
       groups.tests.items.push({
         action: a,
-        label: 'Function under test: ' + a.generated_tests.function,
-        badge: a.generated_tests.language,
-        meta: a.generated_tests.tests.length + ' tests'
+        label: gt.function ? 'Function under test: ' + gt.function : (gt.summary || 'Generated tests'),
+        badge: gt.language,
+        meta: (gt.tests?.length ?? gt.count ?? 0) + ' tests'
       });
     }
     if (a.type === 'EditFile' || a.type === 'CreateFile' || a.type === 'DeleteFile') {

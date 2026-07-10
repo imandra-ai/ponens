@@ -876,9 +876,124 @@ def validate_trace(trace):
     return errors, warnings
 
 
+_VALID_VERDICTS = {'proved', 'refuted', 'unknown'}
+# Producing/reasoning actions the exporter groups into phase meta-actions (§8.4).
+_GROUPED_ACTION_TYPES = {
+    'Verify', 'EditFile', 'GenerateTests', 'StateSpaceAnalysis', 'ConformanceCheck', 'Decompose',
+}
+
+
+def soundness_errors(trace, strict=False):
+    """Deeper *semantic* invariants beyond structure (validate_trace) — the checks that catch a
+    mis-generated trace even when it is structurally well-typed:
+
+      - reference resolution: every derived_from / input / output / producer / related / produced id
+        resolves to a real artifact or action;
+      - data-flow ordering: every consumed input was produced by an EARLIER action (no cycles,
+        nothing consumed-but-never-produced);
+      - verification lineage: VerificationResult -> VerificationGoal -> IMLModel, valid status;
+      - enrich() and grade_trace() run without raising on this trace.
+
+    With strict=True it also enforces the exporter convention that every reasoning/change/test
+    action is grouped into a phase meta-action (§8.4). Returns a list of error strings (empty ==
+    sound). Note: whether a refuted verdict is recorded by a residual is intentionally NOT checked
+    here -- a curated trace may resolve a refutation later -- it is asserted on fresh export output
+    by the exporter's own unit tests."""
+    import copy
+    errs = []
+    actions = trace.get('actions', []) or []
+    artifacts = trace.get('artifacts', []) or []
+    art_by_id = {a.get('artifact_id'): a for a in artifacts if isinstance(a, dict)}
+    ref_ids = {a.get('artifact_id') for a in (trace.get('reference_artifacts', []) or []) if isinstance(a, dict)}
+    known_art = set(art_by_id) | ref_ids
+    act_ids = {a.get('id') for a in actions if isinstance(a, dict)}
+
+    producer = {}
+    for a in artifacts:
+        if not isinstance(a, dict):
+            continue
+        pid = a.get('producer_action_id')
+        if pid is not None:
+            if pid not in act_ids:
+                errs.append(f"artifact {a.get('artifact_id')}: producer_action_id {pid} does not exist")
+            producer[a.get('artifact_id')] = pid
+        for parent in a.get('derived_from', []) or []:
+            if parent not in known_art:
+                errs.append(f"artifact {a.get('artifact_id')}: derived_from '{parent}' does not exist")
+
+    for a in actions:
+        if not isinstance(a, dict):
+            continue
+        aid = a.get('id')
+        for inp in a.get('inputs', []) or []:
+            if inp not in known_art:
+                errs.append(f"action {aid}: input '{inp}' is not a known artifact")
+                continue
+            pid = producer.get(inp)
+            if pid is None:
+                if inp not in ref_ids:
+                    errs.append(f"action {aid}: input '{inp}' is consumed but never produced")
+            elif isinstance(aid, int) and isinstance(pid, int) and pid >= aid:
+                errs.append(f"action {aid}: input '{inp}' is produced later by action {pid} (data-flow cycle)")
+        for out in a.get('outputs', []) or []:
+            if out not in known_art:
+                errs.append(f"action {aid}: output '{out}' is not a known artifact")
+
+    for r in trace.get('residuals', []) or []:
+        if isinstance(r, dict):
+            for rid in r.get('related_artifact_ids', []) or []:
+                if rid not in known_art:
+                    errs.append(f"residual {r.get('residual_id')}: related_artifact_id '{rid}' does not exist")
+    for m in trace.get('meta_actions', []) or []:
+        if isinstance(m, dict):
+            for pid in m.get('produced_artifact_ids', []) or []:
+                if pid not in known_art:
+                    errs.append(f"meta_action {m.get('id')}: produced_artifact_id '{pid}' does not exist")
+
+    # Verification lineage chain.
+    for a in artifacts:
+        if not isinstance(a, dict):
+            continue
+        t = a.get('artifact_type')
+        if t == 'VerificationResult':
+            status = (a.get('payload') or {}).get('status')
+            if status not in _VALID_VERDICTS:
+                errs.append(f"VerificationResult {a.get('artifact_id')}: invalid status '{status}'")
+            if not any(art_by_id.get(p, {}).get('artifact_type') == 'VerificationGoal'
+                       for p in (a.get('derived_from') or [])):
+                errs.append(f"VerificationResult {a.get('artifact_id')}: does not derive from a VerificationGoal")
+        elif t == 'VerificationGoal':
+            model_ok = any(art_by_id.get(p, {}).get('artifact_type') == 'IMLModel'
+                           for p in (a.get('derived_from') or []))
+            tgt = (a.get('payload') or {}).get('target_artifact_id')
+            if tgt and art_by_id.get(tgt, {}).get('artifact_type') == 'IMLModel':
+                model_ok = True
+            if not model_ok:
+                errs.append(f"VerificationGoal {a.get('artifact_id')}: does not derive from an IMLModel")
+
+    # Derived projections must not blow up on this trace.
+    try:
+        from . import goals as _goals
+        _goals.enrich(copy.deepcopy(trace))
+    except Exception as e:  # noqa: BLE001 - surface any failure as a soundness error
+        errs.append(f"enrich() raised {type(e).__name__}: {e}")
+    try:
+        grade_trace(copy.deepcopy(trace))
+    except Exception as e:  # noqa: BLE001
+        errs.append(f"grade_trace() raised {type(e).__name__}: {e}")
+
+    if strict:
+        for a in actions:
+            if isinstance(a, dict) and a.get('type') in _GROUPED_ACTION_TYPES and a.get('meta_action_id') is None:
+                errs.append(f"action {a.get('id')} ({a.get('type')}): not grouped into any phase meta-action")
+    return errs
+
+
 def cmd_validate(args):
     trace = load_trace(args.trace_file)
     errors, warnings = validate_trace(trace)
+    if getattr(args, 'strict', False):
+        errors = errors + soundness_errors(trace, strict=True)
     for w in warnings:
         print(f"  warning: {w}")
     for e in errors:
@@ -1763,6 +1878,9 @@ def register(subparsers):
     # validate
     p = trace_sub.add_parser("validate", help="Validate the trace's structure")
     p.add_argument("trace_file")
+    p.add_argument("--strict", action="store_true",
+                   help="also check deep soundness: reference resolution, data-flow ordering, "
+                        "verification lineage, phase coverage, and that enrich/grade run clean")
     p.set_defaults(func=cmd_validate)
 
     # fmt

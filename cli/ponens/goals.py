@@ -28,6 +28,25 @@ def _binding(item):
     return (item or {}).get("binding") or {}
 
 
+def _vg_matches(vg, sym, prop):
+    """Does a VerificationGoal match a `property` binding {symbol?, property?}?
+
+    The property keyword (if given) must appear in the goal's description. The symbol (if given)
+    must equal the goal's `target_symbol` -- BUT when the goal carries no `target_symbol` (the common
+    case for check_vg-recorded goals, which describe the property, not the code symbol), we cannot
+    disqualify on symbol and instead rely on the property keyword having pinned the match."""
+    payload = _payload(vg)
+    if prop and _lc(prop) not in _lc(payload.get("description")):
+        return False
+    if not sym:
+        return True
+    tsym = payload.get("target_symbol")
+    if tsym:
+        return tsym == sym
+    # No target_symbol to check against: accept only if a property keyword already pinned it.
+    return bool(prop)
+
+
 # ================================================================
 # Acceptance resolution (was goalResolve.ts)
 # ================================================================
@@ -62,9 +81,7 @@ def resolve_item(item, trace):
     if kind == "property":
         sym = binding.get("symbol")
         prop = binding.get("property")
-        vgs = [a for a in arts if a.get("artifact_type") == "VerificationGoal"
-               and (not sym or _payload(a).get("target_symbol") == sym)
-               and (not prop or _lc(prop) in _lc(_payload(a).get("description")))]
+        vgs = [a for a in arts if a.get("artifact_type") == "VerificationGoal" and _vg_matches(a, sym, prop)]
         if not vgs:
             return keep
         vg_ids = {v.get("artifact_id") for v in vgs}
@@ -156,9 +173,7 @@ def _seed_artifacts(goal, trace):
         kind = item.get("kind")
         if kind == "property":
             sym, prop = b.get("symbol"), b.get("property")
-            vgs = [a for a in arts if a.get("artifact_type") == "VerificationGoal"
-                   and (not sym or _payload(a).get("target_symbol") == sym)
-                   and (not prop or _lc(prop) in _lc(_payload(a).get("description")))]
+            vgs = [a for a in arts if a.get("artifact_type") == "VerificationGoal" and _vg_matches(a, sym, prop)]
             vg_ids = {v.get("artifact_id") for v in vgs}
             goal_ids = {_payload(v).get("goal_id") for v in vgs}
             for v in vgs:

@@ -1581,7 +1581,7 @@ function collectArtifacts() {
         action: a,
         label: 'Decomposed function: ' + a.decomposition.target_function,
         badge: a.decomposition.complete ? 'complete' : 'partial',
-        meta: a.decomposition.regions.length + ' regions'
+        meta: (a.decomposition.regions?.length ?? 0) + ' regions'
       });
     }
     if (a.generated_tests) {

@@ -467,6 +467,7 @@
   }
   .dtag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--border); color: #7080c0; margin: 2px 2px 2px 0; font-family: 'SF Mono','Fira Code',monospace; }
   [data-theme="light"] .dtag { background: #e4eaf4; color: #0c2340; }
+  .dtag-link:hover { text-decoration: underline; border-color: var(--accent); }
   .evidence-item { font-size: 12px; color: #a5b4fc; padding: 3px 0; }
   [data-theme="light"] .evidence-item { color: #0c2340; }
 
@@ -1270,6 +1271,8 @@
   .policy-card .pc-name {
     font-size: 13px; font-weight: 600; color: var(--text-primary);
     font-family: 'SF Mono','Fira Code',monospace;
+    /* long snake_case names must wrap, not overflow UNDER the status badge in a narrow pane */
+    overflow-wrap: anywhere; min-width: 0;
   }
   .policy-card .pc-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .policy-card .pc-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }

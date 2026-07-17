@@ -1435,9 +1435,13 @@ function selectAction(actionId) {
     html += `</div>`;
   }
 
-  // ---- Data flow ----
-  if (d.inputs?.length) html += `<div class="detail-section"><p class="label">Inputs</p>${d.inputs.map(i => `<span class="dtag">${esc(i)}</span>`).join(' ')}</div>`;
-  if (d.outputs?.length) html += `<div class="detail-section"><p class="label">Outputs</p>${d.outputs.map(o => `<span class="dtag">${esc(o)}</span>`).join(' ')}</div>`;
+  // ---- Data flow ---- (each input/output is an artifact; make it clickable to open/navigate)
+  const dtagLinks = (names, ids) => names.map((n, i) => {
+    const id = (ids && ids[i] != null) ? ids[i] : n;
+    return `<span class="dtag dtag-link" style="cursor:pointer;color:var(--accent);" title="Open ${esc(String(n))}" onclick="event.stopPropagation();openArtifactRef('${esc(String(id))}')">${esc(n)}</span>`;
+  }).join(' ');
+  if (d.inputs?.length) html += `<div class="detail-section"><p class="label">Inputs</p>${dtagLinks(d.inputs, d._original_inputs)}</div>`;
+  if (d.outputs?.length) html += `<div class="detail-section"><p class="label">Outputs</p>${dtagLinks(d.outputs, d._original_outputs)}</div>`;
 
   // ---- Execution metadata (v1.1) ----
   if (d.execution) {
@@ -2149,12 +2153,13 @@ const DAG_TYPE_COLORS_DARK = {
   Plan: { bg: '#181620', border: '#8870b8', text: '#b0a0d0' },
   Formalization: { bg: '#1a1428', border: '#6848b0', text: '#b0a0d0' },
   IMLModel: { bg: '#1a1428', border: '#8870b8', text: '#b0a0d0' },
-  VerificationGoal: { bg: '#161428', border: '#5858b8', text: '#9898d0' },
+  VerificationGoal: { bg: '#171634', border: '#6a54c8', text: '#a898e0' },
   VerificationResult: { bg: '#141e14', border: '#3a9860', text: '#80c8a0' },
   Decomposition: { bg: '#1e1c10', border: '#b89828', text: '#d8c870' },
+  StateSpaceAnalysisResult: { bg: '#1e1c10', border: '#b89828', text: '#d8c870' },
   GeneratedTests: { bg: '#101c1e', border: '#2890a0', text: '#68b8c8' },
   CommandResult: { bg: '#1c1e26', border: '#6a7080', text: '#a0a4b0' },
-  Diff: { bg: '#141e1a', border: '#38a880', text: '#80c8b0' },
+  Diff: { bg: '#1a1e10', border: '#9db83a', text: '#c8d878' },
   Commit: { bg: '#1e1420', border: '#b85888', text: '#d898b8' },
   UserApproval: { bg: '#1e1c14', border: '#c09830', text: '#d8c870' },
   ReferenceModel: { bg: '#141820', border: '#5090c0', text: '#90b8d8' },
@@ -2169,12 +2174,13 @@ const DAG_TYPE_COLORS_LIGHT = {
   Plan: { bg: '#f0ecfa', border: '#7860a0', text: '#4830a0' },
   Formalization: { bg: '#eee8fa', border: '#5838a0', text: '#4030a0' },
   IMLModel: { bg: '#eee8fa', border: '#7860a0', text: '#4030a0' },
-  VerificationGoal: { bg: '#eceafa', border: '#4848a8', text: '#3030a0' },
+  VerificationGoal: { bg: '#ece9fb', border: '#5a44b8', text: '#3d2aa0' },
   VerificationResult: { bg: '#e8f5ec', border: '#208848', text: '#186838' },
   Decomposition: { bg: '#f8f4e0', border: '#987810', text: '#685010' },
+  StateSpaceAnalysisResult: { bg: '#f8f4e0', border: '#987810', text: '#685010' },
   GeneratedTests: { bg: '#e4f4f6', border: '#107888', text: '#106070' },
   CommandResult: { bg: '#f0f1f4', border: '#8a8f9c', text: '#4a5060' },
-  Diff: { bg: '#e8f5f0', border: '#208860', text: '#186848' },
+  Diff: { bg: '#f4f7e2', border: '#6f9e1e', text: '#527010' },
   Commit: { bg: '#faeef2', border: '#a83868', text: '#882050' },
   UserApproval: { bg: '#faf6e8', border: '#a08010', text: '#786010' },
   ReferenceModel: { bg: '#e8f0fa', border: '#3070a0', text: '#1a4878' },
@@ -2189,6 +2195,28 @@ function dagTypeColor(type) {
   return palette[type] || (isLightTheme()
     ? { bg: '#f0f1f4', border: '#b0b4bc', text: '#4a5060' }
     : { bg: '#1c1e26', border: '#3e4350', text: '#a0a4b0' });
+}
+
+// Display labels for artifact types: keep the underlying type key (data-model identity used for
+// colors/matching) but present engine-neutral names in the UI (e.g. don't surface IML/ImandraX).
+const DAG_TYPE_LABELS = {
+  IMLModel: 'Formal Model',
+};
+function dagTypeLabel(type) { return DAG_TYPE_LABELS[type] || type; }
+
+// A node's display label: a SourceCode/file artifact carries its full absolute path as `name`,
+// which overflows the detail panel. Show just the basename; the full path stays available on hover.
+function dagShortName(n) {
+  return (typeof n === 'string' && n.includes('/')) ? (n.split('/').pop() || n) : n;
+}
+
+// Open/navigate to an artifact by id: in a host embedding (desktop) open the materialized file;
+// standalone, jump to it in the DAG. Used by clickable input/output chips in the action detail.
+function openArtifactRef(id) {
+  if (!id) return;
+  if (typeof window.__ponensOpenArtifact === 'function') { window.__ponensOpenArtifact(id); return; }
+  try { switchView('dag'); } catch (e) { /* view may be pinned */ }
+  try { selectDAGNode(id); } catch (e) { /* not a DAG node */ }
 }
 
 function renderDAGView() {
@@ -2272,6 +2300,17 @@ function renderDAGView() {
   }
   for (const a of allArtifacts) getLevel(a.artifact_id);
 
+  // Pin RESULT leaves to the bottom row: a node with no downstream (nothing derives from it) that is
+  // itself derived from something is a resulting artifact — line them all up on one row instead of
+  // scattering by dependency depth, so the graph reads "inputs on top, results on the bottom".
+  const maxNatural = Math.max(0, ...allArtifacts.map(a => levels[a.artifact_id] || 0));
+  const hasChild = new Set();
+  for (const a of allArtifacts) for (const pid of (a.derived_from || [])) hasChild.add(pid);
+  for (const a of allArtifacts) {
+    const id = a.artifact_id;
+    if (!hasChild.has(id) && (a.derived_from || []).length > 0) levels[id] = maxNatural;
+  }
+
   // Group by level
   const byLevel = {};
   for (const a of allArtifacts) {
@@ -2344,7 +2383,7 @@ function renderDAGView() {
       style="left:${pos.x - nodeW/2}px;top:${pos.y - nodeH/2}px;width:${nodeW}px;height:${nodeH}px;
       background:${col.bg};border-color:${col.border};${refStyle}"
       onclick="event.stopPropagation();selectDAGNode('${esc(a.artifact_id)}')">
-      <span class="dn-type" style="background:${col.border}33;color:${col.text};">${esc(a.artifact_type)}</span>
+      <span class="dn-type" style="background:${col.border}33;color:${col.text};">${esc(dagTypeLabel(a.artifact_type))}</span>
       <span class="dn-name" title="${esc(a.name || a.artifact_id)}">${esc(a.name || a.artifact_id)}</span>
       ${a.revision ? `<span class="dn-rev">rev ${a.revision}</span>` : ''}
     </div>`;
@@ -2367,7 +2406,7 @@ function renderDAGView() {
   html += `<div class="dag-legend">`;
   for (const t of usedTypes) {
     const col = dagTypeColor(t);
-    html += `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${col.bg};border:1px solid ${col.border};color:${col.text};">${esc(t)}</span>`;
+    html += `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${col.bg};border:1px solid ${col.border};color:${col.text};">${esc(dagTypeLabel(t))}</span>`;
   }
   const supColor = isLightTheme() ? '#a08010' : '#c09830';
   const supBg = isLightTheme() ? '#faf6e8' : '#1e1c14';
@@ -2500,7 +2539,7 @@ function selectDAGNode(artifactId) {
     if (downstream.length) {
       html += `<div class="dd-label">Used By</div>`;
       for (const d of downstream) {
-        html += `<div class="dd-field" style="cursor:pointer;color:var(--accent);" onclick="selectDAGNode('${esc(d.artifact_id)}')">\u2192 ${esc(d.name || d.artifact_id)}</div>`;
+        html += `<div class="dd-field" style="cursor:pointer;color:var(--accent);" onclick="selectDAGNode('${esc(d.artifact_id)}')" title="${esc(d.name || d.artifact_id)}">\u2192 ${esc(dagShortName(d.name || d.artifact_id))}</div>`;
       }
     }
 
@@ -2509,17 +2548,31 @@ function selectDAGNode(artifactId) {
   }
 
   const col = dagTypeColor(art.artifact_type);
-  let html = `<h3 style="color:${col.text};">${esc(art.name || art.artifact_id)}</h3>`;
-  html += `<div class="dd-field"><span class="dn-type" style="background:${col.border}33;color:${col.text};display:inline-block;margin-bottom:4px;">${esc(art.artifact_type)}</span></div>`;
+  const rawName = art.name || art.artifact_id;
+  const shortName = dagShortName(rawName);
+  let html = `<h3 style="color:${col.text};overflow-wrap:anywhere;" title="${esc(rawName)}">${esc(shortName)}</h3>`;
+  if (shortName !== rawName) html += `<div class="dd-field" style="font-size:10px;color:var(--text-dim);word-break:break-all;">${esc(rawName)}</div>`;
+  html += `<div class="dd-field"><span class="dn-type" style="background:${col.border}33;color:${col.text};display:inline-block;margin-bottom:4px;">${esc(dagTypeLabel(art.artifact_type))}</span></div>`;
   html += `<div class="dd-field">ID: <span>${esc(art.artifact_id)}</span></div>`;
   if (art.revision) html += `<div class="dd-field">Revision: <span>${art.revision}</span></div>`;
   if (art.format) html += `<div class="dd-field">Format: <span>${esc(art.format)}</span></div>`;
   if (art.producer_action_id != null) html += `<div class="dd-field" style="display:flex;align-items:center;gap:6px;">Producer: <span>Action #${art.producer_action_id}</span> <button onclick="event.stopPropagation();switchView('flow');selectAction(${art.producer_action_id});document.querySelector('.action-card[data-action-id=&quot;${art.producer_action_id}&quot;]')?.scrollIntoView({behavior:'smooth',block:'center'});" style="background:var(--bg-deep);border:1px solid var(--accent);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;">View in Flow \u2192</button></div>`;
   if (art.summary) html += `<div class="dd-field" style="margin-top:6px;">${esc(art.summary)}</div>`;
 
-  // Host embedding (desktop): open the materialized artifact file in an editor tab.
-  if (typeof window.__ponensOpenArtifact === 'function') {
-    html += `<div style="margin-top:8px;"><button onclick="event.stopPropagation();window.__ponensOpenArtifact('${esc(art.artifact_id)}');" style="background:var(--bg-deep);border:1px solid var(--accent);color:var(--accent);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;">Open file \u2192</button></div>`;
+  // Host embedding (desktop): action buttons. "View result" opens the RICH per-type view (region
+  // map / verification / counterexample) for result artifacts; "Open file" opens the raw artifact.
+  const RICH_RESULT = ['StateSpaceAnalysisResult', 'VerificationResult', 'VerificationGoal', 'ConformanceResult'];
+  const canViewResult = typeof window.__ponensOpenResult === 'function'
+    && RICH_RESULT.includes(art.artifact_type) && /^fr\d+/.test(String(art.artifact_id));
+  if (canViewResult || typeof window.__ponensOpenArtifact === 'function') {
+    html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
+    if (canViewResult) {
+      html += `<button onclick="event.stopPropagation();window.__ponensOpenResult('${esc(art.artifact_id)}');" style="background:var(--accent);border:1px solid var(--accent);color:var(--bg-deep);font-size:10px;font-weight:600;padding:4px 10px;border-radius:4px;cursor:pointer;">View result \u2192</button>`;
+    }
+    if (typeof window.__ponensOpenArtifact === 'function') {
+      html += `<button onclick="event.stopPropagation();window.__ponensOpenArtifact('${esc(art.artifact_id)}');" style="background:var(--bg-deep);border:1px solid var(--accent);color:var(--accent);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;">Open file \u2192</button>`;
+    }
+    html += '</div>';
   }
 
   if (art.derived_from?.length) {
@@ -2528,13 +2581,13 @@ function selectDAGNode(artifactId) {
       const parent = traceData._artifactMap?.[pid];
       const refParent = (traceData?.reference_models || []).find(rm => rm.reference_model_id === pid);
       const parentName = parent?.name || refParent?.name || pid;
-      html += `<div class="dd-field" style="cursor:pointer;color:var(--accent);" onclick="selectDAGNode('${esc(pid)}')">\u2190 ${esc(parentName)}</div>`;
+      html += `<div class="dd-field" style="cursor:pointer;color:var(--accent);" onclick="selectDAGNode('${esc(pid)}')" title="${esc(parentName)}">\u2190 ${esc(dagShortName(parentName))}</div>`;
     }
   }
   if (art.supersedes) {
     const sup = traceData._artifactMap?.[art.supersedes];
     html += `<div class="dd-label">Supersedes</div>`;
-    html += `<div class="dd-field" style="cursor:pointer;color:var(--yellow-bright);" onclick="selectDAGNode('${esc(art.supersedes)}')">\u21BB ${esc(sup?.name || art.supersedes)}</div>`;
+    html += `<div class="dd-field" style="cursor:pointer;color:var(--yellow-bright);" onclick="selectDAGNode('${esc(art.supersedes)}')" title="${esc(sup?.name || art.supersedes)}">\u21BB ${esc(dagShortName(sup?.name || art.supersedes))}</div>`;
   }
 
   // Show downstream
@@ -2542,7 +2595,7 @@ function selectDAGNode(artifactId) {
   if (downstream.length) {
     html += `<div class="dd-label">Consumed By</div>`;
     for (const d of downstream) {
-      html += `<div class="dd-field" style="cursor:pointer;color:var(--accent);" onclick="selectDAGNode('${esc(d.artifact_id)}')">\u2192 ${esc(d.name || d.artifact_id)}</div>`;
+      html += `<div class="dd-field" style="cursor:pointer;color:var(--accent);" onclick="selectDAGNode('${esc(d.artifact_id)}')" title="${esc(d.name || d.artifact_id)}">\u2192 ${esc(dagShortName(d.name || d.artifact_id))}</div>`;
     }
   }
 
@@ -2942,19 +2995,23 @@ function renderPolicyView() {
   const evalMap = {};
   for (const e of evals) evalMap[e.policy_id] = e;
 
-  const passed = evals.filter(e => e.status === 'passed').length;
-  const failed = evals.filter(e => e.status === 'failed').length;
-  const na = evals.filter(e => e.status === 'not_applicable').length;
-  const unk = evals.filter(e => e.status === 'unknown').length;
+  // Count each policy's EFFECTIVE status (a policy with no evaluation is 'unknown', same as its
+  // card) so the tallies match the cards and sum to policies.length — otherwise un-evaluated
+  // policies show "UNKNOWN" per-card while the dashboard reads 0/0/0/0.
+  const effStatus = (p) => evalMap[p.policy_id]?.status || 'unknown';
+  const passed = policies.filter(p => effStatus(p) === 'passed').length;
+  const failed = policies.filter(p => effStatus(p) === 'failed').length;
+  const na = policies.filter(p => effStatus(p) === 'not_applicable').length;
+  const unk = policies.filter(p => effStatus(p) === 'unknown').length;
 
   let html = `<h2 style="font-size:14px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:20px;">Policy Compliance Dashboard</h2>`;
 
   // Summary stats
   html += `<div class="policy-summary-bar">
-    <div class="policy-stat"><div class="ps-num" style="color:#f1f5f9;">${policies.length}</div><div class="ps-label">Policies</div></div>
+    <div class="policy-stat"><div class="ps-num" style="color:var(--text-primary);">${policies.length}</div><div class="ps-label">Policies</div></div>
     <div class="policy-stat"><div class="ps-num clr-green">${passed}</div><div class="ps-label">Passed</div></div>
-    <div class="policy-stat"><div class="ps-num" style="color:${failed ? '#fca5a5' : '#64748b'};">${failed}</div><div class="ps-label">Failed</div></div>
-    <div class="policy-stat"><div class="ps-num" style="color:#94a3b8;">${na}</div><div class="ps-label">Not Applicable</div></div>
+    <div class="policy-stat"><div class="ps-num" style="color:${failed ? 'var(--red)' : 'var(--text-dim)'};">${failed}</div><div class="ps-label">Failed</div></div>
+    <div class="policy-stat"><div class="ps-num" style="color:var(--text-muted);">${na}</div><div class="ps-label">Not Applicable</div></div>
     ${unk ? `<div class="policy-stat"><div class="ps-num clr-yellow">${unk}</div><div class="ps-label">Unknown</div></div>` : ''}
   </div>`;
 

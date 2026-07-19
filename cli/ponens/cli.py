@@ -460,12 +460,28 @@ def cmd_open(args):
 # CLI setup
 # ================================================================
 
+def _pkg_version() -> str:
+    """The installed package version, so `--version` never drifts from pyproject.
+
+    Consumers (e.g. the CodeLogician desktop) gate on this string against their pin, so a hardcoded
+    literal that lags pyproject silently fails the gate — read the real metadata instead.
+    """
+    try:
+        from importlib.metadata import version, PackageNotFoundError
+        try:
+            return version("ponens")
+        except PackageNotFoundError:
+            return "0+unknown"
+    except Exception:
+        return "0+unknown"
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="ponens",
         description="Author, share, review, govern, and validate reasoning traces",
     )
-    parser.add_argument("--version", action="version", version="ponens 1.0.0")
+    parser.add_argument("--version", action="version", version=f"ponens {_pkg_version()}")
     subparsers = parser.add_subparsers(dest="command")
 
     # ── auth ────────────────────────────────────────────────────

@@ -1,11 +1,11 @@
 [project]
 name = "ponens"
-version = "1.2.0"
+version = "1.2.1"
 description = "Author, govern, and validate reasoning traces — the open CLI for the reasoning-policies ecosystem"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
-  {name = "Denis Ignatovich", email = "denis@aestheticintegration.com"},
+  {name = "Denis Ignatovich", email = "denis@imandra.ai"},
 ]
 
 [project.optional-dependencies]
@@ -15,7 +15,7 @@ yaml = ["pyyaml>=6"]
 ponens = "ponens.cli:main"
 
 [build-system]
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

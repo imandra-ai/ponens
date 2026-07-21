@@ -414,8 +414,13 @@ def evaluate_formula(node, trace, ctx=None):
             # Co-simulation (model-vs-implementation replay) status.
             return a.get('cosimulation', {}).get('status') == name
         if name == 'high_stakes_path':
+            # "Where it makes sense": data-driven high-stakes surface. A producer (e.g. a
+            # formalization-target scan) sets trace['high_stakes_paths'] to the path fragments that
+            # warrant formal methods; matching is by substring. Falls back to the demo defaults so
+            # existing traces without the field keep working.
             target = get_action_target(a, trace)
-            return any(p in target for p in ['payments/', 'risk/', 'stripe_payment_flow'])
+            stakes = trace.get('high_stakes_paths') or ['payments/', 'risk/', 'stripe_payment_flow']
+            return any(p in target for p in stakes)
         # A CamelCase atom names a specific action/artifact type. If it matched no
         # known type above it simply does not hold here — exact-match semantics,
         # matching the browser evaluator. Only lowercase atoms fall through to the
@@ -1484,44 +1489,72 @@ def cmd_check(args):
     else:
         policies = trace.get('policies', [])
     if not policies:
-        print("No policies to check.")
+        print("[]" if getattr(args, 'json', False) else "No policies to check.")
         return 0
     total = len(policies)
     passed = 0
     failed = 0
     warnings = 0
     errors = []
+    # policy_evaluation records (Trace Spec §7) accumulated for --json / --write.
+    evaluations = []
+    as_json = getattr(args, 'json', False)
+    emit = (lambda *a, **k: None) if as_json else print  # suppress human output in machine mode
+    last_action_id = max((a['id'] for a in trace.get('actions', [])), default=None)
+
+    def record_eval(pid, status, note):
+        ev = {'policy_id': pid, 'status': status}
+        if last_action_id is not None:
+            ev['checked_at_action_id'] = last_action_id
+        if note:
+            ev['note'] = note
+        evaluations.append(ev)
+
     for p in policies:
-        name = p.get('name', p.get('policy_id', '?'))
+        pid = p.get('policy_id', p.get('name', '?'))
+        name = p.get('name', pid)
         severity = p.get('severity', 'error')
         _, syntax_errors, syntax_warnings = syntax_check_policy(p)
         if syntax_errors:
-            print(f"  SYNTAX  {name}")
+            emit(f"  SYNTAX  {name}")
             for e in syntax_errors:
-                print(f"          {e.message}")
+                emit(f"          {e.message}")
             errors.append(name)
+            record_eval(pid, 'unknown', f'Syntax error: {syntax_errors[0].message}')
             continue
         status, note = evaluate_policy(p, trace)
+        record_eval(pid, status, note)
         if status == 'passed':
             passed += 1
-            print(f"  PASS    {name}")
+            emit(f"  PASS    {name}")
         elif status == 'failed':
             failed += 1
             icon = 'FAIL' if severity == 'error' else 'WARN'
-            print(f"  {icon}    {name}")
+            emit(f"  {icon}    {name}")
             if note:
-                print(f"          {note}")
+                emit(f"          {note}")
             if severity == 'error':
                 errors.append(name)
             elif severity == 'warning':
                 warnings += 1
         else:
-            print(f"  SKIP    {name} — {note or 'could not evaluate'}")
-    print(f"\n{'='*50}")
-    print(f"  {total} policies checked")
-    print(f"  {passed} passed, {failed} failed, {warnings} warnings")
+            emit(f"  SKIP    {name} — {note or 'could not evaluate'}")
+
+    if getattr(args, 'write', False):
+        trace['policy_evaluations'] = evaluations
+        save_trace(args.trace_file, trace)
+        if not as_json:
+            print(f"  wrote {len(evaluations)} policy_evaluations to {args.trace_file}")
+
+    if as_json:
+        print(json.dumps(evaluations, indent=2, ensure_ascii=False))
+        return 0
+
+    emit(f"\n{'='*50}")
+    emit(f"  {total} policies checked")
+    emit(f"  {passed} passed, {failed} failed, {warnings} warnings")
     if errors:
-        print(f"  {len(errors)} errors: {', '.join(errors)}")
+        emit(f"  {len(errors)} errors: {', '.join(errors)}")
         return 1
     if args.strict and (failed > 0 or warnings > 0):
         return 1
@@ -1895,6 +1928,8 @@ def register(subparsers):
     p.add_argument("trace_file")
     p.add_argument("--policy-file", default=None, help="External policy JSON file")
     p.add_argument("--strict", action="store_true", help="Treat warnings as errors")
+    p.add_argument("--json", action="store_true", help="Emit policy_evaluations as JSON (machine-readable; suppresses human output)")
+    p.add_argument("--write", action="store_true", help="Stamp policy_evaluations into the trace file in place")
     p.set_defaults(func=cmd_check)
 
     # status

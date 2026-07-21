@@ -17,6 +17,9 @@ help:  ## Show this help (usage: make help)
 .PHONY: build
 build:  ## Build the package
 	cp ../viewer/vscode-plugin/media/visualizer.html ponens/visualizer.html || (echo "Failed to copy visualizer.html" && exit 1)
+	mkdir -p ponens/demos && cp ../examples/manifest.json ponens/demos/ && \
+		python3 -c "import json,shutil; m=json.load(open('../examples/manifest.json')); [shutil.copy('../examples/'+s['file'], 'ponens/demos/') for s in m['samples']]" \
+		|| (echo "Failed to sync demo traces" && exit 1)
 	rm -rf dist && uv build --no-sources
 
 .PHONY: publish-testpypi

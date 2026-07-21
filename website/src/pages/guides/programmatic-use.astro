@@ -1,0 +1,127 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
+import { readFileSync } from "node:fs";
+
+// Embed the current CLI version at build time from its single source of truth (cli/pyproject.toml),
+// so the install reminder never drifts from what's actually published.
+let version = "";
+try {
+  const pyproject = readFileSync(new URL("../../../../cli/pyproject.toml", import.meta.url), "utf8");
+  version = pyproject.match(/^version\s*=\s*"([^"]+)"/m)?.[1] ?? "";
+} catch { /* built outside the monorepo — omit the version badge */ }
+---
+
+<Layout title="Use ponens programmatically — ponens">
+  <article class="prose">
+    <p class="spec-back"><a href="/guides">← Guides</a></p>
+    <h1>Use ponens programmatically</h1>
+    <p><strong>You'll end up with</strong> policy compliance you can drive from your own tool — a
+      machine-readable checker you can call on every change, in-process evaluation from Python, and
+      a live compliance state that updates as work happens. No server: the checker is pure, local,
+      and deterministic.</p>
+
+    <p>ponens evaluates <a href="/docs/writing-policies">LTLf policies</a> over a
+      <a href="/spec">trace</a>. The same evaluator that powers <code>ponens trace check</code> is
+      exposed two ways — a JSON-emitting CLI and a Python function — so a build step, an editor
+      extension, or a CI job can ask "does this trace comply?" and act on the answer.</p>
+
+    <div class="callout">
+      <p style="margin:0 0 0.6rem"><strong>Install or update</strong>{version && (<> — the latest release is <code>v{version}</code></>)}:</p>
+      <Code lang="bash" code={`pip install -U ponens        # or: uv pip install -U ponens / pipx upgrade ponens`} />
+    </div>
+
+    <h2>Grab a trace to try this on</h2>
+    <p>ponens ships real sample traces — machine-checked proofs, decompositions, conformance runs.
+      List them and pull one down, so every command below runs against an actual trace:</p>
+    <Code lang="bash" code={`ponens demos list
+ponens demos get stripe_v1_1.json -o trace.json`} />
+
+    <h2>1. Check a trace, get JSON back</h2>
+    <p><code>--json</code> makes the checker machine-readable: it prints the
+      <code>policy_evaluation</code> records (one per policy) and nothing else, so you can pipe it
+      straight into your tool.</p>
+    <Code lang="bash" code={`ponens trace check trace.json --json`} />
+    <Code lang="json" code={`[
+  { "policy_id": "formalize_before_verify",            "status": "passed", "checked_at_action_id": 42 },
+  { "policy_id": "decomposition_drives_tests",         "status": "passed", "checked_at_action_id": 42 },
+  { "policy_id": "reasoning_required_for_high_stakes", "status": "failed", "checked_at_action_id": 42 }
+]`} />
+    <p>Each record carries the <code>policy_id</code>, a <code>status</code>
+      (<code>passed</code> / <code>failed</code> / <code>unknown</code> / <code>not_applicable</code>),
+      the action position it was checked at, and an optional <code>note</code>. A trace with no
+      policies prints <code>[]</code>.</p>
+
+    <h2>2. Stamp the results into the trace</h2>
+    <p><code>--write</code> evaluates and writes the <code>policy_evaluations</code> array back into
+      the trace file in place — so the trace becomes self-describing (it carries both its policies and
+      their latest results, ready for the viewer or an audit).</p>
+    <Code lang="bash" code={`ponens trace check trace.json --write`} />
+
+    <h2>3. Evaluate in-process (Python)</h2>
+    <p>Skip the subprocess entirely — call the evaluator directly. It's a pure function over a trace
+      dict, so you can score policies inside your own pipeline.</p>
+    <Code lang="python" code={`from ponens.trace import evaluate_policy, normalize_trace
+import json
+
+trace = json.load(open("trace.json"))
+normalize_trace(trace)                       # resolve artifact/output links
+
+for policy in trace["policies"]:
+    status, note = evaluate_policy(policy, trace)
+    print(policy["policy_id"], status, note or "")`} />
+    <p><code>evaluate_policy(policy, trace)</code> returns <code>(status, note)</code>. A policy is
+      just an object with a <code>name</code>, a <code>severity</code>, and an LTLf
+      <code>formula</code> — you can hand-write one, or pull it from the gallery (next).</p>
+
+    <h2>4. Connect gallery packs</h2>
+    <p>Discover packs and pull their policies (with formulas) from the configured sources — the
+      community gallery, or a local one you add to <code>.ponens/sources.toml</code>.</p>
+    <Code lang="bash" code={`# list available packs
+ponens search --type pack --json
+
+# a pack's policies, ready to embed in a trace's "policies" array
+ponens search --json | jq '.policies[] | select(.pack == "apply-formal-methods")'`} />
+    <p>Attach the ones you want to your trace's <code>policies</code> list, then run
+      <code>ponens trace check</code>. That's the whole loop: <em>select packs → embed → check</em>.
+      The <a href="/organizations/imandra">apply-formal-methods</a> pack, for example, requires that
+      high-stakes code is formally analyzed and that decompositions drive tests.</p>
+
+    <h2>5. A live per-change compliance loop</h2>
+    <p>Putting it together: re-check on every change and keep a compliance state that's always
+      current. An editor integration or a formal-reasoning agent can call the checker after each
+      change and update its compliance view from the result.</p>
+    <Code lang="python" code={`import json, subprocess
+
+def recompute_compliance(trace_path):
+    """Call the native checker; return the fresh policy_evaluations."""
+    out = subprocess.run(
+        ["ponens", "trace", "check", trace_path, "--json"],
+        capture_output=True, text=True,
+    ).stdout
+    return json.loads(out or "[]")
+
+# ... on every artifact / commit / save:
+evaluations = recompute_compliance("trace.json")
+failed = [e for e in evaluations if e["status"] == "failed"]
+if failed:
+    print("policy violations:", [e["policy_id"] for e in failed])`} />
+
+    <h3>"Where it makes sense": a data-driven high-stakes surface</h3>
+    <p>The <code>high_stakes_path</code> predicate — used by policies like
+      <code>reasoning_required_for_high_stakes</code> — matches an action's target against the
+      trace's <code>high_stakes_paths</code>. Set it from whatever decides which code warrants formal
+      methods (a target scan, a CODEOWNERS-style list, a risk register):</p>
+    <Code lang="json" code={`{
+  "trace_id": "...",
+  "high_stakes_paths": ["billing/", "auth/", "payments/"],
+  "policies": [ /* ... */ ],
+  "actions": [ /* ... */ ]
+}`} />
+    <p>Now "apply formal methods <em>where it makes sense</em>" is decided by evidence in the trace,
+      not a hard-coded path list — and every check re-evaluates against the current surface.</p>
+
+    <p class="spec-back" style="margin-top:2rem"><a href="/guides">← Back to guides</a> ·
+      <a href="/docs/writing-policies">Writing policies →</a></p>
+  </article>
+</Layout>

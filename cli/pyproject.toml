@@ -22,4 +22,4 @@ build-backend = "setuptools.build_meta"
 include = ["ponens*"]
 
 [tool.setuptools.package-data]
-ponens = ["visualizer.html"]
+ponens = ["visualizer.html", "demos/*.json"]

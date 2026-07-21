@@ -14,6 +14,7 @@ from .formatting import (
 )
 from . import trace as trace_mod
 from . import registry as registry_mod
+from . import demos as demos_mod
 from . import sync as sync_mod
 from . import emit as emit_mod
 from . import agent as agent_mod
@@ -669,6 +670,9 @@ def main():
 
     # ── agent (print the workflow guide, for self-onboarding) ────
     agent_mod.register(subparsers)
+
+    # ── demos (bundled sample traces to check locally) ───────────
+    demos_mod.register(subparsers)
 
     # ── Parse and dispatch ───────────────────────────────────────
     args = parser.parse_args()

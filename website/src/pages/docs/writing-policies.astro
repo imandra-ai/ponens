@@ -1,5 +1,17 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
+import { highlightFormula } from "../../lib/formula-fmt.mjs";
+
+// Render a multi-line LTLf example block with the policy-language colorizer (as on the gallery /
+// policy pages): highlight formula lines, mute `#` comment lines, keep blank lines for spacing.
+const escHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const formulaBlock = (src) => src.split("\n").map((line) => {
+  const t = line.trim();
+  if (!t) return "";
+  if (t.startsWith("#")) return `<span style="color:var(--muted)">${escHtml(line)}</span>`;
+  return highlightFormula(line);
+}).join("\n");
 ---
 
 <Layout title="Writing policies — ponens">
@@ -14,7 +26,7 @@ import Layout from "../../layouts/Layout.astro";
 
     <h2>The policy object</h2>
     <p>A policy is a JSON file named <code>&lt;id&gt;.json</code>:</p>
-    <pre><code>{`{
+    <Code lang="jsonc" code={`{
   "id": "tests_before_commit",          // snake_case, must match the filename
   "name": "Tests Before Commit",
   "category": "workflow",               // see categories below
@@ -29,7 +41,7 @@ import Layout from "../../layouts/Layout.astro";
     "passes": "ReadFile → RunTests(pass) → EditFile → RunTests(pass) → GitCommit",
     "fails":  "ReadFile → EditFile → GitCommit (no test run before commit)"
   }
-}`}</code></pre>
+}`} />
 
     <h2>The formula language</h2>
     <p>Formulas are written over the trace's ordered <em>actions</em>, its <em>artifacts</em>, and its
@@ -73,14 +85,15 @@ import Layout from "../../layouts/Layout.astro";
     <h3>Quantifying over the residual surface</h3>
     <p>Policies can govern a trace's declared negative space with <code>∀</code> / <code>∃</code> over
       <code>residuals</code>, with field access on the bound variable:</p>
-    <pre><code>{`¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open
-∀ r ∈ residuals . r.kind = Unverified → r.suggested_check ≠ ∅`}</code></pre>
+    <pre class="formula"><code set:html={formulaBlock(`¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open
+∀ r ∈ residuals . r.kind = Unverified → r.suggested_check ≠ ∅`)} /></pre>
+    <p class="formula-hint">Hover any <span class="demo">operator or symbol</span> for what it means.</p>
     <p>Fields: <code>r.kind</code>, <code>r.severity</code>, <code>r.status</code>, <code>r.target</code>,
       <code>r.suggested_check</code>, <code>r.related_artifact_ids</code>. Severity is ordered
       (<code>info &lt; low &lt; medium &lt; high &lt; critical</code>), so <code>r.severity ≥ High</code> works.</p>
 
     <h2>Worked examples</h2>
-    <pre><code>{`# pure temporal — tests before commit
+    <pre class="formula"><code set:html={formulaBlock(`# pure temporal — tests before commit
 G(GitCommit → P(RunTests ∧ completed))
 
 # scoped — research before edit
@@ -90,18 +103,19 @@ G(EditFile → P_target(ReadFile ∨ AnalyzeCode ∨ SearchCode))
 G(EditFile ∧ high_stakes_path → P_chain(VerificationResult ∨ Decomposition))
 
 # residual surface — no open critical gap at approval
-¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open`}</code></pre>
+¬∃ r ∈ residuals . r.severity = Critical ∧ r.status = Open`)} /></pre>
+    <p class="formula-hint">Hover any <span class="demo">operator or symbol</span> for what it means.</p>
 
     <h2>Write your own & use it</h2>
     <ol>
       <li>Create <code>.ponens/policies/my_rule.json</code> using the shape above.</li>
       <li>Register a local source:
-        <pre class="term"><code>{`ponens sources add team --type local --path .ponens/policies`}</code></pre>
+        <Code lang="bash" code={`ponens sources add team --type local --path .ponens/policies`} />
         (or add a <code>[[source]]</code> block to <code>.ponens/sources.toml</code>).</li>
       <li>Find it, add it to a trace, and check:
-        <pre class="term"><code>{`ponens policies search my_rule          # shows source = team
+        <Code lang="bash" code={`ponens policies search my_rule          # shows source = team
 ponens policies add team/my_rule --into ./trace.json
-ponens trace check ./trace.json`}</code></pre></li>
+ponens trace check ./trace.json`} /></li>
     </ol>
     <p>The materialized policy carries its <strong>provenance</strong> (<code>source: team</code>) into the
       trace, so a reviewer sees which source governed it.</p>

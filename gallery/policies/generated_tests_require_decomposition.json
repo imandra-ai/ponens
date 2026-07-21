@@ -23,5 +23,7 @@
     "github": "nicola-mometto"
   },
   "date_added": "2026-04-04",
-  "downloads": 56
+  "downloads": 56,
+  "pack": "apply-formal-methods",
+  "group": "rigor"
 }

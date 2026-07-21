@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { Code } from "astro:components";
 ---
 
 <Layout title="For agents — ponens">
@@ -13,16 +14,16 @@ import Layout from "../layouts/Layout.astro";
     <h2>Self-onboarding — one command</h2>
     <p>The whole workflow ships <em>inside</em> the CLI. An agent with only
       <code>pip install ponens</code> can learn it with no repo access:</p>
-    <pre class="term"><code>ponens agent            # how to produce a trace
-ponens agent --review   # how to review one</code></pre>
+    <Code lang="bash" code={`ponens agent            # how to produce a trace
+ponens agent --review   # how to review one`} />
     <p>It prints the two-layer model (faithful atomic actions + a curated narrative), the rigor
       principle (separate what was <em>established</em> from what was merely <em>asserted</em>, and
       flag where formal methods belong), and the exact commands for each step.</p>
 
     <h2>Wire it into your agent</h2>
     <p>Drop the guide into your agent's instructions so it runs the workflow every time:</p>
-    <pre class="term"><code># add it to your project's agent memory
-ponens agent >> AGENTS.md        # or CLAUDE.md, a system prompt, etc.</code></pre>
+    <Code lang="bash" code={`# add it to your project's agent memory
+ponens agent >> AGENTS.md        # or CLAUDE.md, a system prompt, etc.`} />
     <p>After the agent finishes a task, it runs the pipeline itself — no human in the capture loop.</p>
 
     <h2>The workflow</h2>
@@ -49,6 +50,13 @@ ponens agent >> AGENTS.md        # or CLAUDE.md, a system prompt, etc.</code></p
 
     <h2>Machine-friendly</h2>
     <p>Every command is plain text — greppable, pipeable, with <code>--json</code> where you script
-      it. Clear exit codes make <code>ponens trace check</code> a real gate in any pipeline.</p>
+      it. Clear exit codes make <code>ponens trace check</code> a real gate in any pipeline, and
+      <code>ponens trace check --json</code> hands your tool the per-policy compliance verdicts to act
+      on directly.</p>
+    <Code lang="bash" code={`ponens demos get stripe_v1_1.json -o trace.json   # a real trace to try it on
+ponens trace check trace.json --json              # machine-readable policy_evaluations`} />
+    <p>To drive the checker from your own tool — the JSON output, the in-process Python evaluator, and
+      a live per-change compliance loop — see <a href="/guides/programmatic-use">Use ponens
+      programmatically</a>.</p>
   </article>
 </Layout>

@@ -24,5 +24,7 @@
     "github": "mattjbray"
   },
   "date_added": "2026-03-22",
-  "downloads": 1150
+  "downloads": 1150,
+  "pack": "apply-formal-methods",
+  "group": "coverage"
 }

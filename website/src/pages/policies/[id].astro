@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
 import { highlightFormula } from "../../lib/formula-fmt.mjs";
 
 export function getStaticPaths() {
@@ -38,6 +39,7 @@ const ex = policy.examples || {};
 
     <h2>Formula</h2>
     <pre class="formula"><code set:html={highlightFormula(policy.formula)} /></pre>
+    <p class="formula-hint">Hover any <span class="demo">operator or symbol</span> for what it means.</p>
 
     {policy.reasoner && (
       <>
@@ -59,7 +61,7 @@ const ex = policy.examples || {};
     )}
 
     <h2>Use it</h2>
-    <pre class="usage"><code><span class="line">ponens policies add {policy.id} --into ./trace.json</span>
-<span class="line">ponens trace check ./trace.json</span></code></pre>
+    <Code lang="bash" code={`ponens policies add ${policy.id} --into ./trace.json
+ponens trace check ./trace.json`} />
   </article>
 </Layout>

@@ -31,6 +31,9 @@ viewer/vscode-plugin/media/demo-traces/
 # Visualizer asset copied into the CLI package at build time (source: viewer/vscode-plugin/media/)
 cli/ponens/visualizer.html
 
+# Demo traces copied into the CLI package at build time (source: examples/, via cli/Makefile)
+cli/ponens/demos/
+
 # OS / editor
 .DS_Store
 *.swp

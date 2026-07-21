@@ -1,0 +1,29 @@
+{
+  "id": "decomposition_drives_tests",
+  "name": "Decomposition Drives Tests",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "A region decomposition should be followed by generated tests, so the behavioral breakdown actually yields high-coverage checks rather than being left unused.",
+  "formula": "G(Decompose → F(GenerateTests))",
+  "language_level": "pure_temporal",
+  "reasoner": "codelogician",
+  "pack": "apply-formal-methods",
+  "group": "rigor",
+  "rationale": "Region decomposition maps a function's disjoint behavioral cases; its payoff is a high-coverage test per region. A decomposition with no tests generated from it leaves that value on the table.",
+  "tags": [
+    "decomposition",
+    "testing",
+    "coverage",
+    "formal-verification"
+  ],
+  "examples": {
+    "passes": "Decompose(price) → GenerateTests(price)",
+    "fails": "Decompose(price) with no subsequent test generation"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra"
+  },
+  "date_added": "2026-07-21"
+}

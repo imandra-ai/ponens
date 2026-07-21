@@ -1,5 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
 ---
 
 <Layout title="Review an AI-generated PR — ponens">
@@ -14,15 +15,15 @@ import Layout from "../../layouts/Layout.astro";
     <p>If the repo runs the <a href="/guides/add-to-ci">pr-trace action</a>, the PR already has a
       comment with the grade, the declared gaps, and a one-click viewer. Otherwise, open the trace
       that ships with the change:</p>
-    <pre class="term"><code>{`ponens trace view trace.json                   # opens the interactive viewer
-ponens trace view trace.json --out review.html # or write the HTML (e.g. a CI artifact)`}</code></pre>
+    <Code lang="bash" code={`ponens trace view trace.json                   # opens the interactive viewer
+ponens trace view trace.json --out review.html # or write the HTML (e.g. a CI artifact)`} />
     <p>The viewer zooms from intent-named steps down to atomic actions, with the lineage DAG, the
       decisions, and the residual surface. See it live in the <a href="/demo">demo</a>.</p>
 
     <h2>2. Start from the residual surface</h2>
     <p>The fastest signal in the whole record: <em>what the change did not establish</em> —
       assumptions, unverified claims, out-of-scope items. It tells you where to look.</p>
-    <pre class="term"><code>ponens trace residuals trace.json</code></pre>
+    <Code lang="bash" code={`ponens trace residuals trace.json`} />
     <p>Triage these first. A high-severity <code>assumption</code> or an <code>unverified</code> claim
       on a consequential path is exactly where your attention is worth the most.</p>
 
@@ -30,21 +31,21 @@ ponens trace view trace.json --out review.html # or write the HTML (e.g. a CI ar
     <p>For each consequential claim, check the evidence the record points to — the test result, the
       proof, the verification artifact — rather than re-reading every line. Trust
       <em>reproduction and the atomic actions</em>; treat the curated narrative as a map, not proof.</p>
-    <pre class="term"><code>{`ponens trace check trace.json                  # did Computable Governance pass?
-ponens trace reproduce trace.json              # does it rebuild from the recorded inputs?`}</code></pre>
+    <Code lang="bash" code={`ponens trace check trace.json                  # did Computable Governance pass?
+ponens trace reproduce trace.json              # does it rebuild from the recorded inputs?`} />
 
     <h2>4. Hunt the undeclared gaps</h2>
     <p>The residual surface lists what the author <em>knew</em> they didn't establish. Your job is the
       gaps they didn't declare — a claim with no artifact behind it, a high-stakes edit with no
       verification in its lineage. Record what you find as review items:</p>
-    <pre class="term"><code>{`ponens trace comments add trace.json --on m3 --body "What about partial refunds?"
-ponens trace review-items add trace.json --severity high --statement "…"`}</code></pre>
+    <Code lang="bash" code={`ponens trace comments add trace.json --on m3 --body "What about partial refunds?"
+ponens trace review-items add trace.json --severity high --statement "…"`} />
 
     <h2>5. Sign off</h2>
     <p>Approve when the consequential claims hold and the declared gaps are acceptable — or request
       changes with specifics tied to a step. The reasoning stays bound 1:1 to the commit, so the
       record of <em>how the code came to be</em> is auditable later.</p>
-    <pre class="term"><code>{`ponens trace approve trace.json                # or: review-items / request changes`}</code></pre>
+    <Code lang="bash" code={`ponens trace approve trace.json                # or: review-items / request changes`} />
 
     <p class="next">See the full protocol in the
       <a href="/spec/REVIEW_HANDOFF_v0_1">Review handoff spec →</a></p>

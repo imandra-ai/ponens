@@ -22,5 +22,7 @@
     "github": "grantamos"
   },
   "date_added": "2026-03-25",
-  "downloads": 320
+  "downloads": 320,
+  "pack": "apply-formal-methods",
+  "group": "rigor"
 }

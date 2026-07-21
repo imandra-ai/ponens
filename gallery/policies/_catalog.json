@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 209,
+  "policy_count": 210,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -1316,8 +1316,10 @@
       "formula": "G(Verify ∧ refuted → F(EditFile))",
       "version": "1.0.0",
       "reference_compiler": "ok",
-      "hash": "sha256:ca3d8ee1099a70464d983f964ab0d738126a4f53cb3e77b972dc516b795c5448",
-      "file": "counterexample_triggers_fix.json"
+      "hash": "sha256:377fb77af6f238dc28dff7171d138b0b6f03b2a1efbb348d40462bf7653d7f7d",
+      "file": "counterexample_triggers_fix.json",
+      "pack": "apply-formal-methods",
+      "group": "rigor"
     },
     {
       "id": "credential_not_expiring",
@@ -1464,6 +1466,29 @@
       "pack": "agentic-ai-runtime-governance",
       "group": "release",
       "tier": "2-4"
+    },
+    {
+      "id": "decomposition_drives_tests",
+      "name": "Decomposition Drives Tests",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "formal-reasoning",
+      "tags": [
+        "coverage",
+        "decomposition",
+        "formal-verification",
+        "testing"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": "codelogician",
+      "description": "A region decomposition should be followed by generated tests, so the behavioral breakdown actually yields high-coverage checks rather than being left unused.",
+      "formula": "G(Decompose → F(GenerateTests))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:eef292a16bcfe6659aee48dd014832377cd1edb1df64acb98324d6b89a09f235",
+      "file": "decomposition_drives_tests.json",
+      "pack": "apply-formal-methods",
+      "group": "rigor"
     },
     {
       "id": "default_deny_confirmed",
@@ -1668,8 +1693,10 @@
       "formula": "G(DefineVG → P_chain Formalize)",
       "version": "1.0.0",
       "reference_compiler": "ok",
-      "hash": "sha256:9ac4b8242676569aa43ef29ba9bdd445a76b6248c4bee4061ac1b5472eb28cd9",
-      "file": "formalize_before_verify.json"
+      "hash": "sha256:76d1f4231a764f02f2b1b7e3edabab22a68b36db29c4aa6bad9aa47dd2d8bdb8",
+      "file": "formalize_before_verify.json",
+      "pack": "apply-formal-methods",
+      "group": "rigor"
     },
     {
       "id": "generated_tests_require_decomposition",
@@ -1689,8 +1716,10 @@
       "formula": "G(GeneratedTests → Decomposition ∈ ancestors(derived_from))",
       "version": "1.0.0",
       "reference_compiler": "ok",
-      "hash": "sha256:230757661d4278cbac4e400634ee8437cf76d8fc6b976b30e70b2cb740568384",
-      "file": "generated_tests_require_decomposition.json"
+      "hash": "sha256:ff38ebfac3175043b6b8e8854db0528367bb1713f0f221d3213be9ecfc8cb8b6",
+      "file": "generated_tests_require_decomposition.json",
+      "pack": "apply-formal-methods",
+      "group": "rigor"
     },
     {
       "id": "goals_reference_valid_artifacts",
@@ -3578,8 +3607,10 @@
       "formula": "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))",
       "version": "1.0.0",
       "reference_compiler": "ok",
-      "hash": "sha256:894599b79b522d44f60fd547c4f0cafc06b99389e7cc955b7e3fe4bdadf83fba",
-      "file": "reasoning_required_for_high_stakes.json"
+      "hash": "sha256:67fefaeb178c48627de374925afce1ed812cae445863002ef6891202365ffff2",
+      "file": "reasoning_required_for_high_stakes.json",
+      "pack": "apply-formal-methods",
+      "group": "coverage"
     },
     {
       "id": "recommendation_suitable",
@@ -5525,6 +5556,27 @@
         }
       ],
       "policy_count": 21
+    },
+    {
+      "id": "apply-formal-methods",
+      "name": "Apply Formal Methods Where It Makes Sense",
+      "org": "imandra",
+      "domain": "formal-reasoning",
+      "spec": "/spec/APPLY_FORMAL_METHODS_PACK",
+      "summary": "Put ImandraX to work exactly where correctness is high-stakes and machine-checkable — and, once formal methods are in play, use them rigorously end to end.",
+      "description": "A curated pack for teams adopting formal methods pragmatically. It has two halves. COVERAGE: high-stakes code (the paths a formalization-target scan flags — money math, state machines, access control, bounds) must be backed by a proof or a region decomposition in its lineage before it ships, so formal effort lands where it pays off rather than everywhere. RIGOR: once the pipeline runs, it must run properly — verification goals are formalized first, refuted goals get fixed, decompositions produce tests, and generated tests trace back to a decomposition. The 'high-stakes surface' is data-driven via the trace's high_stakes_paths, so 'where it makes sense' is decided by evidence, not hard-coded paths.",
+      "source": "Imandra — CodeLogician / SpecLogician formal-reasoning pipeline.",
+      "domains": [
+        {
+          "key": "coverage",
+          "label": "Apply where it matters"
+        },
+        {
+          "key": "rigor",
+          "label": "Rigorous pipeline"
+        }
+      ],
+      "policy_count": 5
     },
     {
       "id": "cert-secure-coding",

@@ -67,8 +67,16 @@ code { font-family: var(--mono); }
 }
 .brand { font-weight: 700; font-size: 1.2rem; color: var(--fg); display: inline-flex; align-items: center; gap: 0.5rem; }
 .brand:hover { text-decoration: none; }
+/* Latest CLI version badge in the nav, by the GitHub icon (build-time, from cli/pyproject.toml).
+   Scoped high enough to override the generic `.site-header nav a` link styling. */
+.site-header nav a.ver-badge {
+  font-size: 0.7rem; font-weight: 600; color: var(--muted); letter-spacing: 0.02em;
+  padding: 0.12rem 0.45rem; border: 1px solid var(--border); border-radius: 999px;
+  line-height: 1.4; white-space: nowrap;
+}
+.site-header nav a.ver-badge:hover { color: var(--accent-2); border-color: var(--accent-2); text-decoration: none; }
 .brand-mark { display: block; flex: none; }
-.site-header nav { display: flex; gap: 1.5rem; }
+.site-header nav { display: flex; align-items: center; gap: 1.5rem; }
 .site-header nav a { color: var(--muted); padding-bottom: 2px; }
 .site-header nav a:hover { color: var(--fg); text-decoration: none; }
 .site-header nav a.active { color: var(--fg); border-bottom: 2px solid var(--accent); }
@@ -572,6 +580,11 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
   text-decoration: underline dotted; text-underline-offset: 3px;
 }
 
+/* Discoverability hint for the interactive formula glossary — the sample word wears the same
+   dotted-underline / help-cursor as the live tokens, so the affordance is self-evident. */
+.formula-hint { font-size: 0.8rem; color: var(--muted); margin: 0.5rem 0 0; }
+.formula-hint .demo { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; color: var(--fg); }
+
 /* Floating glossary tooltip (positioned by the handler in Layout.astro) */
 .formula-tip {
   position: absolute; z-index: 60; display: none; max-width: 280px;
@@ -641,6 +654,18 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
 .prose code { background: var(--panel); border: 1px solid var(--border); padding: 0.1rem 0.35rem; border-radius: 5px; font-size: 0.9em; }
 .prose pre { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; overflow-x: auto; }
 .prose pre code { background: none; border: none; padding: 0; }
+
+/* Astro <Code> (Shiki) blocks carry their own dark background inline; give them the shared code-block
+   box — border, radius, padding — EVERYWHERE, including outside `.prose` where `.prose pre` can't reach
+   (so a bare `<Code>` never renders as an edge-to-edge slab). */
+.astro-code {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 0.75rem 0 1rem;
+}
+.astro-code code { background: none; border: none; padding: 0; font-family: var(--mono); }
 
 /* Reusable dark terminal window (matches the home-page quickstart) — for CLI
    snippets that read as a screenshot. No per-line prompt, so comment lines and

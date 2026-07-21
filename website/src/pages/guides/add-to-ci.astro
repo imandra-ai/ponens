@@ -1,5 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
 ---
 
 <Layout title="Add ponens to CI — ponens">
@@ -13,14 +14,14 @@ import Layout from "../../layouts/Layout.astro";
     <h2>1. Ship a trace with the change</h2>
     <p>The agent emits the trace during its session and commits it alongside the code. The default
       location the action looks for is <code>.ponens/trace.json</code>:</p>
-    <pre class="term"><code>{`ponens emit -o .ponens/trace.json
-git add .ponens/trace.json`}</code></pre>
+    <Code lang="bash" code={`ponens emit -o .ponens/trace.json
+git add .ponens/trace.json`} />
 
     <h2>2. Add the pr-trace action</h2>
     <p>Drop a workflow in <code>.github/workflows/ponens.yml</code>. The
       <a href="https://github.com/imandra-ai/ponens/tree/main/.github/actions/pr-trace">pr-trace</a>
       action summarizes the trace on the PR and uploads the viewer:</p>
-    <pre><code>{`name: ponens
+    <Code lang="yaml" code={`name: ponens
 on: pull_request
 
 permissions:
@@ -34,17 +35,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: imandra-ai/ponens/.github/actions/pr-trace@main
         with:
-          trace-path: .ponens/trace.json`}</code></pre>
+          trace-path: .ponens/trace.json`} />
     <p>If no trace is present, the action no-ops quietly — it never fails a build just for being
       absent.</p>
 
     <h2>3. Gate on Computable Governance (optional)</h2>
     <p>To make policy compliance a <em>required check</em>, add a step that fails when the trace
       violates a policy:</p>
-    <pre><code>{`      - name: Install ponens
+    <Code lang="yaml" code={`      - name: Install ponens
         run: pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
       - name: Governance gate
-        run: ponens trace check .ponens/trace.json   # non-zero exit on FAIL`}</code></pre>
+        run: ponens trace check .ponens/trace.json   # non-zero exit on FAIL`} />
     <p>This is a real gate — deterministic, offline, no model calls. Pick the policies it enforces in
       the <a href="/guides/govern-a-repo">govern-a-repo guide</a>.</p>
 

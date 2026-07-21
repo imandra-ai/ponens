@@ -23,5 +23,7 @@
     "github": "simon-cruanes"
   },
   "date_added": "2026-04-03",
-  "downloads": 810
+  "downloads": 810,
+  "pack": "apply-formal-methods",
+  "group": "rigor"
 }

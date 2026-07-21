@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { Code } from "astro:components";
 import { highlightFormula } from "../lib/formula-fmt.mjs";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -252,14 +253,14 @@ try {
 
   <section class="quickstart">
     <h2>Quickstart</h2>
-    <pre><code>pip install ponens                              # Install
+    <Code lang="bash" code={`pip install ponens                              # Install
 
 ponens agent                                    # The whole workflow, in one command
 ponens emit -o trace.json                       # Capture the session as a trace
 ponens trace meta set trace.json m3 --title "…" # Curate the narrative
 ponens trace grade trace.json                   # The quality rubric
 ponens trace check trace.json                   # Computable Governance — best-practice policies
-ponens trace view trace.json                    # Read the reasoning, zoomable</code></pre>
+ponens trace view trace.json                    # Read the reasoning, zoomable`} />
   </section>
 
   <section class="guides-cta">

@@ -1,5 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
 ---
 
 <Layout title="Govern a repo with policies — ponens">
@@ -11,20 +12,20 @@ import Layout from "../../layouts/Layout.astro";
       offline. This is <strong>Computable Governance</strong>.</p>
 
     <h2>1. Pull the gallery</h2>
-    <pre class="term"><code>{`ponens registry update                         # fetch the public gallery
+    <Code lang="bash" code={`ponens registry update                         # fetch the public gallery
 ponens policies search testing                 # browse by keyword
-ponens policies search --severity error`}</code></pre>
+ponens policies search --severity error`} />
     <p>Browse the full set in the <a href="/gallery">policy gallery</a>. Each policy is a formula in
       <a href="/spec/POLICY_LANGUAGE_v0_2">LTLf</a> with a plain-English rationale and pass/fail
       examples.</p>
 
     <h2>2. Add policies to a trace</h2>
-    <pre class="term"><code>{`ponens policies add tests_before_commit --into trace.json
+    <Code lang="bash" code={`ponens policies add tests_before_commit --into trace.json
 ponens policies add research_before_edit --into trace.json
-ponens policies add no_open_critical_residuals --into trace.json`}</code></pre>
+ponens policies add no_open_critical_residuals --into trace.json`} />
 
     <h2>3. Check — the gate</h2>
-    <pre class="term"><code>ponens trace check trace.json                  # → PASS / FAIL (non-zero exit on FAIL)</code></pre>
+    <Code lang="bash" code={`ponens trace check trace.json                  # → PASS / FAIL (non-zero exit on FAIL)`} />
     <p>Each policy compiles to an automaton and is evaluated over the trace. A result is
       <code>pass</code>, <code>fail</code> (with the witnessing position), or
       <code>not_applicable</code> when the trigger never occurs. Wire this into
@@ -33,7 +34,7 @@ ponens policies add no_open_critical_residuals --into trace.json`}</code></pre>
     <h2>4. Write your own</h2>
     <p>A policy is a small JSON file with a formula. For example, "every commit is preceded by a
       passing test run":</p>
-    <pre><code>{`{
+    <Code lang="json" code={`{
   "id": "tests_before_commit",
   "name": "Tests Before Commit",
   "category": "workflow",
@@ -42,10 +43,10 @@ ponens policies add no_open_critical_residuals --into trace.json`}</code></pre>
   "language_level": "pure_temporal",
   "rationale": "Prevents untested code from entering the repository.",
   "examples": { "passes": "… RunTests(pass) → GitCommit", "fails": "EditFile → GitCommit" }
-}`}</code></pre>
+}`} />
     <p>Register a local source and use it just like a gallery policy:</p>
-    <pre class="term"><code>{`ponens sources add team --type local --path .ponens/policies
-ponens policies add team/tests_before_commit --into trace.json`}</code></pre>
+    <Code lang="bash" code={`ponens sources add team --type local --path .ponens/policies
+ponens policies add team/tests_before_commit --into trace.json`} />
     <p>The full operator set, the structural/residual predicates, and the grammar are in the
       <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language reference</a>; the step-by-step authoring
       walkthrough is in <a href="/docs/writing-policies">Writing policies</a>.</p>

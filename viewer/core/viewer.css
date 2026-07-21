@@ -1144,6 +1144,11 @@
   .dag-node:hover { transform: scale(1.08); z-index: 10; }
   .dag-node.selected { border-color: #818cf8; box-shadow: 0 0 12px rgba(129,140,248,0.4); }
   .dag-node.superseded { opacity: 0.45; }
+  /* Node isolation: select a node → dim everything NOT in its connected lineage subgraph. */
+  .dag-inner.isolating .dag-node { transition: opacity 0.15s; }
+  .dag-node.dag-dim { opacity: 0.1; pointer-events: none; }
+  .dag-edge { transition: opacity 0.15s; }
+  .dag-edge.dag-dim { opacity: 0.05 !important; }
   .dag-node .dn-type {
     font-size: 8px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; padding: 1px 5px; border-radius: 3px; margin-bottom: 3px;

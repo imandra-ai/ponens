@@ -2362,9 +2362,9 @@ function renderDAGView() {
       const color = isSup ? (light ? '#a08010' : '#c09830') : (light ? '#b0b4bc' : '#3e4350');
       const dash = isSup ? 'stroke-dasharray="6,3"' : '';
       const midY = (from.y + to.y) / 2;
-      html += `<path d="M${from.x},${from.y + nodeH/2} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y - nodeH/2}"
+      html += `<path class="dag-edge" data-from="${esc(pid)}" data-to="${esc(a.artifact_id)}" d="M${from.x},${from.y + nodeH/2} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y - nodeH/2}"
         fill="none" stroke="${color}" stroke-width="2" ${dash} opacity="0.7"/>`;
-      html += `<polygon points="${to.x},${to.y - nodeH/2} ${to.x-5},${to.y - nodeH/2 - 9} ${to.x+5},${to.y - nodeH/2 - 9}"
+      html += `<polygon class="dag-edge" data-from="${esc(pid)}" data-to="${esc(a.artifact_id)}" points="${to.x},${to.y - nodeH/2} ${to.x-5},${to.y - nodeH/2 - 9} ${to.x+5},${to.y - nodeH/2 - 9}"
         fill="${color}" opacity="0.7"/>`;
     }
   }
@@ -2396,6 +2396,7 @@ function renderDAGView() {
 
   // Controls
   html += `<div class="dag-controls">
+    <button id="dagShowAll" onclick="event.stopPropagation();clearDagIsolation()" title="Show all nodes (clear isolation)" style="display:none;width:auto;padding:0 10px;">Show all</button>
     <button onclick="dagZoom(1.2)" title="Zoom in">+</button>
     <button onclick="dagZoom(0.8)" title="Zoom out">\u2212</button>
     <button onclick="dagFit()" title="Fit to view">\u2922</button>
@@ -2466,6 +2467,7 @@ function initDAGPanZoom() {
   wrap.addEventListener('mousedown', (e) => {
     if (e.target.closest('.dag-node') || e.target.closest('.dag-detail') || e.target.closest('.dag-controls')) return;
     _dagState.dragging = true;
+    _dagState.moved = false; // becomes true on a real pan — distinguishes a click from a drag
     _dagState.startX = e.clientX - _dagState.panX;
     _dagState.startY = e.clientY - _dagState.panY;
     wrap.classList.add('dragging');
@@ -2474,6 +2476,7 @@ function initDAGPanZoom() {
 
   window.addEventListener('mousemove', (e) => {
     if (!_dagState?.dragging) return;
+    if (Math.abs(e.clientX - (_dagState.startX + _dagState.panX)) > 3 || Math.abs(e.clientY - (_dagState.startY + _dagState.panY)) > 3) _dagState.moved = true;
     _dagState.panX = e.clientX - _dagState.startX;
     _dagState.panY = e.clientY - _dagState.startY;
     dagApplyTransform();
@@ -2481,8 +2484,11 @@ function initDAGPanZoom() {
 
   window.addEventListener('mouseup', () => {
     if (!_dagState) return;
+    const wasClick = _dagState.dragging && !_dagState.moved;
     _dagState.dragging = false;
     wrap.classList.remove('dragging');
+    // A plain click on the empty canvas (no drag) clears the isolation + selection.
+    if (wasClick) clearDagIsolation();
   });
 
   wrap.addEventListener('wheel', (e) => {
@@ -2500,11 +2506,63 @@ function initDAGPanZoom() {
 }
 
 let _selectedDAGNode = null;
+// The CONNECTED COMPONENT of a node: every artifact reachable from it along `derived_from` edges in
+// EITHER direction, recursively (its ancestors AND descendants, and theirs). Used to isolate a
+// node's lineage subgraph — dim everything not connected to it.
+function dagConnectedIds(artifactId) {
+  const arts = (traceData?.artifacts || []);
+  const parents = new Map();  // id -> its derived_from parents
+  const children = new Map(); // id -> ids that derive FROM it
+  for (const a of arts) {
+    parents.set(a.artifact_id, a.derived_from || []);
+    for (const p of (a.derived_from || [])) {
+      if (!children.has(p)) children.set(p, []);
+      children.get(p).push(a.artifact_id);
+    }
+  }
+  const seen = new Set();
+  const stack = [artifactId];
+  while (stack.length) {
+    const id = stack.pop();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const p of (parents.get(id) || [])) if (!seen.has(p)) stack.push(p);
+    for (const c of (children.get(id) || [])) if (!seen.has(c)) stack.push(c);
+  }
+  return seen;
+}
+
+// Isolate a set of artifact ids (dim everything else) — or pass null to SHOW ALL again.
+function applyDagIsolation(keep) {
+  const wrap = document.getElementById('dagInner');
+  if (wrap) wrap.classList.toggle('isolating', !!keep);
+  document.querySelectorAll('.dag-node').forEach(n => {
+    n.classList.toggle('dag-dim', !!keep && !keep.has(n.getAttribute('data-artifact-id')));
+  });
+  document.querySelectorAll('.dag-edge').forEach(e => {
+    const on = keep && keep.has(e.getAttribute('data-from')) && keep.has(e.getAttribute('data-to'));
+    e.classList.toggle('dag-dim', !!keep && !on);
+  });
+  const showAll = document.getElementById('dagShowAll');
+  if (showAll) showAll.style.display = keep ? '' : 'none';
+}
+
+/** Clear isolation + node selection (Show all). */
+function clearDagIsolation() {
+  applyDagIsolation(null);
+  _selectedDAGNode = null;
+  document.querySelectorAll('.dag-node.selected').forEach(n => n.classList.remove('selected'));
+  const d = document.getElementById('dagDetail');
+  if (d) d.style.display = 'none';
+}
+
 function selectDAGNode(artifactId) {
   _selectedDAGNode = artifactId;
   document.querySelectorAll('.dag-node.selected').forEach(n => n.classList.remove('selected'));
   const node = document.querySelector(`.dag-node[data-artifact-id="${artifactId}"]`);
   if (node) node.classList.add('selected');
+  // Isolate this node's lineage subgraph (its connected component) — dim everything else.
+  applyDagIsolation(dagConnectedIds(artifactId));
 
   // Check if it's a reference model
   const refModel = (traceData?.reference_models || []).find(rm => rm.reference_model_id === artifactId);

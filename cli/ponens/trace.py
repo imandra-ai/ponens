@@ -1972,6 +1972,147 @@ def cmd_view(args):
 
 
 # ================================================================
+# Goal authoring — CLI parity with the desktop's declare_goal / criteria review (§18)
+# ================================================================
+
+def _find_goal(trace, goal_id):
+    return next((g for g in trace.get("goals", []) if g.get("id") == goal_id), None)
+
+
+def _now_iso():
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def cmd_goal_set(args):
+    """Declare (or replace) the session GOAL: the intent and its definition of done. Acceptance items
+    are added with `ponens trace goal accept`, or pass the whole goal (incl. acceptance) via --json."""
+    trace = load_trace(args.trace_file)
+    goals = trace.setdefault("goals", [])
+    if args.json:
+        raw = sys.stdin.read() if args.json == "-" else open(args.json).read()
+        goal = json.loads(raw)
+        goal.setdefault("id", args.id)
+        goal.setdefault("status", "active")
+        goal.setdefault("acceptance", [])
+    else:
+        if not args.intent:
+            print("Error: --intent is required (or provide --json)", file=sys.stderr)
+            return 1
+        goal = {"id": args.id, "intent": args.intent,
+                "scope": [s.strip() for s in (args.scope or "").split(",") if s.strip()],
+                "status": "active", "acceptance": [], "intent_author": args.intent_author}
+        if args.clause:
+            goal["intent_clauses"] = args.clause
+    existing = _find_goal(trace, goal["id"])
+    if existing is not None:
+        goals[goals.index(existing)] = goal
+    else:
+        goals.append(goal)
+    if trace.get("spec_version", "1.1") < "1.7":
+        trace["spec_version"] = "1.7"
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Set goal '{goal['id']}' ({len(goal['acceptance'])} acceptance items) in {args.trace_file}")
+    return 0
+
+
+def cmd_goal_accept(args):
+    """Add an acceptance item — one piece of the definition of done — to a goal. Each item binds to
+    evidence: property {symbol,property} / change {symbol} / obligation {policy_id} / gap {residual_id}."""
+    trace = load_trace(args.trace_file)
+    goal = _find_goal(trace, args.goal)
+    if goal is None:
+        print(f"Error: no goal '{args.goal}' — create it with `ponens trace goal set` first", file=sys.stderr)
+        return 1
+    acc = goal.setdefault("acceptance", [])
+    binding = {}
+    for k, v in (("symbol", args.symbol), ("property", args.property), ("policy_id", args.policy_id),
+                 ("residual_id", args.residual_id), ("file", args.file)):
+        if v:
+            binding[k] = v
+    item_id = args.id or f"s{len(acc) + 1}"
+    item = {"id": item_id, "kind": args.kind, "label": args.label, "binding": binding,
+            "status": "todo", "required": not args.optional, "author": args.author,
+            "authored_at": _now_iso()}
+    if args.covers:
+        item["covers"] = args.covers
+    acc.append(item)
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Added acceptance {item_id} ([{args.kind}] {args.label}) to goal '{args.goal}'")
+    return 0
+
+
+def cmd_goal_certify(args):
+    """Record the criteria review — a non-doer's sign-off that the definition of done is the RIGHT one.
+    This is the CERTIFIED axis (distinct from MET): only a reviewer OTHER than the author should run it."""
+    trace = load_trace(args.trace_file)
+    goal = _find_goal(trace, args.goal)
+    if goal is None:
+        print(f"Error: no goal '{args.goal}'", file=sys.stderr)
+        return 1
+    review = {"reviewed_by": args.by, "verdict": args.verdict, "at": _now_iso()}
+    if args.note:
+        review["note"] = args.note
+    goal["criteria_review"] = review
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Recorded criteria review on '{args.goal}': {args.verdict} by {args.by}")
+    return 0
+
+
+def cmd_goal_drop(args):
+    """Remove an acceptance item from a goal by item id."""
+    trace = load_trace(args.trace_file)
+    goal = _find_goal(trace, args.goal)
+    if goal is None:
+        print(f"Error: no goal '{args.goal}'", file=sys.stderr)
+        return 1
+    acc = goal.get("acceptance", [])
+    item = next((a for a in acc if a.get("id") == args.item_id), None)
+    if item is None:
+        print(f"Error: no acceptance item '{args.item_id}' in goal '{args.goal}'", file=sys.stderr)
+        return 1
+    acc.remove(item)
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Removed acceptance {args.item_id} from goal '{args.goal}'")
+    return 0
+
+
+def cmd_goal_rm(args):
+    """Remove a goal from the trace by id."""
+    trace = load_trace(args.trace_file)
+    goal = _find_goal(trace, args.goal)
+    if goal is None:
+        print(f"Error: no goal '{args.goal}'", file=sys.stderr)
+        return 1
+    trace["goals"].remove(goal)
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Removed goal '{args.goal}' from {args.trace_file}")
+    return 0
+
+
+def cmd_goal_ls(args):
+    """Show goals with resolved status + faithfulness (met / certified / weakly-specified / uncovered)."""
+    trace = load_trace(args.trace_file)
+    if not trace.get("goals"):
+        print("No goals in this trace.")
+        return 0
+    enriched = goalops.enrich(copy.deepcopy(trace))
+    for g in enriched["goals"]:
+        f = g.get("faithfulness", {})
+        flags = "MET" if f.get("met") else "not met"
+        flags += " · CERTIFIED" if f.get("certified") else " · uncertified"
+        if f.get("weakly_specified"):
+            flags += " · WEAKLY SPECIFIED"
+        print(f"\n{g.get('id')}: {g.get('intent', '')}")
+        print(f"  {flags}  ({int(round(g.get('progress', 0) * 100))}% done)")
+        for c in f.get("uncovered_clauses", []):
+            print(f"  ! uncovered intent clause: {c}")
+        for a in g.get("acceptance", []):
+            ev = f" -> {a.get('evidence')}" if a.get("evidence") else ""
+            print(f"    {a['id']} [{a['kind']}] {a.get('status')}: {a.get('label', '')}{ev}")
+    return 0
+
+
+# ================================================================
 # Register subcommands under "trace" group
 # ================================================================
 
@@ -2118,6 +2259,59 @@ def register(subparsers):
     q.add_argument("trace_file")
     q.add_argument("meta_id")
     q.set_defaults(func=cmd_meta_drop)
+
+    # goal — author / extend / certify / inspect the §18 goal (parity with the desktop's declare_goal)
+    gp = trace_sub.add_parser("goal", help="Declare, extend, certify, or inspect the session goal (definition of done)")
+    gp_sub = gp.add_subparsers(dest="goal_command", required=True)
+
+    q = gp_sub.add_parser("set", help="Declare (or replace) the goal: intent + definition of done")
+    q.add_argument("trace_file")
+    q.add_argument("--intent", help="What is being changed and why (the USER's intent)")
+    q.add_argument("--scope", help="Comma-separated files/symbols the goal touches")
+    q.add_argument("--clause", action="append", help="An intent clause (repeatable) -- split the intent into checkable pieces")
+    q.add_argument("--intent-author", dest="intent_author", default="human", choices=["human", "agent", "reviewer"])
+    q.add_argument("--id", default="session-goal", help="Goal id (default: session-goal)")
+    q.add_argument("--json", help="Load the full goal (incl. acceptance) from a JSON file, or - for stdin")
+    q.set_defaults(func=cmd_goal_set)
+
+    q = gp_sub.add_parser("accept", help="Add an acceptance item (a piece of the definition of done)")
+    q.add_argument("trace_file")
+    q.add_argument("--goal", default="session-goal", help="Which goal (default: session-goal)")
+    q.add_argument("--kind", required=True, choices=["property", "change", "obligation", "gap"])
+    q.add_argument("--label", required=True, help="Plain-language statement of this piece of 'done'")
+    q.add_argument("--symbol", help="binding: function/symbol (property, change)")
+    q.add_argument("--property", help="binding: property keyword (property)")
+    q.add_argument("--policy-id", dest="policy_id", help="binding: policy id (obligation)")
+    q.add_argument("--residual-id", dest="residual_id", help="binding: residual id (gap)")
+    q.add_argument("--file", help="binding: file")
+    q.add_argument("--covers", action="append", help="Which intent clause(s) this item covers (repeatable)")
+    q.add_argument("--optional", action="store_true", help="Mark not-required (default: required)")
+    q.add_argument("--author", default="agent", choices=["human", "agent", "reviewer"], help="Who authored this criterion (default: agent)")
+    q.add_argument("--id", help="Item id (default: auto s1, s2, ...)")
+    q.set_defaults(func=cmd_goal_accept)
+
+    q = gp_sub.add_parser("certify", help="Record a non-doer's sign-off that the definition of done is RIGHT")
+    q.add_argument("trace_file")
+    q.add_argument("--goal", default="session-goal")
+    q.add_argument("--by", required=True, choices=["human", "reviewer"], help="The non-doer reviewer")
+    q.add_argument("--verdict", default="approved", choices=["approved", "changes-requested"])
+    q.add_argument("--note")
+    q.set_defaults(func=cmd_goal_certify)
+
+    q = gp_sub.add_parser("drop", help="Remove an acceptance item from a goal")
+    q.add_argument("trace_file")
+    q.add_argument("item_id", help="Acceptance item id (e.g. s2)")
+    q.add_argument("--goal", default="session-goal")
+    q.set_defaults(func=cmd_goal_drop)
+
+    q = gp_sub.add_parser("rm", help="Remove a goal from the trace")
+    q.add_argument("trace_file")
+    q.add_argument("--goal", default="session-goal", help="Goal id to remove (default: session-goal)")
+    q.set_defaults(func=cmd_goal_rm)
+
+    q = gp_sub.add_parser("ls", help="Show goals with resolved status + faithfulness (met vs certified)")
+    q.add_argument("trace_file")
+    q.set_defaults(func=cmd_goal_ls)
 
     # retitle (top-level narrative)
     p = trace_sub.add_parser("retitle", help="Set the trace's title and/or outcome summary")

@@ -246,7 +246,7 @@ ponens trace check t.json    # → 🟢 / 🔴`}</code></pre>
         <div class="sw-sub">writes the code</div>
       </div>
       <div class="lane-steps">
-        <div class="sw-step"><span class="sw-num">1</span><div class="sw-h">Emit the record</div><p>The agent turns its session into a reasoning trace.</p></div>
+        <div class="sw-step"><span class="sw-num">1</span><div class="sw-h">Declare the goal &amp; emit the record</div><p>The agent states its goal, then turns the session into a reasoning trace.</p></div>
         <div class="sw-arrow" aria-hidden="true">→</div>
         <div class="sw-step"><span class="sw-num">2</span><div class="sw-h">Grade &amp; govern</div><p>The quality grade and Computable Governance run in CI.</p></div>
         <div class="sw-arrow" aria-hidden="true">→</div>
@@ -267,20 +267,20 @@ ponens trace check t.json    # → 🟢 / 🔴`}</code></pre>
       <div class="lane-actor">
         <div class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.1 1.5 2.6-.2.9 2.4 2.2 1.4-.8 2.5.8 2.5-2.2 1.4-.9 2.4-2.6-.2L12 21l-2.1-1.5-2.6.2-.9-2.4-2.2-1.4.8-2.5-.8-2.5 2.2-1.4.9-2.4 2.6.2z"/><polyline points="9 12 11 14 15 9.5"/></svg></div>
         <div class="sw-role">AI auditor <span>(LLM)</span></div>
-        <div class="sw-sub">audits &amp; certifies</div>
+        <div class="sw-sub">audits &amp; confirms</div>
       </div>
       <div class="lane-steps">
         <div class="sw-step"><span class="sw-num">1</span><div class="sw-h">Re-check the claims</div><p>An LLM re-derives each claim from the evidence in the trace.</p></div>
         <div class="sw-arrow" aria-hidden="true">→</div>
-        <div class="sw-step"><span class="sw-num">2</span><div class="sw-h">Certify what holds</div><p>Marks the reasoning it can independently confirm.</p></div>
+        <div class="sw-step"><span class="sw-num">2</span><div class="sw-h">Confirm what holds</div><p>Marks the reasoning it can independently re-derive.</p></div>
         <div class="sw-arrow" aria-hidden="true">→</div>
-        <div class="sw-step"><span class="sw-num">3</span><div class="sw-h">Flag the rest</div><p>Escalates only what it can't certify to a human.</p></div>
+        <div class="sw-step"><span class="sw-num">3</span><div class="sw-h">Flag the rest</div><p>Escalates only what it can't confirm to a human.</p></div>
       </div>
     </div>
 
     <div class="handoff mini" aria-hidden="true">
       <span class="hf-arrow">↓</span>
-      <span class="hf-chip">certified · remaining gaps flagged</span>
+      <span class="hf-chip">confirmed · remaining gaps flagged</span>
       <span class="hf-arrow">↓</span>
     </div>
 
@@ -291,11 +291,11 @@ ponens trace check t.json    # → 🟢 / 🔴`}</code></pre>
         <div class="sw-sub">checks the work</div>
       </div>
       <div class="lane-steps">
-        <div class="sw-step"><span class="sw-num">1</span><div class="sw-h">Read the flagged gaps</div><p>Just what the audit couldn't certify — a short list.</p></div>
+        <div class="sw-step"><span class="sw-num">1</span><div class="sw-h">Read the flagged gaps</div><p>Just what the audit couldn't confirm — a short list.</p></div>
         <div class="sw-arrow" aria-hidden="true">→</div>
         <div class="sw-step"><span class="sw-num">2</span><div class="sw-h">Verify what matters</div><p>Check the consequential claims; skip the noise.</p></div>
         <div class="sw-arrow" aria-hidden="true">→</div>
-        <div class="sw-step ok"><span class="sw-num">3</span><div class="sw-h">Approve &amp; merge</div><p>Reasoning bound 1:1 to the commit — auditable later.</p></div>
+        <div class="sw-step ok"><span class="sw-num">3</span><div class="sw-h">Certify &amp; merge</div><p>The reviewer certifies the definition of done was the right one — <strong>met</strong> by the agent, <strong>certified</strong> by a non-doer. Bound 1:1 to the commit.</p></div>
       </div>
     </div>
   </section>
@@ -308,7 +308,7 @@ ponens agent                                    # The whole workflow, in one com
 ponens emit -o trace.json                       # Capture the session as a trace
 ponens trace meta set trace.json m3 --title "…" # Curate the narrative
 ponens trace grade trace.json                   # The quality rubric
-ponens trace check trace.json                   # Computable Governance — best-practice policies
+ponens trace check trace.json                   # Computable Governance — policies + goal faithfulness
 ponens trace view trace.json                    # Read the reasoning, zoomable`} />
   </section>
 

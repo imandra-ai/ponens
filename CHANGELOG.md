@@ -7,6 +7,20 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.5.0] — 2026-07-22
+
+### Added
+- **Goal authoring from the CLI** — a new `ponens trace goal` command group brings the desktop's goal
+  workflow to the CLI, so every trace operation can be done from the command line: `set` (declare the
+  intent + definition of done, or load one via `--json`), `accept` (add an acceptance item bound to
+  evidence), `certify` (record a non-doer's sign-off — the *certified* axis), `drop` / `rm` (remove an
+  item or a goal), and `ls` (show each goal's resolved status + met/certified/weakly-specified). Goals
+  are written in the spec's snake_case shape.
+
+### Fixed
+- **PyPI project page** — the package now ships a README (`readme` in `pyproject.toml`), so the PyPI
+  project page renders a description instead of "The author has not provided a project description."
+
 ## [1.4.1] — 2026-07-22
 
 ### Added

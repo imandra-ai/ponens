@@ -1,7 +1,8 @@
 [project]
 name = "ponens"
-version = "1.4.1"
+version = "1.5.0"
 description = "Author, govern, and validate reasoning traces — the open CLI for the reasoning-policies ecosystem"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [

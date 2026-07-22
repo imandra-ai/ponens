@@ -1,6 +1,7 @@
 """Local trace management commands (init, trigger, action, artifact, complete, check, status, view)."""
 
 import argparse
+import copy
 import json
 import os
 import sys
@@ -1530,6 +1531,33 @@ def cmd_fmt(args):
     return 0
 
 
+def _faithfulness_findings(trace):
+    """Grade each goal's DEFINITION of done (GOAL_FAITHFULNESS_v0_1), not just its policies.
+    Returns (fails, warns, rows): `fails` gate under --strict — deficiencies the agent controls
+    (a weakly-specified definition, an uncovered intent clause). `warns` are informational: "met but
+    not certified" needs a human sign-off, so it is surfaced but never a hard CI failure. `rows` is
+    the per-goal met/certified line for human output."""
+    if not trace.get('goals'):
+        return [], [], []
+    try:
+        eg = goalops.enrich(copy.deepcopy(trace))
+    except Exception:
+        return [], [], []
+    fails, warns, rows = [], [], []
+    for g in eg.get('goals', []):
+        f = g.get('faithfulness') or {}
+        gid = g.get('id', '?')
+        rows.append(f"    {gid}: {'met' if f.get('met') else 'not met'}, "
+                    f"{'certified' if f.get('certified') else 'uncertified'}")
+        if f.get('weakly_specified'):
+            fails.append(f"goal '{gid}': weakly specified — nothing proved or policy-checked backs \"done\"")
+        for c in f.get('uncovered_clauses', []):
+            fails.append(f"goal '{gid}': intent clause uncovered by any criterion — \"{c}\"")
+        if f.get('met') and not f.get('certified'):
+            warns.append(f"goal '{gid}': met but not certified — the definition of done is self-authored")
+    return fails, warns, rows
+
+
 def cmd_check(args):
     trace = load_trace(args.trace_file)
     errors, _ = validate_trace(trace)
@@ -1630,13 +1658,24 @@ def cmd_check(args):
         print(json.dumps(evaluations, indent=2, ensure_ascii=False))
         return 0
 
+    faith_fail, faith_warn, faith_rows = _faithfulness_findings(trace)
+
     emit(f"\n{'='*50}")
     emit(f"  {total} policies checked")
     emit(f"  {passed} passed, {failed} failed, {warnings} warnings")
+    if faith_rows:
+        emit(f"\n  Goal faithfulness (is \"done\" right, not just met?):")
+        for row in faith_rows:
+            emit(row)
+        for w in faith_warn:
+            emit(f"  ~ {w}")
+        for e in faith_fail:
+            emit(f"  {'FAIL' if args.strict else 'WARN'}  {e}")
+
     if errors:
         emit(f"  {len(errors)} errors: {', '.join(errors)}")
         return 1
-    if args.strict and (failed > 0 or warnings > 0):
+    if args.strict and (failed > 0 or warnings > 0 or faith_fail):
         return 1
     return 0
 

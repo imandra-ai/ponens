@@ -2,7 +2,7 @@
 
 from ponens.goals import (
     resolve_item, progress_of, stale_evidence,
-    goal_relevant_actions, unattributed_actions, goal_residuals, enrich,
+    goal_relevant_actions, unattributed_actions, goal_residuals, enrich, faithfulness_of,
 )
 
 
@@ -105,8 +105,77 @@ def test_enrich_end_to_end():
     assert g["open_gaps"] == 2                      # r1 + stale-vr1
     assert e["exploration_actions"] == [9]
     assert any(r.get("derived") for r in e["residuals"])   # stale merged in
-    assert e["summary"] == {"policy_violations": 0, "open_residuals": 2, "open_high": 1, "stale_evidence": 1}
+    assert e["summary"] == {
+        "policy_violations": 0, "open_residuals": 2, "open_high": 1, "stale_evidence": 1,
+        "goals_total": 1, "goals_met": 0, "goals_certified": 0, "goals_weakly_specified": 0}
     assert {i["id"]: i["status"] for i in g["acceptance"]} == {
         "a1": "done", "a2": "done", "a3": "todo", "a4": "done"}
     # source trace untouched
     assert "progress" not in t["goals"][0]
+
+
+# ---- faithfulness: is the definition of done RIGHT, not just met? -------------------------------
+
+def _fgoal(acceptance, **kw):
+    return {"id": "g", "intent": "i", "scope": [], "acceptance": acceptance, **kw}
+
+
+def test_faithfulness_met_over_required_items():
+    done = {"id": "a", "kind": "property", "status": "done"}
+    todo = {"id": "b", "kind": "property", "status": "todo"}
+    opt = {"id": "c", "kind": "change", "status": "todo", "required": False}
+    assert faithfulness_of(_fgoal([done]))["met"] is True
+    assert faithfulness_of(_fgoal([done, todo]))["met"] is False
+    # a non-required undone item does not block `met`
+    assert faithfulness_of(_fgoal([done, opt]))["met"] is True
+    assert faithfulness_of(_fgoal([]))["met"] is False
+
+
+def test_faithfulness_weakly_specified():
+    assert faithfulness_of(_fgoal([{"kind": "change", "status": "done"}]))["weakly_specified"] is True
+    assert faithfulness_of(_fgoal([{"kind": "property", "status": "done"}]))["weakly_specified"] is False
+    assert faithfulness_of(_fgoal([{"kind": "obligation", "status": "done"}]))["weakly_specified"] is False
+    # high-stakes demands a PROOF specifically -- an obligation alone is weak
+    assert faithfulness_of(_fgoal([{"kind": "obligation", "status": "done"}]), high_stakes=True)["weakly_specified"] is True
+    # nothing to grade -> not weak
+    assert faithfulness_of(_fgoal([]))["weakly_specified"] is False
+
+
+def test_faithfulness_uncovered_clauses():
+    g = _fgoal([{"kind": "property", "status": "done", "covers": ["a"]}], intent_clauses=["a", "b"])
+    assert faithfulness_of(g)["uncovered_clauses"] == ["b"]
+
+
+def test_faithfulness_certified_gate():
+    acc = [{"kind": "property", "status": "done", "author": "agent", "covers": ["a"]}]
+    ok = {"reviewed_by": "reviewer", "verdict": "approved"}
+    assert faithfulness_of(_fgoal(acc, intent_clauses=["a"], criteria_review=ok))["certified"] is True
+    # the doer cannot certify their own bar
+    self_rev = {"reviewed_by": "agent", "verdict": "approved"}
+    assert faithfulness_of(_fgoal(acc, intent_clauses=["a"], criteria_review=self_rev))["certified"] is False
+    # an uncovered clause can never be certified
+    assert faithfulness_of(_fgoal(acc, intent_clauses=["a", "b"], criteria_review=ok))["certified"] is False
+    # a weakly-specified goal can never be certified
+    weak = [{"kind": "change", "status": "done", "author": "agent", "covers": ["a"]}]
+    assert faithfulness_of(_fgoal(weak, intent_clauses=["a"], criteria_review=ok))["certified"] is False
+    # no review -> not certified (orthogonal to met)
+    assert faithfulness_of(_fgoal(acc, intent_clauses=["a"]))["certified"] is False
+
+
+def test_enrich_grades_faithfulness_orthogonal_to_met():
+    t = _trace()
+    g = t["goals"][0]
+    g["intent_clauses"] = ["amount holds"]
+    for a in g["acceptance"]:
+        a["author"] = "agent"
+    g["acceptance"][0]["covers"] = ["amount holds"]
+    g["criteria_review"] = {"reviewed_by": "reviewer", "verdict": "approved"}
+    e = enrich(t)
+    fa = e["goals"][0]["faithfulness"]
+    # a3 (gap) is still open -> not met, but the DEFINITION is certified (right, if not yet done)
+    assert fa["met"] is False
+    assert fa["certified"] is True
+    assert fa["weakly_specified"] is False
+    assert fa["uncovered_clauses"] == []
+    assert e["summary"]["goals_total"] == 1 and e["summary"]["goals_certified"] == 1
+    assert e["summary"]["goals_met"] == 0

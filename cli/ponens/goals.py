@@ -115,6 +115,56 @@ def progress_of(items):
 
 
 # ================================================================
+# Faithfulness -- is the definition of done RIGHT, not just met? (GOAL_FAITHFULNESS_v0_1)
+# ================================================================
+
+def faithfulness_of(goal, high_stakes=False):
+    """Grade the DEFINITION of done, not just the work. Two orthogonal axes plus supporting signals:
+
+      met       -- every REQUIRED acceptance criterion resolved to `done` (call after resolution).
+      certified -- a reviewer OTHER than the doer approved the definition of done, every intent
+                   clause is covered, and it is not weakly specified. The party that MEETS a goal
+                   must not be the sole party that DEFINES it.
+      weakly_specified  -- "done" rests only on `change` edits (nothing proved / policy-checked); on a
+                   high-stakes path, nothing PROVED (`property`) at all.
+      uncovered_clauses -- intent clauses no acceptance item `covers`.
+
+    Kept in step with the desktop `goalFaithfulness()` (TS) and the viewer `goalFaithfulnessV()` (JS).
+    """
+    acc = goal.get("acceptance") or []
+    required = [a for a in acc if a.get("required") is not False]
+    req_items = required or acc
+
+    met = bool(req_items) and all(_lc(a.get("status")) == "done" for a in req_items)
+
+    # "Hard" evidence = a proof (property) or a policy (obligation). A goal backed only by `change`
+    # edits is weakly specified -- "done" the moment edits land, nothing proved or policy-checked.
+    if not acc:
+        weak = False
+    elif high_stakes:
+        weak = not any(a.get("kind") == "property" for a in req_items)
+    else:
+        weak = not any(a.get("kind") in ("property", "obligation") for a in req_items)
+
+    clauses = goal.get("intent_clauses") or []
+    covered = {c for a in acc for c in (a.get("covers") or [])}
+    uncovered = [c for c in clauses if c not in covered]
+
+    review = goal.get("criteria_review") or {}
+    reviewer = review.get("reviewed_by")
+    doers = {a.get("author") for a in acc if a.get("author")}
+    non_doer = bool(reviewer) and reviewer not in doers
+    certified = bool(review.get("verdict") == "approved" and non_doer and not uncovered and not weak)
+
+    return {
+        "met": met,
+        "certified": certified,
+        "weakly_specified": weak,
+        "uncovered_clauses": uncovered,
+    }
+
+
+# ================================================================
 # Stale evidence -> derived residuals (was staleness.ts)
 # ================================================================
 
@@ -295,6 +345,9 @@ def enrich(trace):
         g["progress"] = progress_of(resolved)
         g["cone"] = sorted(goal_relevant_actions(g, t))
         g["open_gaps"] = len(goal_residuals(g, t, derived))
+        # Grade the definition of done itself (met vs certified), over the RESOLVED items. Default
+        # (non-high-stakes) grading, matching the desktop/viewer so signals don't diverge across tools.
+        g["faithfulness"] = faithfulness_of(g)
 
     t["exploration_actions"] = sorted(unattributed_actions(t))
 
@@ -302,10 +355,16 @@ def enrich(trace):
     evals = t.get("policy_evaluations", [])
     res = t.get("residuals", [])
     is_open = lambda r: _lc(r.get("status") or "open") == "open"  # noqa: E731
+    goals = t.get("goals", [])
+    faith = [g.get("faithfulness") or {} for g in goals]
     t["summary"] = {
         "policy_violations": sum(1 for e in evals if _lc(e.get("status")) == "failed"),
         "open_residuals": sum(1 for r in res if is_open(r)),
         "open_high": sum(1 for r in res if is_open(r) and _lc(r.get("severity")) in ("high", "critical")),
         "stale_evidence": sum(1 for r in res if r.get("derived")),
+        "goals_total": len(goals),
+        "goals_met": sum(1 for f in faith if f.get("met")),
+        "goals_certified": sum(1 for f in faith if f.get("certified")),
+        "goals_weakly_specified": sum(1 for f in faith if f.get("weakly_specified")),
     }
     return t

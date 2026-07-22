@@ -79,6 +79,10 @@ def test_summary_counts():
         "open_residuals": 3,
         "open_high": 1,       # r1: amount invariant unproved under concurrency
         "stale_evidence": 0,  # the fix was clean: no proved-then-edited symbols left dangling
+        "goals_total": 1,
+        "goals_met": 0,             # gap items still open -> not fully met
+        "goals_certified": 0,       # no criteria_review on this fixture
+        "goals_weakly_specified": 0,  # backed by proofs, not just edits
     }
 
 

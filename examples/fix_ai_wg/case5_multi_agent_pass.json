@@ -1,0 +1,159 @@
+{
+  "trace_id": "fixwg-5-agents-pass",
+  "spec_version": "1.6",
+  "trigger": {},
+  "outcome": {},
+  "policies": [
+    {
+      "policy_id": "agent_identity_resolved",
+      "name": "agent_identity_resolved",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(action → agent_id_resolved ∧ kya_valid)"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "book",
+      "artifact_type": "AnalysisNote",
+      "name": "order book",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "risk-report",
+      "artifact_type": "AnalysisNote",
+      "name": "risk report",
+      "producer_action_id": 2,
+      "derived_from": [
+        "book"
+      ]
+    },
+    {
+      "artifact_id": "exec-plan",
+      "artifact_type": "Plan",
+      "name": "execution plan",
+      "producer_action_id": 3,
+      "derived_from": [
+        "risk-report"
+      ]
+    },
+    {
+      "artifact_id": "child-order",
+      "artifact_type": "Commit",
+      "name": "child order",
+      "producer_action_id": 4,
+      "derived_from": [
+        "exec-plan"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "type": "Retrieve",
+      "rationale": "market-data agent pulls the book",
+      "label": "agent id resolved: AGT-DATA · kya valid (IAL2 principal)",
+      "outputs": [
+        "book"
+      ],
+      "agent": "AGT-DATA",
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "Compute",
+      "rationale": "risk agent evaluates exposure",
+      "label": "agent id resolved: AGT-RISK · kya valid",
+      "inputs": [
+        "book"
+      ],
+      "outputs": [
+        "risk-report"
+      ],
+      "agent": "AGT-RISK",
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 3,
+      "type": "Compute",
+      "rationale": "execution agent builds the plan",
+      "label": "agent id resolved: AGT-EXEC · kya valid",
+      "inputs": [
+        "risk-report"
+      ],
+      "outputs": [
+        "exec-plan"
+      ],
+      "agent": "AGT-EXEC",
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Release",
+      "rationale": "supervisor approves and releases",
+      "label": "agent id resolved: AGT-SUP · kya valid",
+      "inputs": [
+        "exec-plan"
+      ],
+      "outputs": [
+        "child-order"
+      ],
+      "agent": "AGT-SUP",
+      "meta_action_id": "m3"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Data agent gathers",
+      "intent": "pull the order book",
+      "action_ids": [
+        1
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m2",
+      "title": "Risk & execution agents plan",
+      "intent": "evaluate risk and build the plan",
+      "action_ids": [
+        2,
+        3
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m3",
+      "title": "Supervisor approves & releases",
+      "intent": "sign off and release",
+      "action_ids": [
+        4
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "agent_identity_resolved",
+      "status": "passed",
+      "checked_at_action_id": 4,
+      "evidence_action_ids": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "evidence_artifact_ids": [
+        "book",
+        "risk-report",
+        "exec-plan",
+        "child-order"
+      ]
+    }
+  ],
+  "timestamp": "2026-07-22T10:56:26Z"
+}

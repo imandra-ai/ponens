@@ -12,7 +12,7 @@ import json
 import os
 import shutil
 
-from ponens.trace import evaluate_policy, evaluate_formula, cmd_check
+from ponens.trace import evaluate_policy, evaluate_policy_full, evaluate_formula, cmd_check
 from ponens.policy_compiler import Atom
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "..", "fixtures")
@@ -101,6 +101,29 @@ def test_decomposition_followed_by_tests_passes():
     t = trace([action(1, "Decompose"), action(2, "GenerateTests")])
     status, _ = evaluate_policy(DECOMP_DRIVES_TESTS, t)
     assert status == "passed"
+
+
+# --------------------------------------------------------------------------- evidence extraction
+
+def test_evidence_names_the_witnessing_action_for_G_implies():
+    pol = policy("retrieved_data_attributed", "G(Retrieve → provenance_checked ∧ recency_checked)")
+    good = trace([{"id": 1, "type": "Retrieve", "rationale": "provenance checked, recency checked"},
+                  {"id": 2, "type": "Release", "rationale": "send"}])
+    bad = trace([{"id": 1, "type": "Retrieve", "rationale": "read from cache"},
+                 {"id": 2, "type": "Release", "rationale": "send"}])
+    status, _note, ev, vi = evaluate_policy_full(pol, good)
+    assert status == "passed" and ev == [1] and vi == []      # the Retrieve satisfied the predicate
+    status, _note, ev, vi = evaluate_policy_full(pol, bad)
+    assert status == "failed" and vi == [1]                    # the Retrieve broke it
+
+
+def test_evidence_names_the_dangling_action_for_structural():
+    pol = {"name": "data_flow_integrity", "formula": "structural", "severity": "error"}
+    bad = trace([{"id": 1, "type": "Retrieve", "rationale": "load", "outputs": ["a"]},
+                 {"id": 2, "type": "Compute", "rationale": "reuse foreign ctx",
+                  "inputs": ["foreign"], "outputs": ["b"]}])
+    status, _note, _ev, vi = evaluate_policy_full(pol, bad)
+    assert status == "failed" and 2 in vi                       # action 2 has the dangling input
 
 
 # --------------------------------------------------------------------------- machine-readable check

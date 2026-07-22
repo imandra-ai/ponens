@@ -1,0 +1,170 @@
+{
+  "trace_id": "fixwg-2-tool-pass",
+  "spec_version": "1.6",
+  "trigger": {},
+  "outcome": {},
+  "policies": [
+    {
+      "policy_id": "tool_calls_allowlisted",
+      "name": "tool_calls_allowlisted",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ToolCall → in_allowlist)"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "book",
+      "artifact_type": "AnalysisNote",
+      "name": "L2 order book",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "routing-plan",
+      "artifact_type": "Plan",
+      "name": "route plan",
+      "producer_action_id": 2,
+      "derived_from": [
+        "book"
+      ]
+    },
+    {
+      "artifact_id": "sor-result",
+      "artifact_type": "CommandResult",
+      "name": "SOR timeout",
+      "producer_action_id": 3,
+      "derived_from": [
+        "routing-plan"
+      ]
+    },
+    {
+      "artifact_id": "twap-plan",
+      "artifact_type": "Plan",
+      "name": "TWAP fallback",
+      "producer_action_id": 4,
+      "derived_from": [
+        "sor-result"
+      ]
+    },
+    {
+      "artifact_id": "child-orders",
+      "artifact_type": "Commit",
+      "name": "child orders",
+      "producer_action_id": 5,
+      "derived_from": [
+        "twap-plan"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "type": "Retrieve",
+      "rationale": "read the order book",
+      "outputs": [
+        "book"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "Compute",
+      "rationale": "build the routing plan",
+      "inputs": [
+        "book"
+      ],
+      "outputs": [
+        "routing-plan"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "ToolCall",
+      "rationale": "route via the certified smart-order-router",
+      "label": "invoke SOR-v3 (in allowlist, tier-2 certified)",
+      "result_summary": "timeout after 900ms — failed",
+      "inputs": [
+        "routing-plan"
+      ],
+      "outputs": [
+        "sor-result"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Compute",
+      "rationale": "SOR timed out; fall back to the certified TWAP scheduler",
+      "label": "fallback: TWAP scheduler (in allowlist)",
+      "inputs": [
+        "sor-result"
+      ],
+      "outputs": [
+        "twap-plan"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 5,
+      "type": "Release",
+      "rationale": "execute the documented fallback schedule",
+      "inputs": [
+        "twap-plan"
+      ],
+      "outputs": [
+        "child-orders"
+      ],
+      "meta_action_id": "m3"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Read the book & plan the route",
+      "intent": "prepare the routing plan",
+      "action_ids": [
+        1,
+        2
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m2",
+      "title": "Route — tool call + fallback",
+      "intent": "call the SOR; on failure fall back to TWAP",
+      "action_ids": [
+        3,
+        4
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m3",
+      "title": "Execute",
+      "intent": "run the fallback schedule",
+      "action_ids": [
+        5
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "tool_calls_allowlisted",
+      "status": "passed",
+      "checked_at_action_id": 5,
+      "evidence_action_ids": [
+        3
+      ],
+      "evidence_artifact_ids": [
+        "sor-result"
+      ]
+    }
+  ],
+  "timestamp": "2026-07-22T10:56:26Z"
+}

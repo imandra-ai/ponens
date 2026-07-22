@@ -1,0 +1,93 @@
+{
+  "trace_id": "fixwg-6-provenance-fail",
+  "spec_version": "1.6",
+  "trigger": {},
+  "outcome": {},
+  "policies": [
+    {
+      "policy_id": "decision_path_reconstructable",
+      "name": "decision_path_reconstructable",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release ∨ Deploy → decision_path_present)"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "venue-choice",
+      "artifact_type": "Plan",
+      "name": "venue: LIT-B",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "child-order",
+      "artifact_type": "Commit",
+      "name": "child order",
+      "producer_action_id": 2,
+      "derived_from": [
+        "venue-choice"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "type": "Compute",
+      "rationale": "pick a venue",
+      "outputs": [
+        "venue-choice"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "Release",
+      "rationale": "execute",
+      "label": "child order sent to venue LIT-B",
+      "inputs": [
+        "venue-choice"
+      ],
+      "outputs": [
+        "child-order"
+      ],
+      "meta_action_id": "m2"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Pick a venue",
+      "intent": "choose a venue",
+      "action_ids": [
+        1
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m2",
+      "title": "Execute",
+      "intent": "send the order",
+      "action_ids": [
+        2
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "decision_path_reconstructable",
+      "status": "failed",
+      "checked_at_action_id": 2,
+      "violating_action_ids": [
+        2
+      ],
+      "violating_artifact_ids": [
+        "child-order"
+      ]
+    }
+  ],
+  "timestamp": "2026-07-22T10:56:26Z"
+}

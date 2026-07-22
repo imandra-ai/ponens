@@ -51,4 +51,7 @@ release: validate-new-version build  ## Tag, publish to PyPI, and create a GitHu
 	git tag -a v$(VERSION) -m "v$(VERSION)"
 	git push origin v$(VERSION)
 	$(MAKE) publish-pypi
-	gh release create v$(VERSION) ./dist/ponens-* --generate-notes --title v$(VERSION)
+	@awk '/^## \[?$(VERSION)\]?/{f=1;next} f&&/^## /{exit} f' ../CHANGELOG.md > dist/RELEASE_NOTES.md
+	@test -s dist/RELEASE_NOTES.md \
+		&& gh release create v$(VERSION) ./dist/ponens-* --title v$(VERSION) --notes-file dist/RELEASE_NOTES.md \
+		|| gh release create v$(VERSION) ./dist/ponens-* --title v$(VERSION) --generate-notes

@@ -20,6 +20,11 @@ try {
 
 <Layout>
   <section class="hero">
+    <a class="hero-new" href="/whats-new">
+      <span class="hn-badge">New</span>
+      <span>OpenTelemetry &amp; Langfuse import + policy evidence</span>
+      <span class="hn-arrow">What's new →</span>
+    </a>
     <h1>Keep up with your AI-generated code.</h1>
     <p class="lead">
       The old code-review model is out. Agents generate too much code, too quickly, for
@@ -48,6 +53,39 @@ try {
       <p>From <em>modus ponens</em> — the rule of inference <code>P → Q, P ⊢ Q</code>. Given the
         recorded work and the policies, <span class="pn">ponens</span> derives whether the reasoning holds.</p>
     </aside>
+  </section>
+
+  <section class="vs" aria-label="how ponens differs from observability tools">
+    <div class="vs-head">
+      <h2>Not another tracing tool</h2>
+      <p><span class="pn">ponens</span> doesn't compete with <strong>OpenTelemetry</strong>,
+        <strong>Langfuse</strong>, or <strong>LangSmith</strong> — it sits <em>on top</em> of them.
+        Observability shows you <strong>what happened</strong>; <span class="pn">ponens</span> tells you
+        whether the reasoning was <strong>sound and compliant</strong> — and lets you enforce it.</p>
+    </div>
+    <div class="vs-grid">
+      <table class="vs-table">
+        <thead><tr><th></th>
+          <th>Observability<span class="vs-sub">OpenTelemetry · Langfuse · LangSmith</span></th>
+          <th><span class="pn">ponens</span></th></tr></thead>
+        <tbody>
+          <tr><th>The question</th><td>What happened? — spans, latency, tokens, cost</td><td>Does the reasoning hold? Is it compliant?</td></tr>
+          <tr><th>The record</th><td>execution spans / LLM calls</td><td>a curated <strong>reasoning trace</strong> — actions, lineage, intent, declared gaps</td></tr>
+          <tr><th>The check</th><td>dashboards, eyeballing, thresholds</td><td>deterministic <strong>policy verdicts</strong> — machine-checked 🟢 🟡 🔴</td></tr>
+          <tr><th>The output</th><td>metrics + traces to inspect</td><td>a PASS/FAIL <strong>governance gate</strong> + the declared residual surface</td></tr>
+          <tr><th>Where it runs</th><td>a dashboard</td><td>offline, in CI, or a <strong>runtime gate</strong> — no model in the loop</td></tr>
+        </tbody>
+      </table>
+      <aside class="vs-bridge">
+        <h3>Bring your traces with you</h3>
+        <p>Already instrumented? Pipe your spans straight in and add the governance layer:</p>
+        <pre class="vs-code"><code>{`ponens otel import spans.json -o t.json
+ponens langfuse import lf.json -o t.json
+ponens trace check t.json    # → 🟢 / 🔴`}</code></pre>
+        <p class="vs-note">Same run — now with <a href="/gallery">computable policies</a>, a decision path,
+          and declared residuals. <a href="/guides/import-observability">Import guide →</a></p>
+      </aside>
+    </div>
   </section>
 
   <section class="transform" aria-label="from a session log to a reasoning record">
@@ -321,5 +359,41 @@ ponens trace view trace.json                    # Read the reasoning, zoomable`}
       max-width: 60ch;
     }
     .transform-note strong { color: var(--fg); font-weight: 600; }
+
+    /* What's-new announcement chip */
+    .hero-new { display: inline-flex; align-items: center; gap: 0.6rem; text-decoration: none;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.3rem 0.85rem 0.3rem 0.4rem; font-size: 0.82rem; color: var(--muted);
+      margin-bottom: 1.4rem; }
+    .hero-new:hover { border-color: var(--accent-2); text-decoration: none; color: var(--fg); }
+    .hn-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+      color: #fff; background: var(--accent-2); border-radius: 999px; padding: 0.12rem 0.5rem; }
+    .hn-arrow { color: var(--accent-2); font-weight: 600; }
+
+    /* ponens vs. observability */
+    .vs { margin: 3.5rem 0; }
+    .vs-head { max-width: 72ch; margin-bottom: 1.5rem; }
+    .vs-head h2 { margin-bottom: 0.5rem; }
+    .vs-head p { color: var(--muted); font-size: 1.02rem; line-height: 1.6; }
+    .vs-head strong { color: var(--fg); }
+    .vs-grid { display: grid; grid-template-columns: 1.7fr 1fr; gap: 1.5rem; align-items: start; }
+    .vs-table { border-collapse: collapse; width: 100%; font-size: 0.92rem; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .vs-table th, .vs-table td { text-align: left; padding: 0.7rem 0.9rem;
+      border-bottom: 1px solid var(--border); vertical-align: top; }
+    .vs-table thead th { background: rgba(127,127,127,0.06); font-size: 0.9rem; }
+    .vs-table tbody th { font-weight: 600; color: var(--muted); width: 8.5rem; white-space: nowrap; }
+    .vs-table td:last-child { color: var(--fg); }
+    .vs-table tr:last-child th, .vs-table tr:last-child td { border-bottom: none; }
+    .vs-sub { display: block; font-weight: 400; font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+    .vs-bridge { background: var(--panel); border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-2); border-radius: 12px; padding: 1.1rem 1.25rem; }
+    .vs-bridge h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+    .vs-bridge p { color: var(--muted); font-size: 0.9rem; line-height: 1.55; margin: 0 0 0.75rem; }
+    .vs-code { background: #0d1117; border: 1px solid #1f2630; border-radius: 8px;
+      padding: 0.8rem 1rem; overflow-x: auto; margin: 0 0 0.75rem; }
+    .vs-code code { color: #e6edf3; font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; display: block; }
+    .vs-note { margin: 0 !important; font-size: 0.85rem !important; }
+    @media (max-width: 820px) { .vs-grid { grid-template-columns: 1fr; } }
   </style>
 </Layout>

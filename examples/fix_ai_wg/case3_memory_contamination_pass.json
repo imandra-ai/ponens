@@ -1,0 +1,167 @@
+{
+  "trace_id": "fixwg-3-memory-pass",
+  "spec_version": "1.6",
+  "trigger": {},
+  "outcome": {},
+  "policies": [
+    {
+      "policy_id": "data_flow_integrity",
+      "name": "data_flow_integrity",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(∀input ∈ inputs(a) → ∃!b . b < a ∧ input ∈ outputs(b))"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "mem-ctx-771",
+      "artifact_type": "AnalysisNote",
+      "name": "working memory (order 771)",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "market-771",
+      "artifact_type": "AnalysisNote",
+      "name": "market snapshot",
+      "producer_action_id": 2
+    },
+    {
+      "artifact_id": "sizing-plan",
+      "artifact_type": "Plan",
+      "name": "size plan",
+      "producer_action_id": 3,
+      "derived_from": [
+        "mem-ctx-771",
+        "market-771"
+      ]
+    },
+    {
+      "artifact_id": "risk-ok",
+      "artifact_type": "AnalysisNote",
+      "name": "risk cleared",
+      "producer_action_id": 4,
+      "derived_from": [
+        "sizing-plan"
+      ]
+    },
+    {
+      "artifact_id": "child-order",
+      "artifact_type": "Commit",
+      "name": "child order",
+      "producer_action_id": 5,
+      "derived_from": [
+        "risk-ok"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "type": "Retrieve",
+      "rationale": "load THIS order's working memory",
+      "outputs": [
+        "mem-ctx-771"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "Retrieve",
+      "rationale": "pull current market data",
+      "outputs": [
+        "market-771"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "Compute",
+      "rationale": "size the order from context produced in this workflow",
+      "inputs": [
+        "mem-ctx-771",
+        "market-771"
+      ],
+      "outputs": [
+        "sizing-plan"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Decision",
+      "rationale": "risk gate",
+      "inputs": [
+        "sizing-plan"
+      ],
+      "outputs": [
+        "risk-ok"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 5,
+      "type": "Release",
+      "rationale": "execute",
+      "inputs": [
+        "risk-ok"
+      ],
+      "outputs": [
+        "child-order"
+      ],
+      "meta_action_id": "m3"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Load context & market data",
+      "intent": "gather this order's memory and market snapshot",
+      "action_ids": [
+        1,
+        2
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m2",
+      "title": "Size & risk-gate",
+      "intent": "size from in-workflow context and clear risk",
+      "action_ids": [
+        3,
+        4
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m3",
+      "title": "Execute",
+      "intent": "send the child order",
+      "action_ids": [
+        5
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "data_flow_integrity",
+      "status": "passed",
+      "checked_at_action_id": 5,
+      "evidence_action_ids": [
+        3,
+        4,
+        5
+      ],
+      "evidence_artifact_ids": [
+        "sizing-plan",
+        "risk-ok",
+        "child-order"
+      ]
+    }
+  ],
+  "timestamp": "2026-07-22T10:56:26Z"
+}

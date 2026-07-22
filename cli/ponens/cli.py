@@ -15,6 +15,8 @@ from .formatting import (
 from . import trace as trace_mod
 from . import registry as registry_mod
 from . import demos as demos_mod
+from . import otel as otel_mod
+from . import langfuse as langfuse_mod
 from . import sync as sync_mod
 from . import emit as emit_mod
 from . import agent as agent_mod
@@ -673,6 +675,12 @@ def main():
 
     # ── demos (bundled sample traces to check locally) ───────────
     demos_mod.register(subparsers)
+
+    # ── otel (bridge OpenTelemetry spans into a ponens trace) ────
+    otel_mod.register(subparsers)
+
+    # ── langfuse (bridge a Langfuse trace export into a trace) ───
+    langfuse_mod.register(subparsers)
 
     # ── Parse and dispatch ───────────────────────────────────────
     args = parser.parse_args()

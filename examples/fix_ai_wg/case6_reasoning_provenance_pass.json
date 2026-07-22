@@ -1,0 +1,167 @@
+{
+  "trace_id": "fixwg-6-provenance-pass",
+  "spec_version": "1.6",
+  "trigger": {},
+  "outcome": {},
+  "policies": [
+    {
+      "policy_id": "decision_path_reconstructable",
+      "name": "decision_path_reconstructable",
+      "severity": "warning",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Release ∨ Deploy → decision_path_present)"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "venue-stats",
+      "artifact_type": "AnalysisNote",
+      "name": "venue stats",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "venue-comparison",
+      "artifact_type": "AnalysisNote",
+      "name": "venue comparison",
+      "producer_action_id": 2,
+      "derived_from": [
+        "venue-stats"
+      ]
+    },
+    {
+      "artifact_id": "venue-choice",
+      "artifact_type": "Plan",
+      "name": "chosen: LIT-B",
+      "producer_action_id": 3,
+      "derived_from": [
+        "venue-comparison"
+      ]
+    },
+    {
+      "artifact_id": "rejected-LIT-A",
+      "artifact_type": "AnalysisNote",
+      "name": "rejected: LIT-A (fee)",
+      "producer_action_id": 3,
+      "derived_from": [
+        "venue-comparison"
+      ]
+    },
+    {
+      "artifact_id": "rejected-DARK-C",
+      "artifact_type": "AnalysisNote",
+      "name": "rejected: DARK-C (toxicity)",
+      "producer_action_id": 3,
+      "derived_from": [
+        "venue-comparison"
+      ]
+    },
+    {
+      "artifact_id": "child-order",
+      "artifact_type": "Commit",
+      "name": "child order",
+      "producer_action_id": 4,
+      "derived_from": [
+        "venue-choice"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "type": "Retrieve",
+      "rationale": "gather venue stats (LIT-A, LIT-B, DARK-C)",
+      "outputs": [
+        "venue-stats"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "Compute",
+      "rationale": "compare venues on fee / latency / toxicity",
+      "inputs": [
+        "venue-stats"
+      ],
+      "outputs": [
+        "venue-comparison"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "Decision",
+      "rationale": "reject LIT-A (fee), reject DARK-C (toxicity), choose LIT-B",
+      "label": "venue selection reasoning recorded",
+      "inputs": [
+        "venue-comparison"
+      ],
+      "outputs": [
+        "venue-choice",
+        "rejected-LIT-A",
+        "rejected-DARK-C"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Release",
+      "rationale": "execute on the chosen venue",
+      "label": "child order — decision path present → DecisionPathID DP-903",
+      "inputs": [
+        "venue-choice"
+      ],
+      "outputs": [
+        "child-order"
+      ],
+      "meta_action_id": "m3"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Compare venues",
+      "intent": "gather stats and compare on fee/latency/toxicity",
+      "action_ids": [
+        1,
+        2
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m2",
+      "title": "Select venue (reject alternatives)",
+      "intent": "reject LIT-A and DARK-C, choose LIT-B",
+      "action_ids": [
+        3
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m3",
+      "title": "Execute",
+      "intent": "send the child order",
+      "action_ids": [
+        4
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "decision_path_reconstructable",
+      "status": "passed",
+      "checked_at_action_id": 4,
+      "evidence_action_ids": [
+        4
+      ],
+      "evidence_artifact_ids": [
+        "child-order"
+      ]
+    }
+  ],
+  "timestamp": "2026-07-22T10:56:26Z"
+}

@@ -602,27 +602,84 @@ def evaluate_structural(policy_name, trace):
     return True
 
 
-def evaluate_policy(policy, trace):
+def _temporal_witnesses(ast, trace):
+    """Best-effort per-action evidence for the common `G(...)` shapes:
+      - G(ante → cons): the actions where the trigger fires, split into satisfying (evidence) and
+        breaking (violating);
+      - G(¬x): actions where x holds are violating;
+      - G(x): actions split by whether x holds.
+    Returns (evidence_action_ids, violating_action_ids). Empty for shapes we don't decompose."""
+    ev, vi = [], []
+    if not isinstance(ast, Globally):
+        return ev, vi
+    body = ast.body
+    for a in sorted(trace.get('actions', []), key=lambda x: x['id']):
+        ctx = {'action': a}
+        try:
+            if isinstance(body, Implies):
+                if not evaluate_formula(body.left, trace, ctx):
+                    continue  # trigger did not fire here — not relevant
+                (ev if evaluate_formula(body.right, trace, ctx) else vi).append(a['id'])
+            elif isinstance(body, Not):
+                if evaluate_formula(body.body, trace, ctx):
+                    vi.append(a['id'])
+            else:
+                (ev if evaluate_formula(body, trace, ctx) else vi).append(a['id'])
+        except Exception:
+            continue
+    return ev, vi
+
+
+def _structural_witnesses(name, trace):
+    """Evidence for structural policies. For `data_flow_integrity`: actions whose inputs all resolve
+    to a producer are evidence; an action with a dangling input is violating."""
+    ev, vi = [], []
+    if name == 'data_flow_integrity':
+        actions = sorted(trace.get('actions', []), key=lambda a: a['id'])
+        output_map = {}
+        for a in actions:
+            for o in a.get('_original_outputs', a.get('outputs', [])):
+                output_map[o] = a['id']
+        for art in trace.get('artifacts', []):
+            if art.get('producer_action_id') is not None:
+                output_map[art['artifact_id']] = art['producer_action_id']
+        for a in actions:
+            inputs = a.get('_original_inputs', a.get('inputs', []))
+            if not inputs:
+                continue
+            (vi if any(inp not in output_map for inp in inputs) else ev).append(a['id'])
+    return ev, vi
+
+
+def evaluate_policy_full(policy, trace):
+    """Like `evaluate_policy`, plus best-effort evidence: the action ids that support the pass
+    (`evidence`) or break it (`violating`). Returns (status, note, evidence_ids, violating_ids)."""
     formula_str = policy.get('formula', '')
     name = policy.get('name', '')
     if not formula_str:
-        return 'unknown', 'No formula defined'
+        return 'unknown', 'No formula defined', [], []
     if name in STRUCTURAL_POLICIES:
         result = evaluate_structural(name, trace)
-        return ('passed' if result else 'failed'), None
+        ev, vi = _structural_witnesses(name, trace)
+        return ('passed' if result else 'failed'), None, ev, vi
     try:
-        tokens = tokenize(formula_str)
-        parser = Parser(tokens, formula_str, name)
-        ast = parser.parse()
+        ast = Parser(tokenize(formula_str), formula_str, name).parse()
     except Exception as e:
-        return 'unknown', f'Parse error: {e}'
+        return 'unknown', f'Parse error: {e}', [], []
     if isinstance(ast, RawStructural):
-        return 'unknown', 'Formula too complex for runtime evaluation'
+        return 'unknown', 'Formula too complex for runtime evaluation', [], []
     try:
         result = evaluate_formula(ast, trace)
-        return ('passed' if result else 'failed'), None
+        ev, vi = _temporal_witnesses(ast, trace)
+        return ('passed' if result else 'failed'), None, ev, vi
     except Exception as e:
-        return 'unknown', f'Evaluation error: {e}'
+        return 'unknown', f'Evaluation error: {e}', [], []
+
+
+def evaluate_policy(policy, trace):
+    """(status, note) — the compliance verdict. See `evaluate_policy_full` for evidence."""
+    status, note, _ev, _vi = evaluate_policy_full(policy, trace)
+    return status, note
 
 
 # ================================================================
@@ -1502,12 +1559,35 @@ def cmd_check(args):
     emit = (lambda *a, **k: None) if as_json else print  # suppress human output in machine mode
     last_action_id = max((a['id'] for a in trace.get('actions', [])), default=None)
 
-    def record_eval(pid, status, note):
+    # Output artifact ids produced by a set of action ids — so evidence highlights DAG nodes too.
+    _arts_by_action = {}
+    for a in trace.get('actions', []):
+        _arts_by_action[a['id']] = list(a.get('_original_outputs', a.get('outputs', [])))
+
+    def _arts_of(action_ids):
+        out = []
+        for aid in action_ids:
+            for art in _arts_by_action.get(aid, []):
+                if art not in out:
+                    out.append(art)
+        return out
+
+    def record_eval(pid, status, note, ev_actions=None, vi_actions=None):
         ev = {'policy_id': pid, 'status': status}
         if last_action_id is not None:
             ev['checked_at_action_id'] = last_action_id
         if note:
             ev['note'] = note
+        if ev_actions:
+            ev['evidence_action_ids'] = ev_actions
+            arts = _arts_of(ev_actions)
+            if arts:
+                ev['evidence_artifact_ids'] = arts
+        if vi_actions:
+            ev['violating_action_ids'] = vi_actions
+            arts = _arts_of(vi_actions)
+            if arts:
+                ev['violating_artifact_ids'] = arts
         evaluations.append(ev)
 
     for p in policies:
@@ -1522,8 +1602,8 @@ def cmd_check(args):
             errors.append(name)
             record_eval(pid, 'unknown', f'Syntax error: {syntax_errors[0].message}')
             continue
-        status, note = evaluate_policy(p, trace)
-        record_eval(pid, status, note)
+        status, note, ev_actions, vi_actions = evaluate_policy_full(p, trace)
+        record_eval(pid, status, note, ev_actions, vi_actions)
         if status == 'passed':
             passed += 1
             emit(f"  PASS    {name}")

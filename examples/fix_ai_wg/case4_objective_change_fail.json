@@ -1,0 +1,166 @@
+{
+  "trace_id": "fixwg-4-intent-fail",
+  "spec_version": "1.6",
+  "trigger": {},
+  "outcome": {},
+  "policies": [
+    {
+      "policy_id": "execution_linked_to_intent",
+      "name": "execution_linked_to_intent",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(ToolCall ∨ Release ∨ Deploy → intent_resolved)"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "intent-vwap",
+      "artifact_type": "Plan",
+      "name": "objective: VWAP",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "vol-obs",
+      "artifact_type": "AnalysisNote",
+      "name": "volatility spike",
+      "producer_action_id": 2
+    },
+    {
+      "artifact_id": "intent-is",
+      "artifact_type": "Plan",
+      "name": "objective: IS",
+      "producer_action_id": 3,
+      "derived_from": [
+        "intent-vwap",
+        "vol-obs"
+      ]
+    },
+    {
+      "artifact_id": "is-schedule",
+      "artifact_type": "Plan",
+      "name": "schedule",
+      "producer_action_id": 4,
+      "derived_from": [
+        "intent-is"
+      ]
+    },
+    {
+      "artifact_id": "child-orders",
+      "artifact_type": "Commit",
+      "name": "child orders",
+      "producer_action_id": 5,
+      "derived_from": [
+        "is-schedule"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "type": "Decision",
+      "rationale": "declare the execution objective: VWAP",
+      "label": "objective: VWAP",
+      "outputs": [
+        "intent-vwap"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "Retrieve",
+      "rationale": "observe realized volatility",
+      "outputs": [
+        "vol-obs"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 3,
+      "type": "Decision",
+      "rationale": "switch the objective to Implementation Shortfall",
+      "label": "objective changed to IS",
+      "inputs": [
+        "intent-vwap",
+        "vol-obs"
+      ],
+      "outputs": [
+        "intent-is"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Compute",
+      "rationale": "build the schedule",
+      "inputs": [
+        "intent-is"
+      ],
+      "outputs": [
+        "is-schedule"
+      ],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 5,
+      "type": "Release",
+      "rationale": "execute",
+      "label": "child order sent",
+      "inputs": [
+        "is-schedule"
+      ],
+      "outputs": [
+        "child-orders"
+      ],
+      "meta_action_id": "m3"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Declare objective",
+      "intent": "set the execution objective (VWAP)",
+      "action_ids": [
+        1
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m2",
+      "title": "Revise objective on volatility",
+      "intent": "switch VWAP → Implementation Shortfall with rationale",
+      "action_ids": [
+        2,
+        3
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m3",
+      "title": "Schedule & execute",
+      "intent": "build the IS schedule and execute",
+      "action_ids": [
+        4,
+        5
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "execution_linked_to_intent",
+      "status": "failed",
+      "checked_at_action_id": 5,
+      "violating_action_ids": [
+        5
+      ],
+      "violating_artifact_ids": [
+        "child-orders"
+      ]
+    }
+  ],
+  "timestamp": "2026-07-22T10:56:26Z"
+}

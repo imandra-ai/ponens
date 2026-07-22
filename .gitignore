@@ -39,3 +39,12 @@ cli/ponens/demos/
 *.swp
 .idea/
 .vscode/
+
+# Generated visualizer pages (regenerate: python3 examples/fix_ai_wg/view.py)
+examples/fix_ai_wg/viewer/
+
+# Generated from the OTLP sample (regenerate: ponens otel import examples/otel/sample-otlp.json)
+examples/otel/*-trace.json
+
+# Generated from the Langfuse sample (regenerate: ponens langfuse import examples/langfuse/sample-langfuse.json)
+examples/langfuse/*-trace.json

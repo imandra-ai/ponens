@@ -1,0 +1,130 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "exec-agent"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "trading.agent"
+          },
+          "spans": [
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "r000",
+              "name": "execute VWAP child order",
+              "startTimeUnixNano": "1784721600000000000",
+              "endTimeUnixNano": "1784721600800000000",
+              "attributes": []
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "s001",
+              "name": "retrieve NBBO",
+              "startTimeUnixNano": "1784721600000000000",
+              "endTimeUnixNano": "1784721600040000000",
+              "attributes": [
+                {
+                  "key": "ponens.outputs",
+                  "value": {
+                    "stringValue": "snapshot"
+                  }
+                },
+                {
+                  "key": "ponens.rationale",
+                  "value": {
+                    "stringValue": "pull the NBBO before sizing"
+                  }
+                }
+              ],
+              "parentSpanId": "r000"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "s002",
+              "name": "compute order size",
+              "startTimeUnixNano": "1784721600045000000",
+              "endTimeUnixNano": "1784721600120000000",
+              "attributes": [
+                {
+                  "key": "ponens.inputs",
+                  "value": {
+                    "stringValue": "snapshot"
+                  }
+                },
+                {
+                  "key": "ponens.outputs",
+                  "value": {
+                    "stringValue": "sizing-plan"
+                  }
+                }
+              ],
+              "parentSpanId": "r000"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "rg00",
+              "name": "risk gate",
+              "startTimeUnixNano": "1784721600125000000",
+              "endTimeUnixNano": "1784721600200000000",
+              "attributes": [],
+              "parentSpanId": "r000"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "s003",
+              "name": "risk limit decision",
+              "startTimeUnixNano": "1784721600130000000",
+              "endTimeUnixNano": "1784721600180000000",
+              "attributes": [
+                {
+                  "key": "ponens.inputs",
+                  "value": {
+                    "stringValue": "sizing-plan"
+                  }
+                },
+                {
+                  "key": "ponens.outputs",
+                  "value": {
+                    "stringValue": "risk-ok"
+                  }
+                }
+              ],
+              "parentSpanId": "rg00"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "s004",
+              "name": "release child order",
+              "startTimeUnixNano": "1784721600210000000",
+              "endTimeUnixNano": "1784721600260000000",
+              "attributes": [
+                {
+                  "key": "ponens.inputs",
+                  "value": {
+                    "stringValue": "risk-ok"
+                  }
+                },
+                {
+                  "key": "ponens.outputs",
+                  "value": {
+                    "stringValue": "child-order"
+                  }
+                }
+              ],
+              "parentSpanId": "r000"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

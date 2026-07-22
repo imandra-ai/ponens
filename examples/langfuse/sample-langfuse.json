@@ -1,0 +1,83 @@
+{
+  "id": "lf-trace-771",
+  "name": "execute VWAP order",
+  "timestamp": "2026-07-22T12:00:00.000Z",
+  "userId": "exec-agent",
+  "output": "child order filled on LIT-B",
+  "observations": [
+    {
+      "id": "root",
+      "traceId": "lf-trace-771",
+      "type": "SPAN",
+      "name": "execute VWAP child order",
+      "startTime": "2026-07-22T12:00:00.000Z",
+      "endTime": "2026-07-22T12:00:00.800Z"
+    },
+    {
+      "id": "o1",
+      "traceId": "lf-trace-771",
+      "type": "SPAN",
+      "name": "retrieve NBBO",
+      "startTime": "2026-07-22T12:00:00.000Z",
+      "endTime": "2026-07-22T12:00:00.040Z",
+      "parentObservationId": "root",
+      "metadata": {
+        "ponens.outputs": "snapshot",
+        "ponens.rationale": "pull the NBBO before sizing"
+      }
+    },
+    {
+      "id": "o2",
+      "traceId": "lf-trace-771",
+      "type": "GENERATION",
+      "name": "size order",
+      "startTime": "2026-07-22T12:00:00.045Z",
+      "endTime": "2026-07-22T12:00:00.120Z",
+      "parentObservationId": "root",
+      "metadata": {
+        "ponens.inputs": "snapshot",
+        "ponens.outputs": "sizing-plan"
+      },
+      "model": "gpt-4o",
+      "input": {
+        "prompt": "size the order given the book"
+      },
+      "output": "200 shares @ limit 189.40"
+    },
+    {
+      "id": "rg",
+      "traceId": "lf-trace-771",
+      "type": "SPAN",
+      "name": "risk gate",
+      "startTime": "2026-07-22T12:00:00.125Z",
+      "endTime": "2026-07-22T12:00:00.200Z",
+      "parentObservationId": "root"
+    },
+    {
+      "id": "o3",
+      "traceId": "lf-trace-771",
+      "type": "EVENT",
+      "name": "risk limit decision",
+      "startTime": "2026-07-22T12:00:00.130Z",
+      "endTime": "2026-07-22T12:00:00.130Z",
+      "parentObservationId": "rg",
+      "metadata": {
+        "ponens.inputs": "sizing-plan",
+        "ponens.outputs": "risk-ok"
+      }
+    },
+    {
+      "id": "o4",
+      "traceId": "lf-trace-771",
+      "type": "SPAN",
+      "name": "release order",
+      "startTime": "2026-07-22T12:00:00.210Z",
+      "endTime": "2026-07-22T12:00:00.260Z",
+      "parentObservationId": "root",
+      "metadata": {
+        "ponens.inputs": "risk-ok",
+        "ponens.outputs": "child-order"
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "description": "FIX AI WG six-points demo traces (pass/fail per governing policy).",
+  "cases": [
+    {
+      "case": 1,
+      "slug": "stale_decisions",
+      "policy": "retrieved_data_attributed",
+      "pass_file": "case1_stale_decisions_pass.json",
+      "fail_file": "case1_stale_decisions_fail.json",
+      "pass_status": "passed",
+      "fail_status": "failed"
+    },
+    {
+      "case": 2,
+      "slug": "tool_failures",
+      "policy": "tool_calls_allowlisted",
+      "pass_file": "case2_tool_failures_pass.json",
+      "fail_file": "case2_tool_failures_fail.json",
+      "pass_status": "passed",
+      "fail_status": "failed"
+    },
+    {
+      "case": 3,
+      "slug": "memory_contamination",
+      "policy": "data_flow_integrity",
+      "pass_file": "case3_memory_contamination_pass.json",
+      "fail_file": "case3_memory_contamination_fail.json",
+      "pass_status": "passed",
+      "fail_status": "failed"
+    },
+    {
+      "case": 4,
+      "slug": "objective_change",
+      "policy": "execution_linked_to_intent",
+      "pass_file": "case4_objective_change_pass.json",
+      "fail_file": "case4_objective_change_fail.json",
+      "pass_status": "passed",
+      "fail_status": "failed"
+    },
+    {
+      "case": 5,
+      "slug": "multi_agent",
+      "policy": "agent_identity_resolved",
+      "pass_file": "case5_multi_agent_pass.json",
+      "fail_file": "case5_multi_agent_fail.json",
+      "pass_status": "passed",
+      "fail_status": "failed"
+    },
+    {
+      "case": 6,
+      "slug": "reasoning_provenance",
+      "policy": "decision_path_reconstructable",
+      "pass_file": "case6_reasoning_provenance_pass.json",
+      "fail_file": "case6_reasoning_provenance_fail.json",
+      "pass_status": "passed",
+      "fail_status": "failed"
+    }
+  ]
+}

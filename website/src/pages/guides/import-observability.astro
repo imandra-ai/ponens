@@ -1,0 +1,82 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
+---
+
+<Layout title="Import from your observability stack — ponens">
+  <article class="prose">
+    <p class="spec-back"><a href="/guides">← Guides</a></p>
+    <h1>Import from your observability stack</h1>
+    <p><strong>You'll end up with</strong> your existing agent traces — from <strong>OpenTelemetry</strong>
+      or <strong>Langfuse</strong> — turned into ponens reasoning traces you can visualize, check against
+      <a href="/gallery">policies</a>, and gate on. ponens sits <em>on top</em> of observability: it doesn't
+      replace your spans, it adds the governance layer over them.</p>
+
+    <p>Both bridges are one command and produce a full trace — named phases, a lineage DAG, per-action
+      timestamps — that <code>ponens trace check</code> grades like any other.</p>
+
+    <h2>OpenTelemetry → ponens</h2>
+    <p>Point it at an OTLP-JSON span export (full <code>resourceSpans</code>, a <code>{'{"spans":[…]}'}</code>
+      object, or a bare span list):</p>
+    <Code lang="bash" code={`ponens otel import spans.json -o trace.json
+ponens trace check trace.json --json`} />
+    <p>The OTel model maps straight onto the trace model:</p>
+    <table>
+      <thead><tr><th>OpenTelemetry</th><th>ponens trace</th></tr></thead>
+      <tbody>
+        <tr><td>leaf span</td><td><strong>action</strong> (name → type/label, attributes → rationale, status → result)</td></tr>
+        <tr><td>span with children</td><td><strong>meta-action</strong> — the phase grouping its actions</td></tr>
+        <tr><td>parent span tree</td><td>meta nesting (<code>parent_id</code>) + each action's <code>meta_action_id</code></td></tr>
+        <tr><td>span start / end</td><td>action <code>timestamp</code> (+ duration in the label)</td></tr>
+        <tr><td>resource <code>service.name</code> / <code>gen_ai.agent.name</code></td><td>action <code>agent</code> (actor)</td></tr>
+        <tr><td>span id</td><td>evidence (<code>OtelSpan</code> ref)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Langfuse → ponens</h2>
+    <p>Point it at a Langfuse trace export — a trace with nested <em>observations</em> (a single trace,
+      an API <code>{'{"data":[…]}'}</code> list, or a bare observation list):</p>
+    <Code lang="bash" code={`ponens langfuse import trace.json -o trace.json
+ponens trace check trace.json --json`} />
+    <table>
+      <thead><tr><th>Langfuse</th><th>ponens trace</th></tr></thead>
+      <tbody>
+        <tr><td>leaf observation</td><td><strong>action</strong></td></tr>
+        <tr><td>observation with children</td><td><strong>meta-action</strong> (phase)</td></tr>
+        <tr><td><code>parentObservationId</code> tree</td><td>meta nesting + <code>meta_action_id</code></td></tr>
+        <tr><td><code>startTime</code> / <code>endTime</code></td><td>action <code>timestamp</code></td></tr>
+        <tr><td>type <code>GENERATION</code> / <code>SPAN</code> / <code>EVENT</code></td><td>action type — a GENERATION is an LLM call → <code>Compute</code> (+ model in label)</td></tr>
+        <tr><td><code>level=ERROR</code> / <code>statusMessage</code></td><td><code>result_summary</code> (its phase → <code>partial</code>)</td></tr>
+        <tr><td><code>userId</code></td><td>action <code>agent</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Emit lineage: the <code>ponens.inputs/outputs</code> convention</h2>
+    <p>Spans and observations don't natively say which <em>artifacts</em> an action consumed or produced —
+      so the data-flow DAG is empty unless you say so. Add two attributes (OTel) / metadata keys
+      (Langfuse) naming the artifact ids, and the bridge wires the lineage for you:</p>
+    <Code lang="json" code={`// OpenTelemetry span attributes
+{ "key": "ponens.outputs", "value": { "stringValue": "sizing-plan" } }
+{ "key": "ponens.inputs",  "value": { "stringValue": "snapshot" } }
+
+// Langfuse observation metadata
+"metadata": { "ponens.inputs": "snapshot", "ponens.outputs": "sizing-plan" }`} />
+    <p>Now each output becomes an artifact whose <code>derived_from</code> is the action's inputs — so
+      <code>snapshot → sizing-plan → … → order</code> renders as a real dependency graph. Optional
+      <code>ponens.rationale</code> / <code>ponens.intent</code> / <code>ponens.agent</code> keys refine the
+      rest. Without them you still get actions, phases, and timing — just no artifact DAG.</p>
+
+    <h2>Then govern it</h2>
+    <p>The imported trace is an ordinary ponens trace. Attach a pack and check it — offline, in CI, or as a
+      runtime gate:</p>
+    <Code lang="bash" code={`ponens registry update
+ponens policies add agent_identity_resolved --into trace.json
+ponens trace check trace.json --json   # per-policy verdicts + evidence`} />
+    <p>See <a href="/guides/programmatic-use">Use ponens programmatically</a> for the JSON API and the live
+      compliance loop, and the <a href="/organizations">policy packs</a> for what to check against —
+      including the FIX AI WG agentic-governance pack.</p>
+
+    <p class="spec-back" style="margin-top:2rem"><a href="/guides">← Back to guides</a> ·
+      <a href="/guides/programmatic-use">Use ponens programmatically →</a></p>
+  </article>
+</Layout>

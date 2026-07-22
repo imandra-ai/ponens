@@ -1,0 +1,146 @@
+{
+  "trace_id": "fixwg-1-stale-fail",
+  "spec_version": "1.6",
+  "trigger": {},
+  "outcome": {},
+  "policies": [
+    {
+      "policy_id": "retrieved_data_attributed",
+      "name": "retrieved_data_attributed",
+      "severity": "error",
+      "scope": "trace",
+      "kind": "trace_invariant",
+      "formula": "G(Retrieve → provenance_checked ∧ recency_checked)"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "snapshot",
+      "artifact_type": "AnalysisNote",
+      "name": "cached AAPL quote",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "sizing-plan",
+      "artifact_type": "Plan",
+      "name": "child-order size",
+      "producer_action_id": 2,
+      "derived_from": [
+        "snapshot"
+      ]
+    },
+    {
+      "artifact_id": "price-decision",
+      "artifact_type": "AnalysisNote",
+      "name": "limit price",
+      "producer_action_id": 3,
+      "derived_from": [
+        "sizing-plan"
+      ]
+    },
+    {
+      "artifact_id": "child-order",
+      "artifact_type": "Commit",
+      "name": "AAPL child order",
+      "producer_action_id": 4,
+      "derived_from": [
+        "price-decision"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "type": "Retrieve",
+      "rationale": "read a quote from the local cache to save a hop",
+      "label": "market data: AAPL quote read from cache",
+      "outputs": [
+        "snapshot"
+      ],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "Compute",
+      "rationale": "size the child order",
+      "inputs": [
+        "snapshot"
+      ],
+      "outputs": [
+        "sizing-plan"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 3,
+      "type": "Decision",
+      "rationale": "set a limit price",
+      "inputs": [
+        "sizing-plan"
+      ],
+      "outputs": [
+        "price-decision"
+      ],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Release",
+      "rationale": "send the child order",
+      "inputs": [
+        "price-decision"
+      ],
+      "outputs": [
+        "child-order"
+      ],
+      "meta_action_id": "m3"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Retrieve fresh market data",
+      "intent": "get a provenance- and recency-checked quote",
+      "action_ids": [
+        1
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m2",
+      "title": "Size & price the order",
+      "intent": "derive size and limit price from the fresh quote",
+      "action_ids": [
+        2,
+        3
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    },
+    {
+      "id": "m3",
+      "title": "Execute",
+      "intent": "send the child order",
+      "action_ids": [
+        4
+      ],
+      "status": "completed",
+      "source": "plan_declared"
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "retrieved_data_attributed",
+      "status": "failed",
+      "checked_at_action_id": 4,
+      "violating_action_ids": [
+        1
+      ],
+      "violating_artifact_ids": [
+        "snapshot"
+      ]
+    }
+  ],
+  "timestamp": "2026-07-22T10:56:25Z"
+}

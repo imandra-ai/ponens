@@ -1,0 +1,95 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { readFileSync } from "node:fs";
+
+// Single source of truth: render the repo's CHANGELOG.md (the same file `make release` turns into the
+// GitHub release notes). Update the changelog once; this page and the releases both follow.
+let raw = "";
+let version = "";
+try {
+  raw = readFileSync(new URL("../../../CHANGELOG.md", import.meta.url), "utf8");
+} catch { /* built standalone */ }
+try {
+  version = (readFileSync(new URL("../../../cli/pyproject.toml", import.meta.url), "utf8")
+    .match(/^version\s*=\s*"([^"]+)"/m) || [])[1] || "";
+} catch { /* omit */ }
+
+// Parse the changelog into versions → sections → items.
+const versions = [];
+let cur = null, sec = null, buf = null;
+const flush = () => { if (buf != null && sec) { sec.items.push(buf.trim()); buf = null; } };
+for (const line of raw.split("\n")) {
+  const mv = line.match(/^##\s+\[?([0-9][^\]\s]*)\]?\s*(?:[—-]\s*(.*))?$/);
+  if (mv) { flush(); cur = { version: mv[1], date: (mv[2] || "").trim(), sections: [] }; versions.push(cur); sec = null; continue; }
+  if (!cur) continue;
+  const ms = line.match(/^###\s+(.+)$/);
+  if (ms) { flush(); sec = { title: ms[1].trim(), items: [] }; cur.sections.push(sec); continue; }
+  const mi = line.match(/^[-*]\s+(.+)$/);
+  if (mi) { flush(); buf = mi[1]; continue; }
+  if (buf != null && line.trim()) { buf += " " + line.trim(); continue; }
+  if (!line.trim()) flush();
+}
+flush();
+
+// Minimal inline-markdown → HTML (bold / code / links), safely escaped.
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const md = (s) => esc(s)
+  .replace(/`([^`]+)`/g, "<code>$1</code>")
+  .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+const secClass = (t) => "wn-sec-" + t.toLowerCase().replace(/[^a-z]/g, "");
+---
+
+<Layout title="What's new — ponens">
+  <section class="page-head">
+    <h1>What's new</h1>
+    <p>Everything new in <span class="pn">ponens</span>{version && (<> — currently <code class="wn-v">v{version}</code></>)}.
+      Update any time with <code class="wn-v">pip install -U ponens</code>.</p>
+  </section>
+
+  <div class="wn-log">
+    {versions.map((v) => (
+      <section class="wn-ver">
+        <div class="wn-ver-head">
+          <h2>v{v.version}</h2>
+          {v.date && <span class="wn-date">{v.date}</span>}
+        </div>
+        {v.sections.map((s) => (
+          <div class="wn-sec">
+            <span class={"wn-label " + secClass(s.title)}>{s.title}</span>
+            <ul>{s.items.map((it) => (<li set:html={md(it)} />))}</ul>
+          </div>
+        ))}
+      </section>
+    ))}
+  </div>
+
+  <p class="wn-foot">Full history + downloads on the
+    <a href="https://github.com/imandra-ai/ponens/releases">GitHub releases</a> page.</p>
+</Layout>
+
+<style>
+  .wn-v { background: var(--panel); border: 1px solid var(--border); border-radius: 5px;
+    padding: 0.05rem 0.4rem; font-size: 0.85em; }
+  .wn-log { max-width: 820px; display: flex; flex-direction: column; gap: 2rem; }
+  .wn-ver { border-left: 2px solid var(--border); padding-left: 1.25rem; position: relative; }
+  .wn-ver::before { content: ""; position: absolute; left: -6px; top: 6px; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--accent-2); }
+  .wn-ver-head { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .wn-ver-head h2 { margin: 0; font-size: 1.35rem; }
+  .wn-date { color: var(--muted); font-size: 0.85rem; }
+  .wn-sec { margin: 0 0 0.85rem; }
+  .wn-label { display: inline-block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; padding: 0.12rem 0.5rem; border-radius: 999px; margin-bottom: 0.5rem;
+    color: var(--muted); background: rgba(127,127,127,0.1); border: 1px solid var(--border); }
+  .wn-sec-added { color: #2da44e; background: rgba(46,160,67,0.12); border-color: rgba(46,160,67,0.3); }
+  .wn-sec-fixed { color: var(--accent); background: rgba(110,168,254,0.12); border-color: rgba(110,168,254,0.3); }
+  .wn-sec-changed { color: var(--accent-2); background: rgba(157,123,255,0.14); border-color: rgba(157,123,255,0.3); }
+  .wn-sec ul { margin: 0; padding-left: 1.15rem; }
+  .wn-sec li { color: var(--muted); font-size: 0.93rem; line-height: 1.6; margin: 0.25rem 0; }
+  .wn-sec li strong { color: var(--fg); }
+  .wn-sec li code { background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+    padding: 0.02rem 0.32rem; font-size: 0.86em; }
+  .wn-foot { color: var(--muted); font-size: 0.9rem; margin-top: 2rem; }
+</style>

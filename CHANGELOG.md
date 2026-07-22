@@ -7,6 +7,20 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.4.1] — 2026-07-22
+
+### Added
+- **Faithfulness grading in `enrich`** — `ponens trace enrich` now grades each goal's *definition* of
+  done (`GOAL_FAITHFULNESS_v0_1`), not just its progress: **met** (required criteria resolved from the
+  trace's own evidence) vs **certified** (a reviewer other than the doer approved the criteria, every
+  intent clause is covered, and the definition is not weakly specified), plus `weakly_specified` and
+  `uncovered_clauses` per goal. The trace `summary` gains `goals_met` / `goals_certified` /
+  `goals_weakly_specified` counts.
+- **Faithfulness gate in `trace check`** — the checker reports each goal's met/certified status and,
+  under `--strict`, fails on the deficiencies the agent controls: a weakly-specified definition
+  (nothing proved or policy-checked backs "done") or an uncovered intent clause. "Met but not
+  certified" is surfaced as a warning — certification needs a human, so it is never a hard failure.
+
 ## [1.4.0] — 2026-07-22
 
 ### Added

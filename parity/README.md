@@ -1,5 +1,18 @@
 # Evaluator parity harness
 
+This directory holds **two** parity harnesses, each cross-checking a pair of independent JS/Python
+implementations against a shared corpus so they cannot silently drift:
+
+| Harness | Corpus | JS side | Python side (oracle) | Check |
+| --- | --- | --- | --- | --- |
+| Policy language | `cases.json` | `website/src/lib/ltl.mjs` | `cli/ponens/trace.py` | `check_parity.py` |
+| Goal faithfulness | `faithfulness_cases.json` | `viewer/core/faithfulness.mjs` | `cli/ponens/goals.py` | `check_faithfulness_parity.py` |
+
+Both run in `.github/workflows/parity.yml`. The rest of this document covers the policy-language
+harness; the faithfulness harness is described in [its own section](#goal-faithfulness-parity).
+
+## Policy-language parity
+
 There are two independent implementations of the ponens trace-policy language:
 
 | Engine | File | Used by |
@@ -77,3 +90,30 @@ Adding a case: drop a new object into `cases.json` with `expect` (the intended
 verdict, which also locks the browser side as a regression guard), or mark it
 `unsupported` / `divergent`. CI runs `.github/workflows/parity.yml` on any change
 to either evaluator or to this directory.
+
+## Goal faithfulness parity
+
+Goal *faithfulness* (GOAL_FAITHFULNESS_v0_1 — is a goal's definition of done **met**, and is it the
+**right** definition, i.e. *certified*?) is also computed by two independent implementations that must
+never disagree:
+
+| Engine | File | Used by |
+| --- | --- | --- |
+| Viewer evaluator | [`viewer/core/faithfulness.mjs`](../viewer/core/faithfulness.mjs) `goalFaithfulnessV` | the visualizer Goals view (inlined at build by `viewer/build.mjs`) |
+| CLI evaluator | [`cli/ponens/goals.py`](../cli/ponens/goals.py) `faithfulness_of` | `ponens trace enrich` / `check` (the oracle) |
+
+`faithfulness_cases.json` holds §18 goals (snake_case, as on the wire) with an `expect` verdict.
+`run_faithfulness_js.mjs` imports the viewer function and prints per-case results;
+`check_faithfulness_parity.py` runs the Python function and asserts, per case:
+
+> **`JS == CLI`, and both `== expect`.**
+
+The `expect` pin means the two agreeing on a *wrong* answer still fails — guarding against joint drift.
+Unlike the policy harness, faithfulness has no "abstain": both engines always produce a verdict.
+
+```sh
+python3 parity/check_faithfulness_parity.py
+```
+
+Adding a case: append a `{ name, goal, expect }` object to `faithfulness_cases.json` covering a new
+met/certified/weakly-specified/uncovered axis.

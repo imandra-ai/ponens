@@ -15,7 +15,11 @@ const read = (f) => readFileSync(join(here, 'core', f), 'utf8');
 const head = read('head.html');
 const css = read('viewer.css');
 const skeleton = read('skeleton.html');
-const js = read('viewer.js');
+// Inline the shared faithfulness module (export stripped) ahead of viewer.js, so the Goals view calls
+// goalFaithfulnessV() from the same script scope. The module is separately import-tested for parity
+// with the CLI's Python faithfulness_of (parity/check_faithfulness_parity.py).
+const faithfulness = read('faithfulness.mjs').replace(/^export\s+/gm, '');
+const js = `${faithfulness}\n${read('viewer.js')}`;
 
 const html = `${head}<!-- GENERATED from viewer/core/ by viewer/build.mjs - do not edit directly -->
 <style>

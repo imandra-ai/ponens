@@ -2982,33 +2982,9 @@ function renderGradeView() {
 }
 
 // Goals view (§18): declared intent + acceptance, with resolved status when the trace is enriched.
-// Faithfulness signals for a goal (GOAL_FAITHFULNESS_v0_1): is the definition of done RIGHT, not
-// just met? Reads snake_case (spec/enrich) or camelCase (desktop) fields. Kept in step with the
-// desktop's goalFaithfulness() and cli/ponens goals — the viewer only reports, never re-authors.
-function goalFaithfulnessV(g) {
-  const norm = (s) => String(s || 'todo').toLowerCase().replace(/^accept/, '');
-  const acc = g.acceptance || [];
-  const required = acc.filter((a) => a.required !== false);
-  const reqItems = required.length ? required : acc;
-  const met = reqItems.length > 0 && reqItems.every((a) => norm(a.status) === 'done');
-  // "Hard" evidence = a proof (property) or a policy (obligation); a goal backed only by `change`
-  // edits is weakly specified — "done" the moment edits land, with nothing proved or checked.
-  const hasHard = reqItems.some((a) => a.kind === 'property' || a.kind === 'obligation');
-  const weak = acc.length > 0 && !hasHard;
-  const clauses = g.intent_clauses || g.intentClauses || [];
-  const covered = new Set();
-  for (const a of acc) for (const c of (a.covers || [])) covered.add(c);
-  const uncovered = clauses.filter((c) => !covered.has(c));
-  // Certified = a non-doer reviewer approved the definition of done, every clause is covered, and it
-  // isn't weakly specified. The party that MEETS a goal must not be the sole party that DEFINES it.
-  const review = g.criteria_review || g.criteriaReview;
-  const reviewer = review && (review.reviewed_by || review.reviewedBy);
-  const doers = new Set(acc.map((a) => a.author).filter(Boolean));
-  const nonDoer = reviewer && !doers.has(reviewer);
-  const approved = review && review.verdict === 'approved';
-  const certified = !!(approved && nonDoer && uncovered.length === 0 && !weak);
-  return { met, weak, uncovered, certified, reviewer, intentAuthor: g.intent_author || g.intentAuthor };
-}
+// `goalFaithfulnessV(g)` (GOAL_FAITHFULNESS_v0_1) is defined in viewer/core/faithfulness.mjs and
+// INLINED here at build time (viewer/build.mjs), so the same source is import-tested for parity with
+// the CLI's Python `faithfulness_of` (parity/check_faithfulness_parity.py). Do not redefine it here.
 
 function renderGoalsView() {
   const el = document.getElementById('view-goals');

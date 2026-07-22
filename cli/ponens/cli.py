@@ -479,7 +479,9 @@ def _pkg_version() -> str:
         return "0+unknown"
 
 
-def main():
+def build_parser():
+    """Build the full argument parser (every subcommand). Split out from main() so tests can
+    introspect the command surface (e.g. that every command the `ponens agent` guide names exists)."""
     parser = argparse.ArgumentParser(
         prog="ponens",
         description="Author, share, review, govern, and validate reasoning traces",
@@ -682,6 +684,11 @@ def main():
     # ── langfuse (bridge a Langfuse trace export into a trace) ───
     langfuse_mod.register(subparsers)
 
+    return parser
+
+
+def main():
+    parser = build_parser()
     # ── Parse and dispatch ───────────────────────────────────────
     args = parser.parse_args()
     if not hasattr(args, "func"):

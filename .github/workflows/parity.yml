@@ -1,15 +1,17 @@
 name: Evaluator parity
 
-# Cross-checks the two independent implementations of the policy language —
-# the browser evaluator (website/src/lib/ltl.mjs) and the CLI runtime evaluator
-# (cli/ponens/trace.py) — against a shared corpus. The playground must never
-# report a verdict `ponens trace check` would contradict. See parity/README.md.
+# Cross-checks independent JS/Python implementations against shared corpora:
+#   * the policy language — browser (website/src/lib/ltl.mjs) vs CLI (cli/ponens/trace.py)
+#   * goal faithfulness   — viewer (viewer/core/faithfulness.mjs) vs CLI (cli/ponens/goals.py)
+# The JS side must never report a verdict the CLI would contradict. See parity/README.md.
 
 on:
   pull_request:
     paths:
       - "website/src/lib/ltl.mjs"
+      - "viewer/core/faithfulness.mjs"
       - "cli/ponens/trace.py"
+      - "cli/ponens/goals.py"
       - "cli/ponens/policy_compiler.py"
       - "parity/**"
       - ".github/workflows/parity.yml"
@@ -17,7 +19,9 @@ on:
     branches: [main]
     paths:
       - "website/src/lib/ltl.mjs"
+      - "viewer/core/faithfulness.mjs"
       - "cli/ponens/trace.py"
+      - "cli/ponens/goals.py"
       - "cli/ponens/policy_compiler.py"
       - "parity/**"
       - ".github/workflows/parity.yml"
@@ -35,5 +39,7 @@ jobs:
           python-version: "3.12"
       - name: Install the CLI
         run: pip install -e ./cli
-      - name: Check browser/CLI evaluator parity
+      - name: Check browser/CLI policy-evaluator parity
         run: python3 parity/check_parity.py
+      - name: Check viewer/CLI goal-faithfulness parity
+        run: python3 parity/check_faithfulness_parity.py

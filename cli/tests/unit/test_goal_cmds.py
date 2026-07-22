@@ -119,3 +119,39 @@ def test_rm_removes_goal(tmp_path):
     assert cmd_goal_rm(args) == 0
     assert json.loads(f.read_text())["goals"] == []
     assert cmd_goal_rm(args) == 1  # already gone
+
+
+def test_roundtrip_author_enrich_check(tmp_path):
+    """End-to-end contract: author a goal entirely via the CLI, `enrich` resolves each criterion from
+    the trace's OWN evidence, faithfulness grades it, and the gate passes — authoring → resolution →
+    gating in one flow, no hand-set statuses."""
+    import copy
+    from ponens.goals import enrich
+    from ponens.trace import _faithfulness_findings
+    f = tmp_path / "t.json"
+    f.write_text(json.dumps({
+        "trace_id": "t", "spec_version": "1.6", "assistant": "x", "model": "m",
+        "timestamp": "2026-01-01T00:00:00Z", "trigger": {"type": "TaskReceived", "description": "d"},
+        "actions": [{"id": 1, "type": "EditFile"}],
+        "artifacts": [{"artifact_id": "d1", "artifact_type": "Diff", "producer_action_id": 1,
+                       "name": "edit foo", "summary": "changed foo"}],
+        "policies": [{"policy_id": "p1", "name": "tests_pass"}],
+        "policy_evaluations": [{"policy_id": "p1", "status": "passed"}],
+        "outcome": {"type": "ProcessCompleted", "summary": "ok"},
+    }))
+    cmd_goal_set(_set_args(f, intent="do foo", clause=["change foo", "policy passes"]))
+    cmd_goal_accept(_accept_args(f, kind="change", label="edited foo", symbol="foo", covers=["change foo"]))
+    cmd_goal_accept(_accept_args(f, kind="obligation", label="policy passes", policy_id="p1", covers=["policy passes"]))
+    cmd_goal_certify(types.SimpleNamespace(trace_file=str(f), goal="session-goal", by="reviewer",
+                                           verdict="approved", note=None))
+    trace = json.loads(f.read_text())
+    e = enrich(copy.deepcopy(trace))
+    g = e["goals"][0]
+    # both items resolved from evidence — NOT the todo we authored
+    assert {a["id"]: a["status"] for a in g["acceptance"]} == {"s1": "done", "s2": "done"}
+    assert g["acceptance"][0]["evidence"] == "d1" and g["acceptance"][1]["evidence"] == "p1"
+    fa = g["faithfulness"]
+    assert fa["met"] and fa["certified"] and not fa["weakly_specified"] and fa["uncovered_clauses"] == []
+    # the faithfulness gate passes cleanly
+    fails, warns, rows = _faithfulness_findings(trace)
+    assert fails == [] and rows == ["    session-goal: met, certified"]

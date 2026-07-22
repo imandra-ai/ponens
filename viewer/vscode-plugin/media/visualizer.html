@@ -1390,6 +1390,8 @@
   .gk-obligation { color: var(--purple-text); background: var(--purple-dim); }
   .goal-acc-label { flex: 1; font-size: 13.5px; color: var(--text-primary); }
   .goal-acc-ev { flex: 0 0 auto; font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; align-self: center; }
+  .goal-acc-ev-link { cursor: pointer; transition: color .12s, border-color .12s; }
+  .goal-acc-ev-link:hover { color: var(--accent); border-color: var(--accent); }
   .goal-acc-author { flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; align-self: center; }
   /* Faithfulness: "met vs certified" — is the definition of done RIGHT, not just met? */
   .goal-faith { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 12px; }
@@ -1845,34 +1847,41 @@ function loadTrace(data) {
   document.getElementById('testCount').textContent = collectTests().reduce((s, g) => s + (g.tests?.length ?? g.count ?? 0), 0);
   document.getElementById('propsCount').textContent = (data.process_properties || []).length;
 
-  // Show policies button for v1.1 traces
-  if (data.policies?.length) {
-    document.getElementById('policiesBtn').style.display = '';
-    document.getElementById('policiesCount').textContent = data.policies.length;
-    document.getElementById('policyViewBtn').style.display = '';
-  }
+  // Optional views/buttons: show when the NEW trace has the data, hide otherwise. (Previously these
+  // were show-only, so switching demos left stale tabs from the prior trace — e.g. a Goals tab on a
+  // trace with no goals.)
+  const showEl = (id, cond) => { const el = document.getElementById(id); if (el) el.style.display = cond ? '' : 'none'; };
+  const setCount = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
 
-  // Show residuals button (v1.5 residual surface)
-  if (data.residuals?.length) {
-    document.getElementById('residualsBtn').style.display = '';
-    document.getElementById('residualsCount').textContent = data.residuals.length;
-  }
+  showEl('policiesBtn', !!data.policies?.length);
+  showEl('policyViewBtn', !!data.policies?.length);
+  setCount('policiesCount', data.policies?.length || 0);
 
-  // Show DAG view for v1.1 traces with artifacts
-  if (data.artifacts?.length) {
-    document.getElementById('dagViewBtn').style.display = '';
-  }
+  showEl('residualsBtn', !!data.residuals?.length);
+  setCount('residualsCount', data.residuals?.length || 0);
 
-  // Show reference models button
-  if (data.reference_models?.length) {
-    document.getElementById('refModelsBtn').style.display = '';
-    document.getElementById('refModelsCount').textContent = data.reference_models.length;
-  }
+  showEl('dagViewBtn', !!data.artifacts?.length);
 
-  // Show Goals view for v1.7 traces with declared goals (§18)
-  if (data.goals?.length) {
-    document.getElementById('goalsViewBtn').style.display = '';
+  showEl('refModelsBtn', !!data.reference_models?.length);
+  setCount('refModelsCount', data.reference_models?.length || 0);
+
+  showEl('goalsViewBtn', !!data.goals?.length);
+
+  // Re-render whatever view is active for the NEW trace; fall back to Flow if the active view's tab is
+  // no longer available (loadTrace previously only re-rendered Flow, so the active pane went stale).
+  refreshActiveView();
+}
+
+// After a trace loads, re-render the currently-active view against the new data. If the active view's
+// tab has been hidden (the new trace lacks that data), switch back to Flow so no stale pane shows.
+function refreshActiveView() {
+  const activeBtn = document.querySelector('.view-switcher button.active');
+  let view = (((activeBtn && activeBtn.getAttribute('onclick')) || '').match(/switchView\('(\w+)'\)/) || [])[1] || 'flow';
+  if (view !== 'flow') {
+    const btn = document.querySelector(`.view-switcher button[onclick="switchView('${view}')"]`);
+    if (!btn || btn.style.display === 'none') view = 'flow';
   }
+  switchView(view); // toggles active tab/pane and re-renders (Flow is already rendered above)
 }
 
 function esc(s) {
@@ -3698,6 +3707,21 @@ function openArtifactRef(id) {
   try { selectDAGNode(id); } catch (e) { /* not a DAG node */ }
 }
 
+// Open the evidence behind a goal's acceptance item: an artifact (→ lineage node + detail), a policy
+// (→ Policies view), or a residual (→ residual surface). Typed by the trace's own ids, not by prefix.
+function openGoalEvidence(id) {
+  if (!id) return;
+  const sid = String(id);
+  if ((traceData?.artifacts || []).some(a => a.artifact_id === sid)) { openArtifactRef(sid); return; }
+  if ((traceData?.policies || []).some(p => p.policy_id === sid)
+      || (traceData?.policy_evaluations || []).some(p => p.policy_id === sid)) {
+    try { switchView('policy'); } catch (e) { /* view may be pinned */ }
+    return;
+  }
+  if ((traceData?.residuals || []).some(r => r.residual_id === sid)) { openModal('residuals', sid); return; }
+  openArtifactRef(sid); // fallback: best-effort DAG lookup
+}
+
 function renderDAGView() {
   const el = document.getElementById('view-dag');
   const artifacts = traceData?.artifacts || [];
@@ -4491,7 +4515,7 @@ function renderGoalsView() {
         + `<span class="goal-acc-kind gk-${esc(a.kind)}">${esc(a.kind)}</span>`
         + `<span class="goal-acc-label">${esc(a.label || '')}</span>`
         + (a.author ? `<span class="goal-acc-author" title="Authored by the ${esc(a.author)}">${esc(a.author)}</span>` : '')
-        + (a.evidence ? `<span class="goal-acc-ev" title="Resolved from ${esc(String(a.evidence))}">${esc(String(a.evidence))}</span>` : '')
+        + (a.evidence ? `<span class="goal-acc-ev goal-acc-ev-link" title="Open the evidence (${esc(String(a.evidence))})" onclick="event.stopPropagation();openGoalEvidence('${esc(String(a.evidence))}')">${esc(String(a.evidence))}</span>` : '')
         + `</li>`;
     }).join('');
     // The "met vs certified" pair — two orthogonal axes. Met = criteria resolved from evidence;

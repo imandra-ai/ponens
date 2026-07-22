@@ -1381,6 +1381,8 @@
   .gk-obligation { color: var(--purple-text); background: var(--purple-dim); }
   .goal-acc-label { flex: 1; font-size: 13.5px; color: var(--text-primary); }
   .goal-acc-ev { flex: 0 0 auto; font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; align-self: center; }
+  .goal-acc-ev-link { cursor: pointer; transition: color .12s, border-color .12s; }
+  .goal-acc-ev-link:hover { color: var(--accent); border-color: var(--accent); }
   .goal-acc-author { flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; align-self: center; }
   /* Faithfulness: "met vs certified" — is the definition of done RIGHT, not just met? */
   .goal-faith { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 12px; }

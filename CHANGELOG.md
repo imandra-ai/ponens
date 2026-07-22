@@ -20,7 +20,9 @@ GitHub release notes, and the website's **/whats-new** page renders this file di
 - **Goals view in the visualizer** — `ponens trace view` now shows a trace's declared goals with their
   acceptance criteria and renders the faithfulness signals inline: *Met* / *Certified* badges, a
   weakly-specified warning (a goal backed only by code edits, with nothing proved or policy-checked),
-  uncovered-intent-clause warnings, and the intent→criteria authorship seam.
+  uncovered-intent-clause warnings, and the intent→criteria authorship seam. Each acceptance
+  criterion's evidence chip is a link — click it to jump to the backing artifact in the lineage graph
+  (or, for a policy obligation, the Policies view).
 
 ### Changed
 - **Richer flagship demo** — the Stripe payment-flow trace is now the default demo: a declared goal
@@ -32,6 +34,12 @@ GitHub release notes, and the website's **/whats-new** page renders this file di
   *descriptive* (OpenTelemetry / Langfuse record what happened) vs *evaluative* (ponens judges each
   trace against its declared **goal** and its **policies**), and the header version badge now links to
   **/whats-new**.
+
+### Fixed
+- **Switching demos refreshes every view** — picking a different trace in the viewer's dropdown now
+  re-renders the active tab against the new trace and hides tabs the new trace doesn't populate.
+  Previously a pane could keep stale content from the previously-selected trace — e.g. the Goals tab
+  still showing the last trace's goal.
 
 ## [1.3.0] — 2026-07-22
 

@@ -31,11 +31,13 @@ for (const line of raw.split("\n")) {
 }
 flush();
 
-// Minimal inline-markdown → HTML (bold / code / links), safely escaped.
+// Minimal inline-markdown → HTML (bold / italic / code / links), safely escaped.
+// Bold runs before italic; neither span may contain a `*`, so avoid nesting emphasis in the source.
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const md = (s) => esc(s)
   .replace(/`([^`]+)`/g, "<code>$1</code>")
   .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+  .replace(/\*([^*]+)\*/g, "<em>$1</em>")
   .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
 const secClass = (t) => "wn-sec-" + t.toLowerCase().replace(/[^a-z]/g, "");

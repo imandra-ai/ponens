@@ -10,7 +10,7 @@ GitHub release notes, and the website's **/whats-new** page renders this file di
 ## [1.4.0] — 2026-07-22
 
 ### Added
-- **Goal faithfulness — *met* vs *certified*** — a goal's "done" is now graded on two orthogonal
+- **Goal faithfulness — met vs certified** — a goal's "done" is now graded on two orthogonal
   axes: *met* (its acceptance criteria resolved from the trace's own evidence) and *certified* (a
   reviewer other than the agent confirmed those were the *right* criteria). The new
   `GOAL_FAITHFULNESS_v0_1` spec (under `/spec`) refines Trace Spec §18 with authorship

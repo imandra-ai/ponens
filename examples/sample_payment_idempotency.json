@@ -7,7 +7,7 @@
   "title": "Make payment capture idempotent (proved)",
   "trigger": {
     "type": "TaskReceived",
-    "description": "capture is being double-charged on gateway retries \u2014 make it idempotent and prove it"
+    "description": "capture is being double-charged on gateway retries — make it idempotent and prove it"
   },
   "actions": [
     {
@@ -43,7 +43,7 @@
       "type": "ExclusiveDecision",
       "category": "gateway",
       "label": "Idempotency strategy",
-      "rationale": "Dedupe on (charge_id, idempotency_key) vs a distributed lock \u2014 chose the key (no infra).",
+      "rationale": "Dedupe on (charge_id, idempotency_key) vs a distributed lock — chose the key (no infra).",
       "inputs": [],
       "outputs": [],
       "evidence": [],
@@ -146,7 +146,7 @@
       "type": "GenerateTests",
       "category": "activity",
       "label": "Generate idempotency tests from regions",
-      "rationale": "One test per decomposition region \u2014 covers the dedupe and the replay cases.",
+      "rationale": "One test per decomposition region — covers the dedupe and the replay cases.",
       "inputs": [
         "a6"
       ],
@@ -266,6 +266,84 @@
     "type": "ProcessCompleted",
     "summary": "Proved capture is idempotent and amount-preserving (2/2), implemented the key-based guard, 24 tests pass."
   },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "capture is being double-charged on gateway retries — make it idempotent and prove it",
+      "intent_author": "human",
+      "intent_clauses": [
+        "capture is idempotent on gateway retries",
+        "no double-charge — proved, not just tested"
+      ],
+      "scope": [
+        "payment.py",
+        "capture"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "s1",
+          "kind": "property",
+          "label": "No double-charge: idempotency proved",
+          "binding": {
+            "symbol": "capture",
+            "property": "idempotent"
+          },
+          "status": "done",
+          "evidence": "a5",
+          "author": "agent",
+          "covers": [
+            "no double-charge — proved, not just tested"
+          ]
+        },
+        {
+          "id": "s2",
+          "kind": "change",
+          "label": "Dedupe guard added to capture()",
+          "binding": {
+            "symbol": "capture"
+          },
+          "status": "done",
+          "evidence": "a7",
+          "author": "agent",
+          "covers": [
+            "capture is idempotent on gateway retries"
+          ]
+        },
+        {
+          "id": "s3",
+          "kind": "obligation",
+          "label": "Governance policies pass (research, rationale, lineage, tests)",
+          "binding": {
+            "policy_id": "p4"
+          },
+          "status": "done",
+          "evidence": "p4",
+          "author": "agent",
+          "covers": [
+            "capture is idempotent on gateway retries"
+          ]
+        }
+      ],
+      "criteria_review": {
+        "reviewed_by": "reviewer",
+        "verdict": "approved",
+        "at": "2026-01-15T00:00:00Z",
+        "note": "Acceptance faithfully captures the intent: idempotency is proved (not just tested), the diff is scoped to capture, and the residual key-assumption is declared."
+      },
+      "progress": 1.0,
+      "open_gaps": 1,
+      "cone": [
+        1,
+        2,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    }
+  ],
   "artifacts": [
     {
       "artifact_id": "a1",
@@ -447,7 +525,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
+      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -456,7 +534,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
+      "formula": "G(gateway → rationale ≠ ∅)"
     },
     {
       "policy_id": "p3",

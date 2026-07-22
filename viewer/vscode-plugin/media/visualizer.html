@@ -1390,6 +1390,16 @@
   .gk-obligation { color: var(--purple-text); background: var(--purple-dim); }
   .goal-acc-label { flex: 1; font-size: 13.5px; color: var(--text-primary); }
   .goal-acc-ev { flex: 0 0 auto; font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; align-self: center; }
+  .goal-acc-author { flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; align-self: center; }
+  /* Faithfulness: "met vs certified" — is the definition of done RIGHT, not just met? */
+  .goal-faith { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 12px; }
+  .gf-badge { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border); }
+  .gf-ok { color: var(--green-text); background: var(--green-dim); border-color: transparent; }
+  .gf-cert { color: var(--green-text); background: var(--green-dim); border-color: transparent; }
+  .gf-pend { color: var(--text-muted); }
+  .gf-warn { color: var(--yellow-text); background: var(--yellow-dim); border-color: transparent; }
+  .gf-seam { font-size: 11px; color: var(--text-dim); font-family: 'SF Mono','Fira Code',monospace; margin-left: auto; }
+  .gf-warn-row { font-size: 12px; color: var(--yellow-text); background: var(--yellow-dim); border-radius: 6px; padding: 4px 9px; margin: 0 0 8px; }
 </style>
 </head>
 <body>
@@ -1575,10 +1585,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // Kept in sync with examples/manifest.json (the source of truth). prepare.mjs
 // copies these files into demo-traces/ at build time.
 const DEMO_TRACES = [
+  { name: 'Stripe: 3DS + high-risk approval (proved)', file: 'demo-traces/stripe_v1_1.json' },
   { name: 'Payment Idempotency (proved)', file: 'demo-traces/sample_payment_idempotency.json' },
   { name: 'Auth State Machine (reachability)', file: 'demo-traces/sample_auth_xstate.json' },
   { name: 'ETL Refactor (conformance)', file: 'demo-traces/sample_etl_refactor.json' },
-  { name: 'Stripe Payment Flow', file: 'demo-traces/stripe_v1_1.json' },
   { name: 'Form Validation', file: 'demo-traces/form_validation_v1_1.json' },
   { name: 'API Pagination', file: 'demo-traces/api_pagination_v1_1.json' },
   { name: 'Cart Reducer', file: 'demo-traces/cart_reducer_v1_1.json' },
@@ -1687,10 +1697,11 @@ function showFileLabel(name) {
 // Initialize
 initDemoSelector();
 
-// Load default trace (skip if managed by VS Code extension). Default to a 1.6
-// sample so the meta-action zoom is visible on open.
+// Load default trace (skip if managed by VS Code extension). Default to the Stripe
+// flagship — the richest story: a refuted-then-proved arc, a declared goal with a
+// certified definition of done, meta-action steps, lineage, and declared residuals.
 if (!window._vscodeManaged && !window.__ponensEmbedded) {
-  _currentDemoFile = 'demo-traces/sample_payment_idempotency.json';
+  _currentDemoFile = 'demo-traces/stripe_v1_1.json';
   // Set dropdown immediately so it doesn't show placeholder
   const _sel = document.getElementById('demoSelect');
   if (_sel) _sel.value = _currentDemoFile;
@@ -4427,6 +4438,34 @@ function renderGradeView() {
 }
 
 // Goals view (§18): declared intent + acceptance, with resolved status when the trace is enriched.
+// Faithfulness signals for a goal (GOAL_FAITHFULNESS_v0_1): is the definition of done RIGHT, not
+// just met? Reads snake_case (spec/enrich) or camelCase (desktop) fields. Kept in step with the
+// desktop's goalFaithfulness() and cli/ponens goals — the viewer only reports, never re-authors.
+function goalFaithfulnessV(g) {
+  const norm = (s) => String(s || 'todo').toLowerCase().replace(/^accept/, '');
+  const acc = g.acceptance || [];
+  const required = acc.filter((a) => a.required !== false);
+  const reqItems = required.length ? required : acc;
+  const met = reqItems.length > 0 && reqItems.every((a) => norm(a.status) === 'done');
+  // "Hard" evidence = a proof (property) or a policy (obligation); a goal backed only by `change`
+  // edits is weakly specified — "done" the moment edits land, with nothing proved or checked.
+  const hasHard = reqItems.some((a) => a.kind === 'property' || a.kind === 'obligation');
+  const weak = acc.length > 0 && !hasHard;
+  const clauses = g.intent_clauses || g.intentClauses || [];
+  const covered = new Set();
+  for (const a of acc) for (const c of (a.covers || [])) covered.add(c);
+  const uncovered = clauses.filter((c) => !covered.has(c));
+  // Certified = a non-doer reviewer approved the definition of done, every clause is covered, and it
+  // isn't weakly specified. The party that MEETS a goal must not be the sole party that DEFINES it.
+  const review = g.criteria_review || g.criteriaReview;
+  const reviewer = review && (review.reviewed_by || review.reviewedBy);
+  const doers = new Set(acc.map((a) => a.author).filter(Boolean));
+  const nonDoer = reviewer && !doers.has(reviewer);
+  const approved = review && review.verdict === 'approved';
+  const certified = !!(approved && nonDoer && uncovered.length === 0 && !weak);
+  return { met, weak, uncovered, certified, reviewer, intentAuthor: g.intent_author || g.intentAuthor };
+}
+
 function renderGoalsView() {
   const el = document.getElementById('view-goals');
   const goals = traceData?.goals || [];
@@ -4444,15 +4483,30 @@ function renderGoalsView() {
     const pct = Math.round(prog * 100);
     const gaps = g.open_gaps || 0;
     const coneN = Array.isArray(g.cone) ? g.cone.length : null;
+    const f = goalFaithfulnessV(g);
     const accHtml = acc.map((a) => {
       const st = norm(a.status);
       return `<li class="goal-acc-item ga-${st}">`
         + `<span class="goal-acc-glyph">${glyph[st] || '○'}</span>`
         + `<span class="goal-acc-kind gk-${esc(a.kind)}">${esc(a.kind)}</span>`
         + `<span class="goal-acc-label">${esc(a.label || '')}</span>`
+        + (a.author ? `<span class="goal-acc-author" title="Authored by the ${esc(a.author)}">${esc(a.author)}</span>` : '')
         + (a.evidence ? `<span class="goal-acc-ev" title="Resolved from ${esc(String(a.evidence))}">${esc(String(a.evidence))}</span>` : '')
         + `</li>`;
     }).join('');
+    // The "met vs certified" pair — two orthogonal axes. Met = criteria resolved from evidence;
+    // certified = a reviewer confirmed those were the RIGHT criteria (a different principal).
+    const metBadge = `<span class="gf-badge ${f.met ? 'gf-ok' : 'gf-pend'}" title="All required acceptance criteria resolved from the trace's own evidence.">${f.met ? '✓' : '○'} ${f.met ? 'Met' : 'Not yet met'}</span>`;
+    const certBadge = f.certified
+      ? `<span class="gf-badge gf-cert" title="A reviewer (${esc(String(f.reviewer))}) confirmed the definition of done faithfully captures the intent.">✓ Certified · reviewed by ${esc(String(f.reviewer))}</span>`
+      : (f.met ? `<span class="gf-badge gf-warn" title="Requirements are met, but the same party that met the goal also defined it. A non-doer should confirm the criteria are the right ones.">○ Not certified — self-authored bar</span>` : '');
+    const seam = f.intentAuthor
+      ? `<span class="gf-seam" title="The seam: the intent is the user's; the acceptance criteria are the agent's formalization of it.">intent: ${esc(String(f.intentAuthor))} → criteria: agent</span>`
+      : '';
+    const warns = [];
+    if (f.weak) warns.push(`<div class="gf-warn-row">⚠ Weakly specified — no proof or policy backs this goal's “done”.</div>`);
+    for (const c of f.uncovered) warns.push(`<div class="gf-warn-row">⚠ Intent not covered by any requirement: “${esc(c)}”.</div>`);
+    const faithHtml = `<div class="goal-faith">${metBadge}${certBadge}${seam}</div>${warns.join('')}`;
     html += `<div class="goal-block">`
       + `<div class="goal-block-head">`
       + `<div class="goal-prog"><div class="goal-prog-bar" style="width:${pct}%"></div></div>`
@@ -4465,6 +4519,7 @@ function renderGoalsView() {
       + `</div>`
       + ((g.scope || []).length ? `<div class="goal-scopes">${g.scope.map((s) => `<span class="goal-scope-chip">${esc(s)}</span>`).join('')}</div>` : '')
       + `</div></div>`
+      + faithHtml
       + `<ul class="goal-acc">${accHtml}</ul>`
       + `</div>`;
   }

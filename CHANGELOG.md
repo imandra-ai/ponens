@@ -7,6 +7,32 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.4.0] — 2026-07-22
+
+### Added
+- **Goal faithfulness — *met* vs *certified*** — a goal's "done" is now graded on two orthogonal
+  axes: *met* (its acceptance criteria resolved from the trace's own evidence) and *certified* (a
+  reviewer other than the agent confirmed those were the *right* criteria). The new
+  `GOAL_FAITHFULNESS_v0_1` spec (under `/spec`) refines Trace Spec §18 with authorship
+  (`intent_author`, per-item `author`), clause coverage (`intent_clauses` + `covers`), and a
+  `criteria_review`. It guards the principal–agent seam where the agent both *authors* and *meets* its
+  own definition of done — an honest resolution can still "succeed" against a bar set too low.
+- **Goals view in the visualizer** — `ponens trace view` now shows a trace's declared goals with their
+  acceptance criteria and renders the faithfulness signals inline: *Met* / *Certified* badges, a
+  weakly-specified warning (a goal backed only by code edits, with nothing proved or policy-checked),
+  uncovered-intent-clause warnings, and the intent→criteria authorship seam.
+
+### Changed
+- **Richer flagship demo** — the Stripe payment-flow trace is now the default demo: a declared goal
+  with a certified definition of done, a seven-step meta-action narrative (formalize → catch the amount
+  bug with a counterexample → fix → prove both new controls individually *and* together → conformance →
+  ship), full lineage, and three honestly-declared residuals. The bundled `sample_payment_idempotency`
+  trace also gained a declared goal, so the Goals view is populated out of the box.
+- **Goal-oriented framing on the site** — the "not another tracing tool" comparison is reframed as
+  *descriptive* (OpenTelemetry / Langfuse record what happened) vs *evaluative* (ponens judges each
+  trace against its declared **goal** and its **policies**), and the header version badge now links to
+  **/whats-new**.
+
 ## [1.3.0] — 2026-07-22
 
 ### Added

@@ -2,6 +2,12 @@
   "description": "Canonical sample traces. This directory is the single source of truth for the demo set: the viewer dropdown, the website, and CI all read from here. CI validates every *.json against the CLI on each build (.github/workflows/validate-samples.yml).",
   "samples": [
     {
+      "file": "stripe_v1_1.json",
+      "name": "Stripe: 3DS + high-risk approval (proved)",
+      "spec": "1.7",
+      "summary": "The flagship. Add 3DS/SCA and 2-approval controls to a real payment state machine: formalize, catch the amount bug with a counterexample, fix it, then prove both controls hold individually and together, plus Stripe-reference conformance. A declared goal with a certified definition of done, 7 meta-action steps, full lineage, and three honestly-declared residuals."
+    },
+    {
       "file": "sample_payment_idempotency.json",
       "name": "Payment Idempotency (proved)",
       "spec": "1.6",
@@ -18,12 +24,6 @@
       "name": "ETL Refactor (conformance)",
       "spec": "1.6",
       "summary": "Refactor a CSV transform with generated conformance tests — lineage without formal proofs."
-    },
-    {
-      "file": "stripe_v1_1.json",
-      "name": "Stripe Payment Flow",
-      "spec": "1.5",
-      "summary": "The flagship: 14 amount-invariant properties proved/refuted over a real payment state machine."
     },
     {
       "file": "form_validation_v1_1.json",

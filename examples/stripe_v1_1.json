@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-stripe-payment-flow-001",
-  "spec_version": "1.5",
+  "spec_version": "1.7",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-03-28T10:00:00Z",
@@ -9,6 +9,152 @@
     "description": "Add high-risk approval (2 approvals) and 3DS/SCA challenge support to Stripe payment flow",
     "from_user": "denis"
   },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "Add high-risk approval (2 approvals) and 3DS/SCA challenge support to the Stripe payment flow — and prove the money math still holds",
+      "intent_author": "human",
+      "intent_clauses": [
+        "high-risk payments require two approvals before capture",
+        "3DS/SCA challenge is enforced before capture",
+        "amount invariants hold: 0 ≤ refunded ≤ captured ≤ amount",
+        "the flow conforms to the Stripe reference model"
+      ],
+      "scope": [
+        "stripe_payment_flow.py",
+        "capture_payment",
+        "confirm_payment_intent"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "s1",
+          "kind": "property",
+          "label": "Amount invariants hold across all transitions",
+          "binding": {
+            "property": "inv_amounts"
+          },
+          "status": "done",
+          "evidence": "a10",
+          "author": "agent",
+          "covers": [
+            "amount invariants hold: 0 ≤ refunded ≤ captured ≤ amount"
+          ]
+        },
+        {
+          "id": "s2",
+          "kind": "property",
+          "label": "3DS/SCA challenge blocks capture until completed",
+          "binding": {
+            "symbol": "confirm_payment_intent",
+            "property": "3DS"
+          },
+          "status": "done",
+          "evidence": "a12",
+          "author": "agent",
+          "covers": [
+            "3DS/SCA challenge is enforced before capture"
+          ]
+        },
+        {
+          "id": "s3",
+          "kind": "property",
+          "label": "High-risk orders require exactly 2 approvals",
+          "binding": {
+            "symbol": "capture_payment",
+            "property": "exactly 2 approvals"
+          },
+          "status": "done",
+          "evidence": "a14",
+          "author": "agent",
+          "covers": [
+            "high-risk payments require two approvals before capture"
+          ]
+        },
+        {
+          "id": "s4",
+          "kind": "property",
+          "label": "Both controls hold together (3DS completed AND 2 approvals)",
+          "binding": {
+            "symbol": "capture_payment",
+            "property": "3DS completed AND 2 approvals"
+          },
+          "status": "done",
+          "evidence": "a16",
+          "author": "agent",
+          "covers": [
+            "high-risk payments require two approvals before capture",
+            "3DS/SCA challenge is enforced before capture"
+          ]
+        },
+        {
+          "id": "s5",
+          "kind": "property",
+          "label": "Formalization conforms to the Stripe reference model",
+          "binding": {
+            "property": "conforms to Stripe"
+          },
+          "status": "done",
+          "evidence": "a23",
+          "author": "agent",
+          "covers": [
+            "the flow conforms to the Stripe reference model"
+          ]
+        },
+        {
+          "id": "s6",
+          "kind": "obligation",
+          "label": "Governance: high-stakes reasoning + Stripe conformance policies pass",
+          "binding": {
+            "policy_id": "p13"
+          },
+          "status": "done",
+          "evidence": "p13",
+          "author": "agent"
+        },
+        {
+          "id": "s7",
+          "kind": "change",
+          "label": "Python payment flow updated to match the proved model",
+          "binding": {
+            "symbol": "capture_payment"
+          },
+          "status": "done",
+          "evidence": "a19",
+          "author": "agent"
+        }
+      ],
+      "criteria_review": {
+        "reviewed_by": "reviewer",
+        "verdict": "approved",
+        "at": "2026-02-03T00:00:00Z",
+        "note": "Acceptance faithfully captures the intent: both controls are proved individually AND together, the money math is proved (not just tested), and conformance to the Stripe reference model is checked. The concurrency limitation (r1) is correctly declared, not hidden."
+      },
+      "progress": 1.0,
+      "open_gaps": 2,
+      "cone": [
+        1,
+        2,
+        10,
+        11,
+        12,
+        13,
+        14,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        32,
+        33,
+        40
+      ]
+    }
+  ],
   "artifacts": [
     {
       "artifact_id": "a1",
@@ -662,7 +808,7 @@
         "a16",
         "a23"
       ],
-      "summary": "Updated Python implementation with 3DS, high-risk gate, and capture bug fix"
+      "summary": "update capture_payment and refund guards in stripe_payment_flow.py to match the proved IML model"
     },
     {
       "artifact_id": "a20",
@@ -785,7 +931,8 @@
           "type": "FileRef",
           "ref": "stripe_payment_flow.py"
         }
-      ]
+      ],
+      "meta_action_id": "m1"
     },
     {
       "id": 2,
@@ -806,7 +953,8 @@
           "type": "FileRef",
           "ref": "stripe_payment_flow.py"
         }
-      ]
+      ],
+      "meta_action_id": "m1"
     },
     {
       "id": 10,
@@ -832,7 +980,8 @@
         "tool": "codelogician",
         "version": "2026.04",
         "determinism": "deterministic"
-      }
+      },
+      "meta_action_id": "m2"
     },
     {
       "id": 11,
@@ -854,7 +1003,8 @@
         "status": "completed",
         "artifact_id": "a4"
       },
-      "result_summary": "verify: capture preserves 0 <= refunded <= captured <= amount"
+      "result_summary": "verify: capture preserves 0 <= refunded <= captured <= amount",
+      "meta_action_id": "m2"
     },
     {
       "id": 12,
@@ -882,7 +1032,8 @@
         "version": "2026.04",
         "determinism": "deterministic",
         "duration_ms": 2100
-      }
+      },
+      "meta_action_id": "m2"
     },
     {
       "id": 13,
@@ -909,7 +1060,8 @@
           "type": "FileRef",
           "ref": "stripe_flow_original.iml"
         }
-      ]
+      ],
+      "meta_action_id": "m3"
     },
     {
       "id": 14,
@@ -929,7 +1081,8 @@
           "type": "FileRef",
           "ref": "stripe_flow_updated.iml"
         }
-      ]
+      ],
+      "meta_action_id": "m3"
     },
     {
       "id": 20,
@@ -956,7 +1109,8 @@
         "tool": "codelogician",
         "version": "2026.04",
         "determinism": "deterministic"
-      }
+      },
+      "meta_action_id": "m3"
     },
     {
       "id": 21,
@@ -977,7 +1131,8 @@
         "status": "completed",
         "artifact_id": "a9"
       },
-      "result_summary": "7 verify goals defined, one per transition function"
+      "result_summary": "7 verify goals defined, one per transition function",
+      "meta_action_id": "m4"
     },
     {
       "id": 22,
@@ -1005,7 +1160,8 @@
         "version": "2026.04",
         "determinism": "deterministic",
         "duration_ms": 4200
-      }
+      },
+      "meta_action_id": "m4"
     },
     {
       "id": 23,
@@ -1027,7 +1183,8 @@
         "status": "completed",
         "artifact_id": "a11"
       },
-      "result_summary": "verify: 3DS gates authorization flow"
+      "result_summary": "verify: 3DS gates authorization flow",
+      "meta_action_id": "m5"
     },
     {
       "id": 24,
@@ -1055,7 +1212,8 @@
         "version": "2026.04",
         "determinism": "deterministic",
         "duration_ms": 980
-      }
+      },
+      "meta_action_id": "m5"
     },
     {
       "id": 25,
@@ -1077,7 +1235,8 @@
         "status": "completed",
         "artifact_id": "a13"
       },
-      "result_summary": "verify: high-risk capture requires 2 approvals"
+      "result_summary": "verify: high-risk capture requires 2 approvals",
+      "meta_action_id": "m5"
     },
     {
       "id": 26,
@@ -1105,7 +1264,8 @@
         "version": "2026.04",
         "determinism": "deterministic",
         "duration_ms": 1100
-      }
+      },
+      "meta_action_id": "m5"
     },
     {
       "id": 27,
@@ -1127,7 +1287,8 @@
         "status": "completed",
         "artifact_id": "a15"
       },
-      "result_summary": "verify: combined 3DS + 2-approval gate"
+      "result_summary": "verify: combined 3DS + 2-approval gate",
+      "meta_action_id": "m5"
     },
     {
       "id": 28,
@@ -1155,7 +1316,8 @@
         "version": "2026.04",
         "determinism": "deterministic",
         "duration_ms": 1340
-      }
+      },
+      "meta_action_id": "m5"
     },
     {
       "id": 30,
@@ -1183,7 +1345,8 @@
         "version": "2026.04",
         "determinism": "deterministic",
         "duration_ms": 12400
-      }
+      },
+      "meta_action_id": "m6"
     },
     {
       "id": 31,
@@ -1205,7 +1368,8 @@
         "status": "completed",
         "artifact_id": "a18"
       },
-      "result_summary": "84 Python tests generated from decomposition"
+      "result_summary": "84 Python tests generated from decomposition",
+      "meta_action_id": "m6"
     },
     {
       "id": 32,
@@ -1227,7 +1391,8 @@
         "status": "completed",
         "artifact_id": "a22"
       },
-      "result_summary": "4 conformance goals defined against Stripe reference model"
+      "result_summary": "4 conformance goals defined against Stripe reference model",
+      "meta_action_id": "m6"
     },
     {
       "id": 33,
@@ -1256,7 +1421,8 @@
         "version": "2026.04",
         "determinism": "deterministic",
         "duration_ms": 5600
-      }
+      },
+      "meta_action_id": "m6"
     },
     {
       "id": 40,
@@ -1279,7 +1445,8 @@
           "type": "FileRef",
           "ref": "stripe_payment_flow_updated.py"
         }
-      ]
+      ],
+      "meta_action_id": "m7"
     },
     {
       "id": 41,
@@ -1302,7 +1469,8 @@
           "ref": "pytest stripe_flow_tests_generated.py",
           "exit_code": 0
         }
-      ]
+      ],
+      "meta_action_id": "m7"
     },
     {
       "id": 42,
@@ -1323,7 +1491,8 @@
           "ref": "git commit",
           "exit_code": 0
         }
-      ]
+      ],
+      "meta_action_id": "m7"
     }
   ],
   "outcome": {
@@ -1593,36 +1762,56 @@
       "kind": "limitation",
       "statement": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
       "severity": "high",
-      "target": { "target_type": "artifact", "target_id": "a8" },
-      "related_artifact_ids": ["a10"],
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a8"
+      },
+      "related_artifact_ids": [
+        "a10"
+      ],
       "rationale": "The formal model applies one transition at a time; interleavings are not modeled.",
       "suggested_check": "Add a concurrency model (or a DB-level lock) and re-verify the amount invariant under interleaved capture/refund.",
       "source": "agent_declared",
       "status": "open",
       "introduced_by_action_id": 22,
-      "tags": ["concurrency", "payments"]
+      "tags": [
+        "concurrency",
+        "payments"
+      ]
     },
     {
       "residual_id": "r2",
       "kind": "unverified",
       "statement": "Dispute and chargeback transitions were not formalized; only the transitions in the amount-invariant suite are covered by verification goals.",
       "severity": "medium",
-      "target": { "target_type": "artifact", "target_id": "a17" },
-      "related_artifact_ids": ["a9"],
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a17"
+      },
+      "related_artifact_ids": [
+        "a9"
+      ],
       "suggested_check": "Add verification goals for the dispute and chargeback transitions.",
       "source": "agent_declared",
       "status": "open",
-      "tags": ["coverage"]
+      "tags": [
+        "coverage"
+      ]
     },
     {
       "residual_id": "r3",
       "kind": "open_question",
       "statement": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact.",
       "severity": "low",
-      "target": { "target_type": "artifact", "target_id": "a8" },
+      "target": {
+        "target_type": "artifact",
+        "target_id": "a8"
+      },
       "source": "agent_declared",
       "status": "open",
-      "tags": ["product-decision"]
+      "tags": [
+        "product-decision"
+      ]
     }
   ],
   "reference_models": [
@@ -1765,6 +1954,141 @@
           "kind": "invariant",
           "iml": "verify (fun (resp : sync_response) (ss : sync_state) ->\n  not resp.has_more ==>\n  (process_sync_page resp ss).ss_status = SyncComplete &&\n  (process_sync_page resp ss).ss_cursor <> None)"
         }
+      ]
+    }
+  ],
+  "title": "Add 3DS/SCA & high-risk approval to the Stripe payment flow (proved)",
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Understand the Stripe payment flow",
+      "intent": "Read the flow and model its state machine",
+      "action_ids": [
+        1,
+        2
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a1",
+        "a2"
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Formalize & catch the amount bug",
+      "intent": "Translate to IML; the amount invariant is refuted by a counterexample",
+      "action_ids": [
+        10,
+        11,
+        12
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a3",
+        "a4",
+        "a5"
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Diagnose & fix the counterexample",
+      "intent": "Find the over-refund path and apply the guard",
+      "action_ids": [
+        13,
+        14,
+        20
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a6",
+        "a7",
+        "a8"
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Prove the amount invariants",
+      "intent": "0 ≤ refunded ≤ captured ≤ amount across all 7 transitions",
+      "action_ids": [
+        21,
+        22
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a9",
+        "a10"
+      ],
+      "residual_ids": [
+        "r1"
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Verify 3DS/SCA & high-risk approval",
+      "intent": "3DS blocks capture; high-risk needs 2 approvals; both hold together",
+      "action_ids": [
+        23,
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a11",
+        "a12",
+        "a13",
+        "a14",
+        "a15",
+        "a16"
+      ],
+      "residual_ids": [
+        "r3"
+      ]
+    },
+    {
+      "id": "m6",
+      "title": "Edge cases, tests & Stripe conformance",
+      "intent": "Decompose, generate tests, prove conformance to the reference model",
+      "action_ids": [
+        30,
+        31,
+        32,
+        33
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a17",
+        "a18",
+        "a22",
+        "a23"
+      ],
+      "residual_ids": [
+        "r2"
+      ]
+    },
+    {
+      "id": "m7",
+      "title": "Implement, test & commit",
+      "intent": "Port the proved model to Python, run the suite, commit",
+      "action_ids": [
+        40,
+        41,
+        42
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "a19",
+        "a20",
+        "a21"
       ]
     }
   ]

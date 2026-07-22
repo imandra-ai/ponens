@@ -60,8 +60,12 @@ try {
       <h2>Not another tracing tool</h2>
       <p><span class="pn">ponens</span> doesn't compete with <strong>OpenTelemetry</strong>,
         <strong>Langfuse</strong>, or <strong>LangSmith</strong> — it sits <em>on top</em> of them.
-        Observability shows you <strong>what happened</strong>; <span class="pn">ponens</span> tells you
-        whether the reasoning was <strong>sound and compliant</strong> — and lets you enforce it.</p>
+        Observability is <strong>descriptive</strong>: it records what happened — spans, latency,
+        tokens — but renders no verdict on it. <span class="pn">ponens</span> is
+        <strong>evaluative</strong>: it judges each trace against what it was <em>supposed</em> to do.
+        That's two things — the declared <strong>goal</strong> (was it met, and was it even the
+        <strong>right</strong> goal?) and the <strong>policies</strong> (were the required practices
+        followed?) — each a deterministic verdict, not a dashboard to eyeball.</p>
     </div>
     <div class="vs-grid">
       <table class="vs-table">
@@ -69,9 +73,11 @@ try {
           <th>Observability<span class="vs-sub">OpenTelemetry · Langfuse · LangSmith</span></th>
           <th><span class="pn">ponens</span></th></tr></thead>
         <tbody>
-          <tr><th>The question</th><td>What happened? — spans, latency, tokens, cost</td><td>Does the reasoning hold? Is it compliant?</td></tr>
+          <tr><th>The unit</th><td>an execution span / request — no notion of intent</td><td>a declared <strong>goal</strong> + its <strong>definition of done</strong></td></tr>
+          <tr><th>The question</th><td>What happened? — spans, latency, tokens, cost</td><td>Did it meet its goal — and was that the <strong>right</strong> goal?</td></tr>
           <tr><th>The record</th><td>execution spans / LLM calls</td><td>a curated <strong>reasoning trace</strong> — actions, lineage, intent, declared gaps</td></tr>
           <tr><th>The check</th><td>dashboards, eyeballing, thresholds</td><td>deterministic <strong>policy verdicts</strong> — machine-checked 🟢 🟡 🔴</td></tr>
+          <tr><th>Done means</th><td>the run finished (or errored)</td><td><strong>met</strong> (criteria resolved from evidence) vs <strong>certified</strong> (a reviewer confirmed the criteria were right)</td></tr>
           <tr><th>The output</th><td>metrics + traces to inspect</td><td>a PASS/FAIL <strong>governance gate</strong> + the declared residual surface</td></tr>
           <tr><th>Where it runs</th><td>a dashboard</td><td>offline, in CI, or a <strong>runtime gate</strong> — no model in the loop</td></tr>
         </tbody>
@@ -94,9 +100,14 @@ ponens trace check t.json    # → 🟢 / 🔴`}</code></pre>
       <p><span class="pn">ponens</span> reads the agent's raw session and distills it into a higher-level <strong>reasoning
         record</strong> — the <strong>goal</strong> it was pursuing and whether it was met, curated steps,
         the lineage of what changed, the gaps it left open, and a grade.</p>
-      <p class="transform-note">Whether the goal was met is <strong>resolved deterministically from the
-        trace's own evidence</strong> — not a model's opinion. Every "done" traces to a specific
+      <p class="transform-note">Whether the goal was <strong>met</strong> is <strong>resolved deterministically
+        from the trace's own evidence</strong> — not a model's opinion. Every "done" traces to a specific
         artifact, and re-running it gives the same answer: grounded, reproducible, auditable.</p>
+      <p class="transform-note">But an agent that both <em>writes</em> the definition of done and <em>meets</em>
+        it can pass a bar it set too low. So <span class="pn">ponens</span> keeps <strong>met</strong>
+        (the criteria resolved) separate from <strong>certified</strong> (a reviewer confirmed those were
+        the right criteria) — and flags a goal whose "done" rests only on edits landing, with nothing
+        proved or policy-checked behind it. <a href="/spec/GOAL_FAITHFULNESS_v0_1">Goal faithfulness →</a></p>
     </div>
 
     <div class="transform-row">

@@ -198,6 +198,15 @@ pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=
 pip install -e ./cli
 ```
 
+Emit a trace from a recent agent session (Claude Code, Cursor, or pi):
+
+```bash
+ponens emit --from cursor -o trace.json --summarize
+# or pass an explicit transcript:
+#   ~/.cursor/projects/<slug>/agent-transcripts/<uuid>/<uuid>.jsonl
+ponens emit --from cursor /path/to/transcript.jsonl -o trace.json
+```
+
 ## Backend-agnostic by design
 
 Everything above runs with **no server** — `emit`, `grade`, `reproduce`, `check`, and the viewer

@@ -7,7 +7,7 @@ with canonical types). Set IMPLEMENTED = True when `parse` is real.
 NAME = "codex"
 IMPLEMENTED = False
 
-_MSG = "the Codex adapter is not implemented yet — only 'claude-code' is supported today"
+_MSG = "the Codex adapter is not implemented yet — use --from claude-code, cursor, or pi"
 
 
 def default_transcript():

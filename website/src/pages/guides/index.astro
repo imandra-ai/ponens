@@ -3,6 +3,12 @@ import Layout from "../../layouts/Layout.astro";
 
 const guides = [
   {
+    href: "/guides/set-a-goal-contract",
+    title: "Set a goal contract",
+    who: "Author",
+    desc: "State the goal as a contract — accomplish these things (typed acceptance criteria over your code), subject to these policies (the rigor bar). Then read back met / governed / certified.",
+  },
+  {
     href: "/guides/capture-and-curate",
     title: "Capture & curate a trace",
     who: "Author",
@@ -12,19 +18,19 @@ const guides = [
     href: "/guides/review-a-pr",
     title: "Review an AI-generated PR",
     who: "Reviewer",
-    desc: "Someone handed you an AI-written PR. Start from the residual surface, verify the claims that matter, and approve with confidence.",
+    desc: "Someone handed you an AI-written PR. Confirm the goal was met and governed, then certify the criteria were the right ones — the certified axis is the reviewer's job.",
   },
   {
     href: "/guides/add-to-ci",
     title: "Add ponens to CI / your PRs",
     who: "Maintainer",
-    desc: "Wire up the GitHub Action so every PR gets a grade, the declared gaps, a one-click viewer, and a PASS/FAIL governance gate.",
+    desc: "Wire up the GitHub Action so every PR reads back met / governed / certified, with the governed axis as a blocking PASS/FAIL gate and a one-click viewer.",
   },
   {
     href: "/guides/govern-a-repo",
     title: "Govern a repo with policies",
     who: "Maintainer",
-    desc: "Pull best-practice policies from the gallery, gate on Computable Governance, and write your own rules in LTLf.",
+    desc: "Own the governed axis: pull best-practice policies from the gallery, scope them to goals, block by default (disable or waive on the record), and write your own rules in LTLf.",
   },
   {
     href: "/guides/programmatic-use",

@@ -7,6 +7,36 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.6.0] — 2026-07-25
+
+### Added
+- **Goal contracts** — an acceptance criterion is now a *typed evidence requirement over a code
+  component* (`verification`, `tests`, or `decomposition`), and a goal carries its own **policy bar**.
+  State the goal as a contract - *accomplish these things, subject to these policies* - and
+  `ponens trace enrich` returns three independent verdicts: **met** (criteria resolved from evidence),
+  **governed** (the goal's policies held), and **certified** (a non-doer confirmed the criteria were
+  the right ones). Author the whole contract in one shot with `ponens trace goal set --json`. See the
+  new `GOAL_CONTRACT_v0_1` spec.
+- **Goal-scoped policies — the governed axis** — a goal can name policy `packs` and `policies`; they
+  **block by default** unless explicitly `disabled` (recorded on the trace, never silent). Pack names
+  resolve against the registry, and `enrich` attaches the governance result per goal.
+- **Artifact lineage / provenance API** — a new dependency-free `ponens.lineage` module answers what a
+  specific artifact was derived from: `ancestor_ids`, `lineage_types`, `source_symbols`, `autoformalized`,
+  `decomposition_backed`, and a one-call `provenance` summary.
+
+### Changed
+- **`ponens agent`** now teaches the goal-contract workflow — typed criteria, the goal's policy bar, and
+  the three axes (met / governed / certified), including the rule that the agent *proposes* the rigor bar
+  while a human *selects* it, and never self-certifies.
+- **`ponens trace enrich`** now reports the **governed** axis alongside met and certified.
+
+### Fixed
+- **Goals now reach *met* when the work is real** — a typed criterion resolves by artifact **lineage**
+  (does a `proved` result for this property trace back to a model autoformalized from this component?)
+  instead of matching the verification goal's description text. This fixes goals that never ticked even
+  though the property was proved, and stops a similarly-worded but unrelated result from satisfying a
+  criterion.
+
 ## [1.5.0] — 2026-07-22
 
 ### Added

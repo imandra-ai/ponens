@@ -7,45 +7,57 @@ import { Code } from "astro:components";
   <article class="prose">
     <p class="spec-back"><a href="/guides">← Guides</a></p>
     <h1>Review an AI-generated PR</h1>
-    <p><strong>You'll end up</strong> reviewing from the reasoning record instead of squinting at an
-      800-line diff — checking the handful of claims that matter and the gaps the author declared,
-      and skipping the noise.</p>
+    <p><strong>You'll end up</strong> reviewing against a <a href="/guides/set-a-goal-contract">goal
+      contract</a> instead of squinting at an 800-line diff — confirming the goal was <strong>met</strong>
+      and <strong>governed</strong>, then <strong>certifying</strong> the criteria were the <em>right</em>
+      ones. Certified is the reviewer's axis: the doer can produce met and governed, but only a non-doer can
+      certify.</p>
 
     <h2>1. Open the record, not the diff</h2>
-    <p>If the repo runs the <a href="/guides/add-to-ci">pr-trace action</a>, the PR already has a
-      comment with the grade, the declared gaps, and a one-click viewer. Otherwise, open the trace
-      that ships with the change:</p>
+    <p>If the repo runs the <a href="/guides/add-to-ci">pr-trace action</a>, the PR already has a comment
+      with the goal's <strong>met / governed / certified</strong> status and a one-click viewer. Otherwise,
+      open the trace that ships with the change:</p>
     <Code lang="bash" code={`ponens trace view trace.json                   # opens the interactive viewer
 ponens trace view trace.json --out review.html # or write the HTML (e.g. a CI artifact)`} />
     <p>The viewer zooms from intent-named steps down to atomic actions, with the lineage DAG, the
       decisions, and the residual surface. See it live in the <a href="/demo">demo</a>.</p>
 
-    <h2>2. Start from the residual surface</h2>
-    <p>The fastest signal in the whole record: <em>what the change did not establish</em> —
-      assumptions, unverified claims, out-of-scope items. It tells you where to look.</p>
-    <Code lang="bash" code={`ponens trace residuals trace.json`} />
-    <p>Triage these first. A high-severity <code>assumption</code> or an <code>unverified</code> claim
-      on a consequential path is exactly where your attention is worth the most.</p>
+    <h2>2. Check the contract verdicts</h2>
+    <p>Start where the record already renders judgment. <strong>Met</strong> tells you the acceptance criteria
+      resolved from real evidence; <strong>governed</strong> tells you the rigor-bar policies held:</p>
+    <Code lang="bash" code={`ponens trace goal ls trace.json                # per goal: met + faithfulness
+ponens trace enrich trace.json                 # met ∧ governed ∧ certified, with resolved evidence
+ponens trace check trace.json                  # the governed axis, on its own`} />
+    <p>Each <em>met</em> criterion points at the artifact that satisfies it — a proof, a decomposition, a
+      test suite — resolved by <strong>lineage</strong>, so "done" means the evidence traces back to the code
+      component, not that a sentence sounded right.</p>
 
-    <h2>3. Verify the claims that matter</h2>
-    <p>For each consequential claim, check the evidence the record points to — the test result, the
-      proof, the verification artifact — rather than re-reading every line. Trust
-      <em>reproduction and the atomic actions</em>; treat the curated narrative as a map, not proof.</p>
-    <Code lang="bash" code={`ponens trace check trace.json                  # did Computable Governance pass?
-ponens trace reproduce trace.json              # does it rebuild from the recorded inputs?`} />
+    <h2>3. Read the negative space</h2>
+    <p>The residual surface is <em>what the change did not establish</em> — assumptions, unverified claims,
+      out-of-scope items the author declared. It tells you where a green contract still leaves risk.</p>
+    <Code lang="bash" code={`ponens trace residuals trace.json`} />
+    <p>Triage these first. A high-severity <code>assumption</code> or an <code>unverified</code> claim on a
+      consequential path is exactly where your attention is worth the most.</p>
 
     <h2>4. Hunt the undeclared gaps</h2>
-    <p>The residual surface lists what the author <em>knew</em> they didn't establish. Your job is the
-      gaps they didn't declare — a claim with no artifact behind it, a high-stakes edit with no
-      verification in its lineage. Record what you find as review items:</p>
-    <Code lang="bash" code={`ponens trace comments add trace.json --on m3 --body "What about partial refunds?"
-ponens trace review-items add trace.json --severity high --statement "…"`} />
+    <p>The residual surface lists what the author <em>knew</em> they didn't establish. Your job is the gaps
+      they didn't declare — a met-looking criterion whose evidence doesn't actually trace back, a high-stakes
+      edit with no verification in its lineage. Record what you find so it stays on the record:</p>
+    <Code lang="bash" code={`ponens trace residual add trace.json \\
+  --kind unverified --severity high \\
+  --statement "Partial refunds have no verification in lineage" \\
+  --target-type artifact --target-id vg2`} />
+    <p>(When the trace lives on the Hub, the same findings can go up as
+      <code>ponens review-items add</code> and <code>ponens comments add</code>.)</p>
 
-    <h2>5. Sign off</h2>
-    <p>Approve when the consequential claims hold and the declared gaps are acceptable — or request
-      changes with specifics tied to a step. The reasoning stays bound 1:1 to the commit, so the
-      record of <em>how the code came to be</em> is auditable later.</p>
-    <Code lang="bash" code={`ponens trace approve trace.json                # or: review-items / request changes`} />
+    <h2>5. Certify — the reviewer's sign-off</h2>
+    <p>When the consequential claims hold and the declared gaps are acceptable, <strong>certify</strong> that
+      the definition of done was the right one — or request changes with specifics tied to a step. This is a
+      distinct axis from met and governed, and it can only come from someone who didn't do the work.</p>
+    <Code lang="bash" code={`ponens trace goal certify trace.json --by reviewer --verdict approved
+ponens trace goal certify trace.json --by reviewer --verdict changes-requested --note "…"`} />
+    <p>The reasoning stays bound 1:1 to the commit, so the record of <em>how the code came to be</em> — and
+      that a human vouched for the bar — is auditable later.</p>
 
     <p class="next">See the full protocol in the
       <a href="/spec/REVIEW_HANDOFF_v0_1">Review handoff spec →</a></p>

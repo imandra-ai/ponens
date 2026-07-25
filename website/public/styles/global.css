@@ -271,6 +271,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
 .t-badge.ok { background: rgba(46,160,67,0.16); color: #2da44e; }
 .t-badge.proved { background: rgba(110,168,254,0.16); color: var(--accent); }
 .t-badge.gap { background: rgba(169,121,15,0.16); color: var(--warn); }
+.t-badge.pending { background: rgba(127,127,127,0.16); color: var(--muted); }
 .t-foot {
   margin-top: 0.95rem; padding-top: 0.7rem; border-top: 1px solid var(--border);
   font-size: 0.82rem; color: var(--muted);
@@ -294,6 +295,18 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
   padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--border);
   background: rgba(127, 127, 127, 0.05);
 }
+.mv-goal {
+  display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;
+  padding: 0.5rem 0.9rem; border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.mv-goal-k {
+  font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.04em; font-size: 0.68rem;
+}
+.mv-goal-v { color: var(--fg); font-weight: 600; }
+.mv-verdicts { margin-left: auto; display: inline-flex; gap: 0.35rem; }
+.mv-verdicts .t-badge { margin-left: 0; }
 .mv-mark { flex: none; display: block; }
 .mv-title { font-size: 0.78rem; font-weight: 600; color: var(--fg); }
 .mv-tabs { display: flex; gap: 0.25rem; margin-left: 0.55rem; }

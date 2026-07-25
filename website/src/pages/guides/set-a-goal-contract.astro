@@ -1,0 +1,92 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { Code } from "astro:components";
+---
+
+<Layout title="Set a goal contract — ponens">
+  <article class="prose">
+    <p class="spec-back"><a href="/guides">← Guides</a></p>
+    <h1>Set a goal contract</h1>
+    <p><strong>You'll end up with</strong> a goal stated as a contract — <em>accomplish these things,
+      subject to these policies</em> — that <span class="pn">ponens</span> resolves against the trace's
+      own evidence into three deterministic verdicts: <strong>met</strong>, <strong>governed</strong>, and
+      <strong>certified</strong>. The full model is in the
+      <a href="/spec/GOAL_CONTRACT_v0_1">Goal Contract reference</a>.</p>
+
+    <h2>1. Declare the goal</h2>
+    <p>Start with the intent (what's changing and why) and the scope (the files/symbols it touches):</p>
+    <Code lang="bash" code={`ponens trace goal set trace.json \\
+  --intent "Settlement must never create or destroy money" \\
+  --scope "settle,refund,fee_tier"`} />
+
+    <h2>2. State the acceptance criteria — "accomplish these things"</h2>
+    <p>A criterion is a <strong>typed evidence requirement over a code component</strong>, not a sentence to
+      eyeball. Each one names the <code>component</code> it's about and the <code>evidence</code> that would
+      satisfy it — <em>verification</em>, <em>tests</em>, or <em>decomposition</em>. Author the whole contract
+      as JSON and load it in one shot:</p>
+    <Code lang="json" code={`{
+  "id": "session-goal",
+  "intent": "Settlement must never create or destroy money",
+  "scope": ["settle", "refund", "fee_tier"],
+  "acceptance": [
+    {
+      "id": "c1",
+      "component": { "function": "settle" },
+      "evidence": { "kind": "verification", "property": "money_conserved", "expect": "proved" }
+    },
+    {
+      "id": "c2",
+      "component": { "function": "fee_tier" },
+      "evidence": { "kind": "decomposition", "min_regions": 3 }
+    },
+    {
+      "id": "c3",
+      "component": { "function": "refund" },
+      "evidence": { "kind": "tests", "min": 8 }
+    }
+  ]
+}`} />
+    <Code lang="bash" code={`ponens trace goal set trace.json --json contract.json`} />
+    <p>Criteria resolve by <strong>lineage</strong>, not by matching description text: <code>c1</code> is
+      <em>met</em> only when a <code>VerificationResult(proved)</code> for <code>money_conserved</code> traces
+      back — through its <code>derived_from</code> chain — to an <code>IMLModel</code> autoformalized from
+      <code>settle</code>. That's why a goal ticks when the work is real, and only then.</p>
+
+    <h2>3. Attach the policies — "subject to these"</h2>
+    <p>Criteria say <em>what</em> to accomplish; policies set the <strong>rigor bar</strong> — the
+      <strong>governed</strong> axis. Scope them to the goal so the bar travels with it. Policies
+      <strong>block by default</strong>: an <code>error</code>-severity failure fails the goal unless it's
+      explicitly <code>disabled</code> (recorded, never silent) or a failure is waived.</p>
+    <Code lang="json" code={`{
+  "id": "session-goal",
+  "…": "…intent, scope, acceptance as above…",
+  "policies": {
+    "packs": ["apply_formal_methods"],
+    "policies": ["research_before_edit"],
+    "disabled": []
+  }
+}`} />
+    <p><strong>Who picks the bar.</strong> The agent may <em>propose</em> packs and
+      policies, but a human <em>selects and approves</em> them — the party that meets a goal must not be the
+      sole party that sets its rigor bar. Browse the options in the
+      <a href="/gallery">policy gallery</a>; the mechanics of gating are in
+      <a href="/guides/govern-a-repo">Govern a repo with policies</a>.</p>
+
+    <h2>4. Read back the three verdicts</h2>
+    <p>Resolve the criteria against the trace, then enrich to get all three axes at once:</p>
+    <Code lang="bash" code={`ponens trace goal ls trace.json      # met + faithfulness, per goal
+ponens trace resolve trace.json      # each criterion: ✓ done / ◐ doing / ✗ blocked / ○ todo
+ponens trace enrich trace.json       # met ∧ governed ∧ certified, with resolved evidence + cone`} />
+    <p>A goal is <strong>met</strong> when its criteria resolve from evidence, <strong>governed</strong> when
+      its policies hold, and <strong>certified</strong> when a non-doer confirms the criteria were the
+      <em>right</em> ones — three independent checks, never conflated.</p>
+
+    <h2>5. Certify — the reviewer's sign-off</h2>
+    <p>Met and governed are things the doer can produce. <strong>Certified</strong> is not: it records that a
+      non-doer agreed the definition of done was the right one.</p>
+    <Code lang="bash" code={`ponens trace goal certify trace.json --by reviewer --verdict approved`} />
+    <p>That's the whole contract. Next, put it to work: <a href="/guides/review-a-pr">review an
+      AI-generated PR →</a> (where you own the certified axis), or
+      <a href="/guides/add-to-ci">gate it on every PR →</a> (where governed becomes a required check).</p>
+  </article>
+</Layout>

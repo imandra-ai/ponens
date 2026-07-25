@@ -1,0 +1,59 @@
+name: "Dispatch release to imandra-web"
+
+# Tells imandra-web that a new ponens version exists. That repo's
+# tracehub-ponens-runtime workflow does everything else: waits for the
+# version on PyPI, builds the ponens-runtime image from it, pushes to the
+# imandra registries, and rolls the TraceHub evaluation worker
+# (imandra-ai/imandra-web#4594). This repo carries no Dockerfile and no
+# registry credentials — pip-installability from PyPI is the whole contract.
+#
+# Fires on version bumps (cli/pyproject.toml changes on main). The PyPI
+# upload itself may land minutes later; the imandra-web side retries until
+# the version is visible. workflow_dispatch is the manual re-fire.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cli/pyproject.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          sparse-checkout: |
+            /cli/pyproject.toml
+          sparse-checkout-cone-mode: false
+
+      - id: version
+        name: "Read version from cli/pyproject.toml"
+        run: |-
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' cli/pyproject.toml)
+          if [ -z "$version" ]; then
+            echo "Could not parse version from cli/pyproject.toml" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - id: "dispatch"
+        name: "Notify imandra-web"
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          # Org-level PAT (same one release-atdl-testgen-bims-runtime uses),
+          # so no repo-level secret setup.
+          token: ${{ secrets.SUBMODULE_CLONE_TOKEN }}
+          repository: imandra-ai/imandra-web
+          event-type: ponens-release
+          client-payload: >-
+            {
+              "version": "${{ steps.version.outputs.version }}",
+              "sha": "${{ github.sha }}",
+              "ref": "${{ github.ref_name }}",
+              "targets": ["dev", "prod"]
+            }

@@ -1,0 +1,96 @@
+{
+  "trace_id": "gc-certified-unmet",
+  "spec_version": "1.7",
+  "assistant": "codelogician",
+  "model": "demo",
+  "timestamp": "2026-07-25T00:00:00Z",
+  "title": "Certified definition, work not yet done",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Certified definition, work not yet done"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "read settle",
+      "rationale": "read settle",
+      "inputs": [],
+      "outputs": [
+        "a_src"
+      ],
+      "evidence": []
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "a_src",
+      "artifact_type": "SourceCode",
+      "name": "a_src",
+      "producer_action_id": 1
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Certified definition, work not yet done"
+  },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "Settlement conserves money",
+      "scope": [
+        "settle"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "c1",
+          "component": {
+            "function": "settle"
+          },
+          "evidence": {
+            "artifact": "VerificationResult"
+          },
+          "required": true,
+          "author": "agent",
+          "covers": [
+            "conserve money"
+          ],
+          "status": "todo",
+          "from_trace": false,
+          "evidence_ref": null
+        }
+      ],
+      "intent_clauses": [
+        "conserve money"
+      ],
+      "criteria_review": {
+        "reviewed_by": "reviewer",
+        "verdict": "approved",
+        "at": "2026-07-25T01:00:00Z"
+      },
+      "progress": 0.0,
+      "cone": [],
+      "open_gaps": 0,
+      "faithfulness": {
+        "met": false,
+        "certified": true,
+        "uncovered_clauses": []
+      }
+    }
+  ],
+  "exploration_actions": [
+    1
+  ],
+  "summary": {
+    "policy_violations": 0,
+    "open_residuals": 0,
+    "open_high": 0,
+    "stale_evidence": 0,
+    "goals_total": 1,
+    "goals_met": 0,
+    "goals_governed": 0,
+    "goals_certified": 1
+  }
+}

@@ -57,6 +57,16 @@ def test_roots_in_component():
     assert not roots_in_component("a4", "refund", t)
 
 
+def test_roots_in_component_is_precise_not_whole_model():
+    # a4's VG targets `settle`; it must NOT read as rooting in `fee_tier` just because the SHARED
+    # IMLModel also formalized fee_tier. The artifact's own target_symbol pins the component.
+    t = _trace()
+    assert not roots_in_component("a4", "fee_tier", t)
+    # d1 (Decomp) targets fee_tier — the mirror case.
+    assert roots_in_component("d1", "fee_tier", t)
+    assert not roots_in_component("d1", "settle", t)
+
+
 def test_autoformalized():
     assert autoformalized("a4", _trace())       # IMLModel in lineage
     # A bare artifact with no model ancestor is not autoformalized.

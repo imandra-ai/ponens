@@ -21,7 +21,6 @@ const out = cases.map((c) => {
     name: c.name,
     met: !!f.met,
     certified: !!f.certified,
-    weakly_specified: !!f.weak,
     uncovered_clauses: f.uncovered,
   };
 });

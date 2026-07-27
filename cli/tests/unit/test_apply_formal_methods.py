@@ -111,9 +111,9 @@ def test_evidence_names_the_witnessing_action_for_G_implies():
                   {"id": 2, "type": "Release", "rationale": "send"}])
     bad = trace([{"id": 1, "type": "Retrieve", "rationale": "read from cache"},
                  {"id": 2, "type": "Release", "rationale": "send"}])
-    status, _note, ev, vi = evaluate_policy_full(pol, good)
+    status, _note, ev, vi, _ea, _va = evaluate_policy_full(pol, good)
     assert status == "passed" and ev == [1] and vi == []      # the Retrieve satisfied the predicate
-    status, _note, ev, vi = evaluate_policy_full(pol, bad)
+    status, _note, ev, vi, _ea, _va = evaluate_policy_full(pol, bad)
     assert status == "failed" and vi == [1]                    # the Retrieve broke it
 
 
@@ -122,7 +122,7 @@ def test_evidence_names_the_dangling_action_for_structural():
     bad = trace([{"id": 1, "type": "Retrieve", "rationale": "load", "outputs": ["a"]},
                  {"id": 2, "type": "Compute", "rationale": "reuse foreign ctx",
                   "inputs": ["foreign"], "outputs": ["b"]}])
-    status, _note, _ev, vi = evaluate_policy_full(pol, bad)
+    status, _note, _ev, vi, _ea, _va = evaluate_policy_full(pol, bad)
     assert status == "failed" and 2 in vi                       # action 2 has the dangling input
 
 

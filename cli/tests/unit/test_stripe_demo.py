@@ -81,8 +81,8 @@ def test_summary_counts():
         "stale_evidence": 0,  # the fix was clean: no proved-then-edited symbols left dangling
         "goals_total": 1,
         "goals_met": 0,             # gap items still open -> not fully met
+        "goals_governed": 0,        # this fixture's goal declares no policies
         "goals_certified": 0,       # no criteria_review on this fixture
-        "goals_weakly_specified": 0,  # backed by proofs, not just edits
     }
 
 

@@ -107,7 +107,7 @@ def test_enrich_end_to_end():
     assert any(r.get("derived") for r in e["residuals"])   # stale merged in
     assert e["summary"] == {
         "policy_violations": 0, "open_residuals": 2, "open_high": 1, "stale_evidence": 1,
-        "goals_total": 1, "goals_met": 0, "goals_certified": 0, "goals_weakly_specified": 0}
+        "goals_total": 1, "goals_met": 0, "goals_governed": 0, "goals_certified": 0}
     assert {i["id"]: i["status"] for i in g["acceptance"]} == {
         "a1": "done", "a2": "done", "a3": "todo", "a4": "done"}
     # source trace untouched
@@ -131,14 +131,12 @@ def test_faithfulness_met_over_required_items():
     assert faithfulness_of(_fgoal([]))["met"] is False
 
 
-def test_faithfulness_weakly_specified():
-    assert faithfulness_of(_fgoal([{"kind": "change", "status": "done"}]))["weakly_specified"] is True
-    assert faithfulness_of(_fgoal([{"kind": "property", "status": "done"}]))["weakly_specified"] is False
-    assert faithfulness_of(_fgoal([{"kind": "obligation", "status": "done"}]))["weakly_specified"] is False
-    # high-stakes demands a PROOF specifically -- an obligation alone is weak
-    assert faithfulness_of(_fgoal([{"kind": "obligation", "status": "done"}]), high_stakes=True)["weakly_specified"] is True
-    # nothing to grade -> not weak
-    assert faithfulness_of(_fgoal([]))["weakly_specified"] is False
+def test_faithfulness_no_longer_grades_strength():
+    # Strength ("is a diff enough vs a proof?") is a POLICY judgment now — faithfulness no longer
+    # reports weakly_specified at all, regardless of the evidence mix.
+    f = faithfulness_of(_fgoal([{"kind": "change", "status": "done"}]))
+    assert "weakly_specified" not in f
+    assert set(f) == {"met", "certified", "uncovered_clauses"}
 
 
 def test_faithfulness_uncovered_clauses():
@@ -155,9 +153,10 @@ def test_faithfulness_certified_gate():
     assert faithfulness_of(_fgoal(acc, intent_clauses=["a"], criteria_review=self_rev))["certified"] is False
     # an uncovered clause can never be certified
     assert faithfulness_of(_fgoal(acc, intent_clauses=["a", "b"], criteria_review=ok))["certified"] is False
-    # a weakly-specified goal can never be certified
-    weak = [{"kind": "change", "status": "done", "author": "agent", "covers": ["a"]}]
-    assert faithfulness_of(_fgoal(weak, intent_clauses=["a"], criteria_review=ok))["certified"] is False
+    # strength no longer gates certified — a change-backed goal, reviewed and covered, IS certified
+    # (whether a diff is ENOUGH is a policy/governed judgment, not a faithfulness one)
+    change = [{"kind": "change", "status": "done", "author": "agent", "covers": ["a"]}]
+    assert faithfulness_of(_fgoal(change, intent_clauses=["a"], criteria_review=ok))["certified"] is True
     # no review -> not certified (orthogonal to met)
     assert faithfulness_of(_fgoal(acc, intent_clauses=["a"]))["certified"] is False
 
@@ -175,7 +174,6 @@ def test_enrich_grades_faithfulness_orthogonal_to_met():
     # a3 (gap) is still open -> not met, but the DEFINITION is certified (right, if not yet done)
     assert fa["met"] is False
     assert fa["certified"] is True
-    assert fa["weakly_specified"] is False
     assert fa["uncovered_clauses"] == []
     assert e["summary"]["goals_total"] == 1 and e["summary"]["goals_certified"] == 1
     assert e["summary"]["goals_met"] == 0

@@ -1,13 +1,13 @@
 {
   "trace_id": "trace-sample-auth-xstate",
-  "spec_version": "1.6",
+  "spec_version": "1.8",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-06-14T12:00:00Z",
   "title": "Migrate auth to an explicit state machine (reachability proved)",
   "trigger": {
     "type": "TaskReceived",
-    "description": "the auth booleans admit impossible states \u2014 model it as a machine and prove every state is reachable"
+    "description": "the auth booleans admit impossible states — model it as a machine and prove every state is reachable"
   },
   "actions": [
     {
@@ -43,7 +43,7 @@
       "type": "ExclusiveDecision",
       "category": "gateway",
       "label": "Model as an explicit state machine",
-      "rationale": "XState chart vs a hand-rolled reducer \u2014 chose XState for the reachability tooling.",
+      "rationale": "XState chart vs a hand-rolled reducer — chose XState for the reachability tooling.",
       "inputs": [],
       "outputs": [],
       "evidence": [],
@@ -444,6 +444,42 @@
       "derived_from": [
         "a8"
       ]
+    },
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "name": "limitation: Reachability is proved for the modelled events o…",
+      "payload": {
+        "kind": "limitation",
+        "severity": "medium",
+        "status": "acknowledged",
+        "source": "agent_declared",
+        "statement": "Reachability is proved for the modelled events only; deep-link entry points are not in the chart.",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a3"
+        },
+        "suggested_check": "Enumerate router entry points and confirm each maps to a modelled state.",
+        "introduced_by_action_id": 5
+      },
+      "derived_from": [
+        "a3"
+      ],
+      "summary": "Reachability is proved for the modelled events only; deep-link entry points are not in the chart.",
+      "producer_action_id": 5
+    },
+    {
+      "artifact_id": "r2",
+      "artifact_type": "Residual",
+      "name": "open question: Should a token refresh failure log the user out …",
+      "payload": {
+        "kind": "open_question",
+        "severity": "low",
+        "status": "open",
+        "source": "agent_declared",
+        "statement": "Should a token refresh failure log the user out or move to Error? Left as Error for now."
+      },
+      "summary": "Should a token refresh failure log the user out or move to Error? Left as Error for now."
     }
   ],
   "policies": [
@@ -454,7 +490,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
+      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -463,7 +499,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
+      "formula": "G(gateway → rationale ≠ ∅)"
     },
     {
       "policy_id": "p3",
@@ -506,30 +542,7 @@
       "note": "a8 derives from decomposition a6"
     }
   ],
-  "residuals": [
-    {
-      "residual_id": "r1",
-      "kind": "limitation",
-      "severity": "medium",
-      "status": "acknowledged",
-      "source": "agent_declared",
-      "statement": "Reachability is proved for the modelled events only; deep-link entry points are not in the chart.",
-      "target": {
-        "target_type": "artifact",
-        "target_id": "a3"
-      },
-      "suggested_check": "Enumerate router entry points and confirm each maps to a modelled state.",
-      "introduced_by_action_id": 5
-    },
-    {
-      "residual_id": "r2",
-      "kind": "open_question",
-      "severity": "low",
-      "status": "open",
-      "source": "agent_declared",
-      "statement": "Should a token refresh failure log the user out or move to Error? Left as Error for now."
-    }
-  ],
+  "residuals": [],
   "files_modified": [
     "src/auth/machine.ts"
   ],

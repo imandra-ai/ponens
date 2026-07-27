@@ -53,27 +53,40 @@ def lineage_types(artifact_id, trace):
     return {a.get("artifact_type") for a in lineage_artifacts(artifact_id, trace)}
 
 
-def source_symbols(artifact_id, trace):
-    """The code symbols / components an artifact's lineage rests on — read from STRUCTURED fields, not
-    free text: each lineage artifact's `target_symbol` (VerificationGoals) and `payload.symbols`
-    (an IMLModel's formalized symbols)."""
-    syms = set()
+def _lineage_symbols(artifact_id, trace):
+    """(specific_targets, model_symbols) over an artifact's lineage, read from STRUCTURED fields.
+
+    `specific_targets` — per-artifact `target_symbol`s: a VerificationGoal, Decomp, or targeted Diff
+    names the ONE component it is about. `model_symbols` — the broader set an IMLModel formalized.
+    The specific targets, when present, pin the component precisely; the model's full symbol list is
+    only a fallback for artifacts that declare no target of their own (otherwise a decomposition of
+    `fee_tier` would look like it "roots in" every symbol the shared model happens to contain)."""
+    specific, model = set(), set()
     for a in lineage_artifacts(artifact_id, trace):
         p = _payload(a)
         ts = p.get("target_symbol") or a.get("target_symbol")
         if ts:
-            syms.add(ts)
+            specific.add(ts)
         for s in (p.get("symbols") or []):
             if isinstance(s, str):
-                syms.add(s)
+                model.add(s)
             elif isinstance(s, dict) and s.get("name"):
-                syms.add(s["name"])
-    return syms
+                model.add(s["name"])
+    return specific, model
+
+
+def source_symbols(artifact_id, trace):
+    """The code symbols / components an artifact's lineage rests on (specific targets ∪ model symbols)."""
+    specific, model = _lineage_symbols(artifact_id, trace)
+    return specific | model
 
 
 def roots_in_component(artifact_id, component, trace):
-    """Does this artifact's lineage involve the given code component (function / symbol)?"""
-    return component in source_symbols(artifact_id, trace)
+    """Does this artifact's lineage rest SPECIFICALLY on the given component (function / symbol)? An
+    artifact that declares its own `target_symbol` is about THAT symbol — not every symbol the shared
+    model formalized. Only when nothing in the lineage names a target do we fall back to model symbols."""
+    specific, model = _lineage_symbols(artifact_id, trace)
+    return component in specific if specific else component in model
 
 
 def autoformalized(artifact_id, trace):
@@ -104,3 +117,116 @@ def provenance(artifact_id, trace):
         "decomposition_backed": decomposition_backed(artifact_id, trace),
         "ancestor_ids": sorted(ancestor_ids(artifact_id, trace)),
     }
+
+
+# --- Residuals as artifacts (Trace Spec §13, v1.8) -----------------------------------------------
+# A residual — the trace's *negative space* (an assumption relied on, a claim left unverified, an
+# out-of-scope item, a known limitation, a question deferred to review) — is a first-class artifact of
+# `artifact_type` "Residual". Its residual-specific fields live in `payload`; it anchors into the
+# lineage DAG via `derived_from` (the artifact it qualifies). Pre-1.8 traces carried these in a
+# separate top-level `residuals` list; the accessors below read BOTH shapes so old traces keep
+# working, and `migrate_residuals` folds a legacy list into artifacts.
+
+RESIDUAL_TYPE = "Residual"
+
+# residual fields carried in an artifact's `payload` (and promoted into the flat surface dict)
+_RESIDUAL_PAYLOAD_KEYS = (
+    "kind", "severity", "status", "source", "statement", "target",
+    "related_artifact_ids", "suggested_check", "introduced_by_action_id", "tags", "derived",
+)
+
+
+def is_residual(a):
+    return isinstance(a, dict) and a.get("artifact_type") == RESIDUAL_TYPE
+
+
+def residual_anchor(r):
+    """The artifact id(s) a residual hangs off in the DAG: its `target` (when it points at an artifact)
+    then any `related_artifact_ids`. Empty when unanchored (e.g. the residual targets an action)."""
+    out = []
+    tgt = r.get("target") or {}
+    if tgt.get("target_type") == "artifact" and tgt.get("target_id"):
+        out.append(tgt["target_id"])
+    for rid in r.get("related_artifact_ids") or []:
+        if rid not in out:
+            out.append(rid)
+    return out
+
+
+def _residual_name(r):
+    kind = (r.get("kind") or "residual").replace("_", " ")
+    stmt = (r.get("statement") or "").strip()
+    short = (stmt[:48] + "…") if len(stmt) > 49 else stmt
+    return f"{kind}: {short}" if short else kind
+
+
+def residual_to_artifact(r):
+    """Convert a legacy residual dict (§13 pre-1.8) into a first-class Residual artifact."""
+    payload = {k: r[k] for k in _RESIDUAL_PAYLOAD_KEYS if r.get(k) is not None}
+    art = {
+        "artifact_id": r.get("residual_id"),
+        "artifact_type": RESIDUAL_TYPE,
+        "name": _residual_name(r),
+        "payload": payload,
+    }
+    anchor = residual_anchor(r)
+    if anchor:
+        art["derived_from"] = anchor
+    if r.get("statement"):
+        art["summary"] = r["statement"]
+    if r.get("introduced_by_action_id") is not None:
+        art["producer_action_id"] = r["introduced_by_action_id"]
+    return art
+
+
+def artifact_to_residual(a):
+    """Project a Residual artifact back to the flat residual dict the surface / §13 policies consume."""
+    p = _payload(a)
+    r = {"residual_id": a.get("artifact_id")}
+    for k in _RESIDUAL_PAYLOAD_KEYS:
+        if p.get(k) is not None:
+            r[k] = p[k]
+    if "statement" not in r and a.get("summary"):
+        r["statement"] = a["summary"]
+    return r
+
+
+def residual_surface(trace):
+    """The trace's residual surface as flat residual dicts — Residual artifacts projected back to the
+    §13 shape, plus any legacy top-level `residuals` (deduped by id). The single accessor every residual
+    consumer (policies, goals, faithfulness, report) reads, independent of how a trace stores them."""
+    out, seen = [], set()
+    for a in trace.get("artifacts", []) or []:
+        if not is_residual(a):
+            continue
+        r = artifact_to_residual(a)
+        rid = r.get("residual_id")
+        if rid in seen:
+            continue
+        seen.add(rid)
+        out.append(r)
+    for r in trace.get("residuals", []) or []:
+        rid = r.get("residual_id")
+        if rid in seen:
+            continue
+        seen.add(rid)
+        out.append(r)
+    return out
+
+
+def migrate_residuals(trace):
+    """Fold a legacy top-level `residuals` list into Residual artifacts (idempotent). Returns the count
+    migrated and empties `residuals` so re-runs are no-ops and legacy readers see nothing stale."""
+    legacy = trace.get("residuals") or []
+    if not legacy:
+        return 0
+    arts = trace.setdefault("artifacts", [])
+    have = {a.get("artifact_id") for a in arts if is_residual(a)}
+    n = 0
+    for r in legacy:
+        if r.get("residual_id") in have:
+            continue
+        arts.append(residual_to_artifact(r))
+        n += 1
+    trace["residuals"] = []
+    return n

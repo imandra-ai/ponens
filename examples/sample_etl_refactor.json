@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-sample-etl-refactor",
-  "spec_version": "1.6",
+  "spec_version": "1.8",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-06-14T12:00:00Z",
@@ -146,7 +146,7 @@
     {
       "id": "m1",
       "title": "Map the transform and its callers",
-      "intent": "Refactor safely \u2014 know every caller",
+      "intent": "Refactor safely — know every caller",
       "action_ids": [
         1,
         2
@@ -296,6 +296,40 @@
       "derived_from": [
         "a5"
       ]
+    },
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "name": "limitation: Batch transform assumes the file fits in memory;…",
+      "payload": {
+        "kind": "limitation",
+        "severity": "medium",
+        "status": "acknowledged",
+        "source": "agent_declared",
+        "statement": "Batch transform assumes the file fits in memory; will need streaming above ~2GB.",
+        "target": {
+          "target_type": "action",
+          "target_id": 3
+        },
+        "suggested_check": "Add a size guard that fails fast above the batch threshold.",
+        "introduced_by_action_id": 3
+      },
+      "summary": "Batch transform assumes the file fits in memory; will need streaming above ~2GB.",
+      "producer_action_id": 3
+    },
+    {
+      "artifact_id": "r2",
+      "artifact_type": "Residual",
+      "name": "unverified: Timezone handling for date columns relies on the…",
+      "payload": {
+        "kind": "unverified",
+        "severity": "low",
+        "status": "open",
+        "source": "agent_declared",
+        "statement": "Timezone handling for date columns relies on the fixtures' implicit UTC; not asserted.",
+        "suggested_check": "Add a test with a non-UTC date column."
+      },
+      "summary": "Timezone handling for date columns relies on the fixtures' implicit UTC; not asserted."
     }
   ],
   "policies": [
@@ -306,7 +340,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
+      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -315,7 +349,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
+      "formula": "G(gateway → rationale ≠ ∅)"
     },
     {
       "policy_id": "p3",
@@ -358,31 +392,7 @@
       "note": "a5 derives from decomposition a4"
     }
   ],
-  "residuals": [
-    {
-      "residual_id": "r1",
-      "kind": "limitation",
-      "severity": "medium",
-      "status": "acknowledged",
-      "source": "agent_declared",
-      "statement": "Batch transform assumes the file fits in memory; will need streaming above ~2GB.",
-      "target": {
-        "target_type": "action",
-        "target_id": 3
-      },
-      "suggested_check": "Add a size guard that fails fast above the batch threshold.",
-      "introduced_by_action_id": 3
-    },
-    {
-      "residual_id": "r2",
-      "kind": "unverified",
-      "severity": "low",
-      "status": "open",
-      "source": "agent_declared",
-      "statement": "Timezone handling for date columns relies on the fixtures' implicit UTC; not asserted.",
-      "suggested_check": "Add a test with a non-UTC date column."
-    }
-  ],
+  "residuals": [],
   "files_modified": [
     "etl/transform.py"
   ],

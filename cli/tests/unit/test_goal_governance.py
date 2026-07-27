@@ -90,3 +90,52 @@ def test_enrich_no_policies_no_governed_field():
     t["goals"] = [{"id": "g", "scope": [], "acceptance": []}]
     g = enrich(t)["goals"][0]
     assert "governed" not in g      # nothing declared → axis absent (not vacuously true/false)
+
+
+# --- Integration: quality-of-evidence lives in policies (the real evaluator, real formula) ----------
+
+# The gallery policy that makes the GOVERNED axis judge a verification result's quality: a criterion is
+# MET the moment a VerificationResult exists for its component, but stays UNGOVERNED until the result is
+# actually proved (a refutation must be re-proved, not merely edited around).
+_REPROVED = {"policy_id": "refuted_results_must_be_reproved", "name": "refuted_results_must_be_reproved",
+             "severity": "error", "formula": "G(VerificationResult(refuted) → F(VerificationResult(proved ∨ sat)))"}
+
+
+def _verif_trace(reproved):
+    arts = [
+        {"artifact_id": "src", "artifact_type": "SourceCode", "derived_from": None, "producer_action_id": 1},
+        {"artifact_id": "m", "artifact_type": "IMLModel", "derived_from": ["src"], "producer_action_id": 2,
+         "payload": {"symbols": ["settle"]}},
+        {"artifact_id": "vg", "artifact_type": "VerificationGoal", "derived_from": ["m"], "producer_action_id": 3,
+         "payload": {"target_symbol": "settle", "goal_id": "g1"}},
+        {"artifact_id": "vr", "artifact_type": "VerificationResult", "derived_from": ["vg"], "producer_action_id": 4,
+         "payload": {"goal_id": "g1", "status": "refuted"}},
+    ]
+    acts = [{"id": 1, "type": "ReadFile"}, {"id": 2, "type": "Formalize", "outputs": ["m"]},
+            {"id": 3, "type": "DefineVG", "outputs": ["vg"]},
+            {"id": 4, "type": "Verify", "outputs": ["vr"], "vg_result": {"status": "refuted"}}]
+    if reproved:
+        arts.append({"artifact_id": "vr2", "artifact_type": "VerificationResult", "derived_from": ["vg"],
+                     "producer_action_id": 5, "payload": {"status": "proved"}})
+        acts.append({"id": 5, "type": "Verify", "outputs": ["vr2"], "vg_result": {"status": "proved"}})
+    return {"actions": acts, "artifacts": arts, "high_stakes_paths": ["settle"]}
+
+
+def _verif_goal():
+    return {"id": "g", "scope": ["settle"],
+            "acceptance": [{"id": "c1", "component": {"function": "settle"}, "evidence": {"artifact": "VerificationResult"}}]}
+
+
+def test_met_but_ungoverned_when_result_stays_refuted():
+    t = _verif_trace(reproved=False)
+    r = governance_of(_verif_goal(), t, [_REPROVED])
+    assert r["governed"] is False                     # a refuted result is not good-enough evidence
+    assert r["blocking"] == ["refuted_results_must_be_reproved"]
+    # ...yet the criterion is MET — the artifact exists (quality is the governed axis, not met).
+    from ponens.goals import resolve_item
+    assert resolve_item(_verif_goal()["acceptance"][0], t)["status"] == "done"
+
+
+def test_governed_once_refutation_is_reproved():
+    r = governance_of(_verif_goal(), _verif_trace(reproved=True), [_REPROVED])
+    assert r["governed"] is True and r["blocking"] == []

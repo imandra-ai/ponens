@@ -5,7 +5,7 @@ implementations that compute it independently —
   * the CLI / enrich evaluator — cli/ponens/goals.py       `faithfulness_of`  (the oracle)
   * the viewer evaluator        — viewer/core/faithfulness.mjs  `goalFaithfulnessV`  (the display)
 
-Both read the same §18 goal; they must never disagree on met / certified / weakly_specified /
+Both read the same §18 goal; they must never disagree on met / certified /
 uncovered_clauses. Each case in faithfulness_cases.json also carries an `expect`, which pins the
 ABSOLUTE verdict — so the two agreeing on a *wrong* answer still fails (guards against joint drift).
 
@@ -31,7 +31,6 @@ def _norm(d):
     return {
         "met": bool(d["met"]),
         "certified": bool(d["certified"]),
-        "weakly_specified": bool(d["weakly_specified"]),
         "uncovered_clauses": sorted(d.get("uncovered_clauses") or []),
     }
 

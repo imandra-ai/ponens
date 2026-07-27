@@ -10,13 +10,19 @@ GitHub release notes, and the website's **/whats-new** page renders this file di
 ## [1.6.0] — 2026-07-25
 
 ### Added
-- **Goal contracts** — an acceptance criterion is now a *typed evidence requirement over a code
-  component* (`verification`, `tests`, or `decomposition`), and a goal carries its own **policy bar**.
-  State the goal as a contract - *accomplish these things, subject to these policies* - and
-  `ponens trace enrich` returns three independent verdicts: **met** (criteria resolved from evidence),
-  **governed** (the goal's policies held), and **certified** (a non-doer confirmed the criteria were
-  the right ones). Author the whole contract in one shot with `ponens trace goal set --json`. See the
-  new `GOAL_CONTRACT_v0_1` spec.
+- **Goal contracts** — an acceptance criterion is now *a required evidence artifact over a code
+  component*: it names the `component` and the `evidence` artifact that must exist in its lineage
+  (`{ "artifact": "VerificationResult" | "Decomp" | "Tests" | "Diff" | … }`). A goal also carries its
+  own **policy bar**. State the goal as a contract - *accomplish these things, subject to these
+  policies* - and `ponens trace enrich` returns three independent verdicts: **met** (each component has
+  its evidence artifact), **governed** (the goal's policies held), and **certified** (a non-doer
+  confirmed the criteria were the right ones). Author the whole contract in one shot with
+  `ponens trace goal set --json`. See the new `GOAL_CONTRACT_v0_1` spec.
+- **Met and governed are cleanly separated** — a criterion is *met* the moment its evidence artifact
+  exists; **whether that evidence was derived correctly** (proved, autoformalized, tests pass, a proof
+  required on a high-stakes path) is decided entirely by **policies**, the governed axis. One mechanism
+  for rigor, no overlap. New pack policy `refuted_results_must_be_reproved` enforces that a verification
+  result offered as evidence is actually proved, not left refuted.
 - **Goal-scoped policies — the governed axis** — a goal can name policy `packs` and `policies`; they
   **block by default** unless explicitly `disabled` (recorded on the trace, never silent). Pack names
   resolve against the registry, and `enrich` attaches the governance result per goal.
@@ -25,17 +31,22 @@ GitHub release notes, and the website's **/whats-new** page renders this file di
   `decomposition_backed`, and a one-call `provenance` summary.
 
 ### Changed
-- **`ponens agent`** now teaches the goal-contract workflow — typed criteria, the goal's policy bar, and
-  the three axes (met / governed / certified), including the rule that the agent *proposes* the rigor bar
-  while a human *selects* it, and never self-certifies.
-- **`ponens trace enrich`** now reports the **governed** axis alongside met and certified.
+- **`ponens agent`** now teaches the goal-contract workflow — evidence-artifact criteria, the goal's
+  policy bar, and the three axes (met / governed / certified), including the rule that the agent
+  *proposes* the rigor bar while a human *selects* it, and never self-certifies.
+- **`ponens trace enrich`** now reports the **governed** axis alongside met and certified, and its
+  summary counts `goals_governed`.
+- **Evidence rigor moved from faithfulness grading to policy.** `faithfulness_of` no longer emits
+  `weakly_specified` (and `certified` no longer depends on it) — "is a diff enough, or do you need a
+  proof?" is now a policy question on the governed axis. `GOAL_FAITHFULNESS_v0_1` §6 is superseded.
 
 ### Fixed
-- **Goals now reach *met* when the work is real** — a typed criterion resolves by artifact **lineage**
-  (does a `proved` result for this property trace back to a model autoformalized from this component?)
-  instead of matching the verification goal's description text. This fixes goals that never ticked even
-  though the property was proved, and stops a similarly-worded but unrelated result from satisfying a
-  criterion.
+- **Goals now reach *met* when the work is real** — a criterion resolves by artifact **lineage** (does
+  an artifact of the required type root in this component?) instead of matching the verification goal's
+  description text. This fixes goals that never ticked even though the evidence existed.
+- **Lineage is component-precise** — an artifact that declares its own `target_symbol` (a VG, a Decomp,
+  a targeted Diff) is about *that* component, so a decomposition of one function no longer looks like it
+  roots in every symbol the shared model formalized.
 
 ## [1.5.0] — 2026-07-22
 

@@ -21,20 +21,21 @@ def test_strong_certified_goal_has_no_fails():
     }
     fails, warns, rows = _faithfulness_findings(_trace(goal))
     assert fails == [] and warns == []
-    assert rows == ["    g: met, certified"]
+    # No policies on this goal → the governed axis reads "no policy" (not a failure).
+    assert rows == ["    g: met, no policy, certified"]
 
 
-def test_weak_and_uncovered_goal_produces_fails():
+def test_uncovered_clause_produces_a_fail():
     goal = {
         "id": "g", "intent": "i", "scope": [], "intent_clauses": ["do X", "do Y"],
         "acceptance": [{"id": "s1", "kind": "change", "label": "edit", "status": "done",
                         "author": "agent", "covers": ["do X"], "binding": {}}],
     }
     fails, warns, rows = _faithfulness_findings(_trace(goal))
-    # weakly specified (only a change) + one uncovered clause -> two gating failures
-    assert any("weakly specified" in f for f in fails)
+    # Strength ("only a change") no longer gates — only the uncovered "do Y" clause does.
     assert any("do Y" in f for f in fails)
-    assert len(fails) == 2
+    assert not any("weakly specified" in f for f in fails)
+    assert len(fails) == 1
     # met but not certified -> an informational warning, never a hard failure
     assert any("not certified" in w for w in warns)
-    assert rows == ["    g: met, uncertified"]
+    assert rows == ["    g: met, no policy, uncertified"]

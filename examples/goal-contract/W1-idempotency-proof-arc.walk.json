@@ -1,0 +1,189 @@
+{
+  "trace_id": "gc-walk-idempotency",
+  "title": "Walkthrough: prove payment capture is idempotent",
+  "final_axes": {
+    "met": true,
+    "governed": true,
+    "certified": true
+  },
+  "residuals": [
+    {
+      "kind": "limitation",
+      "severity": "high",
+      "statement": "Idempotency is proved for single-threaded transition application; concurrent capture/refund interleavings are not modeled."
+    }
+  ],
+  "steps": [
+    {
+      "id": "m1",
+      "title": "Understand the capture path",
+      "intent": "Read capture and find the retry path",
+      "actions": [
+        {
+          "type": "ReadFile",
+          "label": "read billing/capture.py",
+          "result": null
+        },
+        {
+          "type": "AnalyzeCode",
+          "label": "trace the retry path",
+          "result": null
+        }
+      ],
+      "produced": [
+        {
+          "id": "src",
+          "type": "SourceCode"
+        }
+      ],
+      "axes_after": {
+        "met": false,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m2",
+      "title": "Formalize & specify idempotency",
+      "intent": "Model capture and state the property",
+      "actions": [
+        {
+          "type": "Formalize",
+          "label": "autoformalize capture",
+          "result": null
+        },
+        {
+          "type": "DefineVG",
+          "label": "define VG: capture is idempotent",
+          "result": null
+        }
+      ],
+      "produced": [
+        {
+          "id": "model",
+          "type": "IMLModel"
+        },
+        {
+          "id": "vg",
+          "type": "VerificationGoal"
+        }
+      ],
+      "axes_after": {
+        "met": false,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m3",
+      "title": "First proof attempt — counterexample",
+      "intent": "Verify and get refuted",
+      "actions": [
+        {
+          "type": "Verify",
+          "label": "verify idempotency — REFUTED",
+          "result": "refuted — counterexample: retry after partial refund"
+        }
+      ],
+      "produced": [
+        {
+          "id": "vr1",
+          "type": "VerificationResult"
+        }
+      ],
+      "axes_after": {
+        "met": true,
+        "governed": false,
+        "certified": false
+      }
+    },
+    {
+      "id": "m4",
+      "title": "Diagnose & fix the double-charge",
+      "intent": "Find the missing guard and add it",
+      "actions": [
+        {
+          "type": "AnalyzeCode",
+          "label": "diagnose the counterexample",
+          "result": null
+        },
+        {
+          "type": "EditFile",
+          "label": "add idempotency guard to capture",
+          "result": null
+        }
+      ],
+      "produced": [
+        {
+          "id": "diff",
+          "type": "Diff"
+        }
+      ],
+      "axes_after": {
+        "met": true,
+        "governed": false,
+        "certified": false
+      }
+    },
+    {
+      "id": "m5",
+      "title": "Re-verify — proved",
+      "intent": "Prove the property holds with the fix",
+      "actions": [
+        {
+          "type": "Verify",
+          "label": "re-verify idempotency — PROVED",
+          "result": "proved"
+        }
+      ],
+      "produced": [
+        {
+          "id": "vr2",
+          "type": "VerificationResult"
+        }
+      ],
+      "axes_after": {
+        "met": true,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m6",
+      "title": "Test, then commit",
+      "intent": "Regression tests and commit",
+      "actions": [
+        {
+          "type": "GenerateTests",
+          "label": "generate regression tests",
+          "result": null
+        },
+        {
+          "type": "RunTests",
+          "label": "run the suite — all pass",
+          "result": "18 passed, 0 failing"
+        },
+        {
+          "type": "GitCommit",
+          "label": "commit the fix + proof",
+          "result": null
+        }
+      ],
+      "produced": [
+        {
+          "id": "tests",
+          "type": "Tests"
+        },
+        {
+          "id": "commit",
+          "type": "Commit"
+        }
+      ],
+      "axes_after": {
+        "met": true,
+        "governed": true,
+        "certified": true
+      }
+    }
+  ]
+}

@@ -237,6 +237,50 @@
     cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
   }
   .artifact-btn:hover { border-color: var(--border-hover); color: var(--text-primary); background: var(--bg-surface); }
+  /* Category shortcuts overlaid at the top of the Artifacts tab (moved out of the top bar). */
+  .dag-view { position: relative; }
+  /* Top bar: chips (left, flex, wrap) + controls column (right) in one flex row so they never overlap. */
+  .dag-topbar { position: absolute; top: 10px; left: 12px; right: 12px; z-index: 7;
+    display: flex; align-items: flex-start; gap: 12px; pointer-events: none; }
+  .dag-topspacer { flex: 1 1 auto; }
+  .dag-cats { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+  .dag-cats .artifact-btn, .dag-cats .dag-fchip { pointer-events: auto; box-shadow: 0 2px 8px -2px rgba(0,0,0,0.35); }
+  /* Controls column (Graph/List toggle + layout controls), pinned to the right of the top bar. */
+  .dag-toprow { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  /* Graph/List lens toggle. */
+  .dag-mode { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden;
+    pointer-events: auto; box-shadow: 0 2px 8px -2px rgba(0,0,0,0.35); }
+  .dag-mode-btn { background: var(--bg-surface); color: var(--text-muted); border: 0;
+    padding: 5px 13px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .dag-mode-btn.active { background: var(--accent); color: #fff; }
+  /* Layout controls (Reset + Group residuals). */
+  .dag-gtools { display: flex; gap: 6px; align-items: center; pointer-events: auto; }
+  .dag-gbtn, .dag-gcheck { font-size: 11px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg-surface); color: var(--text-secondary); box-shadow: 0 2px 8px -2px rgba(0,0,0,0.35); }
+  .dag-gbtn { padding: 4px 9px; cursor: pointer; }
+  .dag-gbtn:hover { background: var(--bg-inset); color: var(--text-primary); }
+  .dag-gcheck { padding: 3px 8px; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+  .dag-gcheck input { margin: 0; cursor: pointer; }
+  /* List lens */
+  .dag-list { position: absolute; inset: 0; overflow: auto; padding: 52px 18px 18px; }
+  .dag-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
+  .dag-flabel { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-right: 4px; }
+  .dag-flabel-hint { font-weight: 400; color: var(--text-dim); }
+  .dag-fchip { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px;
+    font-weight: 600; cursor: pointer; background: var(--bg-deep); color: var(--text-muted);
+    display: inline-flex; align-items: center; gap: 5px; }
+  .dag-fchip.off { opacity: 0.45; }
+  .dag-fchip-n { font-size: 10px; background: var(--border); color: var(--text-muted); border-radius: 8px; padding: 0 6px; }
+  .dag-filters-n { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+  .dag-ltable { width: 100%; border-collapse: collapse; }
+  .dag-lrow { cursor: pointer; border-bottom: 1px solid var(--border); }
+  .dag-lrow:hover { background: var(--bg-surface); }
+  .dag-lrow td { padding: 8px 10px; vertical-align: middle; font-size: 13px; }
+  .dag-ltype { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; border: 1px solid; border-radius: 5px; padding: 2px 7px; white-space: nowrap; }
+  .dag-lname { font-weight: 600; color: var(--text-primary); font-family: ui-monospace, monospace; }
+  .dag-lid { color: var(--text-dim); font-size: 11px; margin-left: 8px; font-family: ui-monospace, monospace; font-weight: 400; }
+  .dag-lmeta { color: var(--text-muted); font-size: 12px; }
   .artifact-btn .ab-count {
     font-size: 10px; background: var(--border); color: var(--text-muted);
     padding: 1px 6px; border-radius: 8px;
@@ -343,6 +387,8 @@
   .zoom-btn { font-size: 11px; padding: 3px 10px; border-radius: 12px; cursor: pointer;
     background: var(--bg-surface); color: var(--text-dim); border: 1px solid var(--border, rgba(255,255,255,.12)); }
   .zoom-btn.active { background: var(--accent, #6366f1); color: #fff; border-color: var(--accent, #6366f1); }
+  .scope-sel { font-size: 11px; padding: 3px 8px; border-radius: 8px; cursor: pointer; max-width: 260px;
+    background: var(--bg-surface); color: var(--text); border: 1px solid var(--border, rgba(255,255,255,.12)); }
   .meta-card { border: 1px solid var(--border, rgba(255,255,255,.12)); border-radius: 8px; padding: 12px 14px;
     margin: 0 auto; max-width: 760px; background: var(--bg-surface); cursor: pointer; transition: border-color .15s; }
   .meta-card:hover { border-color: var(--accent, #6366f1); }
@@ -1135,13 +1181,27 @@
   .dag-canvas-wrap canvas { display: block; }
   .dag-node-labels { position: absolute; inset: 0; pointer-events: none; }
   .dag-node {
-    position: absolute; pointer-events: auto; cursor: pointer;
+    position: absolute; pointer-events: auto; cursor: grab;
     text-align: center; transition: all 0.15s;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     border-radius: 8px; border: 2px solid transparent;
     padding: 6px 10px; min-width: 80px;
   }
   .dag-node:hover { transform: scale(1.08); z-index: 10; }
+  /* While being dragged: follow the cursor with no transition/hover-scale offsetting the position. */
+  .dag-node.dragging { cursor: grabbing; transition: none; transform: none; z-index: 20;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+  /* Residual group container: a distinct rectangle. Collapsed = one node-sized box; expanded = a
+     dashed cluster whose member residual nodes render inside it. Double-click toggles. */
+  .dag-group { position: absolute; pointer-events: auto; border: 2px dashed; border-radius: 10px;
+    cursor: pointer; }
+  .dag-group.collapsed { display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; padding: 6px 10px; transition: transform 0.15s; }
+  .dag-group.collapsed:hover { transform: scale(1.05); z-index: 10; }
+  .dag-group.expanded { z-index: 0; }
+  .dag-group.expanded .dag-group-header { position: absolute; top: 0; left: 0; right: 0; height: 30px;
+    display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; }
   .dag-node.selected { border-color: #818cf8; box-shadow: 0 0 12px rgba(129,140,248,0.4); }
   .dag-node.superseded { opacity: 0.45; }
   /* Node isolation: select a node → dim everything NOT in its connected lineage subgraph. */
@@ -1149,6 +1209,9 @@
   .dag-node.dag-dim { opacity: 0.1; pointer-events: none; }
   .dag-edge { transition: opacity 0.15s; }
   .dag-edge.dag-dim { opacity: 0.05 !important; }
+  /* Type filter (from the graph's type chips): dim artifacts whose type is toggled off. */
+  .dag-node.dag-type-dim { opacity: 0.12; transition: opacity 0.15s; }
+  .dag-edge.dag-type-dim { opacity: 0.06 !important; transition: opacity 0.15s; }
   .dag-node .dn-type {
     font-size: 8px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; padding: 1px 5px; border-radius: 3px; margin-bottom: 3px;
@@ -1197,6 +1260,117 @@
     font-size: 10px; font-weight: 600; color: var(--text-dim);
     text-transform: uppercase; letter-spacing: 0.04em; margin-top: 10px; margin-bottom: 4px;
   }
+  .dag-detail .mono { font-family: ui-monospace, 'SF Mono', monospace; }
+  /* Verdict chip in the artifact detail. */
+  .dd-verdict { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    border-radius: 5px; padding: 1px 7px; }
+  .dd-v-proved, .dd-v-sat { background: var(--green-dim); color: var(--green-text); }
+  .dd-v-refuted { background: var(--red-dim); color: var(--red-text); }
+  .dd-v-unknown, .dd-v-pending { background: var(--yellow-dim); color: var(--yellow-text); }
+  /* Counterexample field→value table (ported from desktop Counterexample.tsx). */
+  .ce-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 2px 0 4px; }
+  .ce-tr { border-bottom: 1px solid var(--border); }
+  .ce-key { color: var(--text-muted); padding: 3px 8px 3px 0; vertical-align: top; white-space: nowrap; }
+  .ce-key-field { padding-left: 14px; }
+  .ce-value { color: var(--text-primary); padding: 3px 0; word-break: break-all; }
+  .ce-value.mono, .ce-key { font-family: ui-monospace, 'SF Mono', monospace; }
+  .ce-brace { color: var(--text-dim); }
+  .ce-raw { margin-top: 6px; }
+  .ce-raw summary { font-size: 10px; color: var(--accent); cursor: pointer; }
+  .ad-pre { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 11px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px; margin: 4px 0 0; color: var(--text-primary); }
+  /* Decomposition regions (edge cases) in the artifact detail. */
+  .rg-list { display: flex; flex-direction: column; gap: 6px; }
+  .rg-cell { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; background: var(--bg-deep); }
+  .rg-head { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 3px; }
+  .rg-inv { font-size: 11px; color: var(--text-primary); margin-bottom: 3px; word-break: break-word; }
+  .rg-cons { margin: 0; padding-left: 14px; }
+  .rg-cons li { font-size: 11px; color: var(--text-muted); word-break: break-word; }
+  .rmap-open-btn { font: inherit; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 5px;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--bg-deep); cursor: pointer; }
+  /* Interactive region map (treemap) modal — ported from the desktop/extension visualizer. */
+  /* Region map — themed via the viewer's CSS variables so it follows dark/light like the rest. The
+     treemap tiles keep their own mint→teal palette + dark labels (readable on either background). */
+  .rmap-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(10,12,16,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .rmap-modal { background: var(--bg-surface); color: var(--text); border-radius: 12px; width: min(1200px, 96vw);
+    height: min(800px, 92vh); display: flex; flex-direction: column; padding: 16px; box-shadow: 0 24px 60px -20px rgba(0,0,0,0.6); }
+  /* Embedded in a host pane: fill it, no backdrop/card chrome, no close (it's the whole view). */
+  .rmap-overlay.rmap-embedded { position: absolute; padding: 0; background: var(--bg-surface); }
+  .rmap-embedded .rmap-modal { width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; box-shadow: none; }
+  .rmap-embedded .rmap-close { display: none; }
+  .rmap-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .rmap-title { font-size: 15px; font-weight: 700; color: var(--accent); }
+  .rmap-close { border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); border-radius: 6px;
+    width: 28px; height: 28px; cursor: pointer; font-size: 14px; }
+  .rmap-close:hover { color: var(--text); border-color: var(--text-dim); }
+  .rmap-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 10px;
+    font: 12px ui-monospace, Menlo, monospace; }
+  .rmap-crumb { cursor: pointer; color: var(--accent); padding: 2px 7px; border-radius: 5px; background: var(--bg-inset); border: 1px solid var(--border); }
+  .rmap-crumb:hover { background: var(--bg-surface); }
+  .rmap-crumb.cur { color: #fff; background: var(--accent); border-color: var(--accent); cursor: default; }
+  .rmap-sep { color: var(--text-dim); }
+  .rmap-body { display: flex; gap: 12px; flex: 1; min-height: 0; }
+  .rmap-chart { flex: 1; min-width: 0; height: 100%; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; }
+  .rmap-detail { width: 320px; flex: none; overflow: auto; background: var(--bg-deep); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px; }
+  .rmap-detail h3 { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 10px; }
+  .rmap-counts { color: var(--accent); font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+  .rmap-sec { color: var(--accent); font-weight: 700; font-size: 12px; margin: 12px 0 4px; }
+  .rmap-hint { color: var(--text-muted); font-size: 12px; }
+  .rmap-hintlist { color: var(--text-muted); font-size: 12px; margin: 4px 0; padding-left: 18px; }
+  .rmap-hintlist li { font-family: ui-monospace, Menlo, monospace; margin: 3px 0; }
+  .rmap-detail pre { margin: 4px 0 12px; padding: 8px 10px; background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-word; color: var(--text); }
+  .rmap-table-wrap { margin-top: 10px; max-height: 30%; overflow: auto; }
+  .rmap-table-wrap > summary { cursor: pointer; font-size: 12px; color: var(--accent); padding: 4px 0; }
+  .rmap-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+  .rmap-table th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-inset); }
+  .rmap-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  .rmap-table .rmt-lbl { color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .rmap-table .mono { font-family: ui-monospace, Menlo, monospace; }
+  /* Verification page (goals table + IML gutter + source) — reuses the rmap-modal shell, themed. */
+  .vp-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+  .vp-goals { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid var(--border); border-radius: 6px; }
+  .vp-goals th { text-align: left; padding: 8px 12px; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); background: var(--bg-inset); }
+  .vp-goals td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text); }
+  .vp-goals .vp-prop { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+  .vp-vb { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+  .vp-vb.proved { color: var(--green-text); background: var(--green-dim); }
+  .vp-vb.refuted { color: var(--red-text); background: var(--red-dim); }
+  .vp-vb.unknown, .vp-vb.failed { color: var(--yellow-text); background: var(--yellow-dim); }
+  .vp-sec { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); }
+  .vp-empty { color: var(--text-muted); font-style: italic; padding: 8px; }
+  .vp-scroll { max-height: 480px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-deep); }
+  .vp-gutter { border-collapse: collapse; width: 100%; font: 12px/1.6 ui-monospace, Menlo, monospace; }
+  .vp-gutter td { padding: 0 8px; vertical-align: top; white-space: pre; }
+  .vp-gutter td.vp-gmark { width: 22px; text-align: center; user-select: none; font-weight: 700; }
+  .vp-gutter td.vp-gmark.proved { color: var(--green-text); }
+  .vp-gutter td.vp-gmark.refuted { color: var(--red-text); }
+  .vp-gutter td.vp-gmark.unknown, .vp-gutter td.vp-gmark.failed { color: var(--yellow-text); }
+  .vp-gutter td.vp-gnum { width: 30px; text-align: right; color: var(--text-dim); user-select: none; }
+  .vp-gutter td.vp-gcode { width: 100%; color: var(--text); }
+  .vp-gutter tr:hover td { background: var(--bg-inset); }
+  .vp-pre { margin: 0; padding: 10px; white-space: pre-wrap; word-break: break-word; tab-size: 2;
+    font: 12px/1.5 ui-monospace, Menlo, monospace; background: var(--bg-deep); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); max-height: 360px; overflow: auto; }
+
+  /* ---- Residual individual view (openResidual) ---- */
+  .rp-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 14px; padding: 4px 2px; }
+  .rp-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rp-chip { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    border: 1px solid; border-radius: 6px; padding: 2px 8px; }
+  .rp-stmt { font-size: 16px; line-height: 1.5; color: var(--text); }
+  .rp-sec { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-bottom: -6px; }
+  .rp-check, .rp-field { font-size: 13px; line-height: 1.55; color: var(--text-secondary);
+    border-left: 2px solid var(--border); padding: 2px 0 2px 12px; }
+  .rp-anchors { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rp-anchor { font-size: 12px; font-family: ui-monospace, Menlo, monospace; color: var(--text);
+    background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .rp-anchor:hover { border-color: var(--accent); }
+  .rp-anchor-static { cursor: default; }
+  .rp-meta { font-size: 11px; color: var(--text-dim); }
 
   /* ---- Reasoning Funnel view ---- */
   .funnel-view { overflow: auto; padding: 32px; flex-direction: column; }
@@ -1280,11 +1454,35 @@
     overflow-wrap: anywhere; min-width: 0;
   }
   .policy-card .pc-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .policy-card .pc-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .policy-card .pc-meta { display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+  .policy-card .pc-meta-item { display: inline-flex; align-items: center; gap: 5px; }
+  .policy-card .pc-meta-label { font-size: 9px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.04em; }
   .policy-card .pc-tag {
     font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 3px;
-    text-transform: uppercase;
+    text-transform: uppercase; cursor: help; position: relative;
   }
+  /* Fast, formatted tooltip (native `title` has an untunable ~2s delay). Appears ~120ms after hover. */
+  .policy-card .pc-tip {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+    width: max-content; max-width: 320px;
+    background: var(--bg-deep); color: var(--text-secondary); border: 1px solid var(--border);
+    border-radius: 7px; padding: 9px 11px; text-align: left;
+    text-transform: none; letter-spacing: 0; font-weight: 400;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    opacity: 0; transform: translateY(-3px); pointer-events: none; visibility: hidden;
+    transition: opacity 0.1s ease, transform 0.1s ease; transition-delay: 0.12s;
+  }
+  .policy-card .pc-tag:hover .pc-tip { opacity: 1; transform: translateY(0); visibility: visible; }
+  .pc-tip .pc-tip-noun { display: block; font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 3px; }
+  .pc-tip .pc-tip-head { display: block; font-size: 12px; line-height: 1.45; color: var(--text); }
+  .pc-tip .pc-tip-sub { display: block; margin: 9px 0 4px; font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+  .pc-tip .pc-tip-li { display: block; position: relative; padding-left: 13px; font-size: 11.5px;
+    line-height: 1.5; margin: 2px 0; }
+  .pc-tip .pc-tip-li::before { content: '•'; position: absolute; left: 2px; color: var(--text-dim); }
+  .pc-tip b { color: var(--text); font-weight: 700; }
   .pc-tag.scope { background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border); }
   .pc-tag.kind { background: var(--bg-surface); color: #818cf8; border: 1px solid #2d2b55; }
   .policy-card .pc-note { font-size: 10px; color: var(--text-dim); font-style: italic; margin-top: 4px; }
@@ -1292,6 +1490,9 @@
     font-size: 10px; color: #818cf8; margin-top: 4px;
     font-family: 'SF Mono','Fira Code',monospace;
   }
+  /* Clickable citation inside a policy evidence/violation line — links to the action/artifact. */
+  .policy-card .pc-evidence .pc-link { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .policy-card .pc-evidence .pc-link:hover { filter: brightness(1.25); }
 
   .pc-status-badge {
     font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 4px;
@@ -1303,17 +1504,11 @@
   .pc-status-badge.not_applicable { background: var(--border); color: var(--text-muted); }
 
   /* ---- Policy definition expandable ---- */
-  .policy-card { cursor: pointer; }
-  .policy-card .pc-expand-icon {
-    color: var(--border-hover); font-size: 12px; flex-shrink: 0;
-    transition: transform 0.15s; margin-top: 2px;
-  }
-  .policy-card.expanded .pc-expand-icon { transform: rotate(90deg); }
+  /* Policy definition (formula) is always shown — the formulas are compact, no expand/collapse. */
   .pc-definition {
-    display: none; margin-top: 10px; padding-top: 10px;
+    display: block; margin-top: 10px; padding-top: 10px;
     border-top: 1px solid var(--border);
   }
-  .policy-card.expanded .pc-definition { display: block; }
 
   .pc-def-section {
     margin-bottom: 10px;
@@ -1385,11 +1580,53 @@
   .goal-acc-ev-link:hover { color: var(--accent); border-color: var(--accent); }
   .goal-acc-author { flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; align-self: center; }
   /* Faithfulness: "met vs certified" — is the definition of done RIGHT, not just met? */
+  /* Progress ring (radial gauge) */
+  .goal-ring { flex: 0 0 auto; }
+  .goal-ring-t { fill: var(--text-bright); font: 700 13px ui-sans-serif, system-ui, sans-serif; }
+  /* "Needs your attention" */
+  .goal-section-t, .gh-attn-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin: 14px 0 6px; }
+  .gh-count { color: var(--text-muted); background: var(--bg-inset); border-radius: 999px; padding: 0 7px; font-size: 10px; margin-left: 4px; }
+  .gh-attn { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+  .gh-attn-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-inset); }
+  .gh-attn-item.tone-issue { border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
+  .gh-attn-item.clickable { cursor: pointer; }
+  .gh-attn-item.clickable:hover { border-color: var(--accent); }
+  .gh-attn-glyph { flex: none; }
+  .gh-attn-item.tone-issue .gh-attn-glyph { color: var(--red-text); }
+  .gh-attn-item.tone-rec .gh-attn-glyph { color: var(--text-dim); }
+  .gh-attn-text { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+  .gh-attn-more { font-size: 12px; color: var(--accent); cursor: pointer; padding: 4px 10px; }
+  /* Goal graph (goal → criteria → evidence/residual DAG) */
+  .goal-graph-wrap { margin-top: 12px; }
+  .goal-graph-wrap > summary { cursor: pointer; font-size: 12px; color: var(--accent); user-select: none; }
+  .gg { position: relative; margin-top: 10px; max-width: 100%; overflow: auto; }
+  .gg-edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+  .gg-edge { fill: none; stroke: var(--border); stroke-width: 1.5; }
+  .gg-edge.done { stroke: #3fb950; } .gg-edge.blocked { stroke: var(--red); }
+  .gg-node { position: absolute; box-sizing: border-box; border-radius: 8px; padding: 8px 10px; font-size: 12px; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+  .gg-goal { flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; background: var(--accent); color: #fff; border: none; }
+  .gg-goal-pct { font-size: 18px; font-weight: 800; }
+  .gg-goal-intent { font-size: 11px; opacity: 0.95; line-height: 1.3; overflow: hidden; }
+  .gg-crit { background: var(--bg-inset); border: 1px solid var(--border); }
+  .gg-crit.st-done { border-color: color-mix(in srgb, #3fb950 50%, var(--border)); }
+  .gg-crit.st-blocked { border-color: color-mix(in srgb, var(--red) 50%, var(--border)); }
+  .gg-crit-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .gi-kind { flex: none; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); background: var(--bg-surface); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .gg-ev { background: var(--bg-inset); border: 1px solid var(--border); border-left: 3px solid var(--border); cursor: pointer; }
+  .gg-ev:hover { border-color: var(--accent); }
+  .gg-ev-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+  .gg-gap-dot { background: var(--yellow-text); } .gg-pending-dot { background: var(--text-dim); opacity: 0.5; }
+  .gg-ev-body { display: flex; flex-direction: column; min-width: 0; }
+  .gg-ev-type { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); }
+  .gg-ev-name { font-size: 11px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gg-gap { border-left-color: var(--yellow-text); } .gg-pending { border-style: dashed; opacity: 0.7; }
+  .gg-empty { color: var(--text-muted); font-size: 12px; padding: 12px; }
   .goal-faith { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 12px; }
   .gf-badge { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border); }
   .gf-ok { color: var(--green-text); background: var(--green-dim); border-color: transparent; }
   .gf-cert { color: var(--green-text); background: var(--green-dim); border-color: transparent; }
   .gf-pend { color: var(--text-muted); }
   .gf-warn { color: var(--yellow-text); background: var(--yellow-dim); border-color: transparent; }
+  .gf-fail { color: var(--red-text); background: var(--red-dim); border-color: transparent; }
   .gf-seam { font-size: 11px; color: var(--text-dim); font-family: 'SF Mono','Fira Code',monospace; margin-left: auto; }
   .gf-warn-row { font-size: 12px; color: var(--yellow-text); background: var(--yellow-dim); border-radius: 6px; padding: 4px 9px; margin: 0 0 8px; }

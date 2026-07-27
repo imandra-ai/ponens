@@ -1,0 +1,368 @@
+{
+  "trace_id": "gc-evidence-types",
+  "spec_version": "1.7",
+  "assistant": "codelogician",
+  "model": "demo",
+  "timestamp": "2026-07-25T00:00:00Z",
+  "title": "Evidence is any artifact in the component's lineage",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Evidence is any artifact in the component's lineage"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "read price",
+      "rationale": "read price",
+      "inputs": [],
+      "outputs": [
+        "p_src"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 2,
+      "type": "Formalize",
+      "category": "activity",
+      "label": "autoformalize price",
+      "rationale": "autoformalize price",
+      "inputs": [],
+      "outputs": [
+        "p_model"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 3,
+      "type": "DefineVG",
+      "category": "activity",
+      "label": "define VG for price",
+      "rationale": "define VG for price",
+      "inputs": [],
+      "outputs": [
+        "p_vg"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 4,
+      "type": "Verify",
+      "category": "activity",
+      "label": "verify price",
+      "rationale": "verify price",
+      "inputs": [],
+      "outputs": [
+        "p_vr"
+      ],
+      "evidence": [],
+      "vg_result": {
+        "status": "proved"
+      }
+    },
+    {
+      "id": 10,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "read tier",
+      "rationale": "read tier",
+      "inputs": [],
+      "outputs": [
+        "t_src"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 11,
+      "type": "Formalize",
+      "category": "activity",
+      "label": "formalize tier",
+      "rationale": "formalize tier",
+      "inputs": [],
+      "outputs": [
+        "t_model"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 12,
+      "type": "Decompose",
+      "category": "activity",
+      "label": "decompose tier",
+      "rationale": "decompose tier",
+      "inputs": [],
+      "outputs": [
+        "t_dec"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 20,
+      "type": "GenerateTests",
+      "category": "activity",
+      "label": "generate tests for refund",
+      "rationale": "generate tests for refund",
+      "inputs": [],
+      "outputs": [
+        "r_tests"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 30,
+      "type": "EditFile",
+      "category": "activity",
+      "label": "edit config",
+      "rationale": "edit config",
+      "inputs": [],
+      "outputs": [
+        "cfg_diff"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 40,
+      "type": "WriteDoc",
+      "category": "activity",
+      "label": "document onboarding",
+      "rationale": "document onboarding",
+      "inputs": [],
+      "outputs": [
+        "ob_doc"
+      ],
+      "evidence": []
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "p_src",
+      "artifact_type": "SourceCode",
+      "name": "p_src",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "p_model",
+      "artifact_type": "IMLModel",
+      "name": "p_model",
+      "producer_action_id": 2,
+      "derived_from": [
+        "p_src"
+      ],
+      "payload": {
+        "symbols": [
+          "price"
+        ]
+      }
+    },
+    {
+      "artifact_id": "p_vg",
+      "artifact_type": "VerificationGoal",
+      "name": "p_vg",
+      "producer_action_id": 3,
+      "derived_from": [
+        "p_model"
+      ],
+      "payload": {
+        "goal_id": "p_vg",
+        "target_symbol": "price"
+      }
+    },
+    {
+      "artifact_id": "p_vr",
+      "artifact_type": "VerificationResult",
+      "name": "p_vr",
+      "producer_action_id": 4,
+      "derived_from": [
+        "p_vg"
+      ],
+      "payload": {
+        "goal_id": "p_vg",
+        "goal_artifact_id": "p_vg",
+        "status": "proved"
+      }
+    },
+    {
+      "artifact_id": "t_src",
+      "artifact_type": "SourceCode",
+      "name": "t_src",
+      "producer_action_id": 10
+    },
+    {
+      "artifact_id": "t_model",
+      "artifact_type": "IMLModel",
+      "name": "t_model",
+      "producer_action_id": 11,
+      "derived_from": [
+        "t_src"
+      ],
+      "payload": {
+        "symbols": [
+          "tier"
+        ]
+      }
+    },
+    {
+      "artifact_id": "t_dec",
+      "artifact_type": "Decomp",
+      "name": "t_dec",
+      "producer_action_id": 12,
+      "derived_from": [
+        "t_model"
+      ],
+      "payload": {
+        "region_count": 6,
+        "target_symbol": "tier"
+      }
+    },
+    {
+      "artifact_id": "r_tests",
+      "artifact_type": "Tests",
+      "name": "r_tests",
+      "producer_action_id": 20,
+      "payload": {
+        "count": 14,
+        "failing": 0,
+        "target_symbol": "refund"
+      }
+    },
+    {
+      "artifact_id": "cfg_diff",
+      "artifact_type": "Diff",
+      "name": "cfg_diff",
+      "producer_action_id": 30,
+      "payload": {
+        "target_symbol": "config"
+      }
+    },
+    {
+      "artifact_id": "ob_doc",
+      "artifact_type": "Documentation",
+      "name": "ob_doc",
+      "producer_action_id": 40,
+      "payload": {
+        "target_symbol": "onboarding"
+      }
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Evidence is any artifact in the component's lineage"
+  },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "Ship the pricing change",
+      "scope": [
+        "price",
+        "tier",
+        "refund",
+        "config",
+        "onboarding"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "c1",
+          "component": {
+            "function": "price"
+          },
+          "evidence": {
+            "artifact": "VerificationResult"
+          },
+          "required": true,
+          "author": "agent",
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "p_vr"
+        },
+        {
+          "id": "c2",
+          "component": {
+            "function": "tier"
+          },
+          "evidence": {
+            "artifact": "Decomp"
+          },
+          "required": true,
+          "author": "agent",
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "t_dec"
+        },
+        {
+          "id": "c3",
+          "component": {
+            "function": "refund"
+          },
+          "evidence": {
+            "artifact": "Tests"
+          },
+          "required": true,
+          "author": "agent",
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "r_tests"
+        },
+        {
+          "id": "c4",
+          "component": {
+            "function": "config"
+          },
+          "evidence": {
+            "artifact": "Diff"
+          },
+          "required": true,
+          "author": "agent",
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "cfg_diff"
+        },
+        {
+          "id": "c5",
+          "component": {
+            "function": "onboarding"
+          },
+          "evidence": {
+            "artifact": "Documentation"
+          },
+          "required": true,
+          "author": "agent",
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "ob_doc"
+        }
+      ],
+      "progress": 1.0,
+      "cone": [
+        1,
+        2,
+        3,
+        4,
+        10,
+        11,
+        12,
+        20,
+        30,
+        40
+      ],
+      "open_gaps": 0,
+      "faithfulness": {
+        "met": true,
+        "certified": false,
+        "uncovered_clauses": []
+      }
+    }
+  ],
+  "exploration_actions": [],
+  "summary": {
+    "policy_violations": 0,
+    "open_residuals": 0,
+    "open_high": 0,
+    "stale_evidence": 0,
+    "goals_total": 1,
+    "goals_met": 1,
+    "goals_governed": 0,
+    "goals_certified": 0
+  }
+}

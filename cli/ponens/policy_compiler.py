@@ -248,6 +248,9 @@ ARTIFACT_TYPES = {
     'FormalModel', 'StateSpaceAnalysisResult', 'ConformanceResult',
     'CoSimulationResult', 'ReproductionBundle',
     'CommandResult', 'Diff', 'Commit', 'UserApproval', 'UserInstruction',
+    # A residual — the trace's negative space (§13) — is a first-class artifact (v1.8), so policies
+    # can quantify over it by type; its kind/severity/status live in `payload`.
+    'Residual',
 }
 
 TEMPORAL_OPS = {'G', 'F', 'X', 'P', 'H', 'U', 'S'}

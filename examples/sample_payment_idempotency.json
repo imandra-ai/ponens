@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-sample-payment-idempotency",
-  "spec_version": "1.6",
+  "spec_version": "1.8",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-06-14T12:00:00Z",
@@ -515,6 +515,42 @@
       "derived_from": [
         "a8"
       ]
+    },
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "name": "assumption: Assumes the gateway sends a stable idempotency k…",
+      "payload": {
+        "kind": "assumption",
+        "severity": "high",
+        "status": "acknowledged",
+        "source": "agent_declared",
+        "statement": "Assumes the gateway sends a stable idempotency key per logical charge.",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a3"
+        },
+        "suggested_check": "Confirm the gateway's retry contract guarantees a stable key.",
+        "introduced_by_action_id": 4
+      },
+      "derived_from": [
+        "a3"
+      ],
+      "summary": "Assumes the gateway sends a stable idempotency key per logical charge.",
+      "producer_action_id": 4
+    },
+    {
+      "artifact_id": "r2",
+      "artifact_type": "Residual",
+      "name": "out of scope: Concurrent capture+refund races are not modelled…",
+      "payload": {
+        "kind": "out_of_scope",
+        "severity": "medium",
+        "status": "open",
+        "source": "agent_declared",
+        "statement": "Concurrent capture+refund races are not modelled (single-threaded application only)."
+      },
+      "summary": "Concurrent capture+refund races are not modelled (single-threaded application only)."
     }
   ],
   "policies": [
@@ -577,30 +613,7 @@
       "note": "a8 derives from decomposition a6"
     }
   ],
-  "residuals": [
-    {
-      "residual_id": "r1",
-      "kind": "assumption",
-      "severity": "high",
-      "status": "acknowledged",
-      "source": "agent_declared",
-      "statement": "Assumes the gateway sends a stable idempotency key per logical charge.",
-      "target": {
-        "target_type": "artifact",
-        "target_id": "a3"
-      },
-      "suggested_check": "Confirm the gateway's retry contract guarantees a stable key.",
-      "introduced_by_action_id": 4
-    },
-    {
-      "residual_id": "r2",
-      "kind": "out_of_scope",
-      "severity": "medium",
-      "status": "open",
-      "source": "agent_declared",
-      "statement": "Concurrent capture+refund races are not modelled (single-threaded application only)."
-    }
-  ],
+  "residuals": [],
   "files_modified": [
     "src/billing/payment.py"
   ],

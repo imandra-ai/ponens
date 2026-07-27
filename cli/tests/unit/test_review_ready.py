@@ -3,6 +3,7 @@
 import json
 import types
 
+from ponens import lineage
 from ponens.trace import cmd_residual_add, cmd_review_ready
 
 
@@ -26,10 +27,15 @@ def _add_args(f, **over):
 
 # --- residual add -----------------------------------------------------------
 
-def test_residual_add_appends_with_auto_id(tmp_path):
+def test_residual_add_appends_as_residual_artifact(tmp_path):
+    # v1.8: a residual is a first-class 'Residual' artifact; residuals[] is no longer written.
     f = _trace_file(tmp_path)
     cmd_residual_add(_add_args(f, statement="assumes upstream sorted"))
-    r = json.loads(f.read_text())["residuals"]
+    saved = json.loads(f.read_text())
+    assert saved.get("residuals", []) == []
+    res_arts = [a for a in saved["artifacts"] if a["artifact_type"] == "Residual"]
+    assert len(res_arts) == 1 and res_arts[0]["artifact_id"] == "r1"
+    r = lineage.residual_surface(saved)
     assert len(r) == 1
     assert r[0]["residual_id"] == "r1"
     assert r[0]["kind"] == "assumption" and r[0]["statement"] == "assumes upstream sorted"
@@ -40,7 +46,7 @@ def test_residual_add_second_increments_id(tmp_path):
     f = _trace_file(tmp_path)
     cmd_residual_add(_add_args(f))
     cmd_residual_add(_add_args(f, kind="unverified"))
-    ids = [r["residual_id"] for r in json.loads(f.read_text())["residuals"]]
+    ids = [r["residual_id"] for r in lineage.residual_surface(json.loads(f.read_text()))]
     assert ids == ["r1", "r2"]
 
 
@@ -48,16 +54,20 @@ def test_residual_add_with_target_and_check(tmp_path):
     f = _trace_file(tmp_path)
     cmd_residual_add(_add_args(f, target_type="artifact", target_id="a3",
                                suggested_check="add a test", tag=["concurrency"]))
-    r = json.loads(f.read_text())["residuals"][0]
+    saved = json.loads(f.read_text())
+    r = lineage.residual_surface(saved)[0]
     assert r["target"] == {"target_type": "artifact", "target_id": "a3"}
     assert r["suggested_check"] == "add a test"
     assert r["tags"] == ["concurrency"]
+    # anchors into the lineage DAG via derived_from
+    art = next(a for a in saved["artifacts"] if a["artifact_type"] == "Residual")
+    assert art["derived_from"] == ["a3"]
 
 
 def test_residual_add_bumps_spec_version(tmp_path):
     f = _trace_file(tmp_path)  # starts at 1.1
     cmd_residual_add(_add_args(f))
-    assert json.loads(f.read_text())["spec_version"] == "1.5"
+    assert json.loads(f.read_text())["spec_version"] == "1.8"
 
 
 # --- review-ready -----------------------------------------------------------

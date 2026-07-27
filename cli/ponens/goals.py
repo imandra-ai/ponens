@@ -54,108 +54,37 @@ def _vg_matches(vg, sym, prop):
 # ================================================================
 
 # --- Goal Contract v0.1 §4: typed criteria resolved by artifact LINEAGE (not description text) ------
-
-def _property_matches(vg, prop):
-    """Does a VerificationGoal establish the named property? Prefers the STRUCTURED `property_name`
-    (exact), then `goal_id`, then a description-keyword match (transitional, until `DefineVG` records
-    `property_name`). The component is matched separately by lineage, so this only disambiguates
-    among a single component's own goals — much safer than the old whole-trace keyword search."""
-    if not prop:
-        return True
-    p = _payload(vg)
-    pn = p.get("property_name")
-    if pn:
-        return _lc(pn) == _lc(prop)
-    if _lc(p.get("goal_id")) == _lc(prop):
-        return True
-    return _lc(prop) in _lc(p.get("description"))
+#
+# A criterion is `component` + `evidence: {artifact: <type>}`. It is MET when an artifact of that TYPE
+# is present in the component's lineage — that is all. Whether the evidence was derived CORRECTLY (a
+# proof that is proved and autoformalized, a test suite that passes, a decomposition of enough regions,
+# a diff that is reviewed) is a POLICY judgment — the GOVERNED axis — never decided here. Keeping the
+# two apart is deliberate: met = "the evidence exists", governed = "the evidence is good enough".
 
 
-# What engine verdict satisfies each `expect` (Goal Contract evidence.expect).
-_EXPECT = {
-    "proved":   {"done": ("proved", "sat"), "blocked": ("refuted",)},
-    "refuted":  {"done": ("refuted",), "blocked": ("proved", "sat")},
-    "explored": {"done": ("proved", "sat", "refuted", "unknown"), "blocked": ()},
-}
-
-
-def _verdict_for_expect(status, expect):
-    m = _EXPECT.get(expect, _EXPECT["proved"])
-    if status in m["done"]:
-        return "done"
-    if status in m["blocked"]:
-        return "blocked"
-    return "doing"
+def _artifact_type(ev):
+    """The artifact TYPE a typed criterion requires as its evidence. Accepts `artifact` (canonical),
+    or `artifact_type` / `type` as tolerant aliases."""
+    return ev.get("artifact") or ev.get("artifact_type") or ev.get("type")
 
 
 def _resolve_typed(item, trace):
-    """Resolve a typed criterion (`component` + `evidence`) by lineage. Returns a resolution dict, or
-    None if the item is not a typed criterion (caller falls back to the legacy binding path)."""
+    """Resolve a typed criterion (`component` + `evidence: {artifact}`) by lineage: MET iff an artifact
+    of the required type roots in the component. Quality of derivation is left to policies. Returns a
+    resolution dict, or None if the item is not a typed criterion (caller falls back to legacy)."""
     comp = item.get("component") or {}
     comp = comp.get("function") or comp.get("function_") or comp.get("symbol")
-    ev = item.get("evidence") or {}
-    kind = _lc(ev.get("kind"))
-    if not comp or not kind:
+    art_type = _artifact_type(item.get("evidence") or {})
+    if not comp or not art_type:
         return None
     keep = {"status": item.get("status", "todo"), "from_trace": False, "evidence": None}
-    arts = trace.get("artifacts", [])
-
-    def rooted(a):
-        return lineage.roots_in_component(a.get("artifact_id"), comp, trace)
-
-    if kind == "verification":
-        prop = ev.get("property")
-        expect = _lc(ev.get("expect") or "proved")
-        # VGs targeting this component, against an AUTOFORMALIZED model, establishing the property.
-        vgs = [a for a in arts if a.get("artifact_type") == "VerificationGoal"
-               and rooted(a) and lineage.autoformalized(a.get("artifact_id"), trace)
-               and _property_matches(a, prop)]
-        if not vgs:
-            return keep
-        vg_ids = {v.get("artifact_id") for v in vgs}
-        goal_ids = {_payload(v).get("goal_id") for v in vgs}
-        vrs = [a for a in arts if a.get("artifact_type") == "VerificationResult"
-               and (_payload(a).get("goal_artifact_id") in vg_ids or _payload(a).get("goal_id") in goal_ids)]
-        if not vrs:
-            return {"status": "doing", "from_trace": True, "evidence": None}
-        vr = max(vrs, key=lambda a: a.get("producer_action_id") or 0)  # latest — a refuted-then-fixed reads proved
-        return {"status": _verdict_for_expect(_lc(_payload(vr).get("status")), expect),
-                "from_trace": True, "evidence": vr.get("artifact_id")}
-
-    if kind == "tests":
-        min_n = ev.get("min")
-        tests = [a for a in arts if a.get("artifact_type") == "Tests" and rooted(a)]
-        if not tests:
-            return keep
-        t = max(tests, key=lambda a: a.get("producer_action_id") or 0)
-        p = _payload(t)
-        count = p.get("count") or p.get("total") or p.get("num_tests") or 0
-        failing = p.get("failing")
-        all_pass = p.get("all_pass")
-        passed = all_pass if all_pass is not None else (failing in (0, None))
-        enough = (min_n is None) or (count >= min_n)
-        if passed and enough:
-            st = "done"
-        elif all_pass is False or (isinstance(failing, int) and failing > 0):
-            st = "blocked"
-        else:
-            st = "doing"
-        return {"status": st, "from_trace": True, "evidence": t.get("artifact_id")}
-
-    if kind == "decomposition":
-        min_r = ev.get("min_regions")
-        decs = [a for a in arts if a.get("artifact_type") == "Decomp" and rooted(a)]
-        if not decs:
-            return keep
-        d = max(decs, key=lambda a: a.get("producer_action_id") or 0)
-        p = _payload(d)
-        regions = p.get("region_count") or p.get("regions") or p.get("count") or 0
-        if isinstance(regions, list):
-            regions = len(regions)
-        st = "done" if (min_r is None or regions >= min_r) else "doing"
-        return {"status": st, "from_trace": True, "evidence": d.get("artifact_id")}
-
-    return keep
+    matches = [a for a in trace.get("artifacts", [])
+               if _lc(a.get("artifact_type")) == _lc(art_type)
+               and lineage.roots_in_component(a.get("artifact_id"), comp, trace)]
+    if not matches:
+        return keep
+    a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact
+    return {"status": "done", "from_trace": True, "evidence": a.get("artifact_id")}
 
 
 def resolve_item(item, trace):
@@ -183,7 +112,7 @@ def resolve_item(item, trace):
 
     if kind == "gap":
         rid = binding.get("residual_id")
-        r = next((x for x in trace.get("residuals", []) if x.get("residual_id") == rid), None)
+        r = next((x for x in lineage.residual_surface(trace) if x.get("residual_id") == rid), None)
         if not r:
             return keep
         s = _lc(r.get("status") or "open")
@@ -231,15 +160,17 @@ def progress_of(items):
 # ================================================================
 
 def faithfulness_of(goal, high_stakes=False):
-    """Grade the DEFINITION of done, not just the work. Two orthogonal axes plus supporting signals:
+    """Grade the DEFINITION of done, not just the work. Two orthogonal axes plus a supporting signal:
 
       met       -- every REQUIRED acceptance criterion resolved to `done` (call after resolution).
-      certified -- a reviewer OTHER than the doer approved the definition of done, every intent
-                   clause is covered, and it is not weakly specified. The party that MEETS a goal
-                   must not be the sole party that DEFINES it.
-      weakly_specified  -- "done" rests only on `change` edits (nothing proved / policy-checked); on a
-                   high-stakes path, nothing PROVED (`property`) at all.
+      certified -- a reviewer OTHER than the doer approved the definition of done and every intent
+                   clause is covered. The party that MEETS a goal must not be the sole party that
+                   DEFINES it.
       uncovered_clauses -- intent clauses no acceptance item `covers`.
+
+    Whether the evidence is STRONG ENOUGH (a proof rather than a diff, a passing suite, ...) is not
+    graded here — it is a policy judgment (the GOVERNED axis). `high_stakes` is accepted for signature
+    stability but no longer changes the result.
 
     Kept in step with the desktop `goalFaithfulness()` (TS) and the viewer `goalFaithfulnessV()` (JS).
     """
@@ -249,15 +180,6 @@ def faithfulness_of(goal, high_stakes=False):
 
     met = bool(req_items) and all(_lc(a.get("status")) == "done" for a in req_items)
 
-    # "Hard" evidence = a proof (property) or a policy (obligation). A goal backed only by `change`
-    # edits is weakly specified -- "done" the moment edits land, nothing proved or policy-checked.
-    if not acc:
-        weak = False
-    elif high_stakes:
-        weak = not any(a.get("kind") == "property" for a in req_items)
-    else:
-        weak = not any(a.get("kind") in ("property", "obligation") for a in req_items)
-
     clauses = goal.get("intent_clauses") or []
     covered = {c for a in acc for c in (a.get("covers") or [])}
     uncovered = [c for c in clauses if c not in covered]
@@ -266,12 +188,11 @@ def faithfulness_of(goal, high_stakes=False):
     reviewer = review.get("reviewed_by")
     doers = {a.get("author") for a in acc if a.get("author")}
     non_doer = bool(reviewer) and reviewer not in doers
-    certified = bool(review.get("verdict") == "approved" and non_doer and not uncovered and not weak)
+    certified = bool(review.get("verdict") == "approved" and non_doer and not uncovered)
 
     return {
         "met": met,
         "certified": certified,
-        "weakly_specified": weak,
         "uncovered_clauses": uncovered,
     }
 
@@ -326,12 +247,24 @@ def stale_evidence(trace):
 def _seed_artifacts(goal, trace):
     """The artifacts that constitute the evidence for a goal's acceptance items (+ in-scope work)."""
     arts = trace.get("artifacts", [])
-    residuals = trace.get("residuals", [])
+    residuals = lineage.residual_surface(trace)
     seeds = set()
     for item in goal.get("acceptance", []):
-        # Resolved evidence (set by resolve_item during enrich) — seeds the cone for TYPED criteria
-        # (which have no legacy `binding`) as well as legacy ones.
-        ev = item.get("evidence")
+        # Typed criterion (component + evidence spec): seed EVERY artifact of the required type rooted
+        # in the component — so the goal's cone carries the whole evidence history (e.g. both a refuted
+        # and a later proved result), which the GOVERNED policies then judge.
+        if isinstance(item.get("component"), dict) and isinstance(item.get("evidence"), dict):
+            comp = (item["component"].get("function") or item["component"].get("function_")
+                    or item["component"].get("symbol"))
+            art_type = _artifact_type(item["evidence"])
+            if comp and art_type:
+                for a in arts:
+                    if (_lc(a.get("artifact_type")) == _lc(art_type)
+                            and lineage.roots_in_component(a.get("artifact_id"), comp, trace)):
+                        seeds.add(a.get("artifact_id"))
+            continue
+        # Resolved evidence id (set by resolve_item during enrich) — seeds the cone for legacy items.
+        ev = item.get("evidence_ref") or item.get("evidence")
         if ev and any(a.get("artifact_id") == ev for a in arts):
             seeds.add(ev)
         b = item.get("binding")
@@ -542,8 +475,8 @@ def goal_residuals(goal, trace, derived=None):
     def is_open(r):
         return _lc(r.get("status") or "open") == "open"
 
-    declared = [r for r in trace.get("residuals", []) if is_open(r) and touches(r)]
-    # dedupe by id: `derived` may already be merged into trace.residuals (e.g. by enrich())
+    declared = [r for r in lineage.residual_surface(trace) if is_open(r) and touches(r)]
+    # dedupe by id: `derived` may already be merged into the trace (e.g. by enrich())
     out, seen = [], set()
     for r in declared + [r for r in derived if touches(r)]:
         rid = r.get("residual_id")
@@ -566,12 +499,15 @@ def enrich(trace):
     The source trace (authored goals + emitted steps) is untouched.
     """
     t = copy.deepcopy(trace)
+    # Residuals are first-class artifacts (§13, v1.8): fold any legacy list forward, then merge the
+    # derived stale-evidence residuals in as Residual artifacts so the viewer sees a single surface.
+    lineage.migrate_residuals(t)
     derived = stale_evidence(t)
-    t.setdefault("residuals", [])
-    existing = {r.get("residual_id") for r in t["residuals"]}
+    arts = t.setdefault("artifacts", [])
+    existing = {a.get("artifact_id") for a in arts if lineage.is_residual(a)}
     for r in derived:
         if r.get("residual_id") not in existing:
-            t["residuals"].append(r)
+            arts.append(lineage.residual_to_artifact(r))
 
     for g in t.get("goals", []):
         resolved = []
@@ -580,12 +516,21 @@ def enrich(trace):
             it = dict(item)
             it["status"] = r["status"]
             it["from_trace"] = r["from_trace"]
-            it["evidence"] = r["evidence"]
+            # A typed criterion keeps its {artifact} spec in `evidence`; the resolved artifact id goes
+            # to `evidence_ref`. Legacy items (no dict spec) keep `evidence` = the resolved id.
+            if isinstance(item.get("evidence"), dict):
+                it["evidence_ref"] = r["evidence"]
+            else:
+                it["evidence"] = r["evidence"]
             resolved.append(it)
         g["acceptance"] = resolved
         g["progress"] = progress_of(resolved)
         g["cone"] = sorted(goal_relevant_actions(g, t))
-        g["open_gaps"] = len(goal_residuals(g, t, derived))
+        # The residuals that QUALIFY this goal (bound to a gap item or touching its scope) — the ids so a
+        # viewer can scope "needs attention" to THIS goal instead of the whole trace's negative space.
+        gr = goal_residuals(g, t, derived)
+        g["open_gaps"] = len(gr)
+        g["gap_residual_ids"] = [r.get("residual_id") for r in gr if r.get("residual_id")]
         # Grade the definition of done itself (met vs certified), over the RESOLVED items. Default
         # (non-high-stakes) grading, matching the desktop/viewer so signals don't diverge across tools.
         g["faithfulness"] = faithfulness_of(g)
@@ -601,7 +546,10 @@ def enrich(trace):
 
     # At-a-glance summary, computed here so the viewer never re-derives it.
     evals = t.get("policy_evaluations", [])
-    res = t.get("residuals", [])
+    # Expose the residual surface (projected from Residual artifacts) on `residuals` — a derived view
+    # for renderers; the canonical store is the artifacts themselves (§13, v1.8).
+    res = lineage.residual_surface(t)
+    t["residuals"] = res
     is_open = lambda r: _lc(r.get("status") or "open") == "open"  # noqa: E731
     goals = t.get("goals", [])
     faith = [g.get("faithfulness") or {} for g in goals]
@@ -612,7 +560,8 @@ def enrich(trace):
         "stale_evidence": sum(1 for r in res if r.get("derived")),
         "goals_total": len(goals),
         "goals_met": sum(1 for f in faith if f.get("met")),
+        # GOVERNED counts only goals that DECLARE policies (governed present) and passed them.
+        "goals_governed": sum(1 for g in goals if g.get("governed") is True),
         "goals_certified": sum(1 for f in faith if f.get("certified")),
-        "goals_weakly_specified": sum(1 for f in faith if f.get("weakly_specified")),
     }
     return t

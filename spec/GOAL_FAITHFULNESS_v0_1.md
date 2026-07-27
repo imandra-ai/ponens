@@ -1,6 +1,6 @@
 # Goal Faithfulness — the definition of done, done right (v0.1)
 
-**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_7.md) — additive,
+**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_8.md) — additive,
 backward-compatible. Driven by the concrete goal use case in CodeLogician Desktop (the
 `declare_goal` tool → per-session active goal → `ponens trace enrich` resolution loop).
 
@@ -35,8 +35,8 @@ This is the formal-methods **"wrong spec / vacuous proof"** problem: proving a t
 Faithfulness cannot be decided mechanically — whether a formal acceptance faithfully captures an
 informal intent is the **formalization gap**, and "intent" lives in a human's head. So this spec does
 not try to *verify* faithfulness. It makes the seam **visible, reviewed by a different principal,
-strength-graded, coverage-checked, and hard to retrofit** — by separating two questions the current
-model conflates:
+coverage-checked, and hard to retrofit** (evidence rigor is the [governed axis](GOAL_CONTRACT_v0_1.md),
+not a faithfulness signal) — by separating two questions the current model conflates:
 
 | Question | Mechanism | Principal | Status |
 | --- | --- | --- | --- |
@@ -52,7 +52,7 @@ The single normative rule of this spec:
 | Failure | What it looks like | Defense (§ below) |
 | --- | --- | --- |
 | **Incomplete** | a clause of the intent has no acceptance item ("3DS *and* 2-approval"; acceptance covers only 3DS → all green, intent unmet) | §5 coverage (`covers` + critic) |
-| **Weak kind** | a `Change` item where a `Property` was needed ("add 2-approval" backed only by "an edit landed") | §6 strength grading |
+| **Weak evidence** | a `Diff` where a proof was needed ("add 2-approval" backed only by "an edit landed") | the [governed axis](GOAL_CONTRACT_v0_1.md) — a policy, not faithfulness (§6 superseded) |
 | **Vacuous** | a `Property` proved but trivially true (holds for *any* implementation) | §5 criteria review + refutation-bite |
 | **Adjacent** | proves something near but not the intent ("amount ≥ 0" when the user meant "captured ≤ authorized") | §5 criteria approval by the intent's author |
 | **Retrofitted** | acceptance authored *after* the evidence that resolves it (goalposts moved to match the work) | §7 temporal anchoring + append-only |
@@ -130,35 +130,36 @@ means"* — **before** it starts counting, by a principal that is **not the doer
    intent; agent proposes acceptance; user approves the *definition*).
 2. **Reviewer critique** — a *reviewing agent* (`ponens agent --review`, a different principal than the
    doer) reads the intent and the proposed acceptance and either `Approved` or `ChangesRequested`,
-   filing coverage/strength residuals for what it flags. This is the independent-auditor pattern,
+   filing coverage residuals for what it flags. This is the independent-auditor pattern,
    pointed at the **criteria** instead of the execution.
 
 `ChangesRequested` (or an *absent* review on a high-stakes goal) is itself a residual — the goal is
 "met" perhaps, but not **certified right**.
 
-## 6. Acceptance strength (a computable signal, today)
+## 6. Acceptance strength — SUPERSEDED by the governed axis
 
-Not all acceptance kinds carry the same evidential weight. Define a total order on strength:
+> **Superseded (Goal Contract v0.1).** This section originally graded evidence *strength* here and
+> emitted a `weakly_specified` flag. That overlapped with policy: "is a diff enough, or do you need a
+> proof?" is a **rigor** question, and rigor is the [Goal Contract](GOAL_CONTRACT_v0_1.md) **governed
+> axis** (policies over the goal's cone), not a faithfulness signal. To avoid two mechanisms answering
+> one question, `faithfulness_of` **no longer computes `weakly_specified`** and `certified` no longer
+> depends on it. The historical design is kept below for reference.
+
+Under the goal contract, evidence is just an artifact (met = it exists); *whether it is strong enough*
+is a policy. For example, `apply_formal_methods` carries `reasoning_required_for_high_stakes` ("a
+high-stakes edit must have a proof or a decomposition in its lineage") and
+`refuted_results_must_be_reproved` ("a result offered as evidence must actually be proved"). A goal
+whose high-stakes component rests only on a `Diff` is now caught as **ungoverned**, not *weakly
+specified* — same guarantee, one mechanism.
+
+<details><summary>Historical: the strength order this section defined</summary>
 
 ```
   Change  ≺  Gap  ≺  Obligation  ≺  Property
-  (an edit)  (a gap closed)  (a policy passed)  (a property proved for all inputs)
 ```
-
-- `Property` — strongest: a machine-checked invariant over *all* inputs. A refuted one is *informative*.
-- `Obligation` — a governance policy passed over the trace.
-- `Gap` — a declared residual addressed/waived (as strong as the residual it closes).
-- `Change` — weakest: proves *activity*, not *correctness*.
-
-From this, two derived signals (no new evaluator — just the kind distribution):
-
-- **strength profile** — the multiset of kinds over `required` items.
-- **weakly-specified flag** — a goal is *weakly specified* when a high-stakes intent (its `scope`
-  intersects the trace's `high_stakes_paths`, per the Agentic Execution Provenance pack) is backed by
-  **no `Property` or `Obligation`** items. This is exactly the "all-green `Change`" smell.
-
-Both feed the **grade** (§ grade): a goal can be *reached* yet score low on **specification strength** —
-grading the *spec*, not only the work. This makes "define it weakly to pass" cost you visibly.
+A `weakly-specified` goal was one whose high-stakes scope was backed by no `Property`/`Obligation`
+item. This is now expressed as policy over lineage (above).
+</details>
 
 ## 7. Temporal integrity (anti-retrofit)
 
@@ -174,8 +175,8 @@ Acceptance is a claim about intent; intent precedes the work. So:
 
 - **met** (unchanged, §18): a goal is *reached* when all `required` items resolve `AcceptDone`.
 - **right** (new): a goal is *certified* when it carries a `criteria_review` with `verdict = Approved`
-  by a non-doer principal, has **no uncovered `intent_clauses`**, and is **not weakly-specified** for
-  its stakes.
+  by a non-doer principal and has **no uncovered `intent_clauses`**. (Evidence strength is no longer a
+  certification condition — it is the [governed axis](GOAL_CONTRACT_v0_1.md), §6 superseded.)
 - The two are **orthogonal**: a goal may be met-but-uncertified (green, but the definition was never
   reviewed) or certified-but-unmet (the right target, work in progress). The desktop should show both
   axes — never collapse "met" into "done" without "right".

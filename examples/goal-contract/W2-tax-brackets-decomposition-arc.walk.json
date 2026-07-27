@@ -1,0 +1,194 @@
+{
+  "trace_id": "gc-walk-tax-brackets",
+  "title": "Walkthrough: get the tax-bracket edge cases right",
+  "final_axes": {
+    "met": true,
+    "governed": true,
+    "certified": true
+  },
+  "residuals": [
+    {
+      "kind": "assumption",
+      "severity": "medium",
+      "statement": "Rounding is assumed banker's rounding at 2 decimals; other rounding modes are out of scope."
+    }
+  ],
+  "steps": [
+    {
+      "id": "m1",
+      "title": "Map the bracket logic",
+      "intent": "Read tax.py and mark the boundaries",
+      "actions": [
+        {
+          "type": "ReadFile",
+          "label": "read pricing/tax.py",
+          "result": null
+        },
+        {
+          "type": "AnalyzeCode",
+          "label": "identify the bracket boundaries",
+          "result": null
+        }
+      ],
+      "produced": [
+        {
+          "id": "src",
+          "type": "SourceCode"
+        }
+      ],
+      "axes_after": {
+        "met": false,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m2",
+      "title": "Formalize & decompose the input space",
+      "intent": "Model tax_bracket and split into regions",
+      "actions": [
+        {
+          "type": "Formalize",
+          "label": "autoformalize tax_bracket",
+          "result": null
+        },
+        {
+          "type": "Decompose",
+          "label": "decompose the input space",
+          "result": "7 regions incl. all bracket boundaries"
+        }
+      ],
+      "produced": [
+        {
+          "id": "model",
+          "type": "IMLModel"
+        },
+        {
+          "id": "dec",
+          "type": "Decomposition"
+        }
+      ],
+      "axes_after": {
+        "met": false,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m3",
+      "title": "Cover regions with tests — a boundary fails",
+      "intent": "One test per region; the 40k edge fails",
+      "actions": [
+        {
+          "type": "GenerateTests",
+          "label": "generate one test per region",
+          "result": null
+        },
+        {
+          "type": "RunTests",
+          "label": "run the suite — boundary FAILS",
+          "result": "1 failing: rate at income == 40000"
+        }
+      ],
+      "produced": [
+        {
+          "id": "tests",
+          "type": "GeneratedTests"
+        }
+      ],
+      "axes_after": {
+        "met": false,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m4",
+      "title": "Fix the boundary off-by-one",
+      "intent": "Correct the comparison and re-run",
+      "actions": [
+        {
+          "type": "AnalyzeCode",
+          "label": "diagnose the boundary",
+          "result": null
+        },
+        {
+          "type": "EditFile",
+          "label": "fix the boundary comparison",
+          "result": null
+        },
+        {
+          "type": "RunTests",
+          "label": "re-run — all pass",
+          "result": "7 passed, 0 failing"
+        }
+      ],
+      "produced": [
+        {
+          "id": "diff",
+          "type": "Diff"
+        }
+      ],
+      "axes_after": {
+        "met": false,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m5",
+      "title": "Prove monotonicity across regions",
+      "intent": "State and prove the ordering property",
+      "actions": [
+        {
+          "type": "DefineVG",
+          "label": "define VG: tax is monotonic in income",
+          "result": null
+        },
+        {
+          "type": "Verify",
+          "label": "verify monotonicity — PROVED",
+          "result": "proved"
+        }
+      ],
+      "produced": [
+        {
+          "id": "vg",
+          "type": "VerificationGoal"
+        },
+        {
+          "id": "vr",
+          "type": "VerificationResult"
+        }
+      ],
+      "axes_after": {
+        "met": true,
+        "governed": true,
+        "certified": false
+      }
+    },
+    {
+      "id": "m6",
+      "title": "Commit",
+      "intent": "Bind the record to the commit",
+      "actions": [
+        {
+          "type": "GitCommit",
+          "label": "commit the fix + evidence",
+          "result": null
+        }
+      ],
+      "produced": [
+        {
+          "id": "commit",
+          "type": "Commit"
+        }
+      ],
+      "axes_after": {
+        "met": true,
+        "governed": true,
+        "certified": true
+      }
+    }
+  ]
+}

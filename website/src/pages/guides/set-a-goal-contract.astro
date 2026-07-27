@@ -20,37 +20,29 @@ import { Code } from "astro:components";
   --scope "settle,refund,fee_tier"`} />
 
     <h2>2. State the acceptance criteria — "accomplish these things"</h2>
-    <p>A criterion is a <strong>typed evidence requirement over a code component</strong>, not a sentence to
-      eyeball. Each one names the <code>component</code> it's about and the <code>evidence</code> that would
-      satisfy it — <em>verification</em>, <em>tests</em>, or <em>decomposition</em>. Author the whole contract
-      as JSON and load it in one shot:</p>
+    <p>A criterion names the <code>component</code> it's about and the <strong>artifact</strong> that serves
+      as its evidence — a <code>VerificationResult</code>, a <code>Decomp</code>, a <code>Tests</code> suite,
+      even a plain <code>Diff</code>. That's all it says; <em>whether that artifact is good enough</em> is the
+      policies' job (step 3). Author the whole contract as JSON and load it in one shot:</p>
     <Code lang="json" code={`{
   "id": "session-goal",
   "intent": "Settlement must never create or destroy money",
   "scope": ["settle", "refund", "fee_tier"],
   "acceptance": [
-    {
-      "id": "c1",
-      "component": { "function": "settle" },
-      "evidence": { "kind": "verification", "property": "money_conserved", "expect": "proved" }
-    },
-    {
-      "id": "c2",
-      "component": { "function": "fee_tier" },
-      "evidence": { "kind": "decomposition", "min_regions": 3 }
-    },
-    {
-      "id": "c3",
-      "component": { "function": "refund" },
-      "evidence": { "kind": "tests", "min": 8 }
-    }
+    { "id": "c1", "component": { "function": "settle" },
+      "evidence": { "artifact": "VerificationResult" } },
+    { "id": "c2", "component": { "function": "fee_tier" },
+      "evidence": { "artifact": "Decomp" } },
+    { "id": "c3", "component": { "function": "refund" },
+      "evidence": { "artifact": "Tests" } }
   ]
 }`} />
     <Code lang="bash" code={`ponens trace goal set trace.json --json contract.json`} />
     <p>Criteria resolve by <strong>lineage</strong>, not by matching description text: <code>c1</code> is
-      <em>met</em> only when a <code>VerificationResult(proved)</code> for <code>money_conserved</code> traces
-      back — through its <code>derived_from</code> chain — to an <code>IMLModel</code> autoformalized from
-      <code>settle</code>. That's why a goal ticks when the work is real, and only then.</p>
+      <em>met</em> once a <code>VerificationResult</code> whose <code>derived_from</code> chain roots in
+      <code>settle</code> exists in the trace. Note what met does <em>not</em> check — a <em>refuted</em>
+      result still counts as met (the artifact exists); whether it had to be <strong>proved</strong> is a
+      policy on the governed axis. Met = the evidence exists; governed = it's good enough.</p>
 
     <h2>3. Attach the policies — "subject to these"</h2>
     <p>Criteria say <em>what</em> to accomplish; policies set the <strong>rigor bar</strong> — the

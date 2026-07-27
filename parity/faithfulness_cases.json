@@ -4,80 +4,233 @@
     {
       "name": "met_and_certified",
       "goal": {
-        "intent": "prove p", "intent_clauses": ["c1"],
-        "criteria_review": {"reviewed_by": "reviewer", "verdict": "approved"},
-        "acceptance": [{"kind": "property", "status": "done", "author": "agent", "covers": ["c1"]}]
+        "intent": "prove p",
+        "intent_clauses": [
+          "c1"
+        ],
+        "criteria_review": {
+          "reviewed_by": "reviewer",
+          "verdict": "approved"
+        },
+        "acceptance": [
+          {
+            "kind": "property",
+            "status": "done",
+            "author": "agent",
+            "covers": [
+              "c1"
+            ]
+          }
+        ]
       },
-      "expect": {"met": true, "certified": true, "weakly_specified": false, "uncovered_clauses": []}
+      "expect": {
+        "met": true,
+        "certified": true,
+        "uncovered_clauses": []
+      }
     },
     {
       "name": "obligation_is_hard_evidence",
       "goal": {
-        "intent": "policy", "intent_clauses": ["c1"],
-        "criteria_review": {"reviewed_by": "human", "verdict": "approved"},
-        "acceptance": [{"kind": "obligation", "status": "done", "author": "agent", "covers": ["c1"]}]
+        "intent": "policy",
+        "intent_clauses": [
+          "c1"
+        ],
+        "criteria_review": {
+          "reviewed_by": "human",
+          "verdict": "approved"
+        },
+        "acceptance": [
+          {
+            "kind": "obligation",
+            "status": "done",
+            "author": "agent",
+            "covers": [
+              "c1"
+            ]
+          }
+        ]
       },
-      "expect": {"met": true, "certified": true, "weakly_specified": false, "uncovered_clauses": []}
+      "expect": {
+        "met": true,
+        "certified": true,
+        "uncovered_clauses": []
+      }
     },
     {
       "name": "certified_but_not_met_orthogonal",
       "goal": {
-        "intent": "not done yet", "intent_clauses": ["c1"],
-        "criteria_review": {"reviewed_by": "reviewer", "verdict": "approved"},
-        "acceptance": [{"kind": "property", "status": "todo", "author": "agent", "covers": ["c1"]}]
+        "intent": "not done yet",
+        "intent_clauses": [
+          "c1"
+        ],
+        "criteria_review": {
+          "reviewed_by": "reviewer",
+          "verdict": "approved"
+        },
+        "acceptance": [
+          {
+            "kind": "property",
+            "status": "todo",
+            "author": "agent",
+            "covers": [
+              "c1"
+            ]
+          }
+        ]
       },
-      "expect": {"met": false, "certified": true, "weakly_specified": false, "uncovered_clauses": []}
+      "expect": {
+        "met": false,
+        "certified": true,
+        "uncovered_clauses": []
+      }
     },
     {
       "name": "self_review_does_not_certify",
       "goal": {
-        "intent": "agent reviews itself", "intent_clauses": ["c1"],
-        "criteria_review": {"reviewed_by": "agent", "verdict": "approved"},
-        "acceptance": [{"kind": "property", "status": "done", "author": "agent", "covers": ["c1"]}]
+        "intent": "agent reviews itself",
+        "intent_clauses": [
+          "c1"
+        ],
+        "criteria_review": {
+          "reviewed_by": "agent",
+          "verdict": "approved"
+        },
+        "acceptance": [
+          {
+            "kind": "property",
+            "status": "done",
+            "author": "agent",
+            "covers": [
+              "c1"
+            ]
+          }
+        ]
       },
-      "expect": {"met": true, "certified": false, "weakly_specified": false, "uncovered_clauses": []}
+      "expect": {
+        "met": true,
+        "certified": false,
+        "uncovered_clauses": []
+      }
     },
     {
-      "name": "weakly_specified_cannot_certify",
+      "name": "change_only_goal_still_certifies",
       "goal": {
-        "intent": "only edits", "intent_clauses": ["c1"],
-        "criteria_review": {"reviewed_by": "reviewer", "verdict": "approved"},
-        "acceptance": [{"kind": "change", "status": "done", "author": "agent", "covers": ["c1"]}]
+        "intent": "only edits — strength is a policy matter now",
+        "intent_clauses": [
+          "c1"
+        ],
+        "criteria_review": {
+          "reviewed_by": "reviewer",
+          "verdict": "approved"
+        },
+        "acceptance": [
+          {
+            "kind": "change",
+            "status": "done",
+            "author": "agent",
+            "covers": [
+              "c1"
+            ]
+          }
+        ]
       },
-      "expect": {"met": true, "certified": false, "weakly_specified": true, "uncovered_clauses": []}
+      "expect": {
+        "met": true,
+        "certified": true,
+        "uncovered_clauses": []
+      }
     },
     {
       "name": "uncovered_clause_cannot_certify",
       "goal": {
-        "intent": "misses a clause", "intent_clauses": ["c1", "c2"],
-        "criteria_review": {"reviewed_by": "reviewer", "verdict": "approved"},
-        "acceptance": [{"kind": "property", "status": "done", "author": "agent", "covers": ["c1"]}]
+        "intent": "misses a clause",
+        "intent_clauses": [
+          "c1",
+          "c2"
+        ],
+        "criteria_review": {
+          "reviewed_by": "reviewer",
+          "verdict": "approved"
+        },
+        "acceptance": [
+          {
+            "kind": "property",
+            "status": "done",
+            "author": "agent",
+            "covers": [
+              "c1"
+            ]
+          }
+        ]
       },
-      "expect": {"met": true, "certified": false, "weakly_specified": false, "uncovered_clauses": ["c2"]}
+      "expect": {
+        "met": true,
+        "certified": false,
+        "uncovered_clauses": [
+          "c2"
+        ]
+      }
     },
     {
       "name": "optional_item_does_not_block_met",
       "goal": {
         "intent": "one required, one optional",
         "acceptance": [
-          {"kind": "property", "status": "done", "author": "agent"},
-          {"kind": "change", "status": "todo", "required": false, "author": "agent"}
+          {
+            "kind": "property",
+            "status": "done",
+            "author": "agent"
+          },
+          {
+            "kind": "change",
+            "status": "todo",
+            "required": false,
+            "author": "agent"
+          }
         ]
       },
-      "expect": {"met": true, "certified": false, "weakly_specified": false, "uncovered_clauses": []}
+      "expect": {
+        "met": true,
+        "certified": false,
+        "uncovered_clauses": []
+      }
     },
     {
       "name": "no_acceptance_is_not_weak_not_met",
-      "goal": {"intent": "empty", "acceptance": []},
-      "expect": {"met": false, "certified": false, "weakly_specified": false, "uncovered_clauses": []}
+      "goal": {
+        "intent": "empty",
+        "acceptance": []
+      },
+      "expect": {
+        "met": false,
+        "certified": false,
+        "uncovered_clauses": []
+      }
     },
     {
       "name": "blocked_item_is_not_met",
       "goal": {
-        "intent": "counterexample", "intent_clauses": ["c1"],
-        "acceptance": [{"kind": "property", "status": "blocked", "author": "agent", "covers": ["c1"]}]
+        "intent": "counterexample",
+        "intent_clauses": [
+          "c1"
+        ],
+        "acceptance": [
+          {
+            "kind": "property",
+            "status": "blocked",
+            "author": "agent",
+            "covers": [
+              "c1"
+            ]
+          }
+        ]
       },
-      "expect": {"met": false, "certified": false, "weakly_specified": false, "uncovered_clauses": []}
+      "expect": {
+        "met": false,
+        "certified": false,
+        "uncovered_clauses": []
+      }
     }
   ]
 }

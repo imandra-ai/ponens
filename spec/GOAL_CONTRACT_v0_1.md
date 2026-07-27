@@ -1,6 +1,6 @@
 # Goal Contract — accomplish these things, subject to these policies (v0.1)
 
-**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_7.md) and
+**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_8.md) and
 complements [Goal Faithfulness v0.1](GOAL_FAITHFULNESS_v0_1.md), [Policy Spec v0.2](POLICY_SPEC_v0_2.md),
 and the [Apply Formal Methods Pack](APPLY_FORMAL_METHODS_PACK.md). Additive and backward-compatible —
 existing text-bound acceptance items keep resolving (§8). Driven by the CodeLogician Desktop goal loop
@@ -30,7 +30,7 @@ This spec fixes both by making the goal a **contract** with two explicit halves:
 
 | Axis | Question | Mechanism | Principal |
 | --- | --- | --- | --- |
-| **Met** | Does evidence of the required *kind* exist for this component? | criterion ↔ artifact by kind + component **lineage** (§4) | the doer's evidence |
+| **Met** | Does the required evidence *artifact* exist for this component? | criterion ↔ artifact by type + component **lineage** (§4) | the doer's evidence |
 | **Governed** | Is that evidence *rigorous enough* / does it obey the rules? | the goal's **policies** over its cone (§5) | org / context (a pack) |
 | **Certified** | Is the definition of done itself *right*? | criteria review (Faithfulness v0.1) | a party ≠ the doer |
 
@@ -42,20 +42,18 @@ This *refines* Faithfulness v0.1 §6: evidence **strength/provenance moves out o
 and into the governed axis** (policies over lineage). Faithfulness keeps *rightness* — coverage,
 review, non-retrofit; policy owns *rigor*.
 
-## 3. Acceptance criterion = a typed evidence requirement
+## 3. Acceptance criterion = a required evidence artifact
 
-A criterion names a **code component**, the **kind of evidence** that satisfies it, and (for
-`verification`) the **property** to establish. It does **not** encode strength — that is policy (§5).
+A criterion names a **code component** and the **artifact** that serves as its evidence. That is all it
+encodes. It does **not** say whether the artifact is *good enough* — proved, autoformalized, passing,
+decomposition-backed. That is entirely the policies' job (§5). Keeping the two apart removes the overlap
+between "grading" and "policy": **met = the evidence exists; governed = the evidence is good enough.**
 
 ```ocaml
-type evidence_req =
-  (* proved verification goal over a model autoformalized from the component *)
-  | Verification of { property : string; expect : [ `Proved | `Refuted | `Explored ] }
-  (* a generated test suite for the component; all pass. Provenance (direct vs
-     decomposition-backed) is NOT asserted here — it is a policy (§5). *)
-  | Tests        of { min : int option; all_pass : bool }
-  (* a region decomposition of the component's input space *)
-  | Decomposition of { min_regions : int option; boundaries : bool }
+type evidence_req = {
+  artifact : string;   (* the artifact TYPE required in the component's lineage —
+                          VerificationResult | Decomp | Tests | Diff | Documentation | … *)
+}
 
 type acceptance_criterion = {
   id        : string;
@@ -67,30 +65,28 @@ type acceptance_criterion = {
 }
 ```
 
-The evidence kinds and their provenance chains (the chain is *recorded in the trace*, not restated in
-the criterion):
-
-| Kind | Provenance (pipeline that yields it) | Met when |
-| --- | --- | --- |
-| **Verification** | component → autoformalize → `IMLModel` → `DefineVG(property)` → `Verify` | a `VerificationResult` for that VG is **proved** |
-| **Tests** | component → *(optionally)* `Decompose` → `GenerateTests` → suite | suite exists (≥ `min`) and **all pass** |
-| **Decomposition** | component → autoformalize → `Decompose` → region map | regions cover the domain (≥ `min_regions`, boundaries) |
+**Any** artifact type is valid evidence — formal (a `VerificationResult`, a `Decomp`) or informal (a
+`Diff`, a generated `Tests` suite, a `Documentation` note). A weaker artifact is not rejected here; a
+policy decides whether it suffices for this component (e.g. *"a high-stakes component's evidence must
+include a proof"*). "Tests were generated" and "tests passed" are no longer two evidence kinds — they
+are one criterion (`Tests` present) plus a policy (`Tests must pass`) that a stricter bar turns on.
 
 ## 4. Resolution by lineage (the #1 fix)
 
-A criterion resolves to **met** when the trace holds an artifact of the required kind **whose lineage
-roots in autoformalizing `component.function_`**, meeting the pass condition. Resolution reads
-structured provenance, never a description string.
+A criterion resolves to **met** when the trace holds an artifact of the required **type** whose lineage
+**roots in `component.function_`** — read from structured provenance (`target_symbol`, `derived_from`,
+`payload.symbols`), never a description string. When several match, the latest by producer action is the
+evidence pointer (`evidence_ref` on the enriched item).
 
-- **Verification** — find `VerificationResult`s whose goal's model artifact (`IMLModel`) has the
-  component in its lineage AND whose VG `property_name == property`; take the latest by producer action;
-  `met` iff its status matches `expect` (default `Proved`).
-- **Tests** — find a `Tests` artifact whose lineage roots in the component; `met` iff `count ≥ min`
-  (when set) and all pass.
-- **Decomposition** — find a `Decomp` artifact rooted in the component; `met` iff `regions ≥ min_regions`.
+That is the whole rule. There is **no per-type pass condition** (no `expect`, `min`, `min_regions`,
+`all_pass`): a refuted `VerificationResult` still *exists*, so its criterion is met — whether the result
+had to be **proved** is the `refuted_results_must_be_reproved` policy on the governed axis. Quality of
+derivation lives in exactly one place.
 
-Matching is on **artifact identity + lineage + structured fields** (`property_name`, `target_symbol`,
-producer chain), which the reasoning tools already record. No `_vg_matches`-style substring search.
+**Component precision.** An artifact that declares its own `target_symbol` (a VG, a Decomp, a targeted
+Diff) is about *that* component — not every symbol the shared `IMLModel` happens to formalize. Only when
+nothing in the lineage names a target do we fall back to the model's symbol list. (Without this, a
+decomposition of `fee_tier` would look like it roots in every symbol of the shared model.)
 
 *Recommended (airtight):* the verify/decompose/gen-test tools may stamp each produced artifact with
 `satisfies: <criterion_id>` — a back-reference — so resolution is by exact id with no matching at all.
@@ -141,9 +137,11 @@ lineage — and most of it **already exists** in [`apply_formal_methods`](APPLY_
 
 - high-stakes code is backed by a proof **or** a decomposition *in its lineage*;
 - verification targets an **autoformalized** model (not hand-authored IML);
+- a result offered as evidence must be **proved**, not left refuted (`refuted_results_must_be_reproved`);
 - refuted goals get fixed; decompositions produce tests; **generated tests trace back to a decomposition**.
 
-So "tests must be decomposition-backed" is not a criterion field — it is a policy the goal opts into.
+So "tests must be decomposition-backed" or "the proof must actually hold" are not criterion fields —
+they are policies the goal opts into.
 
 ## 6. Composition, blocking & overrides
 
@@ -179,7 +177,7 @@ The enriched goal exposes `met / governed / certified` plus the residuals that e
 - required criterion **not met** → open acceptance gap;
 - criterion **met** but an `error` policy fails → **blocking governance residual** (until fixed or waived);
 - criterion **met** but a `warning` policy fails → advisory governance residual;
-- uncovered clause / weak / retrofitted definition → faithfulness residuals (v0.1).
+- uncovered clause / retrofitted definition → faithfulness residuals (v0.1).
 
 ## 7. Backward compatibility & migration
 
@@ -194,10 +192,10 @@ The enriched goal exposes `met / governed / certified` plus the residuals that e
 
 | Component | Change |
 | --- | --- |
-| `declare_goal` tool schema | acceptance items gain `component` + typed `evidence`; goal gains `policies`; drop "keyword in description" guidance |
-| `cli/ponens/goals.py` (`resolve_item`) | lineage-based resolution per §4; retire `_vg_matches` text search for typed items |
-| verify / decompose / gen-test tools | record structured provenance (component in lineage, `property_name`); optionally stamp `satisfies` (§4) |
-| desktop `goalStore` / `GoalHome` / Manage UI | author criteria via structured fields (kind + component + property/expect); render met / governed / certified |
+| `declare_goal` tool schema | acceptance items gain `component` + `evidence: {artifact}`; goal gains `policies`; drop kind/expect/min fields and "keyword in description" guidance |
+| `cli/ponens/goals.py` (`resolve_item`) | generic lineage resolution per §4 (artifact type in component lineage); no per-kind pass conditions; `roots_in_component` is target-precise |
+| verify / decompose / gen-test tools | record structured provenance (`target_symbol` on each produced artifact); optionally stamp `satisfies` (§4) |
+| desktop `goalStore` / `GoalHome` / Manage UI | author criteria via structured fields (component + evidence artifact type); render met / governed / certified |
 | policy engine | evaluate a goal's effective policy set over its cone; default layering (§5) |
 | `viewer/core/faithfulness.mjs` | mirror §4 resolution (parity) |
 
@@ -205,8 +203,10 @@ The enriched goal exposes `met / governed / certified` plus the residuals that e
 
 1. **Component cardinality** — is a criterion always 1 component, or may `component` be a set ("these
    three functions each verified")? (Proposed: singular; use one criterion per component for clarity.)
-2. **Property identity** — does the criterion pin a *named, reusable* property (strongest — you specify
-   the spec), or just `evidence.kind` and let the agent choose? (Proposed: `verification` pins a
-   property name; other kinds don't.)
+2. **Disambiguating within a component** — evidence names an artifact *type*, so if a component has
+   several artifacts of that type (e.g. two proved properties), the latest is taken. Do we need an
+   optional per-criterion selector (a property/name filter) to pin *which* one, or is one criterion per
+   (component, artifact) enough? (Proposed: keep evidence to `{artifact}`; add a selector only if a real
+   case needs it.)
 3. **Baseline contents** — exactly which rules are non-optional global baseline vs. opt-in pack.
 4. **`satisfies` back-reference** — adopt now (airtight) or defer behind lineage matching.

@@ -23,23 +23,16 @@
 
 <div class="artifact-bar">
   <div class="view-switcher">
+    <button id="goalsViewBtn" style="display:none" onclick="switchView('goals')">Goals</button>
     <button id="gradeViewBtn" style="display:none" onclick="switchView('grade')">Grade</button>
     <button class="active" onclick="switchView('flow')">Flow</button>
-    <button id="goalsViewBtn" style="display:none" onclick="switchView('goals')">Goals</button>
     <button onclick="switchView('lineage')">Lineage</button>
     <button id="dagViewBtn" onclick="switchView('dag')">Artifacts</button>
     <button id="funnelViewBtn" onclick="switchView('funnel')">Reasoning</button>
     <button id="policyViewBtn" onclick="switchView('policy')">Policies</button>
   </div>
-  <span class="ab-label" style="margin-left:16px;">Artifacts</span>
-  <button class="artifact-btn" onclick="openModal('vg')">Verification Goals <span class="ab-count" id="vgCount">0</span></button>
-  <button class="artifact-btn" onclick="openModal('decomp')">Edge Cases <span class="ab-count" id="decompCount">0</span></button>
-  <button class="artifact-btn" onclick="openModal('formal')">Formalizations <span class="ab-count" id="formalCount">0</span></button>
-  <button class="artifact-btn" onclick="openModal('tests')">Generated Tests <span class="ab-count" id="testCount">0</span></button>
-  <button class="artifact-btn" onclick="openModal('props')">Properties <span class="ab-count" id="propsCount">0</span></button>
-  <button class="artifact-btn" id="refModelsBtn" style="display:none" onclick="openModal('refmodels')">Reference Models <span class="ab-count" id="refModelsCount">0</span></button>
-  <button class="artifact-btn" id="policiesBtn" style="display:none" onclick="openModal('policies')">Policies <span class="ab-count" id="policiesCount">0</span></button>
-  <button class="artifact-btn" id="residualsBtn" style="display:none" onclick="openModal('residuals')">Residuals <span class="ab-count" id="residualsCount">0</span></button>
+  <!-- The artifact-category shortcuts (Verification Goals, Edge Cases, …) now live inside the
+       Artifacts tab (renderDAGView), not in this top bar — see viewer.js. -->
 </div>
 
 <div class="top-view main-area active" id="view-flow">

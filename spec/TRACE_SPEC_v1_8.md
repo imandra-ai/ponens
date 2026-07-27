@@ -2,10 +2,12 @@
 
 ## Version
 
-**Version:** 1.7  
+**Version:** 1.8  
 **Status:** Draft  
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
+
+> **Changes in 1.8 (backward-compatible read).** Makes the **residual surface (§13) first-class artifacts** rather than a separate top-level list. A residual is now an artifact of `artifact_type` `Residual`: its residual-specific fields (`kind`, `severity`, `status`, `statement`, `suggested_check`, …) live in `payload`, and it **anchors into the lineage DAG** via `derived_from` (the artifact it qualifies). This unifies positive and negative space under one addressable, lineage-connected model — a gap now hangs off exactly what it is about, and policies can quantify over it by type. The legacy top-level `residuals` list is **deprecated but still read**: a producer folds it forward into `Residual` artifacts (`migrate_residuals`), and every consumer reads the *residual surface* — the union of `Residual` artifacts and any legacy `residuals[]`. Existing 1.5-1.7 traces remain valid and render unchanged.
 
 > **Changes in 1.7 (additive, backward-compatible).** Adds **Goals & Acceptance** (§18) — an optional, typed record of a trace's *intent and definition of done*. A **goal** states what is being changed and why, and decomposes it into **acceptance items** (change / property / obligation / gap): the *end node*, what "done" means. Acceptance introduces no new evaluator — each item **resolves** against machinery already in the trace (a verification result, a policy evaluation, a residual, a diff), so progress is grounded in evidence rather than self-reported. Where §8.4 meta-actions capture the *structure* of the work (how atomic actions group into intent), a goal captures its *target* (the conditions the work must meet), and may reference a meta-action via `meta_action_id`. The resolved state — per-item status, progress, the goal's relevance cone, and its open gaps — is a **derived** projection, not an authored field. Existing 1.6 traces remain valid; `goals` canonicalizes to the empty list.
 
@@ -184,7 +186,7 @@ type trace =
   ; reproducibility : trace_reproducibility option
   ; comments : comment list
   ; review_items : review_item list
-  ; residuals : residual list
+  ; residuals : residual list          (* DEPRECATED (1.8): residuals are Residual artifacts; read but no longer written — §13 *)
   ; goals : goal list
   ; trace_links : trace_link list
   ; trace_lineage : trace_lineage option
@@ -193,7 +195,7 @@ type trace =
   }
 ```
 
-`residuals` is the trace's **residual surface** — its declared negative space (§13).
+`residuals` is the legacy carrier for the **residual surface** — a trace's declared negative space (§13). As of 1.8 a residual is a first-class **artifact** (`artifact_type` `Residual`); this field is retained only so pre-1.8 traces stay readable and canonicalizes to the empty list.
 
 `goals` is the trace's **goals & acceptance** — its declared intent and definition of done (§18). It canonicalizes to the empty list.
 
@@ -974,6 +976,8 @@ A trace records what the agent **established** — its actions, artifacts, proof
 
 The **residual surface** is the explicit, uniform, queryable record of that negative space — the assumptions relied upon, the claims left unverified, the parts left out of scope, the known limitations, and the questions deferred to review.
 
+> **As of 1.8, a residual is a first-class artifact** (`artifact_type` `Residual`), not a separate top-level list. It carries its residual-specific fields in `payload` and **anchors into the lineage DAG** through `derived_from` — so a gap hangs off exactly the artifact it qualifies, and positive and negative space share one addressable model. The *residual surface* is then simply the set of `Residual` artifacts in a trace (plus, for pre-1.8 traces, any entries in the deprecated top-level `residuals` list — §13.6).
+
 > A positive claim can be checked against the artifacts that back it. The residual surface is what *cannot* be taken for granted — it tells a reviewer (human or agent) **where to point**, instead of forcing them to re-derive the whole trace to discover what is missing.
 
 Declaring the residual surface honestly is what makes a trace trustworthy across a trust boundary: a reviewing agent need not assume the trace is complete, because the trace states its own gaps.
@@ -1009,9 +1013,8 @@ type residual_status =
   | ResidualAddressed     (* closed, typically by a successor trace *)
   | ResidualWaived        (* accepted as permanent / not to be addressed *)
 
-type residual =
-  { residual_id : string
-  ; kind : residual_kind
+type residual_payload =
+  { kind : residual_kind
   ; statement : string                    (* the gap, in plain language *)
   ; severity : residual_severity option   (* impact if wrong or left unaddressed *)
   ; target : target_ref option            (* where it bites (see §14.1) *)
@@ -1025,7 +1028,16 @@ type residual =
   }
 ```
 
-The trace record (§5) carries `residuals : residual list`, canonicalized as an empty list when there is no declared negative space.
+**A residual is an artifact.** It is recorded in the trace's `artifacts` list (§7) as:
+
+- `artifact_type = "Residual"`;
+- `artifact_id` — the residual's stable id (e.g. `r1`);
+- `derived_from` — the artifact(s) the residual **anchors** to: its `target` when that points at an artifact, then any `related_artifact_ids`. This is what places the gap in the lineage DAG, hanging off exactly what it qualifies;
+- `summary` — the `statement` (so generic artifact tooling shows the gap);
+- `producer_action_id` — the `introduced_by_action_id`, when known;
+- `payload : residual_payload` — the residual-specific fields above.
+
+A trace's **residual surface** is the projection back to the flat `residual` shape (`residual_id` = `artifact_id`, plus the `payload` fields) — the form §13.5 policies and review tooling quantify over. See §13.6 for the deprecated legacy list and the migration.
 
 ## 13.2 Semantics
 
@@ -1079,50 +1091,57 @@ These let an organization require not that traces be *gap-free*, but that their 
 
 ## 13.6 Interchange projection
 
-A payments trace declaring its negative space:
+A payments trace declaring its negative space — residuals are entries in `artifacts`, each anchored (`derived_from`) to what it qualifies:
 
 ```json
-"residuals": [
+"artifacts": [
   {
-    "residual_id": "r1",
-    "kind": "limitation",
-    "statement": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
-    "severity": "high",
-    "target": { "target_type": "artifact", "target_id": "a8" },
-    "related_artifact_ids": ["a10"],
-    "rationale": "The formal model applies one transition at a time; interleavings are not modeled.",
-    "suggested_check": "Add a concurrency model (or a DB-level lock) and re-verify the amount invariant under interleaved capture/refund.",
-    "source": "agent_declared",
-    "status": "open",
-    "introduced_by_action_id": 22,
-    "tags": ["concurrency", "payments"]
+    "artifact_id": "r1",
+    "artifact_type": "Residual",
+    "name": "limitation: Amount invariants are proved for single-threaded…",
+    "derived_from": ["a8", "a10"],
+    "producer_action_id": 22,
+    "summary": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
+    "payload": {
+      "kind": "limitation",
+      "statement": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
+      "severity": "high",
+      "target": { "target_type": "artifact", "target_id": "a8" },
+      "related_artifact_ids": ["a10"],
+      "rationale": "The formal model applies one transition at a time; interleavings are not modeled.",
+      "suggested_check": "Add a concurrency model (or a DB-level lock) and re-verify the amount invariant under interleaved capture/refund.",
+      "source": "agent_declared",
+      "status": "open",
+      "introduced_by_action_id": 22,
+      "tags": ["concurrency", "payments"]
+    }
   },
   {
-    "residual_id": "r2",
-    "kind": "unverified",
-    "statement": "Dispute and chargeback transitions were not formalized; only 7 of the documented transitions are covered by verification goals.",
-    "severity": "medium",
-    "target": { "target_type": "artifact", "target_id": "a17" },
-    "related_artifact_ids": ["a9"],
-    "suggested_check": "Add verification goals for the dispute and chargeback transitions.",
-    "source": "agent_declared",
-    "status": "open",
-    "tags": ["coverage"]
-  },
-  {
-    "residual_id": "r3",
-    "kind": "open_question",
-    "statement": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact.",
-    "severity": "low",
-    "target": { "target_type": "artifact", "target_id": "a8" },
-    "source": "agent_declared",
-    "status": "open",
-    "tags": ["product-decision"]
+    "artifact_id": "r2",
+    "artifact_type": "Residual",
+    "name": "unverified: Dispute and chargeback transitions were not…",
+    "derived_from": ["a17", "a9"],
+    "summary": "Dispute and chargeback transitions were not formalized; only 7 of the documented transitions are covered by verification goals.",
+    "payload": {
+      "kind": "unverified",
+      "statement": "Dispute and chargeback transitions were not formalized; only 7 of the documented transitions are covered by verification goals.",
+      "severity": "medium",
+      "target": { "target_type": "artifact", "target_id": "a17" },
+      "related_artifact_ids": ["a9"],
+      "suggested_check": "Add verification goals for the dispute and chargeback transitions.",
+      "source": "agent_declared",
+      "status": "open",
+      "tags": ["coverage"]
+    }
   }
 ]
 ```
 
-Following §16.1, the discriminators `kind`, `severity`, `source`, and `status` serialize as lowercase snake_case strings, and `target` reuses the `target_ref` projection.
+The **residual surface** projects each such artifact back to the flat `residual` shape (`residual_id` = `artifact_id`, plus the `payload` fields) for §13.5 policies and review tooling. Following §16.1, the discriminators `kind`, `severity`, `source`, and `status` serialize as lowercase snake_case strings, and `target` reuses the `target_ref` projection.
+
+## 13.7 Legacy list and migration (1.8)
+
+Pre-1.8 traces carried residuals in a top-level `residuals : residual list` instead of in `artifacts`. That field is **deprecated but still honored on read**: the residual surface is the union of `Residual` artifacts and any entries in a legacy `residuals[]` (deduped by id). A producer **folds the legacy list forward** into `Residual` artifacts — a `migrate_residuals` step that appends one artifact per entry (deriving `derived_from` from `target`/`related_artifact_ids`) and empties `residuals[]`; the step is idempotent. Enrichment performs this fold automatically, so any enriched trace exposes residuals uniformly as artifacts. New producers write `Residual` artifacts directly and never populate `residuals[]`.
 
 ---
 

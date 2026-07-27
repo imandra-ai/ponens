@@ -1,0 +1,182 @@
+{
+  "trace_id": "gc-uncovered",
+  "spec_version": "1.7",
+  "assistant": "codelogician",
+  "model": "demo",
+  "timestamp": "2026-07-25T00:00:00Z",
+  "title": "An uncovered clause blocks certification",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "An uncovered clause blocks certification"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "read settle",
+      "rationale": "read settle",
+      "inputs": [],
+      "outputs": [
+        "a_src"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 2,
+      "type": "Formalize",
+      "category": "activity",
+      "label": "autoformalize settle",
+      "rationale": "autoformalize settle",
+      "inputs": [],
+      "outputs": [
+        "a_model"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 3,
+      "type": "DefineVG",
+      "category": "activity",
+      "label": "define VG for settle",
+      "rationale": "define VG for settle",
+      "inputs": [],
+      "outputs": [
+        "a_vg"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 4,
+      "type": "Verify",
+      "category": "activity",
+      "label": "verify settle",
+      "rationale": "verify settle",
+      "inputs": [],
+      "outputs": [
+        "a_vr"
+      ],
+      "evidence": [],
+      "vg_result": {
+        "status": "proved"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "a_src",
+      "artifact_type": "SourceCode",
+      "name": "a_src",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "a_model",
+      "artifact_type": "IMLModel",
+      "name": "a_model",
+      "producer_action_id": 2,
+      "derived_from": [
+        "a_src"
+      ],
+      "payload": {
+        "symbols": [
+          "settle"
+        ]
+      }
+    },
+    {
+      "artifact_id": "a_vg",
+      "artifact_type": "VerificationGoal",
+      "name": "a_vg",
+      "producer_action_id": 3,
+      "derived_from": [
+        "a_model"
+      ],
+      "payload": {
+        "goal_id": "a_vg",
+        "target_symbol": "settle"
+      }
+    },
+    {
+      "artifact_id": "a_vr",
+      "artifact_type": "VerificationResult",
+      "name": "a_vr",
+      "producer_action_id": 4,
+      "derived_from": [
+        "a_vg"
+      ],
+      "payload": {
+        "goal_id": "a_vg",
+        "goal_artifact_id": "a_vg",
+        "status": "proved"
+      }
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "An uncovered clause blocks certification"
+  },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "Settlement conserves money and refunds are bounded",
+      "scope": [
+        "settle"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "c1",
+          "component": {
+            "function": "settle"
+          },
+          "evidence": {
+            "artifact": "VerificationResult"
+          },
+          "required": true,
+          "author": "agent",
+          "covers": [
+            "conserve money"
+          ],
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "a_vr"
+        }
+      ],
+      "intent_clauses": [
+        "conserve money",
+        "bound refunds"
+      ],
+      "criteria_review": {
+        "reviewed_by": "reviewer",
+        "verdict": "approved",
+        "at": "2026-07-25T01:00:00Z"
+      },
+      "progress": 1.0,
+      "cone": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "open_gaps": 0,
+      "faithfulness": {
+        "met": true,
+        "certified": false,
+        "uncovered_clauses": [
+          "bound refunds"
+        ]
+      }
+    }
+  ],
+  "exploration_actions": [],
+  "summary": {
+    "policy_violations": 0,
+    "open_residuals": 0,
+    "open_high": 0,
+    "stale_evidence": 0,
+    "goals_total": 1,
+    "goals_met": 1,
+    "goals_governed": 0,
+    "goals_certified": 0
+  }
+}

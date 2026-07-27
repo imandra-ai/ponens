@@ -25,6 +25,7 @@ from .policy_compiler import (
     STRUCTURAL_POLICIES,
 )
 from . import goals as goalops
+from . import lineage
 
 
 # ================================================================
@@ -563,8 +564,8 @@ def evaluate_structural(policy_name, trace):
                     return False
         return True
 
-    # --- residual surface policies (quantify over trace.residuals — Trace Spec §13) ---
-    residuals = trace.get('residuals', [])
+    # --- residual surface policies (quantify over the residual surface — Trace Spec §13) ---
+    residuals = lineage.residual_surface(trace)
     sev_rank = {'info': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
 
     if policy_name == 'no_open_critical_residuals':
@@ -632,54 +633,104 @@ def _temporal_witnesses(ast, trace):
 
 
 def _structural_witnesses(name, trace):
-    """Evidence for structural policies. For `data_flow_integrity`: actions whose inputs all resolve
-    to a producer are evidence; an action with a dangling input is violating."""
-    ev, vi = [], []
+    """Witnesses for structural policies — the concrete ACTION and/or ARTIFACT ids that support (`ev`)
+    or break (`vi`) the policy, so a failure can point at exactly WHERE it fails. Returns a dict with
+    ev_actions / vi_actions / ev_artifacts / vi_artifacts (any may be empty)."""
+    ev_a, vi_a, ev_r, vi_r = [], [], [], []
+    arts = trace.get('artifacts', [])
+
     if name == 'data_flow_integrity':
         actions = sorted(trace.get('actions', []), key=lambda a: a['id'])
         output_map = {}
         for a in actions:
             for o in a.get('_original_outputs', a.get('outputs', [])):
                 output_map[o] = a['id']
-        for art in trace.get('artifacts', []):
+        for art in arts:
             if art.get('producer_action_id') is not None:
                 output_map[art['artifact_id']] = art['producer_action_id']
         for a in actions:
             inputs = a.get('_original_inputs', a.get('inputs', []))
             if not inputs:
                 continue
-            (vi if any(inp not in output_map for inp in inputs) else ev).append(a['id'])
-    return ev, vi
+            (vi_a if any(inp not in output_map for inp in inputs) else ev_a).append(a['id'])
+
+    elif name == 'generated_tests_require_decomposition':
+        for art in arts:
+            if art.get('artifact_type') == 'GeneratedTests':
+                ancestors = get_ancestors(art['artifact_id'], trace)
+                has_decomp = any(a.get('artifact_type') in ('Decomposition', 'Decomposition_Art')
+                                 for a in arts if a['artifact_id'] in ancestors)
+                (ev_r if has_decomp else vi_r).append(art['artifact_id'])
+
+    elif name == 'goals_reference_valid_artifacts':
+        iml_ids = {a['artifact_id'] for a in arts if a.get('artifact_type') == 'IMLModel'}
+        for art in arts:
+            if art.get('artifact_type') == 'VerificationGoal':
+                target = (art.get('payload') or {}).get('target_artifact_id')
+                if target:
+                    (ev_r if target in iml_ids else vi_r).append(art['artifact_id'])
+
+    elif name in _RESIDUAL_POLICY_WITNESS:
+        for r in lineage.residual_surface(trace):
+            (vi_r if _RESIDUAL_POLICY_WITNESS[name](r, trace) else ev_r).append(r.get('residual_id'))
+
+    return {'ev_actions': ev_a, 'vi_actions': vi_a, 'ev_artifacts': ev_r, 'vi_artifacts': vi_r}
+
+
+# Per-residual predicate: does this residual VIOLATE the given residual-surface policy? (§13.5)
+_SEV_RANK = {'info': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+_RESIDUAL_POLICY_WITNESS = {
+    'no_open_critical_residuals':
+        lambda r, t: r.get('severity') == 'critical' and r.get('status', 'open') == 'open',
+    'high_severity_residuals_acknowledged_before_commit':
+        lambda r, t: any(a.get('type') == 'GitCommit' for a in t.get('actions', []))
+        and _SEV_RANK.get(r.get('severity'), 0) >= _SEV_RANK['high'] and r.get('status', 'open') == 'open',
+    'unverified_residuals_have_suggested_check':
+        lambda r, t: r.get('kind') == 'unverified' and not (isinstance(r.get('suggested_check'), str) and r['suggested_check'].strip()),
+    'assumptions_are_located':
+        lambda r, t: r.get('kind') == 'assumption' and not (r.get('target') or r.get('related_artifact_ids')),
+}
+
+
+def _structural_note(name, w):
+    """A concise human note naming the concrete violators of a failed structural policy — the WHERE."""
+    vi = w.get('vi_artifacts') or w.get('vi_actions') or []
+    if not vi:
+        return None
+    kind = 'residual' if name in _RESIDUAL_POLICY_WITNESS else ('artifact' if w.get('vi_artifacts') else 'action')
+    shown = ', '.join(str(x) for x in vi[:6]) + ('…' if len(vi) > 6 else '')
+    return f"{len(vi)} violating {kind}{'s' if len(vi) != 1 else ''}: {shown}"
 
 
 def evaluate_policy_full(policy, trace):
-    """Like `evaluate_policy`, plus best-effort evidence: the action ids that support the pass
-    (`evidence`) or break it (`violating`). Returns (status, note, evidence_ids, violating_ids)."""
+    """Like `evaluate_policy`, plus best-effort witnesses: the ids that support the pass or break it.
+    Returns (status, note, ev_actions, vi_actions, ev_artifacts, vi_artifacts)."""
     formula_str = policy.get('formula', '')
     name = policy.get('name', '')
     if not formula_str:
-        return 'unknown', 'No formula defined', [], []
+        return 'unknown', 'No formula defined', [], [], [], []
     if name in STRUCTURAL_POLICIES:
         result = evaluate_structural(name, trace)
-        ev, vi = _structural_witnesses(name, trace)
-        return ('passed' if result else 'failed'), None, ev, vi
+        w = _structural_witnesses(name, trace)
+        note = None if result else _structural_note(name, w)
+        return ('passed' if result else 'failed'), note, w['ev_actions'], w['vi_actions'], w['ev_artifacts'], w['vi_artifacts']
     try:
         ast = Parser(tokenize(formula_str), formula_str, name).parse()
     except Exception as e:
-        return 'unknown', f'Parse error: {e}', [], []
+        return 'unknown', f'Parse error: {e}', [], [], [], []
     if isinstance(ast, RawStructural):
-        return 'unknown', 'Formula too complex for runtime evaluation', [], []
+        return 'unknown', 'Formula too complex for runtime evaluation', [], [], [], []
     try:
         result = evaluate_formula(ast, trace)
         ev, vi = _temporal_witnesses(ast, trace)
-        return ('passed' if result else 'failed'), None, ev, vi
+        return ('passed' if result else 'failed'), None, ev, vi, [], []
     except Exception as e:
-        return 'unknown', f'Evaluation error: {e}', [], []
+        return 'unknown', f'Evaluation error: {e}', [], [], [], []
 
 
 def evaluate_policy(policy, trace):
-    """(status, note) — the compliance verdict. See `evaluate_policy_full` for evidence."""
-    status, note, _ev, _vi = evaluate_policy_full(policy, trace)
+    """(status, note) — the compliance verdict. See `evaluate_policy_full` for witnesses."""
+    status, note, *_rest = evaluate_policy_full(policy, trace)
     return status, note
 
 
@@ -869,7 +920,7 @@ def validate_trace(trace):
     if not (trace.get('outcome') or {}).get('type'):
         warnings.append("outcome has no 'type' (trace may be incomplete)")
 
-    for i, r in enumerate(trace.get('residuals', []) or []):
+    for i, r in enumerate(lineage.residual_surface(trace)):
         if not isinstance(r, dict):
             errors.append(f"residual #{i} is not an object")
             continue
@@ -1002,7 +1053,7 @@ def soundness_errors(trace, strict=False):
             if out not in known_art:
                 errs.append(f"action {aid}: output '{out}' is not a known artifact")
 
-    for r in trace.get('residuals', []) or []:
+    for r in lineage.residual_surface(trace):
         if isinstance(r, dict):
             for rid in r.get('related_artifact_ids', []) or []:
                 if rid not in known_art:
@@ -1072,8 +1123,8 @@ def _grade_dimensions(trace):
     """Score a trace on the dimensions that make it useful to a reviewer. Each
     dimension is 0..1; weights sum to 100. Mechanical — no model involved."""
     actions = trace.get("actions", []) or []
-    artifacts = trace.get("artifacts", []) or []
-    residuals = trace.get("residuals", []) or []
+    artifacts = [a for a in (trace.get("artifacts", []) or []) if not lineage.is_residual(a)]
+    residuals = lineage.residual_surface(trace)
     errors, _ = validate_trace(trace)
     has_trigger = bool((trace.get("trigger") or {}).get("type"))
     has_outcome = bool((trace.get("outcome") or {}).get("type"))
@@ -1132,11 +1183,11 @@ def _grade_dimensions(trace):
         if any(a.get("artifact_type") == "GeneratedTests" for a in artifacts):
             checks.append(evaluate_structural("generated_tests_require_decomposition", trace))
         passed = sum(1 for c in checks if c)
-        lineage = {"name": "Lineage / integrity", "score": passed / len(checks), "weight": 15,
-                   "note": f"{passed}/{len(checks)} structural checks pass", "applicable": True}
+        lineage_dim = {"name": "Lineage / integrity", "score": passed / len(checks), "weight": 15,
+                       "note": f"{passed}/{len(checks)} structural checks pass", "applicable": True}
     else:
-        lineage = {"name": "Lineage / integrity", "score": 0.0, "weight": 15,
-                   "note": "0 artifacts — lineage not visualizable", "applicable": False}
+        lineage_dim = {"name": "Lineage / integrity", "score": 0.0, "weight": 15,
+                       "note": "0 artifacts — lineage not visualizable", "applicable": False}
 
     return [
         {"name": "Structure", "score": struct, "weight": 15, "note": snote},
@@ -1145,7 +1196,7 @@ def _grade_dimensions(trace):
         {"name": "Negative space", "score": neg, "weight": 20, "note": nnote},
         {"name": "Reproducibility", "score": repro, "weight": 20, "note": rnote},
         {"name": "Verification evidence", "score": evidence, "weight": 25, "note": enote},
-        lineage,
+        lineage_dim,
     ]
 
 
@@ -1234,9 +1285,9 @@ def cmd_report(args):
     compliance, declared gaps, and the size of the reasoning record."""
     trace = load_trace(args.trace_file)
     g = grade_trace(trace)
-    residuals = trace.get("residuals", []) or []
+    residuals = lineage.residual_surface(trace)
     metas = trace.get("meta_actions", []) or []
-    arts = trace.get("artifacts", []) or []
+    arts = [a for a in (trace.get("artifacts", []) or []) if not lineage.is_residual(a)]
     repro = sum(1 for a in (trace.get("actions") or []) if a.get("reproducibility"))
     title = (trace.get("title") or (trace.get("trigger") or {}).get("description")
              or trace.get("trace_id") or "reasoning trace")
@@ -1349,8 +1400,12 @@ def cmd_residual_add(args):
     the negative space that only the agent (or author) can report; emission can't
     derive it."""
     trace = load_trace(args.trace_file)
-    residuals = trace.setdefault("residuals", [])
-    rid = f"r{len(residuals) + 1}"
+    # Residuals are first-class artifacts (§13, v1.8). Fold any legacy list forward first, then id the
+    # new one against the existing Residual artifacts so ids stay dense and unique.
+    lineage.migrate_residuals(trace)
+    arts = trace.setdefault("artifacts", [])
+    existing = sum(1 for a in arts if lineage.is_residual(a))
+    rid = f"r{existing + 1}"
     r = {"residual_id": rid, "kind": args.kind, "severity": args.severity,
          "statement": args.statement, "source": "agent_declared", "status": args.status}
     if args.target_type:
@@ -1361,11 +1416,11 @@ def cmd_residual_add(args):
         r["suggested_check"] = args.suggested_check
     if getattr(args, "tag", None):
         r["tags"] = args.tag
-    residuals.append(r)
-    if trace.get("spec_version", "1.1") < "1.5":
-        trace["spec_version"] = "1.5"
+    arts.append(lineage.residual_to_artifact(r))
+    if trace.get("spec_version", "1.1") < "1.8":
+        trace["spec_version"] = "1.8"
     _save_trace_fmt(args.trace_file, trace)
-    print(f"Declared residual {rid} ({args.severity} {args.kind}) in {args.trace_file}")
+    print(f"Declared residual {rid} ({args.severity} {args.kind}) as a Residual artifact in {args.trace_file}")
     return 0
 
 
@@ -1496,7 +1551,7 @@ def cmd_review_ready(args):
     actions = trace.get("actions", [])
     no_rationale = [a.get("id") for a in actions if not a.get("rationale")]
     has_outcome = bool((trace.get("outcome") or {}).get("type"))
-    residuals = trace.get("residuals", []) or []
+    residuals = lineage.residual_surface(trace)
 
     checks = [
         ("structure valid", not errors, f"{len(errors)} structural error(s)" if errors else ""),
@@ -1532,11 +1587,11 @@ def cmd_fmt(args):
 
 
 def _faithfulness_findings(trace):
-    """Grade each goal's DEFINITION of done (GOAL_FAITHFULNESS_v0_1), not just its policies.
-    Returns (fails, warns, rows): `fails` gate under --strict — deficiencies the agent controls
-    (a weakly-specified definition, an uncovered intent clause). `warns` are informational: "met but
-    not certified" needs a human sign-off, so it is surfaced but never a hard CI failure. `rows` is
-    the per-goal met/certified line for human output."""
+    """Grade each goal on the three axes (met / governed / certified), not just trace-level policies.
+    Returns (fails, warns, rows): `fails` gate under --strict — the GOVERNED axis failing (a declared
+    policy did not hold) or an uncovered intent clause. `warns` are informational: "met but not
+    certified" needs a human sign-off, so it is surfaced but never a hard CI failure. `rows` is the
+    per-goal met/governed/certified line for human output."""
     if not trace.get('goals'):
         return [], [], []
     try:
@@ -1547,10 +1602,12 @@ def _faithfulness_findings(trace):
     for g in eg.get('goals', []):
         f = g.get('faithfulness') or {}
         gid = g.get('id', '?')
-        rows.append(f"    {gid}: {'met' if f.get('met') else 'not met'}, "
+        governed = g.get('governed')  # None = no policies declared on this goal
+        gov_txt = 'governed' if governed is True else 'ungoverned' if governed is False else 'no policy'
+        rows.append(f"    {gid}: {'met' if f.get('met') else 'not met'}, {gov_txt}, "
                     f"{'certified' if f.get('certified') else 'uncertified'}")
-        if f.get('weakly_specified'):
-            fails.append(f"goal '{gid}': weakly specified — nothing proved or policy-checked backs \"done\"")
+        if governed is False:
+            fails.append(f"goal '{gid}': governed axis failed — a declared policy did not hold")
         for c in f.get('uncovered_clauses', []):
             fails.append(f"goal '{gid}': intent clause uncovered by any criterion — \"{c}\"")
         if f.get('met') and not f.get('certified'):
@@ -1600,7 +1657,14 @@ def cmd_check(args):
                     out.append(art)
         return out
 
-    def record_eval(pid, status, note, ev_actions=None, vi_actions=None):
+    def _merge(a, b):
+        out = list(a)
+        for x in b:
+            if x not in out:
+                out.append(x)
+        return out
+
+    def record_eval(pid, status, note, ev_actions=None, vi_actions=None, ev_artifacts=None, vi_artifacts=None):
         ev = {'policy_id': pid, 'status': status}
         if last_action_id is not None:
             ev['checked_at_action_id'] = last_action_id
@@ -1608,14 +1672,16 @@ def cmd_check(args):
             ev['note'] = note
         if ev_actions:
             ev['evidence_action_ids'] = ev_actions
-            arts = _arts_of(ev_actions)
-            if arts:
-                ev['evidence_artifact_ids'] = arts
         if vi_actions:
             ev['violating_action_ids'] = vi_actions
-            arts = _arts_of(vi_actions)
-            if arts:
-                ev['violating_artifact_ids'] = arts
+        # Artifact witnesses: those produced by the witness actions, unioned with any the evaluator
+        # named directly (structural policies fail on an artifact/residual, not an action).
+        ev_arts = _merge(_arts_of(ev_actions or []), ev_artifacts or [])
+        vi_arts = _merge(_arts_of(vi_actions or []), vi_artifacts or [])
+        if ev_arts:
+            ev['evidence_artifact_ids'] = ev_arts
+        if vi_arts:
+            ev['violating_artifact_ids'] = vi_arts
         evaluations.append(ev)
 
     for p in policies:
@@ -1630,8 +1696,8 @@ def cmd_check(args):
             errors.append(name)
             record_eval(pid, 'unknown', f'Syntax error: {syntax_errors[0].message}')
             continue
-        status, note, ev_actions, vi_actions = evaluate_policy_full(p, trace)
-        record_eval(pid, status, note, ev_actions, vi_actions)
+        status, note, ev_actions, vi_actions, ev_arts, vi_arts = evaluate_policy_full(p, trace)
+        record_eval(pid, status, note, ev_actions, vi_actions, ev_arts, vi_arts)
         if status == 'passed':
             passed += 1
             emit(f"  PASS    {name}")
@@ -1723,7 +1789,7 @@ def cmd_residuals(args):
     """List the trace's residual surface — its negative space (Trace Spec §13). With --derived,
     also include computed stale-evidence residuals."""
     trace = load_trace(args.trace_file)
-    residuals = list(trace.get('residuals', []))
+    residuals = lineage.residual_surface(trace)
     if getattr(args, 'derived', False):
         seen = {r.get('residual_id') for r in residuals}
         residuals += [r for r in goalops.stale_evidence(trace) if r.get('residual_id') not in seen]
@@ -1790,8 +1856,13 @@ def cmd_resolve(args):
         items = []
         for item in g.get('acceptance', []):
             r = goalops.resolve_item(item, trace)
-            items.append({**item, 'status': r['status'], 'from_trace': r['from_trace'],
-                          'evidence': r['evidence']})
+            it = {**item, 'status': r['status'], 'from_trace': r['from_trace']}
+            # Preserve a typed criterion's {artifact} spec; put the resolved id in evidence_ref.
+            if isinstance(item.get('evidence'), dict):
+                it['evidence_ref'] = r['evidence']
+            else:
+                it['evidence'] = r['evidence']
+            items.append(it)
         out.append({'id': g.get('id'), 'intent': g.get('intent'),
                     'progress': goalops.progress_of(items), 'acceptance': items})
     if getattr(args, 'json', False):
@@ -1802,7 +1873,12 @@ def cmd_resolve(args):
         print(f"{g['id']}  {int(round(g['progress'] * 100))}%  {g['intent']}")
         for it in g['acceptance']:
             src = ' (trace)' if it.get('from_trace') else ''
-            print(f"  {marks.get(it['status'], '?')} [{it.get('kind')}] {it.get('label')}{src}")
+            if isinstance(it.get('component'), dict):
+                comp = it['component'].get('function') or it['component'].get('symbol') or '?'
+                tag = f"{comp}:{goalops._artifact_type(it.get('evidence') or {}) or '?'}"
+            else:
+                tag = it.get('kind') or 'criterion'
+            print(f"  {marks.get(it['status'], '?')} [{tag}] {it.get('label')}{src}")
     return 0
 
 
@@ -2090,7 +2166,7 @@ def cmd_goal_rm(args):
 
 
 def cmd_goal_ls(args):
-    """Show goals with resolved status + faithfulness (met / certified / weakly-specified / uncovered)."""
+    """Show goals with resolved status on the three axes (met / governed / certified) + uncovered clauses."""
     trace = load_trace(args.trace_file)
     if not trace.get("goals"):
         print("No goals in this trace.")
@@ -2098,17 +2174,24 @@ def cmd_goal_ls(args):
     enriched = goalops.enrich(copy.deepcopy(trace))
     for g in enriched["goals"]:
         f = g.get("faithfulness", {})
+        governed = g.get("governed")  # None = no policies declared
         flags = "MET" if f.get("met") else "not met"
+        flags += " · GOVERNED" if governed is True else " · ungoverned" if governed is False else ""
         flags += " · CERTIFIED" if f.get("certified") else " · uncertified"
-        if f.get("weakly_specified"):
-            flags += " · WEAKLY SPECIFIED"
         print(f"\n{g.get('id')}: {g.get('intent', '')}")
         print(f"  {flags}  ({int(round(g.get('progress', 0) * 100))}% done)")
         for c in f.get("uncovered_clauses", []):
             print(f"  ! uncovered intent clause: {c}")
         for a in g.get("acceptance", []):
-            ev = f" -> {a.get('evidence')}" if a.get("evidence") else ""
-            print(f"    {a['id']} [{a['kind']}] {a.get('status')}: {a.get('label', '')}{ev}")
+            # Typed criterion shows component:artifact + its resolved ref; legacy shows kind + evidence.
+            if isinstance(a.get("component"), dict):
+                comp = a["component"].get("function") or a["component"].get("symbol") or "?"
+                art = goalops._artifact_type(a.get("evidence") or {}) or "?"
+                tag, ref = f"{comp}:{art}", a.get("evidence_ref")
+            else:
+                tag, ref = (a.get("kind") or "criterion"), a.get("evidence")
+            ev = f" -> {ref}" if ref else ""
+            print(f"    {a['id']} [{tag}] {a.get('status')}: {a.get('label', '')}{ev}")
     return 0
 
 

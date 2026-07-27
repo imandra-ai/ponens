@@ -1,0 +1,29 @@
+{
+  "id": "refuted_results_must_be_reproved",
+  "name": "Refuted Results Must Be Re-Proved",
+  "category": "reasoning",
+  "severity": "error",
+  "description": "A refuted verification result offered as evidence must ultimately be resolved into a proved/sat result — not merely edited around. This is the quality-of-evidence check behind the goal's GOVERNED axis: a criterion is MET the moment a VerificationResult exists for its component, but the result must actually establish the property to count as governed.",
+  "formula": "G(VerificationResult(refuted) → F(VerificationResult(proved ∨ sat)))",
+  "language_level": "pure_temporal",
+  "reasoner": "codelogician",
+  "rationale": "Under the goal contract, evidence is an artifact and its quality of derivation is a policy. A verification result that stays refuted proves the opposite of what was intended; a fix edit alone (see counterexample_triggers_fix) does not close it — the property must be re-proved.",
+  "tags": [
+    "formal-verification",
+    "reasoning",
+    "quality-of-evidence"
+  ],
+  "examples": {
+    "passes": "Verify(refuted) → EditFile → Verify(proved)",
+    "fails": "Verify(refuted) with no later proved/sat result in scope"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra-ai"
+  },
+  "date_added": "2026-07-25",
+  "downloads": 0,
+  "pack": "apply-formal-methods",
+  "group": "rigor"
+}

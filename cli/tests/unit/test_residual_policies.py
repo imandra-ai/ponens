@@ -125,8 +125,10 @@ def test_assumption_with_related_passes():
 
 def test_evaluate_policy_routes_structural_fail():
     policy = {"name": "no_open_critical_residuals", "formula": "...", "severity": "error"}
-    t = trace([{"kind": "limitation", "severity": "critical", "status": "open"}])
-    assert evaluate_policy(policy, t) == ("failed", None)
+    t = trace([{"residual_id": "r1", "kind": "limitation", "severity": "critical", "status": "open"}])
+    status, note = evaluate_policy(policy, t)
+    assert status == "failed"
+    assert note and "violating" in note and "r1" in note   # names the offending residual
 
 
 def test_evaluate_policy_routes_structural_pass():

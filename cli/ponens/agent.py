@@ -40,36 +40,37 @@ Workflow — after you finish the work:
                   "scope": ["<file/symbol>", "..."],
                   "acceptance": [
                     {"id": "c1", "component": {"function": "<f>"},
-                     "evidence": {"kind": "verification", "property": "<prop>", "expect": "proved"}},
+                     "evidence": {"artifact": "VerificationResult"}},
                     {"id": "c2", "component": {"function": "<g>"},
-                     "evidence": {"kind": "tests", "min": 8}},
+                     "evidence": {"artifact": "Tests"}},
                     {"id": "c3", "component": {"function": "<h>"},
-                     "evidence": {"kind": "decomposition", "min_regions": 3}}
+                     "evidence": {"artifact": "Diff"}}
                   ],
                   "policies": {"packs": ["apply_formal_methods"], "policies": ["research_before_edit"]}
                 }
               ponens trace goal set trace.json --json contract.json
-              # Each criterion is TYPED evidence (verification | tests | decomposition) over a code
-              # component, resolved by LINEAGE, never by matching description text. Prefer real evidence
-              # over bare edits (a goal backed only by edits is flagged weakly specified). The `policies`
-              # block is the rigor bar (the GOVERNED axis) — PROPOSE it; a human SELECTS/approves it.
+              # A criterion just names the ARTIFACT that must exist in the component's lineage
+              # (VerificationResult | Decomp | Tests | Diff | any type) — MET = that artifact is present,
+              # resolved by LINEAGE. Whether it is GOOD ENOUGH (proved, autoformalized, tests pass, a
+              # proof required on a high-stakes path) is decided by the `policies` block — the rigor bar
+              # (GOVERNED axis). PROPOSE the policies; a human SELECTS/approves them.
   5. GRADE    ponens trace grade trace.json        # a hygiene floor to CLEAR, not a score to game
   6. GOVERN   ponens registry update
               ponens trace check trace.json        # the GOVERNED axis: the goal's policies as a real
               # gate (exit code). Policies BLOCK by default; a disable/waiver is recorded on the trace,
-              # never silent. --strict also gates the goal (weakly-specified / uncovered clause FAILS).
+              # never silent. --strict also gates the goal (failing governed axis / uncovered clause FAILS).
   7. SHARE    ponens trace view trace.json         # read the reasoning (zoomable)
               ponens bind && ponens push           # bind 1:1 to the commit, publish for review
 
 A trace with NO declared residuals is suspicious, not clean. The value to a reviewer is that you
 disclosed what you did NOT establish.
 
-A goal yields three INDEPENDENT verdicts (see `ponens trace enrich`): MET (its criteria resolve from
-evidence), GOVERNED (its policies held), and CERTIFIED (a non-doer confirmed the criteria were the
-RIGHT ones). `enrich` resolves met + governed; `check --strict` gates a weakly-specified goal (edits
-landed, nothing proved or policy-checked) or an uncovered intent clause. You can produce and report MET
-and GOVERNED — but you must NOT self-certify: a reviewer OTHER than you runs `ponens trace goal certify
---by reviewer`. Propose the rigor bar; a human picks it.
+A goal yields three INDEPENDENT verdicts (see `ponens trace enrich`): MET (each component has its
+evidence artifact), GOVERNED (its policies held — i.e. the evidence was derived correctly), and
+CERTIFIED (a non-doer confirmed the criteria were the RIGHT ones). `enrich` resolves met + governed;
+`check --strict` gates a failing governed axis or an uncovered intent clause. You can produce and report
+MET and GOVERNED — but you must NOT self-certify: a reviewer OTHER than you runs `ponens trace goal
+certify --by reviewer`. Propose the rigor bar; a human picks it.
 
 Reviewing a trace instead of producing one?   ponens agent --review
 """
@@ -89,10 +90,10 @@ Review a change by reading its reasoning TRACE, not just its diff. Targeted veri
 Procedure:
   1. Orient — intent, outcome, changed files, lineage. No artifacts/lineage is itself a
      reviewability gap.
-  2. Judge the goal on all three axes, not just the work — is it MET (enrich resolves each criterion
-     from evidence, by lineage), GOVERNED (its policies held), and does the acceptance FAITHFULLY and
-     FULLY capture the intent? A weakly-specified bar (edits only, nothing proved/policy-checked) or an
-     uncovered intent clause is a reviewability gap. You CONFIRM what re-derives; CERTIFYING that the
+  2. Judge the goal on all three axes, not just the work — is it MET (each component has its evidence
+     artifact, resolved by lineage), GOVERNED (its policies held — the evidence was derived correctly:
+     proved, autoformalized, tests pass), and does the acceptance FAITHFULLY and FULLY capture the
+     intent? An uncovered intent clause is a reviewability gap. You CONFIRM what re-derives; CERTIFYING that the
      definition of done was RIGHT is the third axis — a non-doer's act. If you did not do the work,
      your sign-off (`ponens trace goal certify --by reviewer`) IS that certification; never self-certify
      your own work.

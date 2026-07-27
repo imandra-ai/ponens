@@ -151,7 +151,7 @@ def test_roundtrip_author_enrich_check(tmp_path):
     assert {a["id"]: a["status"] for a in g["acceptance"]} == {"s1": "done", "s2": "done"}
     assert g["acceptance"][0]["evidence"] == "d1" and g["acceptance"][1]["evidence"] == "p1"
     fa = g["faithfulness"]
-    assert fa["met"] and fa["certified"] and not fa["weakly_specified"] and fa["uncovered_clauses"] == []
-    # the faithfulness gate passes cleanly
+    assert fa["met"] and fa["certified"] and fa["uncovered_clauses"] == []
+    # the faithfulness gate passes cleanly (no goal-scoped policies → governed reads "no policy")
     fails, warns, rows = _faithfulness_findings(trace)
-    assert fails == [] and rows == ["    session-goal: met, certified"]
+    assert fails == [] and rows == ["    session-goal: met, no policy, certified"]

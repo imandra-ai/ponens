@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 210,
+  "policy_count": 211,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -3659,6 +3659,28 @@
       "file": "reducer_action_coverage.json"
     },
     {
+      "id": "refuted_results_must_be_reproved",
+      "name": "Refuted Results Must Be Re-Proved",
+      "category": "reasoning",
+      "severity": "error",
+      "domain": "formal-reasoning",
+      "tags": [
+        "formal-verification",
+        "quality-of-evidence",
+        "reasoning"
+      ],
+      "language_level": "pure_temporal",
+      "reasoner": "codelogician",
+      "description": "A refuted verification result offered as evidence must ultimately be resolved into a proved/sat result — not merely edited around. This is the quality-of-evidence check behind the goal's GOVERNED axis: a criterion is MET the moment a VerificationResult exists for its component, but the result must actually establish the property to count as governed.",
+      "formula": "G(VerificationResult(refuted) → F(VerificationResult(proved ∨ sat)))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:13ac6391a600491bd1a6931053e04880325a64daa4864b94a165191320cc4902",
+      "file": "refuted_results_must_be_reproved.json",
+      "pack": "apply-formal-methods",
+      "group": "rigor"
+    },
+    {
       "id": "regulated_change_audit_trail",
       "name": "Regulated Change Audit Trail",
       "category": "auditability",
@@ -5229,6 +5251,7 @@
     "pw",
     "quality",
     "quality-assurance",
+    "quality-of-evidence",
     "rag-amber",
     "rag-red",
     "rationale",
@@ -5576,7 +5599,7 @@
           "label": "Rigorous pipeline"
         }
       ],
-      "policy_count": 5
+      "policy_count": 6
     },
     {
       "id": "cert-secure-coding",

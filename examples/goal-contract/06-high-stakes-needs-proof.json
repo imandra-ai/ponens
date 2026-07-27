@@ -1,0 +1,125 @@
+{
+  "trace_id": "gc-block-default",
+  "spec_version": "1.7",
+  "assistant": "codelogician",
+  "model": "demo",
+  "timestamp": "2026-07-25T00:00:00Z",
+  "title": "Block by default: high-stakes edit needs formal backing",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Block by default: high-stakes edit needs formal backing"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "EditFile",
+      "category": "activity",
+      "label": "edit settle",
+      "rationale": "edit settle",
+      "inputs": [],
+      "outputs": [
+        "d1"
+      ],
+      "evidence": [],
+      "request": {
+        "path": "src/settle.py"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "d1",
+      "artifact_type": "Diff",
+      "name": "d1",
+      "producer_action_id": 1,
+      "payload": {
+        "target_symbol": "settle"
+      }
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Block by default: high-stakes edit needs formal backing"
+  },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "Change settlement",
+      "scope": [
+        "settle"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "c1",
+          "component": {
+            "function": "settle"
+          },
+          "evidence": {
+            "artifact": "Diff"
+          },
+          "required": true,
+          "author": "agent",
+          "covers": [
+            "change settle"
+          ],
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "d1"
+        }
+      ],
+      "intent_clauses": [
+        "change settle"
+      ],
+      "criteria_review": {
+        "reviewed_by": "reviewer",
+        "verdict": "approved",
+        "at": "2026-07-25T01:00:00Z"
+      },
+      "policies": {
+        "policies": [
+          {
+            "policy_id": "reasoning_required_for_high_stakes",
+            "name": "reasoning_required_for_high_stakes",
+            "severity": "error",
+            "formula": "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))"
+          }
+        ]
+      },
+      "progress": 1.0,
+      "cone": [
+        1
+      ],
+      "open_gaps": 0,
+      "faithfulness": {
+        "met": true,
+        "certified": true,
+        "uncovered_clauses": []
+      },
+      "governed": false,
+      "governance": [
+        {
+          "policy_id": "reasoning_required_for_high_stakes",
+          "name": "reasoning_required_for_high_stakes",
+          "severity": "error",
+          "status": "failed",
+          "note": null
+        }
+      ]
+    }
+  ],
+  "high_stakes_paths": [
+    "settle"
+  ],
+  "exploration_actions": [],
+  "summary": {
+    "policy_violations": 0,
+    "open_residuals": 0,
+    "open_high": 0,
+    "stale_evidence": 0,
+    "goals_total": 1,
+    "goals_met": 1,
+    "goals_governed": 0,
+    "goals_certified": 1
+  }
+}

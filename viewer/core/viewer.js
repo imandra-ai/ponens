@@ -222,7 +222,25 @@ initDemoSelector();
 // Load default trace (skip if managed by VS Code extension). Default to the Stripe
 // flagship — the richest story: a refuted-then-proved arc, a declared goal with a
 // certified definition of done, meta-action steps, lineage, and declared residuals.
-if (!window._vscodeManaged && !window.__ponensEmbedded) {
+// A `?trace=<relative-url>` query param loads a specific trace instead of the flagship default —
+// used by the internal gallery to deep-link each example. Restricted to relative paths (no absolute
+// URLs / protocols) so the viewer only fetches from its own origin.
+const _traceParam = (() => {
+  try {
+    const p = new URLSearchParams(window.location.search).get('trace');
+    if (p && !/^([a-z]+:)?\/\//i.test(p) && !p.startsWith('/')) return p;
+  } catch (e) { /* no URL API */ }
+  return null;
+})();
+
+if (!window._vscodeManaged && !window.__ponensEmbedded && _traceParam) {
+  _currentDemoFile = _traceParam;
+  fetch(_traceParam).then(r => r.json()).then(data => {
+    loadTrace(data);
+    showFileLabel(_traceParam.split('/').pop());
+    if (window._pendingFocus) _ponensApplyFocus(window._pendingFocus);  // walkthrough deep-link
+  }).catch(e => console.error('Failed to load ?trace=', e));
+} else if (!window._vscodeManaged && !window.__ponensEmbedded) {
   _currentDemoFile = 'demo-traces/stripe_v1_1.json';
   // Set dropdown immediately so it doesn't show placeholder
   const _sel = document.getElementById('demoSelect');
@@ -250,12 +268,18 @@ function normalizeTrace(data) {
 
   if (version === '1.0') return; // no normalization needed
 
+  // Residuals are first-class artifacts (§13, v1.8): fold any legacy top-level `residuals` list into
+  // Residual artifacts so the DAG/list render them natively, then expose the residual *surface* back
+  // on data.residuals (projected from the artifacts) so the surface/attention/goal views read one shape.
+  _migrateResidualsInPlace(data);
+
   // Build artifact lookup
   const artifactMap = {};
   for (const art of (data.artifacts || [])) {
     artifactMap[art.artifact_id] = art;
   }
   data._artifactMap = artifactMap;
+  data.residuals = _residualSurface(data);
 
   // Hydrate reasoning payloads onto actions from artifact payloads
   for (const action of (data.actions || [])) {
@@ -343,6 +367,9 @@ function loadTrace(data) {
   }
   normalizeTrace(data);
   traceData = data;
+  _dagNodeOverrides = {};      // reset per-trace DAG layout (manual drags + grouping)
+  _dagGroupResiduals = false;
+  _dagResidualGroupExpanded = false;
 
   // Header with optional version badge
   document.getElementById('traceMeta').innerHTML =
@@ -360,12 +387,8 @@ function loadTrace(data) {
 
   renderFlow(data);
 
-  // Update counts
-  document.getElementById('vgCount').textContent = collectVGs().length;
-  document.getElementById('formalCount').textContent = collectFormalizations().length;
-  document.getElementById('decompCount').textContent = collectDecomps().length;
-  document.getElementById('testCount').textContent = collectTests().reduce((s, g) => s + (g.tests?.length ?? g.count ?? 0), 0);
-  document.getElementById('propsCount').textContent = (data.process_properties || []).length;
+  // Artifact-category counts are now rendered inside the Artifacts tab (renderDAGView), so there is
+  // nothing to update in the top bar here.
 
   // Optional views/buttons: show when the NEW trace has the data, hide otherwise. (Previously these
   // were show-only, so switching demos left stale tabs from the prior trace — e.g. a Goals tab on a
@@ -387,9 +410,10 @@ function loadTrace(data) {
 
   showEl('goalsViewBtn', !!data.goals?.length);
 
-  // Re-render whatever view is active for the NEW trace; fall back to Flow if the active view's tab is
-  // no longer available (loadTrace previously only re-rendered Flow, so the active pane went stale).
-  refreshActiveView();
+  // Goals is the high-level progress summary — land there when the trace has goals; else keep the
+  // usual behavior (re-render the active view, falling back to Flow if its tab is now hidden).
+  if (data.goals?.length) switchView('goals');
+  else refreshActiveView();
 }
 
 // After a trace loads, re-render the currently-active view against the new data. If the active view's
@@ -417,8 +441,8 @@ function openModal(kind, focusId) {
   const title = document.getElementById('modalTitle');
   const body = document.getElementById('modalBody');
 
-  const renderers = { vg: renderVGModal, decomp: renderDecompModal, formal: renderFormalModal, tests: renderTestsModal, props: renderPropsModal, policies: renderPoliciesModal, refmodels: renderRefModelsModal, residuals: renderResidualsModal };
-  const titles = { vg: 'Verification Goals', decomp: 'Edge Cases (Region Decomposition)', formal: 'Formalizations', tests: 'Generated Tests', props: 'Process Properties', policies: 'Policies', refmodels: 'Reference Models', residuals: 'Residual Surface' };
+  const renderers = { vg: renderVGModal, formal: renderFormalModal, tests: renderTestsModal, policies: renderPoliciesModal, refmodels: renderRefModelsModal, residuals: renderResidualsModal };
+  const titles = { vg: 'Verification Goals', formal: 'Formal Model', tests: 'Generated Tests', policies: 'Policies', refmodels: 'Reference Models', residuals: 'Residual Surface' };
 
   title.textContent = titles[kind] || kind;
   body.innerHTML = renderers[kind] ? renderers[kind]() : '';
@@ -493,14 +517,37 @@ function zoomToolbar(trace) {
   const nMeta = (trace.meta_actions || []).length, nAct = (trace.actions || []).length;
   if (!nMeta) return '';
   const z = window._flowZoom;
-  return `<div class="zoom-toolbar"><span class="zoom-label">Zoom</span>
+  let tb = `<div class="zoom-toolbar"><span class="zoom-label">Zoom</span>
     <button class="zoom-btn ${z === 'meta' ? 'active' : ''}" onclick="setFlowZoom('meta')">Steps · ${nMeta}</button>
-    <button class="zoom-btn ${z === 'actions' ? 'active' : ''}" onclick="setFlowZoom('actions')">Actions · ${nAct}</button>
-  </div>`;
+    <button class="zoom-btn ${z === 'actions' ? 'active' : ''}" onclick="setFlowZoom('actions')">Actions · ${nAct}</button>`;
+  // Scope: restrict to a goal's relevance cone, or off-goal exploration (both from `ponens trace enrich`).
+  const goals = (trace.goals || []).filter((g) => Array.isArray(g.cone) && g.cone.length);
+  const explN = (trace.exploration_actions || []).length;
+  if (goals.length || explN) {
+    const cur = window._flowScope || 'all';
+    const clip = (s) => { s = String(s || ''); return s.length > 30 ? s.slice(0, 29) + '…' : s; };
+    const opt = (v, l) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
+    tb += `<span class="zoom-label" style="margin-left:14px;">Scope</span>`
+      + `<select class="scope-sel" onchange="setFlowScope(this.value)">`
+      + opt('all', `All steps · ${nAct}`)
+      + goals.map((g) => opt(g.id, `Goal: ${clip(g.intent || g.id)} · ${g.cone.length}`)).join('')
+      + (explN ? opt('exploration', `Exploration · ${explN}`) : '')
+      + `</select>`;
+  }
+  return tb + `</div>`;
 }
 
 function setFlowZoom(z) { window._flowZoom = z; window._focusMeta = null; renderFlow(traceData); }
+function setFlowScope(s) { window._flowScope = s; window._focusMeta = null; renderFlow(traceData); }
 function focusMeta(id) { window._focusMeta = id; renderFlow(traceData); }
+// The action-id set for the current flow scope (a goal's cone / exploration), or null for "all".
+function _scopeActionIds(trace) {
+  const s = window._flowScope || 'all';
+  if (s === 'all' || !s) return null;
+  if (s === 'exploration') return new Set(trace.exploration_actions || []);
+  const g = (trace.goals || []).find((x) => x.id === s);
+  return new Set((g && g.cone) || []);
+}
 
 function renderFocusBar(m, n) {
   const statusClass = { completed: 'ok', partial: 'warn', abandoned: 'err' }[m.status] || '';
@@ -521,6 +568,8 @@ function renderFocusBar(m, n) {
 function renderFlow(trace) {
   const panel = document.getElementById('flowPanel');
   let actions = trace.actions || [];
+  const _scope = _scopeActionIds(trace);           // null = all; else restrict to a goal cone / exploration
+  if (_scope) actions = actions.filter((a) => _scope.has(a.id));
   const vgs = trace.verification_goals || [];
   const hasMeta = (trace.meta_actions || []).length > 0;
   if (window._flowZoom === undefined) window._flowZoom = hasMeta ? 'meta' : 'actions';
@@ -616,7 +665,9 @@ function renderFlow(trace) {
 
 // Meta-action level (§8.4): the declared structure — each step expandable to its actions.
 function renderMetaLevel(trace) {
-  const metas = trace.meta_actions || [];
+  let metas = trace.meta_actions || [];
+  const scope = _scopeActionIds(trace);            // restrict steps to those touching the scoped actions
+  if (scope) metas = metas.filter((m) => (m.action_ids || []).some((id) => scope.has(id)));
   const byId = {};
   for (const a of (trace.actions || [])) byId[a.id] = a;
   let html = `<div class="event-bookend">
@@ -1055,280 +1106,6 @@ function highlightCode(code, language) {
 }
 
 // ============================================================
-// Voronoi decomposition rendering
-// ============================================================
-const VORONOI_PALETTE = [
-  [99,102,241],[52,211,153],[251,191,36],[244,114,182],
-  [34,211,238],[167,139,250],[96,165,250],[248,113,113],
-  [74,222,128],[253,186,116]
-];
-
-function placeSeedsRelaxed(n, w, h, pad) {
-  // Start with distributed points, then relax via Lloyd's
-  const seeds = [];
-  const cols = Math.ceil(Math.sqrt(n * w / h));
-  const rows = Math.ceil(n / cols);
-  let idx = 0;
-  for (let r = 0; r < rows && idx < n; r++) {
-    for (let c = 0; c < cols && idx < n; c++) {
-      seeds.push({
-        x: pad + (c + 0.5) * (w - 2*pad) / cols + (Math.random()-0.5) * 20,
-        y: pad + (r + 0.5) * (h - 2*pad) / rows + (Math.random()-0.5) * 20
-      });
-      idx++;
-    }
-  }
-  // 3 iterations of Lloyd relaxation
-  for (let iter = 0; iter < 3; iter++) {
-    const sums = seeds.map(() => ({ x:0, y:0, count:0 }));
-    const step = 4;
-    for (let y = 0; y < h; y += step) {
-      for (let x = 0; x < w; x += step) {
-        let minD = Infinity, minI = 0;
-        for (let i = 0; i < seeds.length; i++) {
-          const dx = x - seeds[i].x, dy = y - seeds[i].y;
-          const d = dx*dx + dy*dy;
-          if (d < minD) { minD = d; minI = i; }
-        }
-        sums[minI].x += x; sums[minI].y += y; sums[minI].count++;
-      }
-    }
-    for (let i = 0; i < seeds.length; i++) {
-      if (sums[i].count > 0) {
-        seeds[i].x = Math.max(pad, Math.min(w-pad, sums[i].x / sums[i].count));
-        seeds[i].y = Math.max(pad, Math.min(h-pad, sums[i].y / sums[i].count));
-      }
-    }
-  }
-  return seeds;
-}
-
-function renderVoronoi(container, decomposition, width, height) {
-  const regions = decomposition.regions || [];
-  const n = regions.length;
-  if (!n) return;
-
-  const dpr = window.devicePixelRatio || 1;
-  const light = isLightTheme();
-  const cw = width, ch = height;
-
-  // Outer wrapper holds diagram + detail
-  const outer = document.createElement('div');
-
-  const wrap = document.createElement('div');
-  wrap.className = 'voronoi-wrap';
-  wrap.style.width = '100%';
-  wrap.style.maxWidth = cw + 'px';
-  wrap.style.cursor = 'pointer';
-
-  const canvas = document.createElement('canvas');
-  canvas.width = cw * dpr;
-  canvas.height = ch * dpr;
-  canvas.style.width = cw + 'px';
-  canvas.style.height = ch + 'px';
-  wrap.appendChild(canvas);
-
-  const labelsDiv = document.createElement('div');
-  labelsDiv.className = 'voronoi-labels';
-  wrap.appendChild(labelsDiv);
-
-  // Detail panel below diagram
-  const detailDiv = document.createElement('div');
-  detailDiv.className = 'voronoi-detail';
-  detailDiv.style.cssText = 'margin-top:8px;min-height:0;transition:all 0.15s;';
-
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  const seeds = placeSeedsRelaxed(n, cw, ch, 30);
-  const colors = regions.map((_, i) => VORONOI_PALETTE[i % VORONOI_PALETTE.length]);
-
-  // Build cell ownership
-  const ownership = new Int8Array(cw * ch);
-  for (let py = 0; py < ch; py++) {
-    for (let px = 0; px < cw; px++) {
-      let minD = Infinity, minI = 0;
-      for (let i = 0; i < n; i++) {
-        const dx = px - seeds[i].x, dy = py - seeds[i].y;
-        const d = dx*dx + dy*dy;
-        if (d < minD) { minD = d; minI = i; }
-      }
-      ownership[py * cw + px] = minI;
-    }
-  }
-
-  // Store base image for highlight redraws
-  let selectedRegion = -1;
-
-  function drawCells(highlight) {
-    const imgData = ctx.createImageData(cw * dpr, ch * dpr);
-    const data = imgData.data;
-
-    for (let py = 0; py < ch * dpr; py++) {
-      for (let px = 0; px < cw * dpr; px++) {
-        const sx = Math.floor(px / dpr), sy = Math.floor(py / dpr);
-        const cell = ownership[sy * cw + sx];
-        const col = colors[cell];
-
-        let isBorder = false;
-        for (const [bx,by] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-          const nx = sx+bx, ny = sy+by;
-          if (nx >= 0 && nx < cw && ny >= 0 && ny < ch) {
-            if (ownership[ny * cw + nx] !== cell) { isBorder = true; break; }
-          }
-        }
-
-        const dx = sx - seeds[cell].x, dy = sy - seeds[cell].y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        const maxDist = Math.max(cw, ch) * 0.4;
-        let shade = light
-          ? 0.55 + 0.35 * (1 - Math.min(dist / maxDist, 1))
-          : 0.35 + 0.25 * (1 - Math.min(dist / maxDist, 1));
-
-        // Dim non-selected cells when one is selected
-        if (highlight >= 0 && cell !== highlight) shade *= 0.4;
-        // Brighten selected
-        if (highlight >= 0 && cell === highlight) shade = Math.min(shade * 1.4, light ? 0.95 : 0.85);
-
-        const idx = (py * cw * dpr + px) * 4;
-        if (isBorder) {
-          const bAlpha = (highlight >= 0 && (cell === highlight ||
-            (() => { for (const [bx2,by2] of [[-1,0],[1,0],[0,-1],[0,1]]) { const nx2=sx+bx2,ny2=sy+by2; if(nx2>=0&&nx2<cw&&ny2>=0&&ny2<ch&&ownership[ny2*cw+nx2]===highlight) return true; } return false; })()
-          )) ? 1 : 0.6;
-          const bc = highlight >= 0 && cell === highlight
-            ? (light ? [80,80,160] : [200,200,255])
-            : (light ? [180,185,200] : [51,65,85]);
-          data[idx] = bc[0]; data[idx+1] = bc[1]; data[idx+2] = bc[2]; data[idx+3] = Math.round(255*bAlpha);
-        } else {
-          data[idx]   = Math.round(col[0] * shade);
-          data[idx+1] = Math.round(col[1] * shade);
-          data[idx+2] = Math.round(col[2] * shade);
-          data[idx+3] = 255;
-        }
-      }
-    }
-    ctx.putImageData(imgData, 0, 0);
-  }
-
-  drawCells(-1);
-
-  // Labels at seed positions
-  const labelEls = [];
-  regions.forEach((r, i) => {
-    const inv = r.invariant || r.invariant_str || '';
-
-    const label = document.createElement('div');
-    label.className = 'voronoi-label';
-    label.style.left = seeds[i].x + 'px';
-    label.style.top = seeds[i].y + 'px';
-    label.style.transform = 'translate(-50%, -50%)';
-    label.style.maxWidth = (cw / Math.ceil(Math.sqrt(n)) - 20) + 'px';
-
-    label.innerHTML = `<div class="vl-idx">R${i+1}</div>`;
-    labelsDiv.appendChild(label);
-    labelEls.push(label);
-  });
-
-  // Click handling — detect cell from click position
-  wrap.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = Math.floor((e.clientX - rect.left) * (cw / rect.width));
-    const my = Math.floor((e.clientY - rect.top) * (ch / rect.height));
-    if (mx < 0 || mx >= cw || my < 0 || my >= ch) return;
-
-    const clicked = ownership[my * cw + mx];
-    if (clicked === selectedRegion) {
-      // Deselect
-      selectedRegion = -1;
-      drawCells(-1);
-      labelEls.forEach(l => l.style.opacity = '1');
-      detailDiv.innerHTML = '';
-    } else {
-      selectedRegion = clicked;
-      drawCells(clicked);
-      labelEls.forEach((l, i) => l.style.opacity = i === clicked ? '1' : '0.3');
-      showRegionDetail(clicked);
-    }
-  });
-
-  function showRegionDetail(idx) {
-    const r = regions[idx];
-    const cons = r.constraints || r.constraints_str || [];
-    const inv = r.invariant || r.invariant_str || '';
-    const model = r.model || r.model_str || {};
-    const meval = r.model_eval || r.model_eval_str || '';
-    const wit = typeof model === 'object'
-      ? Object.entries(model).map(([k,v]) => `<span class="clr-yellow">${esc(k)}</span> = <span class="clr-yellow">${esc(v)}</span>`)
-      : [esc(String(model))];
-
-    const col = colors[idx];
-    const borderColor = `rgb(${col[0]},${col[1]},${col[2]})`;
-
-    detailDiv.innerHTML = `
-      <div style="background:${light ? '#f4f6f9' : '#0f172a'};border:1px solid ${borderColor};border-radius:8px;padding:12px 16px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <div style="width:12px;height:12px;border-radius:3px;background:${borderColor};flex-shrink:0;"></div>
-          <span style="font-weight:700;font-size:13px;color:${borderColor};">Region ${idx+1}</span>
-          <span style="font-family:'SF Mono','Fira Code',monospace;font-size:13px;margin-left:8px;" class="clr-green">\u21D2 ${esc(inv)}</span>
-        </div>
-        <div style="margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Constraints</div>
-          <div style="font-family:'SF Mono','Fira Code',monospace;font-size:12px;color:var(--text-primary);line-height:1.6;">
-            ${cons.map(c => esc(c)).join('<br>')}
-          </div>
-        </div>
-        <div style="margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Witness</div>
-          <div style="font-family:'SF Mono','Fira Code',monospace;font-size:12px;line-height:1.6;">
-            ${wit.join('<br>')}
-          </div>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Evaluates to</div>
-          <div style="font-family:'SF Mono','Fira Code',monospace;font-size:13px;color:var(--cyan);">${esc(String(meval))}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  outer.appendChild(wrap);
-  outer.appendChild(detailDiv);
-  container.appendChild(outer);
-}
-
-function renderVoronoiHierarchy(container, decompositions, width, perHeight) {
-  // If multiple decompositions, show side by side with arrow showing evolution
-  if (decompositions.length === 1) {
-    renderVoronoi(container, decompositions[0], width, perHeight);
-    return;
-  }
-
-  const hierarchy = document.createElement('div');
-  hierarchy.className = 'voronoi-hierarchy';
-
-  decompositions.forEach((dec, i) => {
-    if (i > 0) {
-      const arrow = document.createElement('div');
-      arrow.className = 'vh-arrow';
-      arrow.textContent = '\u2192';
-      hierarchy.appendChild(arrow);
-    }
-    const item = document.createElement('div');
-    item.className = 'vh-item';
-    const title = document.createElement('div');
-    title.className = 'vh-title';
-    title.innerHTML = `<span>${esc(dec.target_function)}</span>`;
-    if (dec.complete) title.innerHTML += `<span class="dp-status transparent" style="font-size:9px;">complete</span>`;
-    item.appendChild(title);
-    const itemWidth = Math.max(200, Math.floor((width - 60) / decompositions.length));
-    renderVoronoi(item, dec, itemWidth, perHeight);
-    hierarchy.appendChild(item);
-  });
-
-  container.appendChild(hierarchy);
-}
-
-// ============================================================
 // Action selection -> detail panel
 // ============================================================
 let _selectedActionId = null;
@@ -1403,8 +1180,9 @@ function selectAction(actionId) {
     }
     if (vr.result?.refuted) {
       html += `<p style="font-size:10px;color:#64748b;text-transform:uppercase;margin-top:6px;">Counterexample</p>`;
-      const refText = typeof vr.result.refuted === 'string' ? vr.result.refuted : vr.result.refuted.counterexample || JSON.stringify(vr.result.refuted, null, 2);
-      html += `<div class="dp-code-block instance clr-red">${highlightIML(refText)}</div>`;
+      const ce = typeof vr.result.refuted === 'string' ? vr.result.refuted
+        : (vr.result.refuted.counterexample || vr.result.refuted);
+      html += counterexampleHtml(ce);
     }
     html += `</div>`;
   }
@@ -1415,14 +1193,14 @@ function selectAction(actionId) {
     html += `<div class="detail-section">
       <p class="label">Edge Cases (Region Decomposition): <span class="clr-purple" style="font-family:'SF Mono','Fira Code',monospace;text-transform:none;">${esc(dec.target_function)}</span></p>
       <span class="dp-status transparent">${dec.regions.length} region${dec.regions.length !== 1 ? 's' : ''}${dec.complete ? ' \u2014 complete' : ''}</span>
-      <div id="dp-voronoi-${d.id}"></div>
+      <div id="dp-treemap-${d.id}"></div>
     </div>`;
-    // Deferred Voronoi rendering after DOM update
+    // Deferred treemap rendering after DOM update \u2014 the same region map used in the Decomposition view.
     requestAnimationFrame(() => {
-      const vc = document.getElementById('dp-voronoi-' + d.id);
+      const vc = document.getElementById('dp-treemap-' + d.id);
       if (vc) {
-        const pw = vc.closest('.detail-panel')?.clientWidth - 40 || 380;
-        renderVoronoi(vc, dec, pw, 220);
+        const pw = (vc.closest('.detail-panel')?.clientWidth - 40) || 380;
+        _regionPreviewTreemap(vc, _decompCells(dec), Math.max(280, pw), 200);
       }
     });
   }
@@ -1563,7 +1341,7 @@ function switchView(view) {
 function collectArtifacts() {
   const actions = traceData?.actions || [];
   const groups = {
-    formalizations: { label: 'Formalizations', icon: '\u{1F4D0}', items: [] },
+    formalizations: { label: 'Formal Model', icon: '\u{1F4D0}', items: [] },
     verifications: { label: 'Verification Results', icon: '\u{2696}\uFE0F', items: [] },
     decompositions: { label: 'Edge Cases (Region Decomposition)', icon: '\u{1F9E9}', items: [] },
     tests: { label: 'Generated Tests', icon: '\u{1F9EA}', items: [] },
@@ -1728,13 +1506,6 @@ function collectVGs() {
 }
 
 // Collect decompositions from inline reasoning actions
-function collectDecomps() {
-  return (traceData?.actions || []).filter(a => a.decomposition).map(a => ({
-    ...a.decomposition,
-    action_id: a.id
-  }));
-}
-
 // Collect generated tests from inline reasoning actions
 function collectTests() {
   return (traceData?.actions || []).filter(a => a.generated_tests).map(a => ({
@@ -1745,6 +1516,9 @@ function collectTests() {
 }
 
 // Collect formalizations
+// The formal model(s) in the trace, from the Formalize action's source→IML payload. (The canonical
+// artifact is IMLModel, shown as a "Formal Model" node in the DAG; this category is the rich
+// translation view of the formalize step.)
 function collectFormalizations() {
   return (traceData?.actions || []).filter(a => a.formalization).map(a => ({
     ...a.formalization,
@@ -1771,8 +1545,9 @@ function renderVGModal() {
     }
     if (vg.result?.refuted) {
       body += `<div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Counterexample</div>`;
-      const refText2 = typeof vg.result.refuted === 'string' ? vg.result.refuted : vg.result.refuted.counterexample || JSON.stringify(vg.result.refuted, null, 2);
-      body += `<div class="mvg-instance clr-red">${highlightIML(refText2)}</div>`;
+      const ce = typeof vg.result.refuted === 'string' ? vg.result.refuted
+        : (vg.result.refuted.counterexample || vg.result.refuted);
+      body += counterexampleHtml(ce);   // parsed field→value table (raw fallback), same as the node detail
     }
     const links = [];
     if (vg.defined_in) links.push(`defined in <a href="#" onclick="event.stopPropagation();closeModal();switchView('flow');selectAction(${vg.defined_in});document.querySelector('.action-card[data-action-id=&quot;${vg.defined_in}&quot;]')?.scrollIntoView({behavior:'smooth',block:'center'});" style="color:var(--accent);text-decoration:none;">#${vg.defined_in}</a>`);
@@ -1795,52 +1570,6 @@ function renderVGModal() {
       <div class="mvg-body">${body}</div>
     </div>`;
   }
-  return html;
-}
-
-function renderDecompModal() {
-  const decs = collectDecomps();
-  if (!decs.length) return '<p style="color:#64748b">No decompositions in this trace.</p>';
-
-  let html = '';
-  for (let di = 0; di < decs.length; di++) {
-    const dec = decs[di];
-    if (di > 0) {
-      html += `<hr style="border:none;border-top:1px solid var(--border);margin:24px 0;">`;
-    }
-    html += `<div class="mdec-card"><div class="mdec-header">
-      <span class="mdec-fn">Decomposed function: <span style="font-weight:700;">${esc(dec.target_function)}</span></span>
-      <span class="mdec-desc">${esc(dec.description || '')}</span>
-      <span style="font-size:11px;margin-left:auto;"><a href="#" onclick="event.preventDefault();closeModal();switchView('flow');selectAction(${dec.action_id});document.querySelector('.action-card[data-action-id=&quot;${dec.action_id}&quot;]')?.scrollIntoView({behavior:'smooth',block:'center'});" style="color:var(--accent);text-decoration:none;">Action #${dec.action_id} \u2192</a></span>
-      <span class="mdec-complete ${dec.complete ? 'yes' : 'no'}">${dec.complete ? 'Complete' : 'Partial'}</span>
-    </div>`;
-
-    // Voronoi diagram for this decomposition
-    html += `<div id="modal-voronoi-${di}" style="padding:12px;"></div>`;
-
-    // Region table
-    html += `<table class="mdec-table"><thead><tr>
-      <th>Region</th><th>Constraints</th><th>Invariant</th><th>Witness</th><th>Eval</th>
-    </tr></thead><tbody>`;
-    dec.regions.forEach((r, idx) => {
-      const cons = r.constraints || r.constraints_str || [];
-      const inv = r.invariant || r.invariant_str || '';
-      const model = r.model || r.model_str || {};
-      const meval = r.model_eval || r.model_eval_str || '';
-      const wit = typeof model === 'object' ? Object.entries(model).map(([k, v]) => `${k} = ${v}`).join('\n') : String(model);
-      html += `<tr><td class="r-idx">R${idx + 1}</td><td class="r-cons">${cons.map(c => esc(c)).join('<br>')}</td><td class="r-inv">${esc(inv)}</td><td class="r-wit">${esc(wit)}</td><td class="r-eval">${esc(String(meval))}</td></tr>`;
-    });
-    html += `</tbody></table></div>`;
-  }
-
-  // Deferred: render Voronoi inside each card after modal DOM is ready
-  requestAnimationFrame(() => {
-    decs.forEach((dec, di) => {
-      const vc = document.getElementById('modal-voronoi-' + di);
-      if (vc) renderVoronoi(vc, dec, 820, 240);
-    });
-  });
-
   return html;
 }
 
@@ -1944,21 +1673,6 @@ const PROP_DESCRIPTIONS = {
   generated_tests_require_decomposition: 'Tests must derive from decomposition',
 };
 
-function renderPropsModal() {
-  const props = traceData?.process_properties || [];
-  if (!props.length) return '<p style="color:#64748b">No process properties in this trace.</p>';
-  const allPass = props.every(p => p.passed);
-  let html = `<div class="mprop-summary" style="color:${allPass ? 'var(--green)' : 'var(--red)'}">${allPass ? 'All properties pass' : 'Some properties failed'}</div>`;
-  for (const p of props) {
-    html += `<div class="mprop-row">
-      <div class="mprop-icon">${p.passed ? '\u2705' : '\u274C'}</div>
-      <div class="mprop-name">${esc(p.name)}</div>
-      <div class="mprop-desc">${esc(PROP_DESCRIPTIONS[p.name] || '')}</div>
-    </div>`;
-  }
-  return html;
-}
-
 function renderPoliciesModal() {
   const policies = traceData?.policies || [];
   if (!policies.length) return '<p style="color:var(--text-dim)">No policies declared in this trace.</p>';
@@ -2025,6 +1739,7 @@ function renderResidualsModal() {
   if (!residuals.length) return '<p style="color:var(--text-dim)">No residuals declared — empty negative space.</p>';
 
   const sevColor = { critical: 'var(--red)', high: '#f59e0b', medium: '#eab308', low: 'var(--text-muted)', info: 'var(--text-dim)' };
+  const statusColor = { open: '#f59e0b', acknowledged: '#eab308', addressed: '#3fb950', waived: 'var(--text-muted)' };
   const sevRank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
   const kindLabel = { assumption: 'Assumption', unverified: 'Unverified', out_of_scope: 'Out of scope', limitation: 'Limitation', open_question: 'Open question' };
   const statusIcon = { open: '⚠️', acknowledged: '\u{1F441}️', addressed: '✅', waived: '➖' };
@@ -2047,7 +1762,7 @@ function renderResidualsModal() {
     html += `<div class="mpolicy-row">
       <div class="mpolicy-icon">${icon}</div>
       <div class="mpolicy-body">
-        <div class="mpolicy-name">${esc(kindLabel[r.kind] || r.kind || 'residual')} <span style="font-size:9px;color:var(--text-dim);font-weight:400;font-family:inherit;">· ${esc(status)}</span></div>
+        <div class="mpolicy-name">${esc(kindLabel[r.kind] || r.kind || 'residual')} <span style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:${statusColor[status] || 'var(--text-dim)'};border:1px solid ${statusColor[status] || 'var(--border)'};border-radius:4px;padding:1px 5px;font-family:inherit;">${esc(status)}</span>${r.derived ? ' <span style="font-size:8.5px;font-weight:600;color:var(--text-muted);background:var(--bg-inset);border-radius:4px;padding:1px 5px;">derived</span>' : ''}</div>
         ${r.statement ? `<div class="mpolicy-desc">${esc(r.statement)}</div>` : ''}
         ${loc.length ? `<div class="mpolicy-note">${loc.join('&nbsp;&nbsp;&nbsp;')}</div>` : ''}
         ${r.suggested_check ? `<div class="mpolicy-note">check: ${esc(r.suggested_check)}</div>` : ''}
@@ -2171,6 +1886,7 @@ const DAG_TYPE_COLORS_DARK = {
   Commit: { bg: '#1e1420', border: '#b85888', text: '#d898b8' },
   UserApproval: { bg: '#1e1c14', border: '#c09830', text: '#d8c870' },
   ReferenceModel: { bg: '#141820', border: '#5090c0', text: '#90b8d8' },
+  Residual: { bg: '#241611', border: '#c06838', text: '#e0a070' },
 };
 
 const DAG_TYPE_COLORS_LIGHT = {
@@ -2192,6 +1908,7 @@ const DAG_TYPE_COLORS_LIGHT = {
   Commit: { bg: '#faeef2', border: '#a83868', text: '#882050' },
   UserApproval: { bg: '#faf6e8', border: '#a08010', text: '#786010' },
   ReferenceModel: { bg: '#e8f0fa', border: '#3070a0', text: '#1a4878' },
+  Residual: { bg: '#fdeee2', border: '#bf5a1e', text: '#984410' },
 };
 
 function isLightTheme() {
@@ -2208,7 +1925,11 @@ function dagTypeColor(type) {
 // Display labels for artifact types: keep the underlying type key (data-model identity used for
 // colors/matching) but present engine-neutral names in the UI (e.g. don't surface IML/ImandraX).
 const DAG_TYPE_LABELS = {
+  // IMLModel is canonical; FormalModel/Formalization are legacy synonyms — all shown as "Formal Model".
   IMLModel: 'Formal Model',
+  FormalModel: 'Formal Model',
+  Formalization: 'Formal Model',
+  Residual: 'Residual',
 };
 function dagTypeLabel(type) { return DAG_TYPE_LABELS[type] || type; }
 
@@ -2242,11 +1963,101 @@ function openGoalEvidence(id) {
   openArtifactRef(sid); // fallback: best-effort DAG lookup
 }
 
+// --- Residuals as first-class artifacts (§13, v1.8) — JS mirror of lineage.py -------------------
+// A residual is an artifact_type 'Residual' whose residual fields live in `payload` and which anchors
+// into the DAG via `derived_from`. These helpers fold a legacy top-level `residuals[]` forward and
+// project artifacts back to the flat residual shape the surface/attention/goal views consume.
+const _RESIDUAL_KEYS = ['kind', 'severity', 'status', 'source', 'statement', 'target',
+  'related_artifact_ids', 'suggested_check', 'introduced_by_action_id', 'tags', 'derived'];
+
+function _isResidualArt(a) { return !!a && a.artifact_type === 'Residual'; }
+
+function _residualName(r) {
+  const kind = (r.kind || 'residual').replace(/_/g, ' ');
+  const stmt = (r.statement || '').trim();
+  const short = stmt.length > 49 ? stmt.slice(0, 48) + '…' : stmt;
+  return short ? `${kind}: ${short}` : kind;
+}
+
+function _residualAnchor(r) {
+  const out = [];
+  const t = r.target || {};
+  if (t.target_type === 'artifact' && t.target_id) out.push(t.target_id);
+  for (const id of (r.related_artifact_ids || [])) if (!out.includes(id)) out.push(id);
+  return out;
+}
+
+function _residualToArtifact(r) {
+  const payload = {};
+  for (const k of _RESIDUAL_KEYS) if (r[k] != null) payload[k] = r[k];
+  const a = { artifact_id: r.residual_id, artifact_type: 'Residual', name: _residualName(r), payload };
+  const anc = _residualAnchor(r);
+  if (anc.length) a.derived_from = anc;
+  if (r.statement) a.summary = r.statement;
+  if (r.introduced_by_action_id != null) a.producer_action_id = r.introduced_by_action_id;
+  return a;
+}
+
+function _artifactToResidual(a) {
+  const p = a.payload || {};
+  const r = { residual_id: a.artifact_id };
+  for (const k of _RESIDUAL_KEYS) if (p[k] != null) r[k] = p[k];
+  if (r.statement == null && a.summary) r.statement = a.summary;
+  return r;
+}
+
+function _residualSurface(trace) {
+  const out = [], seen = new Set();
+  for (const a of (trace.artifacts || [])) {
+    if (!_isResidualArt(a)) continue;
+    const r = _artifactToResidual(a);
+    if (seen.has(r.residual_id)) continue;
+    seen.add(r.residual_id); out.push(r);
+  }
+  for (const r of (trace.residuals || [])) {
+    if (seen.has(r.residual_id)) continue;
+    seen.add(r.residual_id); out.push(r);
+  }
+  return out;
+}
+
+function _migrateResidualsInPlace(trace) {
+  const legacy = trace.residuals || [];
+  if (!legacy.length) return;
+  trace.artifacts = trace.artifacts || [];
+  const have = new Set(trace.artifacts.filter(_isResidualArt).map(a => a.artifact_id));
+  for (const r of legacy) {
+    if (have.has(r.residual_id)) continue;
+    trace.artifacts.push(_residualToArtifact(r));
+  }
+  trace.residuals = [];
+}
+
+// Type-filter chips overlaid on the graph — the SAME per-type filter as the List view (toggles
+// _dagListTypes), so clicking a type dims everything else in the DAG instead of opening a modal.
+function _artifactCatsBar() {
+  const arts = (traceData?.artifacts || []).slice();
+  for (const rm of (traceData?.reference_models || [])) arts.push({ artifact_type: 'ReferenceModel' });
+  const types = [];
+  for (const a of arts) if (a.artifact_type && !types.includes(a.artifact_type)) types.push(a.artifact_type);
+  if (!types.length) return '';
+  const active = (t) => _dagListTypes === null || _dagListTypes.has(t);
+  const chips = types.map((t) => {
+    const c = dagTypeColor(t), n = arts.filter((a) => a.artifact_type === t).length, on = active(t);
+    return `<button class="dag-fchip ${on ? 'on' : 'off'}" onclick="event.stopPropagation();toggleDagListType('${esc(t)}')"`
+      + ` title="Show only ${esc(dagTypeLabel(t))} in the graph"`
+      + ` style="${on ? `border-color:${c.border};color:${c.text};background:${c.bg};` : ''}">`
+      + `${esc(dagTypeLabel(t))} <span class="dag-fchip-n">${n}</span></button>`;
+  }).join('');
+  return `<div class="dag-cats">${chips}</div>`;
+}
+
 function renderDAGView() {
   const el = document.getElementById('view-dag');
   const artifacts = traceData?.artifacts || [];
+  const catBar = _artifactCatsBar();
   if (!artifacts.length) {
-    el.innerHTML = `<div style="padding:48px 32px;max-width:640px;margin:0 auto;text-align:center;color:var(--text-dim);">
+    el.innerHTML = catBar + `<div style="padding:48px 32px;max-width:640px;margin:0 auto;text-align:center;color:var(--text-dim);">
       <div style="font-size:32px;margin-bottom:12px;opacity:.5;">◇</div>
       <div style="font-size:15px;color:var(--text);margin-bottom:8px;">No lineage in this trace yet</div>
       <p style="font-size:13px;line-height:1.6;margin:0 0 16px;">
@@ -2259,6 +2070,13 @@ function renderDAGView() {
         (<code>inputs</code>/<code>outputs</code>) so each result traces back to what produced it.
       </p>
     </div>`;
+    return;
+  }
+
+  // List mode: a filterable table of artifacts instead of the graph (same data, different lens). The
+  // per-type filters replace the category overlay, so catBar is omitted here.
+  if (_dagViewMode === 'list') {
+    el.innerHTML = `<div class="dag-topbar"><span class="dag-topspacer"></span><div class="dag-toprow">${_dagModeToggle()}</div></div>` + _dagListHtml();
     return;
   }
 
@@ -2277,6 +2095,8 @@ function renderDAGView() {
       _isRefModel: true,
     });
   }
+  // Residuals are first-class artifacts (type "Residual") in traceData.artifacts, so they already
+  // appear in allArtifacts — declared negative space hung off (derived_from) the artifact it annotates.
 
   // Find policies that reference a model and link to conformance VG artifacts
   const policies = traceData?.policies || [];
@@ -2303,6 +2123,10 @@ function renderDAGView() {
   const artMap = {};
   for (const a of allArtifacts) artMap[a.artifact_id] = a;
 
+  // When "group residuals" is on, residual nodes are laid out as a separate cluster (below), so the
+  // positive-space graph packs without them interspersed on the leaf row.
+  const positioned = _dagGroupResiduals ? allArtifacts.filter(a => !_isResidualArt(a)) : allArtifacts;
+
   // Topological sort for Y positioning
   const levels = {};
   function getLevel(id, visited) {
@@ -2321,22 +2145,22 @@ function renderDAGView() {
     levels[id] = maxParent + 1;
     return levels[id];
   }
-  for (const a of allArtifacts) getLevel(a.artifact_id);
+  for (const a of positioned) getLevel(a.artifact_id);
 
   // Pin RESULT leaves to the bottom row: a node with no downstream (nothing derives from it) that is
   // itself derived from something is a resulting artifact — line them all up on one row instead of
   // scattering by dependency depth, so the graph reads "inputs on top, results on the bottom".
-  const maxNatural = Math.max(0, ...allArtifacts.map(a => levels[a.artifact_id] || 0));
+  const maxNatural = Math.max(0, ...positioned.map(a => levels[a.artifact_id] || 0));
   const hasChild = new Set();
   for (const a of allArtifacts) for (const pid of (a.derived_from || [])) hasChild.add(pid);
-  for (const a of allArtifacts) {
+  for (const a of positioned) {
     const id = a.artifact_id;
     if (!hasChild.has(id) && (a.derived_from || []).length > 0) levels[id] = maxNatural;
   }
 
   // Group by level
   const byLevel = {};
-  for (const a of allArtifacts) {
+  for (const a of positioned) {
     const lv = levels[a.artifact_id] || 0;
     if (!byLevel[lv]) byLevel[lv] = [];
     byLevel[lv].push(a);
@@ -2352,8 +2176,8 @@ function renderDAGView() {
     const arts = byLevel[lv] || [];
     maxCols = Math.max(maxCols, arts.length);
   }
-  const graphW = Math.max(800, maxCols * (nodeW + gapX) + padX * 2);
-  const graphH = (maxLevel + 1) * (nodeH + gapY) + padY * 2;
+  let graphW = Math.max(800, maxCols * (nodeW + gapX) + padX * 2);
+  let graphH = (maxLevel + 1) * (nodeH + gapY) + padY * 2;
 
   for (let lv = 0; lv <= maxLevel; lv++) {
     const arts = byLevel[lv] || [];
@@ -2367,31 +2191,97 @@ function renderDAGView() {
     });
   }
 
+  // "Group residuals": collapse every Residual node into a single group container to the right of the
+  // graph — a distinct rectangle you double-click to expand (members laid out inside) or collapse.
+  let residualGroup = null;
+  const residualMembers = _dagGroupResiduals ? allArtifacts.filter(a => _isResidualArt(a)) : [];
+  if (residualMembers.length) {
+    const colX = graphW + gapX + nodeW / 2 + 24;
+    if (_dagResidualGroupExpanded) {
+      const headerH = 30, padIn = 14, stepY = nodeH + 14;
+      const firstCY = padY + headerH + padIn + nodeH / 2;
+      residualMembers.forEach((a, i) => { positions[a.artifact_id] = { x: colX, y: firstCY + i * stepY }; });
+      const boxH = headerH + padIn * 2 + residualMembers.length * nodeH + (residualMembers.length - 1) * 14;
+      residualGroup = { expanded: true, left: colX - nodeW / 2 - padIn, top: padY,
+        w: nodeW + padIn * 2, h: boxH, n: residualMembers.length };
+      graphW = residualGroup.left + residualGroup.w + padX;
+    } else {
+      const cy = Math.max(padY + nodeH / 2, graphH / 2);
+      positions[RESIDUAL_GROUP_ID] = { x: colX, y: cy };
+      residualGroup = { expanded: false, x: colX, y: cy, n: residualMembers.length };
+      graphW = colX + nodeW / 2 + padX;
+    }
+  }
+
+  // User drag overrides win over the computed layout, and persist across re-renders until Reset.
+  for (const id in _dagNodeOverrides) if (positions[id]) positions[id] = { ..._dagNodeOverrides[id] };
+
+  // Grow the canvas so any node moved/placed beyond the computed bounds stays reachable.
+  for (const id in positions) {
+    graphW = Math.max(graphW, positions[id].x + nodeW / 2 + padX);
+    graphH = Math.max(graphH, positions[id].y + nodeH / 2 + padY);
+  }
+
+  // Type filter (shared with the List view): artifacts whose type is toggled OFF are dimmed in place.
+  const _dimIds = new Set();
+  if (_dagListTypes) for (const a of allArtifacts) if (!_dagListTypes.has(a.artifact_type)) _dimIds.add(a.artifact_id);
+
   // Render wrapper with pan/zoom
   let html = `<div class="dag-canvas-wrap" id="dagWrap">`;
   html += `<div class="dag-inner" id="dagInner" style="width:${graphW}px;height:${graphH}px;">`;
 
-  // SVG for edges
-  html += `<svg width="${graphW}" height="${graphH}" style="position:absolute;inset:0;pointer-events:none;">`;
+  // Precompute edges with their fixed styling, so a live node-drag can cheaply redraw just geometry
+  // (via _dagEdgesInner) without re-running the whole layout.
+  const light = isLightTheme();
+  const edgeColor = light ? '#b0b4bc' : '#3e4350';
+  const edges = [];
+  const seenGroupEdge = new Set();
   for (const a of allArtifacts) {
-    const to = positions[a.artifact_id];
-    if (!to) continue;
+    if (!positions[a.artifact_id]) {
+      // A collapsed residual member: redirect its anchor edges to the group box (aggregated + deduped).
+      if (_isResidualArt(a) && residualGroup && !residualGroup.expanded) {
+        for (const pid of (a.derived_from || [])) {
+          if (!positions[pid] || seenGroupEdge.has(pid)) continue;
+          seenGroupEdge.add(pid);
+          edges.push({ pid, cid: RESIDUAL_GROUP_ID, color: edgeColor, dash: '', dim: '' });
+        }
+      }
+      continue;
+    }
     for (const pid of (a.derived_from || [])) {
-      const from = positions[pid];
-      if (!from) continue;
-      const isRef = artMap[pid]?._isRefModel;
+      if (!positions[pid]) continue;
       const isSup = a.supersedes === pid;
-      const light = isLightTheme();
-      const color = isSup ? (light ? '#a08010' : '#c09830') : (light ? '#b0b4bc' : '#3e4350');
-      const dash = isSup ? 'stroke-dasharray="6,3"' : '';
-      const midY = (from.y + to.y) / 2;
-      html += `<path class="dag-edge" data-from="${esc(pid)}" data-to="${esc(a.artifact_id)}" d="M${from.x},${from.y + nodeH/2} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y - nodeH/2}"
-        fill="none" stroke="${color}" stroke-width="2" ${dash} opacity="0.7"/>`;
-      html += `<polygon class="dag-edge" data-from="${esc(pid)}" data-to="${esc(a.artifact_id)}" points="${to.x},${to.y - nodeH/2} ${to.x-5},${to.y - nodeH/2 - 9} ${to.x+5},${to.y - nodeH/2 - 9}"
-        fill="${color}" opacity="0.7"/>`;
+      edges.push({
+        pid, cid: a.artifact_id,
+        color: isSup ? (light ? '#a08010' : '#c09830') : edgeColor,
+        dash: isSup ? 'stroke-dasharray="6,3"' : '',
+        dim: (_dimIds.has(pid) || _dimIds.has(a.artifact_id)) ? ' dag-type-dim' : '',
+      });
     }
   }
-  html += `</svg>`;
+  _dagEdges = edges; _dagPositions = positions; _dagNodeW = nodeW; _dagNodeH = nodeH;
+
+  // SVG for edges. overflow:visible so a node dragged BEYOND the initial graph bounds keeps its curves
+  // (a non-root <svg> clips to its width/height box by default, which would make those edges vanish).
+  html += `<svg id="dagEdges" width="${graphW}" height="${graphH}" style="position:absolute;inset:0;overflow:visible;pointer-events:none;">${_dagEdgesInner()}</svg>`;
+
+  // Residual group container — rendered BEFORE the nodes so an expanded box sits behind its members.
+  if (residualGroup) {
+    const gcol = dagTypeColor('Residual');
+    if (residualGroup.expanded) {
+      html += `<div class="dag-group expanded" data-artifact-id="${RESIDUAL_GROUP_ID}" style="left:${residualGroup.left}px;top:${residualGroup.top}px;width:${residualGroup.w}px;height:${residualGroup.h}px;border-color:${gcol.border};background:${gcol.bg}55;"
+        ondblclick="event.stopPropagation();toggleResidualGroupExpanded()" title="Double-click to collapse">
+        <div class="dag-group-header" style="color:${gcol.text};">▾ Residuals (${residualGroup.n})</div>
+      </div>`;
+    } else {
+      const g = positions[RESIDUAL_GROUP_ID];
+      html += `<div class="dag-group collapsed" data-artifact-id="${RESIDUAL_GROUP_ID}" style="left:${g.x - nodeW/2}px;top:${g.y - nodeH/2}px;width:${nodeW}px;height:${nodeH}px;background:${gcol.bg};border-color:${gcol.border};"
+        ondblclick="event.stopPropagation();toggleResidualGroupExpanded()" title="Double-click to expand">
+        <span class="dn-type" style="background:${gcol.border}33;color:${gcol.text};">Residual group</span>
+        <span class="dn-name">▸ Residuals (${residualGroup.n})</span>
+      </div>`;
+    }
+  }
 
   // Nodes
   for (const a of allArtifacts) {
@@ -2402,10 +2292,11 @@ function renderDAGView() {
     const supClass = isSuperseded ? ' superseded' : '';
     const refStyle = a._isRefModel ? 'border-style:dashed;border-width:2px;' : '';
 
-    html += `<div class="dag-node${supClass}" data-artifact-id="${esc(a.artifact_id)}"
+    const typeDim = _dimIds.has(a.artifact_id) ? ' dag-type-dim' : '';
+    html += `<div class="dag-node${supClass}${typeDim}" data-artifact-id="${esc(a.artifact_id)}"
       style="left:${pos.x - nodeW/2}px;top:${pos.y - nodeH/2}px;width:${nodeW}px;height:${nodeH}px;
       background:${col.bg};border-color:${col.border};${refStyle}"
-      onclick="event.stopPropagation();selectDAGNode('${esc(a.artifact_id)}')">
+      onclick="event.stopPropagation();dagNodeClick('${esc(a.artifact_id)}')">
       <span class="dn-type" style="background:${col.border}33;color:${col.text};">${esc(dagTypeLabel(a.artifact_type))}</span>
       <span class="dn-name" title="${esc(a.name || a.artifact_id)}">${esc(a.name || a.artifact_id)}</span>
       ${a.revision ? `<span class="dn-rev">rev ${a.revision}</span>` : ''}
@@ -2438,15 +2329,159 @@ function renderDAGView() {
   html += `</div>`;
 
   html += `</div>`; // dag-canvas-wrap
-  el.innerHTML = html;
+  // Top bar: filter chips take the left and wrap within their own space; the controls (Graph/List +
+  // layout toggles) sit at the right in their own column, so the two can never overlap.
+  const topbar = `<div class="dag-topbar">${catBar}<div class="dag-toprow">${_dagModeToggle()}${_dagGraphToolbar()}</div></div>`;
+  el.innerHTML = topbar + html;
 
   // Initialize pan/zoom
   _dagState = { scale: 1, panX: 0, panY: 0, dragging: false, startX: 0, startY: 0, graphW, graphH };
   dagFit();
   initDAGPanZoom();
+  initDAGNodeDrag();
 }
 
 let _dagState = null;
+// Node-layout state: user drag overrides (id → {x,y}), the "group residuals" toggle, and the live
+// edge/position tables a drag needs to redraw edges without re-running the layout.
+const RESIDUAL_GROUP_ID = '__residual_group__';
+let _dagNodeOverrides = {};
+let _dagGroupResiduals = false;
+let _dagResidualGroupExpanded = false;   // when grouped: is the group container open?
+let _dagSuppressClick = false;
+let _dagEdges = [];
+let _dagPositions = {};
+let _dagNodeW = 150;
+let _dagNodeH = 70;
+
+// The geometry of one edge (curve + arrowhead), DIRECTION-AWARE so it stays correct after a node is
+// dragged anywhere: the curve exits the side of the parent that faces the child and enters the side of
+// the child that faces the parent (top↔bottom), and the arrowhead points inward. Both the initial
+// render and the live drag-redraw use this one helper so they can never disagree.
+function _dagEdgeGeom(from, to, nodeH) {
+  const down = to.y >= from.y;                            // child below the parent?
+  const fy = from.y + (down ? nodeH / 2 : -nodeH / 2);   // exit point on the parent
+  const ty = to.y + (down ? -nodeH / 2 : nodeH / 2);     // entry point on the child
+  const midY = (fy + ty) / 2;
+  const d = `M${from.x},${fy} C${from.x},${midY} ${to.x},${midY} ${to.x},${ty}`;
+  const points = down
+    ? `${to.x},${ty} ${to.x - 5},${ty - 9} ${to.x + 5},${ty - 9}`   // arrow into the top edge
+    : `${to.x},${ty} ${to.x - 5},${ty + 9} ${to.x + 5},${ty + 9}`;  // arrow into the bottom edge
+  return { d, points };
+}
+
+// Build the edge SVG markup from current positions — used for the INITIAL render (parsed as part of
+// the parent div's HTML, so the children land in the SVG namespace correctly).
+function _dagEdgesInner() {
+  const nodeH = _dagNodeH;
+  let s = '';
+  for (const e of _dagEdges) {
+    const from = _dagPositions[e.pid], to = _dagPositions[e.cid];
+    if (!from || !to) continue;
+    const g = _dagEdgeGeom(from, to, nodeH);
+    s += `<path class="dag-edge${e.dim}" data-from="${esc(e.pid)}" data-to="${esc(e.cid)}" d="${g.d}" fill="none" stroke="${e.color}" stroke-width="2" ${e.dash} opacity="0.7"/>`;
+    s += `<polygon class="dag-edge${e.dim}" data-from="${esc(e.pid)}" data-to="${esc(e.cid)}" points="${g.points}" fill="${e.color}" opacity="0.7"/>`;
+  }
+  return s;
+}
+
+// Live edge update during a drag: mutate the EXISTING path/polygon geometry attributes in place.
+// (Reassigning an <svg>'s innerHTML doesn't re-render new SVG-namespaced children in WebKit, so a
+// drag would leave the curves behind — updating attributes on the live elements always works.)
+function _dagRedrawEdges() {
+  const svg = document.getElementById('dagEdges');
+  if (!svg) return;
+  const nodeH = _dagNodeH;
+  svg.querySelectorAll('.dag-edge').forEach(el => {
+    const from = _dagPositions[el.getAttribute('data-from')];
+    const to = _dagPositions[el.getAttribute('data-to')];
+    if (!from || !to) return;
+    const g = _dagEdgeGeom(from, to, nodeH);
+    if (el.tagName.toLowerCase() === 'path') el.setAttribute('d', g.d);
+    else el.setAttribute('points', g.points);
+  });
+}
+
+// Top-right layout controls: Reset (only when there are drag overrides) + a Group-residuals checkbox
+// (only when the trace has residual nodes to group).
+function _dagGraphToolbar() {
+  const hasOverrides = Object.keys(_dagNodeOverrides).length > 0;
+  const hasResiduals = (traceData?.artifacts || []).some(_isResidualArt);
+  let h = `<div class="dag-gtools">`;
+  h += `<button id="dagResetLayout" class="dag-gbtn" onclick="event.stopPropagation();dagResetLayout()" title="Restore the automatic layout" ${hasOverrides ? '' : 'style="display:none;"'}>↺ Reset layout</button>`;
+  if (hasResiduals) {
+    h += `<label class="dag-gcheck" title="Collapse residuals into one group box (double-click it to expand)"><input type="checkbox" ${_dagGroupResiduals ? 'checked' : ''} onchange="event.stopPropagation();toggleGroupResiduals(this.checked)">Group residuals</label>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+// A node's own click, guarded so the mouseup that ENDS a drag doesn't also select the node.
+function dagNodeClick(id) {
+  if (_dagSuppressClick) return;
+  selectDAGNode(id);
+}
+
+function dagResetLayout() {
+  _dagNodeOverrides = {};
+  renderDAGView();
+}
+
+function toggleGroupResiduals(on) {
+  _dagGroupResiduals = !!on;
+  _dagResidualGroupExpanded = false;   // grouped view starts collapsed
+  _dagNodeOverrides = {};               // a fresh grouping supersedes prior manual drags
+  renderDAGView();
+}
+
+function toggleResidualGroupExpanded() {
+  _dagResidualGroupExpanded = !_dagResidualGroupExpanded;
+  renderDAGView();
+}
+
+function _updateDagResetVisibility() {
+  const b = document.getElementById('dagResetLayout');
+  if (b) b.style.display = Object.keys(_dagNodeOverrides).length ? '' : 'none';
+}
+
+// Make each node draggable. A drag repositions the node live (with edges following) and records an
+// override; a plain press with no movement falls through to dagNodeClick (selection).
+function initDAGNodeDrag() {
+  document.querySelectorAll('#dagInner .dag-node').forEach((node) => {
+    node.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();  // don't let the canvas start a pan
+      const id = node.getAttribute('data-artifact-id');
+      const orig = { ...(_dagPositions[id] || { x: 0, y: 0 }) };
+      const sx = e.clientX, sy = e.clientY;
+      let moved = false;
+      const onMove = (ev) => {
+        if (!moved && (Math.abs(ev.clientX - sx) > 3 || Math.abs(ev.clientY - sy) > 3)) {
+          moved = true; node.classList.add('dragging');
+        }
+        if (!moved) return;
+        const scale = _dagState?.scale || 1;
+        _dagPositions[id] = { x: orig.x + (ev.clientX - sx) / scale, y: orig.y + (ev.clientY - sy) / scale };
+        node.style.left = (_dagPositions[id].x - _dagNodeW / 2) + 'px';
+        node.style.top = (_dagPositions[id].y - _dagNodeH / 2) + 'px';
+        _dagRedrawEdges();
+      };
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        node.classList.remove('dragging');
+        if (moved) {
+          _dagNodeOverrides[id] = { ..._dagPositions[id] };
+          _dagSuppressClick = true;                       // swallow the click that follows this mouseup
+          setTimeout(() => { _dagSuppressClick = false; }, 0);
+          _updateDagResetVisibility();
+        }
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  });
+}
 
 function dagApplyTransform() {
   const inner = document.getElementById('dagInner');
@@ -2488,7 +2523,7 @@ function initDAGPanZoom() {
   if (!wrap) return;
 
   wrap.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.dag-node') || e.target.closest('.dag-detail') || e.target.closest('.dag-controls')) return;
+    if (e.target.closest('.dag-node') || e.target.closest('.dag-group') || e.target.closest('.dag-detail') || e.target.closest('.dag-controls')) return;
     _dagState.dragging = true;
     _dagState.moved = false; // becomes true on a real pan — distinguishes a click from a drag
     _dagState.startX = e.clientX - _dagState.panX;
@@ -2529,9 +2564,92 @@ function initDAGPanZoom() {
 }
 
 let _selectedDAGNode = null;
+
+// Artifacts view has two lenses: the lineage GRAPH (default) and a filterable LIST. --------------------
+let _dagViewMode = 'graph';           // 'graph' | 'list'
+let _dagListTypes = null;             // null = all types shown; else a Set of active artifact_types
+
+function _dagModeToggle() {
+  const b = (m, label) => `<button class="dag-mode-btn ${_dagViewMode === m ? 'active' : ''}" `
+    + `onclick="event.stopPropagation();setDagMode('${m}')">${label}</button>`;
+  return `<div class="dag-mode">${b('graph', 'Graph')}${b('list', 'List')}</div>`;
+}
+
+function setDagMode(m) { _dagViewMode = m; renderDAGView(); }
+
+function toggleDagListType(t) {
+  const all = [...new Set((traceData?.artifacts || []).map((a) => a.artifact_type))];
+  if (_dagListTypes === null) _dagListTypes = new Set(all);
+  if (_dagListTypes.has(t)) _dagListTypes.delete(t); else _dagListTypes.add(t);
+  if (_dagListTypes.size === all.length) _dagListTypes = null;   // everything on → back to "all"
+  renderDAGView();
+}
+
+// Open an artifact from a list row. In a host embedding (desktop), open the host's individual-artifact
+// view (rich result view for results, else the file) — mirroring the DAG node detail's actions. In the
+// standalone viewer (no host), drop into the graph isolated on that node.
+function dagListOpen(id) {
+  const isResidual = (traceData?.residuals || []).some(r => r.residual_id === id);
+  if (!isResidual) {   // residuals aren't host files/results — show them in the graph detail instead
+    const art = traceData?._artifactMap?.[id];
+    const RICH = ['StateSpaceAnalysisResult', 'VerificationResult', 'VerificationGoal', 'ConformanceResult', 'Decomp', 'Decomposition'];
+    if (art && RICH.includes(art.artifact_type) && /^fr\d+/.test(String(id)) && typeof window.__ponensOpenResult === 'function') {
+      window.__ponensOpenResult(id); return;
+    }
+    if (typeof window.__ponensOpenArtifact === 'function') { window.__ponensOpenArtifact(id); return; }
+  }
+  _dagViewMode = 'graph'; renderDAGView(); selectDAGNode(id);
+}
+
+function _dagListHtml() {
+  const arts = (traceData?.artifacts || []).slice();
+  for (const rm of (traceData?.reference_models || [])) {
+    arts.push({ artifact_id: rm.reference_model_id, artifact_type: 'ReferenceModel', name: rm.name });
+  }
+  // Residual artifacts are already in traceData.artifacts (§13 v1.8) — no synthesis needed.
+  // ordered, de-duped types (for the filter row), with counts
+  const types = [];
+  for (const a of arts) if (!types.includes(a.artifact_type)) types.push(a.artifact_type);
+  const active = (t) => _dagListTypes === null || _dagListTypes.has(t);
+  const chips = types.map((t) => {
+    const c = dagTypeColor(t);
+    const n = arts.filter((a) => a.artifact_type === t).length;
+    const on = active(t);
+    return `<button class="dag-fchip ${on ? 'on' : 'off'}" onclick="event.stopPropagation();toggleDagListType('${esc(t)}')"`
+      + ` title="Click to ${on ? 'hide' : 'show'} ${esc(dagTypeLabel(t))} artifacts"`
+      + ` style="${on ? `border-color:${c.border};color:${c.text};background:${c.bg};` : ''}">`
+      + `${esc(dagTypeLabel(t))} <span class="dag-fchip-n">${n}</span></button>`;
+  }).join('');
+  const filterLabel = `<span class="dag-flabel">Filter by type <span class="dag-flabel-hint">— click to toggle</span></span>`;
+
+  const rows = arts.filter((a) => active(a.artifact_type)).map((a) => {
+    const c = dagTypeColor(a.artifact_type);
+    const parents = (a.derived_from || []).map((p) => esc(dagShortName(traceData._artifactMap?.[p]?.name || p))).join(', ');
+    const meta = [];
+    if (a.producer_action_id != null) meta.push(`action #${esc(String(a.producer_action_id))}`);
+    if (parents) meta.push(`← ${parents}`);
+    if (a.format) meta.push(esc(a.format));
+    // Show the id only when it differs from the (short) name — otherwise it's just repeated.
+    const nm = dagShortName(a.name || a.artifact_id);
+    const showId = a.artifact_id && a.artifact_id !== (a.name || a.artifact_id);
+    return `<tr class="dag-lrow" onclick="dagListOpen('${esc(a.artifact_id)}')" title="Show in graph">`
+      + `<td><span class="dag-ltype" style="background:${c.bg};color:${c.text};border-color:${c.border};">${esc(dagTypeLabel(a.artifact_type))}</span></td>`
+      + `<td class="dag-lname">${esc(nm)}${showId ? `<span class="dag-lid">${esc(a.artifact_id)}</span>` : ''}</td>`
+      + `<td class="dag-lmeta">${meta.join(' · ')}</td></tr>`;
+  }).join('');
+
+  const shownN = arts.filter((a) => active(a.artifact_type)).length;
+  return `<div class="dag-list">`
+    + `<div class="dag-filters">${filterLabel}${chips}<span class="dag-filters-n">${shownN} of ${arts.length}</span></div>`
+    + `<table class="dag-ltable"><tbody>${rows}</tbody></table></div>`;
+}
 // The CONNECTED COMPONENT of a node: every artifact reachable from it along `derived_from` edges in
 // EITHER direction, recursively (its ancestors AND descendants, and theirs). Used to isolate a
 // node's lineage subgraph — dim everything not connected to it.
+// The clicked node's DIRECTIONAL lineage: itself + all transitive ANCESTORS (follow parents up to the
+// roots) + all transitive DESCENDANTS (follow children down to the leaves). NOT the undirected
+// connected component — walking sideways into a parent's other children would, in a graph where
+// everything joins through shared models/results, light up the whole DAG and isolate nothing.
 function dagConnectedIds(artifactId) {
   const arts = (traceData?.artifacts || []);
   const parents = new Map();  // id -> its derived_from parents
@@ -2543,23 +2661,28 @@ function dagConnectedIds(artifactId) {
       children.get(p).push(a.artifact_id);
     }
   }
-  const seen = new Set();
-  const stack = [artifactId];
-  while (stack.length) {
-    const id = stack.pop();
-    if (seen.has(id)) continue;
-    seen.add(id);
-    for (const p of (parents.get(id) || [])) if (!seen.has(p)) stack.push(p);
-    for (const c of (children.get(id) || [])) if (!seen.has(c)) stack.push(c);
+  const keep = new Set([artifactId]);
+  const walk = (start, adj) => {           // follow ONE direction transitively
+    const stack = [start];
+    while (stack.length) {
+      const id = stack.pop();
+      for (const nxt of (adj.get(id) || [])) if (!keep.has(nxt)) { keep.add(nxt); stack.push(nxt); }
+    }
+  };
+  walk(artifactId, parents);               // ancestors (up)
+  walk(artifactId, children);              // descendants (down)
+  // If any kept node is a residual folded into the group box, keep the box too (collapsed or expanded).
+  if (_dagGroupResiduals && arts.some(a => _isResidualArt(a) && keep.has(a.artifact_id))) {
+    keep.add(RESIDUAL_GROUP_ID);
   }
-  return seen;
+  return keep;
 }
 
 // Isolate a set of artifact ids (dim everything else) — or pass null to SHOW ALL again.
 function applyDagIsolation(keep) {
   const wrap = document.getElementById('dagInner');
   if (wrap) wrap.classList.toggle('isolating', !!keep);
-  document.querySelectorAll('.dag-node').forEach(n => {
+  document.querySelectorAll('.dag-node, .dag-group').forEach(n => {
     n.classList.toggle('dag-dim', !!keep && !keep.has(n.getAttribute('data-artifact-id')));
   });
   document.querySelectorAll('.dag-edge').forEach(e => {
@@ -2579,21 +2702,494 @@ function clearDagIsolation() {
   if (d) d.style.display = 'none';
 }
 
+// --- Counterexample rendering (ported from the desktop's Counterexample.tsx) ------------------------
+// ImandraX returns a refutation as an IML module of concrete bindings; parse it into a field→value
+// table so a refutation reads as "the exact state that breaks it" instead of a wall of code.
+function _ceSplitTop(s, sep) {
+  const out = []; let depth = 0, cur = '';
+  for (const ch of s) {
+    if (ch === '{' || ch === '(' || ch === '[') depth++;
+    else if (ch === '}' || ch === ')' || ch === ']') depth--;
+    if (ch === sep && depth === 0) { out.push(cur); cur = ''; } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+function _ceParseValue(name, raw) {
+  if (raw.startsWith('{') && raw.endsWith('}')) {
+    const record = [];
+    for (const part of _ceSplitTop(raw.slice(1, -1), ';')) {
+      const eq = part.indexOf('=');
+      if (eq < 0) continue;
+      record.push({ field: part.slice(0, eq).trim(), value: part.slice(eq + 1).trim() });
+    }
+    if (record.length) return { name, record };
+  }
+  return { name, scalar: raw };
+}
+function parseCounterexample(ce) {
+  if (typeof ce !== 'string') return null;
+  let body = ce.trim();
+  const mod = body.match(/^module\s+\w+\s*=\s*struct\b([\s\S]*)\bend\s*;?\s*$/);
+  if (mod) body = mod[1];
+  const re = /\blet\s+(?:rec\s+)?([A-Za-z_]\w*)\s*=\s*/g;
+  const marks = []; let m;
+  while ((m = re.exec(body))) marks.push({ name: m[1], start: m.index, valStart: re.lastIndex });
+  if (!marks.length) return null;
+  const bindings = [];
+  for (let i = 0; i < marks.length; i++) {
+    const end = i + 1 < marks.length ? marks[i + 1].start : body.length;
+    const raw = body.slice(marks[i].valStart, end).trim().replace(/[;\s]+$/, '');
+    if (raw) bindings.push(_ceParseValue(marks[i].name, raw));
+  }
+  return bindings.length ? bindings : null;
+}
+// Counterexample as a field→value table, with a raw-text fallback (<details>) — standalone (no host).
+function counterexampleHtml(ce) {
+  const text = typeof ce === 'string' ? ce : JSON.stringify(ce, null, 2);
+  const parsed = parseCounterexample(ce);
+  if (!parsed) return `<pre class="ad-pre">${esc(text)}</pre>`;
+  let rows = '';
+  for (const b of parsed) {
+    if (b.record) {
+      rows += `<tr class="ce-tr ce-tr-rec"><td class="ce-key">${esc(b.name)}</td><td class="ce-brace">{</td></tr>`;
+      for (const f of b.record) rows += `<tr class="ce-tr ce-tr-field"><td class="ce-key ce-key-field">${esc(f.field)}</td><td class="ce-value mono">${esc(f.value)}</td></tr>`;
+      rows += `<tr class="ce-tr ce-tr-rec"><td></td><td class="ce-brace">}</td></tr>`;
+    } else {
+      rows += `<tr class="ce-tr"><td class="ce-key">${esc(b.name)}</td><td class="ce-value mono">${esc(b.scalar)}</td></tr>`;
+    }
+  }
+  return `<table class="ce-table"><tbody>${rows}</tbody></table>`
+    + `<details class="ce-raw"><summary>Show raw</summary><pre class="ad-pre">${esc(text)}</pre></details>`;
+}
+
+// The verification detail for a VG/VR artifact: property, target, verdict, and the counterexample —
+// pulling `property_name`/`target_symbol` from the parent VG when the clicked node is a VR.
+function _verificationDetailHtml(art) {
+  const p = art.payload || {};
+  let prop = p.property_name, target = p.target_symbol || p.target_function;
+  let status = p.status;
+  if (!prop || !target) {  // a VR carries status; its property/target live on the parent VG
+    for (const pid of (art.derived_from || [])) {
+      const par = traceData._artifactMap?.[pid];
+      const pp = par?.payload || {};
+      if (par?.artifact_type === 'VerificationGoal') { prop = prop || pp.property_name; target = target || pp.target_symbol || pp.target_function; }
+    }
+  }
+  const ce = p.counterexample || (p.result && (p.result.refuted?.counterexample
+    || (typeof p.result.refuted === 'string' ? p.result.refuted : null)));
+  let html = '';
+  if (prop) html += `<div class="dd-field">Property: <span class="mono">${esc(prop)}</span></div>`;
+  if (target) html += `<div class="dd-field">Target: <span class="mono">${esc(target)}</span></div>`;
+  if (status) html += `<div class="dd-field">Verdict: <span class="dd-verdict dd-v-${esc(String(status).toLowerCase())}">${esc(status)}</span></div>`;
+  if (ce) html += `<div class="dd-label">Counterexample</div>${counterexampleHtml(ce)}`;
+  return html;
+}
+
+// ---- Region map (treemap with drill-down) — self-contained port of the desktop/extension region
+// visualizer (visualize-regions.ts). The original used d3.treemap/hierarchy + d3-color from a CDN; we
+// reimplement the squarified treemap + colour scale in vanilla JS so the viewer stays offline. --------
+function _squarify(items, X, Y, W, H) {
+  const nodes = items.slice().sort((a, b) => b.value - a.value);
+  const totalV = nodes.reduce((s, n) => s + Math.max(1e-9, n.value), 0) || 1;
+  const areas = nodes.map((n) => Math.max(1e-9, n.value) * (W * H) / totalV);
+  const out = []; let free = { x: X, y: Y, w: W, h: H };
+  const worst = (row, side) => {
+    const s = row.reduce((a, b) => a + b, 0), mx = Math.max(...row), mn = Math.min(...row);
+    return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+  };
+  let idx = 0;
+  while (idx < areas.length) {
+    const side = Math.min(free.w, free.h);
+    let row = [areas[idx]], count = 1;
+    while (idx + count < areas.length) {
+      const next = row.concat(areas[idx + count]);
+      if (worst(next, side) <= worst(row, side)) { row = next; count++; } else break;
+    }
+    const rowSum = row.reduce((a, b) => a + b, 0);
+    if (free.w <= free.h) {
+      const rowH = rowSum / free.w; let cx = free.x;
+      for (let k = 0; k < row.length; k++) { const cw = row[k] / rowH; out.push({ x0: cx, y0: free.y, x1: cx + cw, y1: free.y + rowH, data: nodes[idx + k] }); cx += cw; }
+      free = { x: free.x, y: free.y + rowH, w: free.w, h: free.h - rowH };
+    } else {
+      const colW = rowSum / free.h; let cy = free.y;
+      for (let k = 0; k < row.length; k++) { const ch = row[k] / colW; out.push({ x0: free.x, y0: cy, x1: free.x + colW, y1: cy + ch, data: nodes[idx + k] }); cy += ch; }
+      free = { x: free.x + colW, y: free.y, w: free.w - colW, h: free.h };
+    }
+    idx += row.length;
+  }
+  return out;
+}
+function _rmColor(t) {  // mint → teal, matching the original palette
+  const a = [0xe9, 0xf7, 0xf1], b = [0x48, 0xb8, 0x94];
+  const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function _regionCells(art) {
+  const p = art.payload || {};
+  const grouped = p.regions || art.regions;
+  let cells = [];
+  if (Array.isArray(grouped) && grouped.length && grouped[0] && grouped[0].regions) {
+    let best = grouped[0];
+    for (const g of grouped) if ((g.regions?.length || 0) > (best.regions?.length || 0)) best = g;
+    cells = best.regions;
+  } else if (Array.isArray(grouped)) cells = grouped;
+  return (cells || []).map((r, i) => ({
+    label: r.label_path || r.labelPath || r.id || ('R' + (i + 1)),
+    invariant: r.invariant || '',
+    constraints: Array.isArray(r.constraints) ? r.constraints : [],
+    condition: r.condition || (Array.isArray(r.constraints) ? r.constraints[0] : '') || '',
+  }));
+}
+
+// Region cells from a decomposition object (the shape carried on an action's `decomposition` detail),
+// normalized to the same {label, invariant, constraints, condition} shape as _regionCells.
+function _decompCells(dec) {
+  return ((dec && dec.regions) || []).map((r, i) => ({
+    label: r.label_path || r.labelPath || r.id || ('R' + (i + 1)),
+    invariant: r.invariant || '',
+    constraints: Array.isArray(r.constraints) ? r.constraints : [],
+    condition: r.condition || (Array.isArray(r.constraints) ? r.constraints[0] : '') || '',
+  }));
+}
+
+// Compact, static treemap of region cells — the SAME squarified/coloured tiles as the full region map
+// (openRegionMap), for inline previews (e.g. an action's decomposition detail). Flat (no zoom); each
+// tile carries a native tooltip with its constraint/invariant. Replaces the old Voronoi preview.
+function _regionPreviewTreemap(container, cells, W, H) {
+  const SVGNS = 'http://www.w3.org/2000/svg', PAD = 4;
+  const svg = document.createElementNS(SVGNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.setAttribute('class', 'rmt-preview');
+  svg.setAttribute('width', '100%');
+  const items = cells.map((c) => ({ value: 1, cell: c }));
+  const m = items.length;
+  _squarify(items, PAD, PAD, W - 2 * PAD, H - 2 * PAD).forEach((t, i) => {
+    const c = t.data.cell, w = t.x1 - t.x0, h = t.y1 - t.y0;
+    const g = document.createElementNS(SVGNS, 'g');
+    const rect = document.createElementNS(SVGNS, 'rect');
+    rect.setAttribute('x', t.x0); rect.setAttribute('y', t.y0);
+    rect.setAttribute('width', Math.max(0, w)); rect.setAttribute('height', Math.max(0, h)); rect.setAttribute('rx', 4);
+    rect.setAttribute('fill', _rmColor((i + 0.5) / Math.max(1, m))); rect.setAttribute('fill-opacity', 0.9);
+    rect.setAttribute('stroke', '#c3cdd6'); rect.setAttribute('stroke-width', 1);
+    g.appendChild(rect);
+    const title = document.createElementNS(SVGNS, 'title');
+    title.textContent = `R${String(c.label).replace(/^R/, '')}`
+      + (c.invariant ? `\n${c.invariant}` : '')
+      + ((c.constraints && c.constraints.length) ? `\n${c.constraints.join(' ∧ ')}` : '');
+    g.appendChild(title);
+    if (w > 34 && h > 16) {
+      const t1 = document.createElementNS(SVGNS, 'text'); t1.setAttribute('x', t.x0 + 6); t1.setAttribute('y', t.y0 + 15);
+      t1.setAttribute('fill', '#1a1d21'); t1.setAttribute('pointer-events', 'none'); t1.setAttribute('style', 'font:600 11px ui-monospace,Menlo,monospace');
+      t1.textContent = 'R' + String(c.label).replace(/^R/, ''); g.appendChild(t1);
+      const sub = (c.constraints && c.constraints[0]) || c.condition || '';
+      if (sub && h > 30) {
+        const maxch = Math.max(3, Math.floor((w - 12) / 6));
+        const t2 = document.createElementNS(SVGNS, 'text'); t2.setAttribute('x', t.x0 + 6); t2.setAttribute('y', t.y0 + 29);
+        t2.setAttribute('fill', '#6b727b'); t2.setAttribute('pointer-events', 'none'); t2.setAttribute('style', 'font:400 9.5px ui-monospace,Menlo,monospace');
+        t2.textContent = sub.length > maxch ? sub.slice(0, maxch - 1) + '…' : sub; g.appendChild(t2);
+      }
+    }
+    svg.appendChild(g);
+  });
+  container.innerHTML = '';
+  container.appendChild(svg);
+}
+// Open the interactive region map for a Decomp artifact in a modal overlay.
+// Remove any open individual-artifact overlay (region map / verification / residual). Called before
+// opening a new one so switching between individual-view tabs (same iframe) doesn't stack overlays.
+function _closeArtifactOverlays() {
+  document.querySelectorAll('.rmap-overlay').forEach((e) => e.remove());
+}
+
+function openRegionMap(artifactId) {
+  _closeArtifactOverlays();
+  const art = traceData?._artifactMap?.[artifactId];
+  const cells = art ? _regionCells(art) : [];
+  if (!cells.length) return;
+  const SVGNS = 'http://www.w3.org/2000/svg', W = 900, H = 640, PAD = 6;
+  const seg = (l) => String(l).replace(/^R/, '').split('.');
+  const mk = (s, path, parent) => ({ seg: s, path, kids: new Map(), region: null, parent, leaves: 0 });
+  const root = mk('', [], null);
+  cells.forEach((reg) => { let n = root; seg(reg.label).forEach((s, d, arr) => { if (!n.kids.has(s)) n.kids.set(s, mk(s, arr.slice(0, d + 1), n)); n = n.kids.get(s); }); n.region = reg; });
+  (function count(n) { if (n.region) { n.leaves = 1; return 1; } let t = 0; n.kids.forEach((k) => { t += count(k); }); n.leaves = t; return t; })(root);
+  const collapse = (n) => { let x = n; while (x.kids.size === 1 && !x.region) x = x.kids.values().next().value; return x; };
+  let current = collapse(root);
+
+  const tableRows = cells.slice().sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { numeric: true }))
+    .map((r) => `<tr><td class="rmt-lbl mono">${esc(r.label)}</td>`
+      + `<td class="rmt-inv mono">${esc(r.invariant || '')}</td>`
+      + `<td class="rmt-cons mono">${(r.constraints || []).map(esc).join(' ∧ ') || '(always)'}</td></tr>`).join('');
+  const ov = document.createElement('div');
+  // Embedded in a host pane (desktop) → fill it (no backdrop/centered card), so the region map IS the
+  // artifact view rather than a modal floating over the DAG behind it.
+  ov.className = 'rmap-overlay' + (window.__ponensEmbedded ? ' rmap-embedded' : '');
+  ov.innerHTML = `<div class="rmap-modal"><div class="rmap-head">`
+    + `<span class="rmap-title">Region map — ${esc(art.name || art.artifact_id)} · ${cells.length} regions</span>`
+    + `<button class="rmap-close" title="Close (Esc)">✕</button></div>`
+    + `<div class="rmap-crumbs"></div>`
+    + `<div class="rmap-body"><svg class="rmap-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"></svg>`
+    + `<div class="rmap-detail"></div></div>`
+    + `<details class="rmap-table-wrap"><summary>All ${cells.length} regions (table)</summary>`
+    + `<table class="rmap-table"><thead><tr><th>Region</th><th>Invariant</th><th>Constraints</th></tr></thead>`
+    + `<tbody>${tableRows}</tbody></table></details></div>`;
+  document.body.appendChild(ov);
+  const chart = ov.querySelector('.rmap-chart'), detailEl = ov.querySelector('.rmap-detail'), crumbsEl = ov.querySelector('.rmap-crumbs');
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  ov.querySelector('.rmap-close').onclick = close;
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  const onKey = (e) => { if (e.key === 'Escape') { const top = collapse(root); if (current !== top) { current = top; render(); } else close(); } };
+  document.addEventListener('keydown', onKey);
+
+  const detailHtml = (label, direct, contained, constraints, invariant, isGroup) => {
+    let h = `<h3>Region ${esc(label)}</h3><div class="rmap-counts">Direct sub-regions: ${direct}</div><div class="rmap-counts">Contained regions: ${contained}</div>`;
+    if (isGroup) h += `<p class="rmap-hint">Group — double-click the tile to zoom into its sub-regions.</p>`;
+    else {
+      h += `<div class="rmap-sec">Constraints</div>`;
+      if (constraints && constraints.length) for (const c of constraints) h += `<pre>${esc(c)}</pre>`;
+      else h += `<pre>(no constraints — always)</pre>`;
+      h += `<div class="rmap-sec">Invariant</div><pre>${esc(invariant || '')}</pre>`;
+    }
+    detailEl.innerHTML = h;
+  };
+  const noSel = () => { detailEl.innerHTML = `<ul class="rmap-hintlist"><li>Solid tiles are leaf regions — click for constraints + invariant.</li><li>Dashed tiles are groups — double-click to zoom in.</li><li>Breadcrumb (or Esc) goes back up.</li></ul>`; };
+  const crumbs = () => {
+    const chain = []; let n = current; while (n) { chain.unshift(n); n = n.parent; }
+    crumbsEl.innerHTML = '';
+    chain.forEach((node, i) => {
+      const s = document.createElement('span'); s.className = 'rmap-crumb' + (node === current ? ' cur' : '');
+      s.textContent = i === 0 ? 'root' : node.seg; s.onclick = () => { current = node; render(); };
+      crumbsEl.appendChild(s);
+      if (i < chain.length - 1) { const sep = document.createElement('span'); sep.className = 'rmap-sep'; sep.textContent = '▸'; crumbsEl.appendChild(sep); }
+    });
+  };
+  const show = (reg, node) => { const cons = (reg.constraints && reg.constraints.length) ? reg.constraints : (reg.condition ? [reg.condition] : []); detailHtml('R' + node.path.join('.'), 0, 1, cons, reg.invariant, false); };
+  const showGroup = (node) => detailHtml(node.path.join('.'), node.kids.size, node.leaves, null, null, true);
+  function render() {
+    while (chart.firstChild) chart.removeChild(chart.firstChild);
+    let items = Array.from(current.kids.values()).map(collapse);
+    if (items.length === 0 && current.region) items = [current];
+    const m = items.length;
+    _squarify(items.map((n) => ({ value: Math.max(1, n.leaves), node: n })), PAD, PAD, W - 2 * PAD, H - 2 * PAD).forEach((t, i) => {
+      const node = t.data.node, isLeaf = !!node.region, w = t.x1 - t.x0, h = t.y1 - t.y0;
+      const g = document.createElementNS(SVGNS, 'g'); g.style.cursor = 'pointer';
+      const rect = document.createElementNS(SVGNS, 'rect');
+      rect.setAttribute('x', t.x0); rect.setAttribute('y', t.y0); rect.setAttribute('width', Math.max(0, w)); rect.setAttribute('height', Math.max(0, h)); rect.setAttribute('rx', 4);
+      rect.setAttribute('fill', _rmColor((i + 0.5) / Math.max(1, m))); rect.setAttribute('fill-opacity', isLeaf ? 0.9 : 0.55);
+      rect.setAttribute('stroke', '#c3cdd6'); rect.setAttribute('stroke-width', 1);
+      if (!isLeaf) rect.setAttribute('stroke-dasharray', '5 3');
+      g.appendChild(rect);
+      const lbl = 'R' + node.path.join('.');
+      if (w > 40 && h > 20) {
+        const t1 = document.createElementNS(SVGNS, 'text'); t1.setAttribute('x', t.x0 + 8); t1.setAttribute('y', t.y0 + 17);
+        t1.setAttribute('fill', '#1a1d21'); t1.setAttribute('pointer-events', 'none'); t1.setAttribute('style', 'font:600 12px ui-monospace,Menlo,monospace'); t1.textContent = lbl; g.appendChild(t1);
+        const sub = isLeaf ? ((node.region.constraints && node.region.constraints[0]) || node.region.condition || '') : ('▸ ' + node.leaves + ' regions');
+        if (sub && h > 34) {
+          const maxch = Math.max(3, Math.floor((w - 14) / 6.2));
+          const t2 = document.createElementNS(SVGNS, 'text'); t2.setAttribute('x', t.x0 + 8); t2.setAttribute('y', t.y0 + 32);
+          t2.setAttribute('fill', '#6b727b'); t2.setAttribute('pointer-events', 'none'); t2.setAttribute('style', 'font:400 10px ui-monospace,Menlo,monospace');
+          t2.textContent = sub.length > maxch ? sub.slice(0, maxch - 1) + '…' : sub; g.appendChild(t2);
+        }
+      }
+      g.addEventListener('mouseenter', () => { rect.setAttribute('fill-opacity', isLeaf ? 1 : 0.72); if (isLeaf) show(node.region, node); else showGroup(node); });
+      g.addEventListener('mouseleave', () => rect.setAttribute('fill-opacity', isLeaf ? 0.9 : 0.55));
+      g.addEventListener('click', () => { if (isLeaf) show(node.region, node); else showGroup(node); });
+      g.addEventListener('dblclick', () => { if (!isLeaf) { current = node; render(); } });
+      chart.appendChild(g);
+    });
+    crumbs(); noSel();
+  }
+  render();
+}
+
+// ---- Verification page (goals table + IML gutter + source) — ported from the desktop's
+// buildVerificationHtml. Uses the viewer's own highlightIML (no highlight.js / CDN). --------------------
+const _VP_GLYPH = { proved: '✓', refuted: '✗', unknown: '?', failed: '⚠' };
+function _imlGutterHtml(iml, goals) {
+  const statuses = (goals || []).map((g) => g.status);
+  const lines = String(iml || '').split('\n');
+  let pending = null, vi = 0;
+  const rows = lines.map((line, i) => {
+    const cm = line.match(/\(\*\s*\b(PROVED|REFUTED|UNKNOWN|FAILED)\b/i);
+    if (cm) pending = cm[1].toLowerCase();
+    let mark = '';
+    if (/^\s*verify\b/.test(line)) { mark = pending || statuses[vi] || 'unknown'; pending = null; vi += 1; }
+    return `<tr><td class="vp-gmark ${mark}" title="${mark}">${mark ? (_VP_GLYPH[mark] || '') : ''}</td>`
+      + `<td class="vp-gnum">${i + 1}</td>`
+      + `<td class="vp-gcode">${highlightIML(line) || ' '}</td></tr>`;
+  }).join('');
+  return `<table class="vp-gutter"><tbody>${rows}</tbody></table>`;
+}
+// Open the verification page for a VerificationResult artifact whose payload carries {goals, iml, code}.
+function openVerification(artifactId) {
+  _closeArtifactOverlays();
+  const art = traceData?._artifactMap?.[artifactId];
+  const p = (art && art.payload) || {};
+  const goals = p.goals || [];
+  const fn = p.target_symbol || p.target_function || (art && art.name) || '';
+  const proved = goals.filter((g) => g.status === 'proved').length;
+  const badge = (s) => `<span class="vp-vb ${s}">${({ proved: '✓ proved', refuted: '✗ refuted', unknown: '? unknown', failed: '⚠ failed' })[s] || esc(s)}</span>`;
+  const anyCe = goals.some((g) => g.counterexample);
+  const rows = goals.map((g) => `<tr><td class="vp-prop">${esc(g.label)}</td><td>${badge(g.status)}</td>`
+    + (anyCe ? `<td>${g.counterexample ? counterexampleHtml(g.counterexample) : ''}</td>` : '') + `</tr>`).join('');
+  const table = goals.length
+    ? `<table class="vp-goals"><thead><tr><th>Property</th><th>Verdict</th>${anyCe ? '<th>Counterexample</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`
+    : '<div class="vp-empty">No verification goals.</div>';
+  const imlBlock = p.iml ? `<div class="vp-sec">Model &amp; proofs (IML)</div><div class="vp-scroll">${_imlGutterHtml(p.iml, goals)}</div>` : '';
+  const codeBlock = p.code ? `<div class="vp-sec">Original code</div><pre class="vp-pre">${esc(p.code)}</pre>` : '';
+
+  const ov = document.createElement('div');
+  ov.className = 'rmap-overlay' + (window.__ponensEmbedded ? ' rmap-embedded' : '');
+  ov.innerHTML = `<div class="rmap-modal"><div class="rmap-head">`
+    + `<span class="rmap-title">Verification — ${esc(fn)}${goals.length ? ` · ${proved}/${goals.length} proved` : ''}</span>`
+    + `<button class="rmap-close" title="Close (Esc)">✕</button></div>`
+    + `<div class="vp-body">${table}${imlBlock}${codeBlock}</div></div>`;
+  document.body.appendChild(ov);
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  ov.querySelector('.rmap-close').onclick = close;
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+}
+
+// The full individual view for a Residual artifact (declared negative space) — the residual's own
+// page: severity/status/kind, the gap statement, how to close it, where it bites, and what it touches.
+// Mirrors openRegionMap / openVerification so the desktop can host it in its own tab.
+function openResidual(artifactId) {
+  _closeArtifactOverlays();
+  const art = traceData?._artifactMap?.[artifactId];
+  const r = (traceData?.residuals || []).find((x) => x.residual_id === artifactId)
+    || (art ? _artifactToResidual(art) : null);
+  if (!r) return;
+  const col = dagTypeColor('Residual');
+  const sev = (r.severity || 'info').toLowerCase();
+  const sevColor = { critical: 'var(--red)', high: '#f59e0b', medium: '#eab308', low: 'var(--text-muted)', info: 'var(--text-dim)' }[sev] || 'var(--text-dim)';
+  const status = (r.status || 'open').toLowerCase();
+  const statusColor = { open: '#eab308', acknowledged: '#3b82f6', addressed: 'var(--green)', waived: 'var(--text-muted)' }[status] || 'var(--text-dim)';
+  const kindLabel = { assumption: 'Assumption', unverified: 'Unverified claim', out_of_scope: 'Out of scope', limitation: 'Limitation', open_question: 'Open question', stale_evidence: 'Stale evidence' }[r.kind] || r.kind || 'Residual';
+  const chip = (txt, c) => `<span class="rp-chip" style="color:${c};border-color:${c};">${esc(txt)}</span>`;
+
+  let body = `<div class="rp-badges">${chip(sev.toUpperCase(), sevColor)}${chip(status, statusColor)}${chip(kindLabel, col.text)}`
+    + (r.source ? chip(String(r.source).replace(/_/g, ' '), 'var(--text-dim)') : '')
+    + (r.derived ? chip('derived', 'var(--text-muted)') : '') + `</div>`;
+  if (r.statement) body += `<div class="rp-stmt">${esc(r.statement)}</div>`;
+  if (r.suggested_check) body += `<div class="rp-sec">How to close it</div><div class="rp-check">${esc(r.suggested_check)}</div>`;
+  if (r.rationale) body += `<div class="rp-sec">Rationale</div><div class="rp-field">${esc(r.rationale)}</div>`;
+  if (r.justification) body += `<div class="rp-sec">${status === 'waived' ? 'Waiver' : 'Resolution'}</div><div class="rp-field">${esc(r.justification)}</div>`;
+
+  // Where it bites + what it touches — the artifacts this gap anchors to.
+  const anchors = [];
+  if (r.target && r.target.target_type === 'artifact' && r.target.target_id) anchors.push(r.target.target_id);
+  for (const id of (r.related_artifact_ids || [])) if (!anchors.includes(id)) anchors.push(id);
+  if (anchors.length) {
+    const clickable = !window.__ponensEmbedded;   // standalone: jump back into the graph; embedded: host owns nav
+    const links = anchors.map((id) => {
+      const a = traceData?._artifactMap?.[id];
+      const label = (a && (a.name || id)) || id;
+      return clickable
+        ? `<button class="rp-anchor" data-id="${esc(id)}" title="Show ${esc(label)} in the graph">${esc(label)}</button>`
+        : `<span class="rp-anchor rp-anchor-static">${esc(label)}</span>`;
+    }).join('');
+    body += `<div class="rp-sec">Where it bites</div><div class="rp-anchors">${links}</div>`;
+  }
+  if (r.introduced_by_action_id != null) body += `<div class="rp-meta">Introduced at step #${esc(String(r.introduced_by_action_id))}</div>`;
+
+  const ov = document.createElement('div');
+  ov.className = 'rmap-overlay' + (window.__ponensEmbedded ? ' rmap-embedded' : '');
+  ov.innerHTML = `<div class="rmap-modal"><div class="rmap-head">`
+    + `<span class="rmap-title" style="color:${col.text};">Residual — ${esc(r.residual_id)}</span>`
+    + `<button class="rmap-close" title="Close (Esc)">✕</button></div>`
+    + `<div class="rp-body">${body}</div></div>`;
+  document.body.appendChild(ov);
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  ov.querySelector('.rmap-close').onclick = close;
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelectorAll('.rp-anchor[data-id]').forEach((b) => {
+    b.onclick = () => { close(); switchView('dag'); selectDAGNode(b.getAttribute('data-id')); };
+  });
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+}
+
+// The decomposition detail for a Decomp artifact: each region's invariant + constraints (the concrete
+// "edge cases"). Reads the grouped `regions: [{function, count, regions:[…]}]` shape (same as the
+// desktop region map); falls back to just the region count. The full 2D region map is a larger port.
+function _decompDetailHtml(art) {
+  const p = art.payload || {};
+  const grouped = p.regions || art.regions;
+  let cells = [], fn = p.target_symbol || p.target_function || '';
+  if (Array.isArray(grouped) && grouped.length) {
+    let best = grouped[0];
+    for (const g of grouped) if ((g.regions?.length || 0) > (best.regions?.length || 0)) best = g;
+    fn = best.function || fn;
+    cells = Array.isArray(best.regions) ? best.regions : [];
+  } else if (Array.isArray(grouped)) {
+    cells = grouped;  // tolerate a flat regions array
+  }
+  const count = p.region_count || p.regions_count || cells.length;
+  let html = '';
+  if (fn) html += `<div class="dd-field">Function: <span class="mono">${esc(fn)}</span></div>`;
+  if (count) html += `<div class="dd-field">Regions: <span>${esc(String(count))}</span></div>`;
+  if (cells.length) {
+    html += `<div style="margin:8px 0 4px;"><button class="rmap-open-btn" onclick="event.stopPropagation();openRegionMap('${esc(art.artifact_id)}')">◲ Region map →</button></div>`;
+  }
+  if (cells.length) {
+    html += `<div class="dd-label">Regions (edge cases)</div><div class="rg-list">`;
+    cells.forEach((r, i) => {
+      const label = r.label_path || r.labelPath || r.id || ('R' + (i + 1));
+      const cons = Array.isArray(r.constraints) ? r.constraints : [];
+      html += `<div class="rg-cell"><div class="rg-head">${esc(label)}</div>`;
+      if (r.invariant) html += `<div class="rg-inv mono">${esc(r.invariant)}</div>`;
+      if (cons.length) html += `<ul class="rg-cons">${cons.map((c) => `<li class="mono">${esc(c)}</li>`).join('')}</ul>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+  return html;
+}
+
 function selectDAGNode(artifactId) {
   _selectedDAGNode = artifactId;
   document.querySelectorAll('.dag-node.selected').forEach(n => n.classList.remove('selected'));
   const node = document.querySelector(`.dag-node[data-artifact-id="${artifactId}"]`);
   if (node) node.classList.add('selected');
-  // Isolate this node's lineage subgraph (its connected component) — dim everything else.
-  applyDagIsolation(dagConnectedIds(artifactId));
 
   // Check if it's a reference model
   const refModel = (traceData?.reference_models || []).find(rm => rm.reference_model_id === artifactId);
-  const art = refModel ? null : traceData._artifactMap?.[artifactId];
+  // Residual (declared gap): a first-class 'Residual' artifact — render its payload as gap detail
+  // rather than the generic artifact panel. (traceData.residuals is the projected surface.)
+  const residual = (traceData?.residuals || []).find(r => r.residual_id === artifactId);
+  const art = (refModel || residual) ? null : traceData._artifactMap?.[artifactId];
 
-  if (!art && !refModel) return;
+  // Isolate the clicked node's lineage. A residual isn't in the artifact graph, so isolate on the
+  // artifact it targets (its lineage) plus the residual node itself.
+  if (residual) {
+    const tgt = residual.target?.target_type === 'artifact' ? residual.target.target_id : (residual.related_artifact_ids || [])[0];
+    const keep = tgt ? dagConnectedIds(tgt) : new Set();
+    keep.add(artifactId);
+    applyDagIsolation(keep);
+  } else {
+    applyDagIsolation(dagConnectedIds(artifactId));
+  }
+
+  if (!art && !refModel && !residual) return;
   const detail = document.getElementById('dagDetail');
   detail.style.display = '';
+
+  if (residual) {
+    const col = dagTypeColor('Residual');
+    const sev = residual.severity || 'info';
+    const sevColor = { critical: 'var(--red)', high: '#f59e0b', medium: '#eab308', low: 'var(--text-muted)', info: 'var(--text-dim)' }[sev] || 'var(--text-dim)';
+    let h = `<h3 style="color:${col.text};">${esc(residual.kind || 'residual')}</h3>`;
+    h += `<div class="dd-field"><span class="dn-type" style="background:${col.border}33;color:${col.text};display:inline-block;margin-bottom:4px;">Residual</span></div>`;
+    h += `<div class="dd-field">Severity: <span class="dd-verdict" style="color:${sevColor};border:1px solid ${sevColor};border-radius:5px;padding:1px 6px;">${esc(sev)}</span></div>`;
+    h += `<div class="dd-field">Status: <span>${esc(residual.status || 'open')}</span></div>`;
+    if (residual.statement) h += `<div class="dd-field" style="margin-top:6px;">${esc(residual.statement)}</div>`;
+    if (residual.suggested_check) { h += `<div class="dd-label">Suggested check</div><div class="dd-field">${esc(residual.suggested_check)}</div>`; }
+    detail.innerHTML = h;
+    return;
+  }
 
   if (refModel) {
     // Render reference model detail
@@ -2639,6 +3235,15 @@ function selectDAGNode(artifactId) {
   if (art.format) html += `<div class="dd-field">Format: <span>${esc(art.format)}</span></div>`;
   if (art.producer_action_id != null) html += `<div class="dd-field" style="display:flex;align-items:center;gap:6px;">Producer: <span>Action #${art.producer_action_id}</span> <button onclick="event.stopPropagation();switchView('flow');selectAction(${art.producer_action_id});document.querySelector('.action-card[data-action-id=&quot;${art.producer_action_id}&quot;]')?.scrollIntoView({behavior:'smooth',block:'center'});" style="background:var(--bg-deep);border:1px solid var(--accent);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;">View in Flow \u2192</button></div>`;
   if (art.summary) html += `<div class="dd-field" style="margin-top:6px;">${esc(art.summary)}</div>`;
+
+  // Rich verification detail in-viewer (property / target / verdict / counterexample) — so the
+  // standalone viewer shows it too, not only the desktop host via __ponensOpenResult.
+  if (['VerificationResult', 'VerificationGoal'].includes(art.artifact_type)) {
+    html += _verificationDetailHtml(art);
+  }
+  if (['Decomp', 'Decomposition'].includes(art.artifact_type)) {
+    html += _decompDetailHtml(art);
+  }
 
   // Host embedding (desktop): action buttons. "View result" opens the RICH per-type view (region
   // map / verification / counterexample) for result artifacts; "Open file" opens the raw artifact.
@@ -2717,7 +3322,7 @@ function renderFunnelView() {
   }
 
   const stages = [
-    { label: 'Formalizations', count: formalizations.length, color: '#7c3aed', icon: '\u{1F4D0}' },
+    { label: 'Formal Model', count: formalizations.length, color: '#7c3aed', icon: '\u{1F4D0}' },
     { label: 'Goals Defined', count: vgDefs.length, color: '#6366f1', icon: '\u{1F3AF}' },
     { label: 'Verifications', count: verifications.length, color: '#22c55e', icon: '\u{2696}\uFE0F' },
     { label: 'Edge Cases', count: decompositions.length, color: '#eab308', icon: '\u{1F9E9}' },
@@ -2800,7 +3405,7 @@ function renderFunnelView() {
 
   // Reasoning steps list with links to Flow
   const stageGroups = [
-    { label: 'Formalizations', actions: formalizations, color: 'var(--purple)' },
+    { label: 'Formal Model', actions: formalizations, color: 'var(--purple)' },
     { label: 'Goals Defined', actions: vgDefs, color: 'var(--accent)' },
     { label: 'Verifications', actions: verifications, color: 'var(--green)' },
     { label: 'Edge Cases', actions: decompositions, color: 'var(--yellow-bright)' },
@@ -2986,6 +3591,96 @@ function renderGradeView() {
 // INLINED here at build time (viewer/build.mjs), so the same source is import-tested for parity with
 // the CLI's Python `faithfulness_of` (parity/check_faithfulness_parity.py). Do not redefine it here.
 
+// A radial progress gauge (ported from the desktop's ProgressRing).
+function _progressRing(pct) {
+  const r = 21, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+  return `<svg class="goal-ring" width="54" height="54" viewBox="0 0 54 54" aria-hidden="true">`
+    + `<circle cx="27" cy="27" r="${r}" fill="none" stroke="var(--border)" stroke-width="5"/>`
+    + `<circle cx="27" cy="27" r="${r}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"`
+    + ` stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 27 27)"/>`
+    + `<text x="27" y="31" text-anchor="middle" class="goal-ring-t">${pct}%</text></svg>`;
+}
+
+// "Needs your attention": blocked criteria + high-severity open residuals (issues), then medium/low
+// residuals + unchecked criteria + uncovered intent clauses (recommendations). Ported from GoalHome.
+function _goalAttentionHtml(g) {
+  const norm = (s) => String(s || 'todo').toLowerCase().replace(/^accept/, '');
+  const acc = g.acceptance || [];
+  const f = goalFaithfulnessV(g);
+  const residuals = (traceData?.residuals || []).filter((r) => !r.status || r.status === 'open');
+  const labelOf = (a) => a.statement || a.label || (a.component && (a.component.function || a.component.symbol)) || a.id;
+  const attn = [];
+  for (const it of acc) if (norm(it.status) === 'blocked') {
+    const ev = it.evidence_ref || (typeof it.evidence === 'string' ? it.evidence : null);
+    attn.push({ tone: 'issue', glyph: '⚠', text: `Issue: ${labelOf(it)}`, ev });
+  }
+  for (const r of residuals) { const s = (r.severity || '').toLowerCase(); if (['critical', 'high', 'error'].includes(s)) attn.push({ tone: 'issue', glyph: '⚠', text: r.statement || r.suggested_check || r.kind || 'open item', rid: r.residual_id }); }
+  for (const r of residuals) { const s = (r.severity || '').toLowerCase(); if (['critical', 'high', 'error'].includes(s)) continue; attn.push({ tone: 'rec', glyph: '○', text: 'Recommended: ' + (r.suggested_check || r.statement || r.kind || 'open item'), rid: r.residual_id }); }
+  for (const it of acc) if (norm(it.status) === 'todo') attn.push({ tone: 'rec', glyph: '○', text: 'Recommended: verify ' + labelOf(it) });
+  for (const c of (f.uncovered || [])) attn.push({ tone: 'issue', glyph: '⚠', text: `Intent not covered by any requirement: "${c}"` });
+  if (!attn.length) return '';
+  const shown = attn.slice(0, 5);
+  const rows = shown.map((a) => {
+    const click = a.ev ? `onclick="switchView('dag');selectDAGNode('${esc(a.ev)}')"` : a.rid ? `onclick="openModal('residuals')"` : '';
+    return `<li class="gh-attn-item tone-${a.tone}${(a.ev || a.rid) ? ' clickable' : ''}" ${click}><span class="gh-attn-glyph">${a.glyph}</span><span class="gh-attn-text">${esc(a.text)}</span></li>`;
+  }).join('');
+  const more = attn.length > shown.length ? `<li class="gh-attn-more">+${attn.length - shown.length} more</li>` : '';
+  return `<div class="gh-attn-title">Needs your attention <span class="gh-count">${attn.length}</span></div><ul class="gh-attn">${rows}${more}</ul>`;
+}
+
+// Goal graph (ported from GoalGraph.tsx): a shallow goal → criteria → evidence/residual DAG. Nodes are
+// absolutely-positioned; edges drawn in an SVG layer. Evidence opens in the Artifacts view.
+function renderGoalGraphHtml(g) {
+  const norm = (s) => String(s || 'todo').toLowerCase().replace(/^accept/, '');
+  const acc = g.acceptance || [];
+  if (!acc.length) return '<div class="gg-empty">No acceptance criteria to graph.</div>';
+  const artById = new Map((traceData?.artifacts || []).map((a) => [a.artifact_id, a]));
+  const resById = new Map((traceData?.residuals || []).map((r) => [r.residual_id, r]));
+  const EV_LABEL = { VerificationResult: 'Verified', VerificationGoal: 'Goal', IMLModel: 'Formal Model', SourceCode: 'Source', Diff: 'Edit', GeneratedTests: 'Tests', Tests: 'Tests', StateSpaceAnalysisResult: 'Regions', Decomposition: 'Regions', Decomp: 'Regions', ConformanceResult: 'Fidelity', CommandResult: 'Command', AnalysisNote: 'Note', Commit: 'Commit' };
+  const evColor = (t) => dagTypeColor(t).border;
+  const clip = (s, n = 40) => (s && s.length > n ? s.slice(0, n - 1) + '…' : (s || ''));
+  const nodes = acc.map((it) => {
+    const status = norm(it.status);
+    const evId = it.evidence_ref || (typeof it.evidence === 'string' ? it.evidence : null);
+    const b = it.binding || {};
+    const rid = b.residual_id || b.residualId || null;
+    const kind = it.kind || (it.evidence && typeof it.evidence === 'object' && (it.evidence.artifact || it.evidence.artifact_type)) || 'criterion';
+    const label = it.statement || it.label || (it.component && (it.component.function || it.component.symbol)) || it.id;
+    return { id: it.id, kind, label, status, ev: evId ? artById.get(evId) : null, residual: rid ? resById.get(rid) : null };
+  });
+  const PAD = 10, GOAL_W = 190, GOAL_H = 84, CRIT_W = 230, NODE_H = 48, ROW_GAP = 14, EV_W = 182, COL_GAP = 40;
+  const critX = PAD + GOAL_W + COL_GAP, evX = critX + CRIT_W + COL_GAP;
+  const height = PAD * 2 + nodes.length * NODE_H + (nodes.length - 1) * ROW_GAP;
+  const width = evX + EV_W + PAD;
+  const critTop = (i) => PAD + i * (NODE_H + ROW_GAP);
+  const critCY = (i) => critTop(i) + NODE_H / 2;
+  const goalCY = height / 2;
+  const edge = (x1, y1, x2, y2) => { const mx = (x1 + x2) / 2; return `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`; };
+  let edges = '';
+  nodes.forEach((n, i) => {
+    const done = n.status === 'done', blocked = n.status === 'blocked' || (n.residual && n.residual.status !== 'addressed');
+    const cls = 'gg-edge' + (done ? ' done' : blocked ? ' blocked' : '');
+    edges += `<path class="${cls}" d="${edge(PAD + GOAL_W, goalCY, critX, critCY(i))}"/>`;
+    if (n.ev || n.residual) edges += `<path class="${cls}" d="${edge(critX + CRIT_W, critCY(i), evX, critCY(i))}"/>`;
+  });
+  let h = `<div class="gg" style="width:${width}px;height:${height}px;">`;
+  h += `<svg class="gg-edges" width="${width}" height="${height}">${edges}</svg>`;
+  h += `<div class="gg-node gg-goal" style="left:${PAD}px;top:${goalCY - GOAL_H / 2}px;width:${GOAL_W}px;height:${GOAL_H}px;"><div class="gg-goal-pct">${Math.round((g.progress || 0) * 100)}%</div><div class="gg-goal-intent" title="${esc(g.intent || '')}">${esc(clip(g.intent || '(goal)', 62))}</div></div>`;
+  nodes.forEach((n, i) => {
+    h += `<div class="gg-node gg-crit st-${n.status}" style="left:${critX}px;top:${critTop(i)}px;width:${CRIT_W}px;height:${NODE_H}px;"><span class="gi-kind">${esc(n.kind)}</span><span class="gg-crit-label" title="${esc(n.label)}">${esc(clip(n.label))}</span></div>`;
+    if (n.ev) {
+      const col = evColor(n.ev.artifact_type);
+      h += `<div class="gg-node gg-ev" style="left:${evX}px;top:${critTop(i)}px;width:${EV_W}px;height:${NODE_H}px;border-left-color:${col};" onclick="switchView('dag');selectDAGNode('${esc(n.ev.artifact_id)}')" title="Open ${esc(n.ev.name || n.ev.artifact_id)} in Artifacts"><span class="gg-ev-dot" style="background:${col}"></span><span class="gg-ev-body"><span class="gg-ev-type">${esc(EV_LABEL[n.ev.artifact_type] || n.ev.artifact_type)}</span><span class="gg-ev-name">${esc(clip(n.ev.name || n.ev.artifact_id, 26))}</span></span></div>`;
+    } else if (n.residual) {
+      h += `<div class="gg-node gg-ev gg-gap" style="left:${evX}px;top:${critTop(i)}px;width:${EV_W}px;height:${NODE_H}px;" onclick="openModal('residuals')" title="${esc(n.residual.statement || 'open gap')}"><span class="gg-ev-dot gg-gap-dot"></span><span class="gg-ev-body"><span class="gg-ev-type">gap${n.residual.severity ? ' · ' + esc(n.residual.severity) : ''}</span><span class="gg-ev-name">${esc(clip(n.residual.kind || 'open', 26))}</span></span></div>`;
+    } else if (n.status !== 'done') {
+      h += `<div class="gg-node gg-ev gg-pending" style="left:${evX}px;top:${critTop(i)}px;width:${EV_W}px;height:${NODE_H}px;"><span class="gg-ev-dot gg-pending-dot"></span><span class="gg-ev-body"><span class="gg-ev-type">no evidence yet</span></span></div>`;
+    }
+  });
+  h += `</div>`;
+  return h;
+}
+
 function renderGoalsView() {
   const el = document.getElementById('view-goals');
   const goals = traceData?.goals || [];
@@ -3006,17 +3701,32 @@ function renderGoalsView() {
     const f = goalFaithfulnessV(g);
     const accHtml = acc.map((a) => {
       const st = norm(a.status);
+      // Typed Goal-Contract criterion: component + evidence:{artifact}. Legacy: kind + label + evidence(id).
+      const comp = a.component && (a.component.function || a.component.function_ || a.component.symbol);
+      const artType = a.evidence && typeof a.evidence === 'object' && (a.evidence.artifact || a.evidence.artifact_type || a.evidence.type);
+      const kind = a.kind || artType || 'criterion';
+      const label = a.statement || a.label || (comp ? `${comp}` : '');
+      // The resolved evidence pointer is a STRING (legacy `evidence`, or typed `evidence_ref`); never the spec object.
+      const evRef = a.evidence_ref || (typeof a.evidence === 'string' ? a.evidence : null);
       return `<li class="goal-acc-item ga-${st}">`
         + `<span class="goal-acc-glyph">${glyph[st] || '○'}</span>`
-        + `<span class="goal-acc-kind gk-${esc(a.kind)}">${esc(a.kind)}</span>`
-        + `<span class="goal-acc-label">${esc(a.label || '')}</span>`
+        + `<span class="goal-acc-kind gk-${esc(kind)}">${esc(kind)}</span>`
+        + `<span class="goal-acc-label">${esc(label)}</span>`
         + (a.author ? `<span class="goal-acc-author" title="Authored by the ${esc(a.author)}">${esc(a.author)}</span>` : '')
-        + (a.evidence ? `<span class="goal-acc-ev goal-acc-ev-link" title="Open the evidence (${esc(String(a.evidence))})" onclick="event.stopPropagation();openGoalEvidence('${esc(String(a.evidence))}')">${esc(String(a.evidence))}</span>` : '')
+        + (evRef ? `<span class="goal-acc-ev goal-acc-ev-link" title="Open the evidence (${esc(evRef)})" onclick="event.stopPropagation();openGoalEvidence('${esc(evRef)}')">${esc(evRef)}</span>` : '')
         + `</li>`;
     }).join('');
     // The "met vs certified" pair — two orthogonal axes. Met = criteria resolved from evidence;
     // certified = a reviewer confirmed those were the RIGHT criteria (a different principal).
     const metBadge = `<span class="gf-badge ${f.met ? 'gf-ok' : 'gf-pend'}" title="All required acceptance criteria resolved from the trace's own evidence.">${f.met ? '✓' : '○'} ${f.met ? 'Met' : 'Not yet met'}</span>`;
+    // Governed = the goal's own policies held over its cone (Goal Contract). Only shown when the goal
+    // declares policies (enrich sets g.governed to true/false; absent means none declared).
+    const govFail = (g.governance || []).filter((e) => e.status === 'failed').map((e) => e.name || e.policy_id);
+    const govBadge = (g.governed === true)
+      ? `<span class="gf-badge gf-ok" title="The policies this goal is subject to held over its relevance cone.">✓ Governed</span>`
+      : (g.governed === false)
+        ? `<span class="gf-badge gf-fail" title="A policy the goal is subject to failed: ${esc(govFail.join(', ') || 'see the Policies tab')}.">✗ Not governed</span>`
+        : '';
     const certBadge = f.certified
       ? `<span class="gf-badge gf-cert" title="A reviewer (${esc(String(f.reviewer))}) confirmed the definition of done faithfully captures the intent.">✓ Certified · reviewed by ${esc(String(f.reviewer))}</span>`
       : (f.met ? `<span class="gf-badge gf-warn" title="Requirements are met, but the same party that met the goal also defined it. A non-doer should confirm the criteria are the right ones.">○ Not certified — self-authored bar</span>` : '');
@@ -3024,13 +3734,11 @@ function renderGoalsView() {
       ? `<span class="gf-seam" title="The seam: the intent is the user's; the acceptance criteria are the agent's formalization of it.">intent: ${esc(String(f.intentAuthor))} → criteria: agent</span>`
       : '';
     const warns = [];
-    if (f.weak) warns.push(`<div class="gf-warn-row">⚠ Weakly specified — no proof or policy backs this goal's “done”.</div>`);
     for (const c of f.uncovered) warns.push(`<div class="gf-warn-row">⚠ Intent not covered by any requirement: “${esc(c)}”.</div>`);
-    const faithHtml = `<div class="goal-faith">${metBadge}${certBadge}${seam}</div>${warns.join('')}`;
+    const faithHtml = `<div class="goal-faith">${metBadge}${govBadge}${certBadge}${seam}</div>${warns.join('')}`;
     html += `<div class="goal-block">`
       + `<div class="goal-block-head">`
-      + `<div class="goal-prog"><div class="goal-prog-bar" style="width:${pct}%"></div></div>`
-      + `<div class="goal-prog-pct">${pct}%</div>`
+      + _progressRing(pct)
       + `<div class="goal-block-text">`
       + `<div class="goal-block-intent">${esc(g.intent || '(untitled goal)')}</div>`
       + `<div class="goal-block-meta">${doneN}/${acc.length} done`
@@ -3040,7 +3748,10 @@ function renderGoalsView() {
       + ((g.scope || []).length ? `<div class="goal-scopes">${g.scope.map((s) => `<span class="goal-scope-chip">${esc(s)}</span>`).join('')}</div>` : '')
       + `</div></div>`
       + faithHtml
+      + _goalAttentionHtml(g)
+      + `<div class="goal-section-t">What must be true</div>`
       + `<ul class="goal-acc">${accHtml}</ul>`
+      + (acc.length ? `<details class="goal-graph-wrap"><summary>How this was checked — goal graph</summary>${renderGoalGraphHtml(g)}</details>` : '')
       + `</div>`;
   }
   html += '</div>';
@@ -3055,6 +3766,67 @@ function selectPolicy(policyId) {
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   setTimeout(() => card.classList.remove('highlight'), 1500);
 }
+
+// Navigate from a policy citation to the actual object: the action (Flow) or artifact (Artifacts DAG).
+// In a host embedding (desktop) a single pane is pinned to the policy view, so defer to the host hook
+// __ponensNavigate to open the right sibling pane; standalone we switch view + select in place.
+function policyGoto(kind, id) {
+  if (typeof window.__ponensNavigate === 'function') { window.__ponensNavigate(kind, id); return; }
+  if (kind === 'action') { switchView('flow'); selectAction(id); }
+  else { switchView('dag'); selectDAGNode(id); }
+}
+
+// A clickable action citation (#7) in a policy card.
+function _pcActionLink(id) {
+  return `<span class="pc-link" onclick="event.stopPropagation();policyGoto('action',${JSON.stringify(id)})">#${esc(String(id))}</span>`;
+}
+
+// Readable, clickable label for an artifact/residual id cited by a policy evaluation — its name (id as
+// tooltip) so a violation reads "Violates: tests" and clicking it jumps to that node.
+function _pcArtLabel(id) {
+  const a = traceData?._artifactMap?.[id];
+  const name = a && (a.name || (a.payload && a.payload.statement));
+  const text = name ? esc(name) : esc(id);
+  return `<span class="pc-link" title="${esc(id)}" onclick="event.stopPropagation();policyGoto('artifact',${JSON.stringify(id)})">${text}</span>`;
+}
+
+// Friendly label + explanatory tooltip for a policy's scope (what it quantifies over) and kind (the
+// category of obligation). The tooltip names THIS value AND enumerates the other possibilities, so a
+// reader learns the whole vocabulary on hover. Matched by value with underscores stripped, so both
+// the snake-case (`trace_invariant`) and schema CamelCase (`TraceInvariant`/`TraceScope`) forms resolve.
+const _SCOPE_DEFS = [
+  { keys: ['trace', 'tracescope'], label: 'Whole trace', desc: 'holds across the entire run (session)' },
+  { keys: ['action', 'actionscope'], label: 'Per-action', desc: 'checked at each matching step' },
+  { keys: ['artifact', 'artifactscope'], label: 'Per-artifact', desc: 'about individual artifacts (models, results, tests, diffs…)' },
+  { keys: ['module', 'modulescope'], label: 'Per-module', desc: 'about a code module / high-stakes path (e.g. payments)' },
+];
+const _KIND_DEFS = [
+  { keys: ['traceinvariant'], label: 'Invariant', desc: 'must always hold' },
+  { keys: ['approvalrequirement'], label: 'Approval', desc: 'requires explicit sign-off' },
+  { keys: ['reasoningrequirement'], label: 'Reasoning', desc: 'requires formal reasoning before an action' },
+  { keys: ['lineagerequirement'], label: 'Lineage', desc: 'requires specific provenance in an artifact’s lineage' },
+  { keys: ['referenceintegrity'], label: 'References', desc: 'requires references to resolve to real artifacts' },
+  { keys: ['conformancerequirement'], label: 'Conformance', desc: 'requires the model to match the code (fidelity)' },
+  { keys: ['structural'], label: 'Structural', desc: 'checked by a structural evaluator, not a temporal formula' },
+];
+function _policyMeta(defs, val, noun) {
+  const norm = String(val || '').toLowerCase().replace(/_/g, '');
+  const cur = defs.find((d) => d.keys.includes(norm));
+  const label = cur ? cur.label : (val || '—');
+  const head = cur
+    ? `<b>${esc(cur.label)}</b> — ${esc(cur.desc)}`
+    : `<b>${esc(val || 'unknown')}</b>`;
+  const others = defs.filter((d) => d !== cur)
+    .map((d) => `<span class="pc-tip-li"><b>${esc(d.label)}</b> — ${esc(d.desc)}</span>`).join('');
+  // A block of inline spans (valid inside the chip's <span>); styled as a bulleted list by CSS.
+  const tipHtml = `<span class="pc-tip-noun">${esc(noun)}</span>`
+    + `<span class="pc-tip-head">${head}</span>`
+    + `<span class="pc-tip-sub">Other ${esc(noun.toLowerCase())}s</span>`
+    + others;
+  return { label, tipHtml };
+}
+function _policyScope(s) { return _policyMeta(_SCOPE_DEFS, s, 'Scope'); }
+function _policyKind(k) { return _policyMeta(_KIND_DEFS, k, 'Kind'); }
 
 function renderPolicyView() {
   const el = document.getElementById('view-policy');
@@ -3137,24 +3909,23 @@ function renderPolicyView() {
       const statusIcon = status === 'passed' ? '\u2705' : status === 'failed' ? '\u274C' : status === 'not_applicable' ? '\u2796' : '\u2753';
       const hasDef = p.applies_when || p.formula || p.formal_src;
 
-      html += `<div class="policy-card" data-policy-id="${esc(p.policy_id)}" onclick="this.classList.toggle('expanded')">
+      html += `<div class="policy-card expanded" data-policy-id="${esc(p.policy_id)}">
         <div class="pc-icon">${statusIcon}</div>
         <div class="pc-body">
           <div class="pc-name">${esc(p.name)}</div>
           ${p.description ? `<div class="pc-desc">${esc(p.description)}</div>` : ''}
           <div class="pc-meta">
-            <span class="pc-tag scope">${esc(p.scope)}</span>
-            <span class="pc-tag kind">${esc(p.kind)}</span>
+            ${p.scope ? (m => `<span class="pc-meta-item"><span class="pc-meta-label">Scope</span><span class="pc-tag scope">${esc(m.label)}<span class="pc-tip">${m.tipHtml}</span></span></span>`)(_policyScope(p.scope)) : ''}
+            ${p.kind ? (m => `<span class="pc-meta-item"><span class="pc-meta-label">Kind</span><span class="pc-tag kind">${esc(m.label)}<span class="pc-tip">${m.tipHtml}</span></span></span>`)(_policyKind(p.kind)) : ''}
           </div>
           ${ev?.note ? `<div class="pc-note">${esc(ev.note)}</div>` : ''}
-          ${ev?.evidence_action_ids?.length ? `<div class="pc-evidence">Evidence: actions ${ev.evidence_action_ids.map(id => '#' + id).join(', ')}</div>` : ''}
-          ${ev?.evidence_artifact_ids?.length ? `<div class="pc-evidence">Evidence: artifacts ${ev.evidence_artifact_ids.map(id => esc(id)).join(', ')}</div>` : ''}
-          ${ev?.violating_action_ids?.length ? `<div class="pc-evidence clr-red">Violations: actions ${ev.violating_action_ids.map(id => '#' + id).join(', ')}</div>` : ''}
-          ${ev?.violating_artifact_ids?.length ? `<div class="pc-evidence clr-red">Violations: artifacts ${ev.violating_artifact_ids.map(id => esc(id)).join(', ')}</div>` : ''}
+          ${ev?.evidence_action_ids?.length ? `<div class="pc-evidence">Evidence: actions ${ev.evidence_action_ids.map(_pcActionLink).join(', ')}</div>` : ''}
+          ${ev?.evidence_artifact_ids?.length ? `<div class="pc-evidence">Evidence: ${ev.evidence_artifact_ids.map(_pcArtLabel).join(', ')}</div>` : ''}
+          ${ev?.violating_action_ids?.length ? `<div class="pc-evidence clr-red">Violations: actions ${ev.violating_action_ids.map(_pcActionLink).join(', ')}</div>` : ''}
+          ${ev?.violating_artifact_ids?.length ? `<div class="pc-evidence clr-red">Violates: ${ev.violating_artifact_ids.map(_pcArtLabel).join(', ')}</div>` : ''}
           ${hasDef ? renderPolicyDefinition(p) : ''}
         </div>
         <span class="pc-status-badge ${status.replace(/ /g,'_')}">${esc(status)}</span>
-        ${hasDef ? '<span class="pc-expand-icon">\u25B8</span>' : ''}
       </div>`;
     }
     html += `</div>`;
@@ -3388,7 +4159,7 @@ function generateReport() {
 
   // Formalizations
   if (formalizations.length) {
-    html += `<h2 class="page-break">Formalizations</h2>`;
+    html += `<h2 class="page-break">Formal Model</h2>`;
     for (const a of formalizations) {
       const f = a.formalization;
       html += `<div class="section">
@@ -3516,6 +4287,29 @@ window.PonensViewer = {
     return this;
   },
   openModal: function (kind, id) { openModal(kind, id); return this; },
+  openRegionMap: function (id) { openRegionMap(id); return this; },
+  openVerification: function (id) { openVerification(id); return this; },
+  openResidual: function (id) { openResidual(id); return this; },
   setTheme: function (t) { document.documentElement.setAttribute('data-theme', t); return this; },
   destroy: function (rootEl) { if (rootEl) rootEl.innerHTML = ''; },
 };
+
+// --- Embedded walkthrough sync: a parent page (internal/walkthrough) drives which meta-step is in
+// focus as the reader steps through the session. Focus drills the Flow view into that step. ----------
+function _ponensApplyFocus(metaId) {
+  try {
+    if (typeof switchView === 'function') switchView('flow');
+    window._flowZoom = 'meta';
+    if (typeof focusMeta === 'function') focusMeta(metaId);
+  } catch (e) { /* viewer not ready */ }
+}
+window.addEventListener('message', function (e) {
+  var d = e.data || {};
+  if (d.type === 'ponens:focus' && d.metaId) {
+    window._pendingFocus = d.metaId;           // applied now if loaded, else after loadTrace
+    if (traceData) _ponensApplyFocus(d.metaId);
+  } else if (d.type === 'ponens:reset') {
+    window._pendingFocus = null;
+    try { window._focusMeta = null; if (traceData) renderFlow(traceData); } catch (e2) {}
+  }
+});

@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-stripe-payment-flow-001",
-  "spec_version": "1.7",
+  "spec_version": "1.8",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-03-28T10:00:00Z",
@@ -912,6 +912,88 @@
           }
         }
       }
+    },
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "name": "limitation: Amount invariants are proved for single-threaded…",
+      "payload": {
+        "kind": "limitation",
+        "severity": "high",
+        "status": "open",
+        "source": "agent_declared",
+        "statement": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a8"
+        },
+        "related_artifact_ids": [
+          "a10"
+        ],
+        "suggested_check": "Add a concurrency model (or a DB-level lock) and re-verify the amount invariant under interleaved capture/refund.",
+        "introduced_by_action_id": 22,
+        "tags": [
+          "concurrency",
+          "payments"
+        ]
+      },
+      "derived_from": [
+        "a8",
+        "a10"
+      ],
+      "summary": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
+      "producer_action_id": 22
+    },
+    {
+      "artifact_id": "r2",
+      "artifact_type": "Residual",
+      "name": "unverified: Dispute and chargeback transitions were not form…",
+      "payload": {
+        "kind": "unverified",
+        "severity": "medium",
+        "status": "open",
+        "source": "agent_declared",
+        "statement": "Dispute and chargeback transitions were not formalized; only the transitions in the amount-invariant suite are covered by verification goals.",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a17"
+        },
+        "related_artifact_ids": [
+          "a9"
+        ],
+        "suggested_check": "Add verification goals for the dispute and chargeback transitions.",
+        "tags": [
+          "coverage"
+        ]
+      },
+      "derived_from": [
+        "a17",
+        "a9"
+      ],
+      "summary": "Dispute and chargeback transitions were not formalized; only the transitions in the amount-invariant suite are covered by verification goals."
+    },
+    {
+      "artifact_id": "r3",
+      "artifact_type": "Residual",
+      "name": "open question: Should a refund reset approval_count for a subse…",
+      "payload": {
+        "kind": "open_question",
+        "severity": "low",
+        "status": "open",
+        "source": "agent_declared",
+        "statement": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact.",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a8"
+        },
+        "tags": [
+          "product-decision"
+        ]
+      },
+      "derived_from": [
+        "a8"
+      ],
+      "summary": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact."
     }
   ],
   "actions": [
@@ -1756,64 +1838,7 @@
     "parallel_blocks": 0,
     "loops": 0
   },
-  "residuals": [
-    {
-      "residual_id": "r1",
-      "kind": "limitation",
-      "statement": "Amount invariants are proved for single-threaded application of transitions only; under concurrent capture/refund the invariant is not established.",
-      "severity": "high",
-      "target": {
-        "target_type": "artifact",
-        "target_id": "a8"
-      },
-      "related_artifact_ids": [
-        "a10"
-      ],
-      "rationale": "The formal model applies one transition at a time; interleavings are not modeled.",
-      "suggested_check": "Add a concurrency model (or a DB-level lock) and re-verify the amount invariant under interleaved capture/refund.",
-      "source": "agent_declared",
-      "status": "open",
-      "introduced_by_action_id": 22,
-      "tags": [
-        "concurrency",
-        "payments"
-      ]
-    },
-    {
-      "residual_id": "r2",
-      "kind": "unverified",
-      "statement": "Dispute and chargeback transitions were not formalized; only the transitions in the amount-invariant suite are covered by verification goals.",
-      "severity": "medium",
-      "target": {
-        "target_type": "artifact",
-        "target_id": "a17"
-      },
-      "related_artifact_ids": [
-        "a9"
-      ],
-      "suggested_check": "Add verification goals for the dispute and chargeback transitions.",
-      "source": "agent_declared",
-      "status": "open",
-      "tags": [
-        "coverage"
-      ]
-    },
-    {
-      "residual_id": "r3",
-      "kind": "open_question",
-      "statement": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact.",
-      "severity": "low",
-      "target": {
-        "target_type": "artifact",
-        "target_id": "a8"
-      },
-      "source": "agent_declared",
-      "status": "open",
-      "tags": [
-        "product-decision"
-      ]
-    }
-  ],
+  "residuals": [],
   "reference_models": [
     {
       "reference_model_id": "ref_stripe_payments",

@@ -1,0 +1,487 @@
+{
+  "trace_id": "gc-walk-idempotency",
+  "spec_version": "1.7",
+  "assistant": "codelogician",
+  "model": "demo",
+  "timestamp": "2026-07-25T00:00:00Z",
+  "title": "Walkthrough: prove payment capture is idempotent",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Walkthrough: prove payment capture is idempotent"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "read billing/capture.py",
+      "rationale": "Understand the capture path before changing it.",
+      "inputs": [],
+      "outputs": [
+        "src"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "AnalyzeCode",
+      "category": "activity",
+      "label": "trace the retry path",
+      "rationale": "Capture is called again on gateway retries — suspicious.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "Formalize",
+      "category": "reasoning",
+      "label": "autoformalize capture",
+      "rationale": "Lift capture into an IML model to reason about it.",
+      "inputs": [
+        "src"
+      ],
+      "outputs": [
+        "model"
+      ],
+      "evidence": [],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "DefineVG",
+      "category": "reasoning",
+      "label": "define VG: capture is idempotent",
+      "rationale": "State the property: re-capture must not double-charge.",
+      "inputs": [
+        "model"
+      ],
+      "outputs": [
+        "vg"
+      ],
+      "evidence": [],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 5,
+      "type": "Verify",
+      "category": "reasoning",
+      "label": "verify idempotency — REFUTED",
+      "rationale": "ImandraX finds a counterexample: retry after partial refund double-charges.",
+      "inputs": [
+        "vg"
+      ],
+      "outputs": [
+        "vr1"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3",
+      "result_summary": "refuted — counterexample: retry after partial refund",
+      "vg_result": {
+        "status": "refuted"
+      },
+      "request": {
+        "engine": "imandrax"
+      }
+    },
+    {
+      "id": 6,
+      "type": "AnalyzeCode",
+      "category": "activity",
+      "label": "diagnose the counterexample",
+      "rationale": "The guard keys on request id but not on refund state.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 7,
+      "type": "EditFile",
+      "category": "activity",
+      "label": "add idempotency guard to capture",
+      "rationale": "Key the guard on (request_id, ledger_version).",
+      "inputs": [
+        "src"
+      ],
+      "outputs": [
+        "diff"
+      ],
+      "evidence": [],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 8,
+      "type": "Verify",
+      "category": "reasoning",
+      "label": "re-verify idempotency — PROVED",
+      "rationale": "With the guard, the property now holds for all inputs.",
+      "inputs": [
+        "vg"
+      ],
+      "outputs": [
+        "vr2"
+      ],
+      "evidence": [],
+      "meta_action_id": "m5",
+      "result_summary": "proved",
+      "vg_result": {
+        "status": "proved"
+      },
+      "request": {
+        "engine": "imandrax"
+      }
+    },
+    {
+      "id": 9,
+      "type": "GenerateTests",
+      "category": "activity",
+      "label": "generate regression tests",
+      "rationale": "Pin the counterexample and boundaries as tests.",
+      "inputs": [
+        "vg"
+      ],
+      "outputs": [
+        "tests"
+      ],
+      "evidence": [],
+      "meta_action_id": "m6"
+    },
+    {
+      "id": 10,
+      "type": "RunTests",
+      "category": "activity",
+      "label": "run the suite — all pass",
+      "rationale": "18 tests, including the former counterexample.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "meta_action_id": "m6",
+      "result_summary": "18 passed, 0 failing"
+    },
+    {
+      "id": 11,
+      "type": "GitCommit",
+      "category": "activity",
+      "label": "commit the fix + proof",
+      "rationale": "Bind the reasoning record 1:1 to the commit.",
+      "inputs": [],
+      "outputs": [
+        "commit"
+      ],
+      "evidence": [],
+      "meta_action_id": "m6"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Understand the capture path",
+      "intent": "Read capture and find the retry path",
+      "action_ids": [
+        1,
+        2
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "src"
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Formalize & specify idempotency",
+      "intent": "Model capture and state the property",
+      "action_ids": [
+        3,
+        4
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "model",
+        "vg"
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "First proof attempt — counterexample",
+      "intent": "Verify and get refuted",
+      "action_ids": [
+        5
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "vr1"
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Diagnose & fix the double-charge",
+      "intent": "Find the missing guard and add it",
+      "action_ids": [
+        6,
+        7
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "diff"
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Re-verify — proved",
+      "intent": "Prove the property holds with the fix",
+      "action_ids": [
+        8
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "vr2"
+      ]
+    },
+    {
+      "id": "m6",
+      "title": "Test, then commit",
+      "intent": "Regression tests and commit",
+      "action_ids": [
+        9,
+        10,
+        11
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "tests",
+        "commit"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "src",
+      "artifact_type": "SourceCode",
+      "name": "billing/capture.py",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "model",
+      "artifact_type": "IMLModel",
+      "name": "capture (IML model)",
+      "producer_action_id": 3,
+      "derived_from": [
+        "src"
+      ],
+      "payload": {
+        "symbols": [
+          "capture"
+        ]
+      }
+    },
+    {
+      "artifact_id": "vg",
+      "artifact_type": "VerificationGoal",
+      "name": "idempotent",
+      "producer_action_id": 4,
+      "derived_from": [
+        "model"
+      ],
+      "payload": {
+        "goal_id": "vg",
+        "property_name": "idempotent",
+        "target_symbol": "capture"
+      }
+    },
+    {
+      "artifact_id": "vr1",
+      "artifact_type": "VerificationResult",
+      "name": "idempotent — refuted",
+      "producer_action_id": 5,
+      "derived_from": [
+        "vg"
+      ],
+      "payload": {
+        "goal_id": "vg",
+        "status": "refuted",
+        "counterexample": "retry after partial refund"
+      }
+    },
+    {
+      "artifact_id": "diff",
+      "artifact_type": "Diff",
+      "name": "add idempotency guard",
+      "producer_action_id": 7,
+      "derived_from": [
+        "src"
+      ],
+      "payload": {
+        "target_symbol": "capture"
+      }
+    },
+    {
+      "artifact_id": "vr2",
+      "artifact_type": "VerificationResult",
+      "name": "idempotent — proved",
+      "producer_action_id": 8,
+      "derived_from": [
+        "vg"
+      ],
+      "payload": {
+        "goal_id": "vg",
+        "status": "proved"
+      }
+    },
+    {
+      "artifact_id": "tests",
+      "artifact_type": "Tests",
+      "name": "capture regression suite",
+      "producer_action_id": 9,
+      "derived_from": [
+        "vg"
+      ],
+      "payload": {
+        "count": 18,
+        "failing": 0,
+        "target_symbol": "capture"
+      }
+    },
+    {
+      "artifact_id": "commit",
+      "artifact_type": "Commit",
+      "name": "fix: idempotent capture",
+      "producer_action_id": 11,
+      "derived_from": [
+        "diff",
+        "vr2"
+      ]
+    },
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "name": "limitation: Idempotency is proved for single-threaded transi…",
+      "payload": {
+        "kind": "limitation",
+        "severity": "high",
+        "status": "open",
+        "statement": "Idempotency is proved for single-threaded transition application; concurrent capture/refund interleavings are not modeled.",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "vr2"
+        },
+        "suggested_check": "Add a concurrency model or a DB-level unique constraint on the guard key."
+      },
+      "derived_from": [
+        "vr2"
+      ],
+      "summary": "Idempotency is proved for single-threaded transition application; concurrent capture/refund interleavings are not modeled."
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Walkthrough: prove payment capture is idempotent"
+  },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "Make payment capture idempotent",
+      "scope": [
+        "capture"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "c1",
+          "component": {
+            "function": "capture"
+          },
+          "evidence": {
+            "artifact": "VerificationResult"
+          },
+          "required": true,
+          "author": "agent",
+          "covers": [
+            "capture is idempotent"
+          ],
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "vr2"
+        }
+      ],
+      "intent_clauses": [
+        "capture is idempotent"
+      ],
+      "criteria_review": {
+        "reviewed_by": "reviewer",
+        "verdict": "approved",
+        "at": "2026-07-25T01:00:00Z"
+      },
+      "policies": {
+        "policies": [
+          {
+            "policy_id": "refuted_results_must_be_reproved",
+            "name": "refuted_results_must_be_reproved",
+            "severity": "error",
+            "formula": "G(VerificationResult(refuted) → F(VerificationResult(proved ∨ sat)))"
+          }
+        ]
+      },
+      "progress": 1.0,
+      "cone": [
+        1,
+        3,
+        4,
+        5,
+        7,
+        8,
+        9,
+        11
+      ],
+      "open_gaps": 1,
+      "faithfulness": {
+        "met": true,
+        "certified": true,
+        "uncovered_clauses": []
+      },
+      "governed": true,
+      "governance": [
+        {
+          "policy_id": "refuted_results_must_be_reproved",
+          "name": "refuted_results_must_be_reproved",
+          "severity": "error",
+          "status": "passed",
+          "note": null
+        }
+      ]
+    }
+  ],
+  "residuals": [],
+  "policies": [],
+  "policy_evaluations": [],
+  "files_modified": [
+    "billing/capture.py"
+  ],
+  "metrics": {
+    "total_actions": 11,
+    "meta_action_count": 6
+  },
+  "exploration_actions": [
+    2,
+    6,
+    10
+  ],
+  "summary": {
+    "policy_violations": 0,
+    "open_residuals": 1,
+    "open_high": 1,
+    "stale_evidence": 0,
+    "goals_total": 1,
+    "goals_met": 1,
+    "goals_governed": 1,
+    "goals_certified": 1
+  }
+}

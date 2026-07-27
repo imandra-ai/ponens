@@ -1,0 +1,573 @@
+{
+  "trace_id": "gc-walk-tax-brackets",
+  "spec_version": "1.7",
+  "assistant": "codelogician",
+  "model": "demo",
+  "timestamp": "2026-07-25T00:00:00Z",
+  "title": "Walkthrough: get the tax-bracket edge cases right",
+  "trigger": {
+    "type": "TaskReceived",
+    "description": "Walkthrough: get the tax-bracket edge cases right"
+  },
+  "actions": [
+    {
+      "id": 1,
+      "type": "ReadFile",
+      "category": "activity",
+      "label": "read pricing/tax.py",
+      "rationale": "Read the bracket table and rate logic.",
+      "inputs": [],
+      "outputs": [
+        "src"
+      ],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 2,
+      "type": "AnalyzeCode",
+      "category": "activity",
+      "label": "identify the bracket boundaries",
+      "rationale": "Boundaries at 10k/40k/85k are the risky inputs.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "meta_action_id": "m1"
+    },
+    {
+      "id": 3,
+      "type": "Formalize",
+      "category": "reasoning",
+      "label": "autoformalize tax_bracket",
+      "rationale": "Model the piecewise bracket function in IML.",
+      "inputs": [
+        "src"
+      ],
+      "outputs": [
+        "model"
+      ],
+      "evidence": [],
+      "meta_action_id": "m2"
+    },
+    {
+      "id": 4,
+      "type": "Decompose",
+      "category": "reasoning",
+      "label": "decompose the input space",
+      "rationale": "ImandraX splits the domain into 7 regions (each bracket + boundaries).",
+      "inputs": [
+        "model"
+      ],
+      "outputs": [
+        "dec"
+      ],
+      "evidence": [],
+      "meta_action_id": "m2",
+      "result_summary": "7 regions incl. all bracket boundaries"
+    },
+    {
+      "id": 5,
+      "type": "GenerateTests",
+      "category": "activity",
+      "label": "generate one test per region",
+      "rationale": "Cover every region, boundaries included.",
+      "inputs": [
+        "dec"
+      ],
+      "outputs": [
+        "tests"
+      ],
+      "evidence": [],
+      "meta_action_id": "m3"
+    },
+    {
+      "id": 6,
+      "type": "RunTests",
+      "category": "activity",
+      "label": "run the suite — boundary FAILS",
+      "rationale": "Region at exactly 40000 computes the wrong rate (off-by-one).",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "meta_action_id": "m3",
+      "result_summary": "1 failing: rate at income == 40000"
+    },
+    {
+      "id": 7,
+      "type": "AnalyzeCode",
+      "category": "activity",
+      "label": "diagnose the boundary",
+      "rationale": "The comparison is > where it must be >=.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 8,
+      "type": "EditFile",
+      "category": "activity",
+      "label": "fix the boundary comparison",
+      "rationale": "Change > to >= at the bracket edge.",
+      "inputs": [
+        "src"
+      ],
+      "outputs": [
+        "diff"
+      ],
+      "evidence": [],
+      "meta_action_id": "m4"
+    },
+    {
+      "id": 9,
+      "type": "RunTests",
+      "category": "activity",
+      "label": "re-run — all pass",
+      "rationale": "All 7 region tests pass, boundary included.",
+      "inputs": [],
+      "outputs": [],
+      "evidence": [],
+      "meta_action_id": "m4",
+      "result_summary": "7 passed, 0 failing"
+    },
+    {
+      "id": 10,
+      "type": "DefineVG",
+      "category": "reasoning",
+      "label": "define VG: tax is monotonic in income",
+      "rationale": "More income never means less tax after-bracket.",
+      "inputs": [
+        "model"
+      ],
+      "outputs": [
+        "vg"
+      ],
+      "evidence": [],
+      "meta_action_id": "m5"
+    },
+    {
+      "id": 11,
+      "type": "Verify",
+      "category": "reasoning",
+      "label": "verify monotonicity — PROVED",
+      "rationale": "Holds across all regions.",
+      "inputs": [
+        "vg"
+      ],
+      "outputs": [
+        "vr"
+      ],
+      "evidence": [],
+      "meta_action_id": "m5",
+      "result_summary": "proved",
+      "vg_result": {
+        "status": "proved"
+      },
+      "request": {
+        "engine": "imandrax"
+      }
+    },
+    {
+      "id": 12,
+      "type": "GitCommit",
+      "category": "activity",
+      "label": "commit the fix + evidence",
+      "rationale": "Bind the record to the commit.",
+      "inputs": [],
+      "outputs": [
+        "commit"
+      ],
+      "evidence": [],
+      "meta_action_id": "m6"
+    }
+  ],
+  "meta_actions": [
+    {
+      "id": "m1",
+      "title": "Map the bracket logic",
+      "intent": "Read tax.py and mark the boundaries",
+      "action_ids": [
+        1,
+        2
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "src"
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Formalize & decompose the input space",
+      "intent": "Model tax_bracket and split into regions",
+      "action_ids": [
+        3,
+        4
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "model",
+        "dec"
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Cover regions with tests — a boundary fails",
+      "intent": "One test per region; the 40k edge fails",
+      "action_ids": [
+        5,
+        6
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "tests"
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Fix the boundary off-by-one",
+      "intent": "Correct the comparison and re-run",
+      "action_ids": [
+        7,
+        8,
+        9
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "diff"
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Prove monotonicity across regions",
+      "intent": "State and prove the ordering property",
+      "action_ids": [
+        10,
+        11
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "vg",
+        "vr"
+      ]
+    },
+    {
+      "id": "m6",
+      "title": "Commit",
+      "intent": "Bind the record to the commit",
+      "action_ids": [
+        12
+      ],
+      "source": "plan_declared",
+      "status": "completed",
+      "produced_artifact_ids": [
+        "commit"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "src",
+      "artifact_type": "SourceCode",
+      "name": "pricing/tax.py",
+      "producer_action_id": 1
+    },
+    {
+      "artifact_id": "model",
+      "artifact_type": "IMLModel",
+      "name": "tax_bracket (IML model)",
+      "producer_action_id": 3,
+      "derived_from": [
+        "src"
+      ],
+      "payload": {
+        "symbols": [
+          "tax_bracket"
+        ]
+      }
+    },
+    {
+      "artifact_id": "dec",
+      "artifact_type": "Decomposition",
+      "name": "tax_bracket regions (7)",
+      "producer_action_id": 4,
+      "derived_from": [
+        "model"
+      ],
+      "payload": {
+        "region_count": 7,
+        "regions": [
+          {
+            "function": "tax_bracket",
+            "count": 7,
+            "regions": [
+              {
+                "label_path": "R1",
+                "invariant": "tax = 0",
+                "constraints": [
+                  "income <= 0"
+                ]
+              },
+              {
+                "label_path": "R2",
+                "invariant": "tax = income * 0.10",
+                "constraints": [
+                  "0 < income",
+                  "income <= 10000"
+                ]
+              },
+              {
+                "label_path": "R3",
+                "invariant": "tax = 1000 + (income-10000)*0.20",
+                "constraints": [
+                  "10000 < income",
+                  "income <= 40000"
+                ]
+              },
+              {
+                "label_path": "R4 (boundary)",
+                "invariant": "tax = 1000 + (income-10000)*0.20",
+                "constraints": [
+                  "income = 40000"
+                ]
+              },
+              {
+                "label_path": "R5",
+                "invariant": "tax = 7000 + (income-40000)*0.30",
+                "constraints": [
+                  "40000 < income",
+                  "income <= 85000"
+                ]
+              },
+              {
+                "label_path": "R6",
+                "invariant": "tax = 20500 + (income-85000)*0.37",
+                "constraints": [
+                  "85000 < income"
+                ]
+              },
+              {
+                "label_path": "R7",
+                "invariant": "tax >= 0",
+                "constraints": [
+                  "income is integer"
+                ]
+              }
+            ]
+          }
+        ],
+        "target_symbol": "tax_bracket"
+      }
+    },
+    {
+      "artifact_id": "tests",
+      "artifact_type": "GeneratedTests",
+      "name": "per-region tests",
+      "producer_action_id": 5,
+      "derived_from": [
+        "dec"
+      ],
+      "payload": {
+        "count": 7,
+        "failing": 0,
+        "target_symbol": "tax_bracket"
+      }
+    },
+    {
+      "artifact_id": "diff",
+      "artifact_type": "Diff",
+      "name": "fix boundary comparison",
+      "producer_action_id": 8,
+      "derived_from": [
+        "src"
+      ],
+      "payload": {
+        "target_symbol": "tax_bracket"
+      }
+    },
+    {
+      "artifact_id": "vg",
+      "artifact_type": "VerificationGoal",
+      "name": "monotonic in income",
+      "producer_action_id": 10,
+      "derived_from": [
+        "model"
+      ],
+      "payload": {
+        "goal_id": "vg",
+        "property_name": "monotonic",
+        "target_symbol": "tax_bracket"
+      }
+    },
+    {
+      "artifact_id": "vr",
+      "artifact_type": "VerificationResult",
+      "name": "monotonic — proved",
+      "producer_action_id": 11,
+      "derived_from": [
+        "vg"
+      ],
+      "payload": {
+        "goal_id": "vg",
+        "status": "proved"
+      }
+    },
+    {
+      "artifact_id": "commit",
+      "artifact_type": "Commit",
+      "name": "fix: tax bracket edge cases",
+      "producer_action_id": 12,
+      "derived_from": [
+        "diff",
+        "vr",
+        "tests"
+      ]
+    },
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "name": "assumption: Rounding is assumed banker's rounding at 2 decim…",
+      "payload": {
+        "kind": "assumption",
+        "severity": "medium",
+        "status": "open",
+        "statement": "Rounding is assumed banker's rounding at 2 decimals; other rounding modes are out of scope.",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "vr"
+        },
+        "suggested_check": "Confirm the ledger's configured rounding mode matches."
+      },
+      "derived_from": [
+        "vr"
+      ],
+      "summary": "Rounding is assumed banker's rounding at 2 decimals; other rounding modes are out of scope."
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted",
+    "summary": "Walkthrough: get the tax-bracket edge cases right"
+  },
+  "goals": [
+    {
+      "id": "session-goal",
+      "intent": "Get the tax-bracket edge cases right",
+      "scope": [
+        "tax_bracket"
+      ],
+      "status": "active",
+      "acceptance": [
+        {
+          "id": "c1",
+          "component": {
+            "function": "tax_bracket"
+          },
+          "evidence": {
+            "artifact": "Decomposition"
+          },
+          "required": true,
+          "author": "agent",
+          "covers": [
+            "cover every bracket region"
+          ],
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "dec"
+        },
+        {
+          "id": "c2",
+          "component": {
+            "function": "tax_bracket"
+          },
+          "evidence": {
+            "artifact": "VerificationResult"
+          },
+          "required": true,
+          "author": "agent",
+          "covers": [
+            "brackets are monotonic in income"
+          ],
+          "status": "done",
+          "from_trace": true,
+          "evidence_ref": "vr"
+        }
+      ],
+      "intent_clauses": [
+        "cover every bracket region",
+        "brackets are monotonic in income"
+      ],
+      "criteria_review": {
+        "reviewed_by": "reviewer",
+        "verdict": "approved",
+        "at": "2026-07-25T01:00:00Z"
+      },
+      "policies": {
+        "policies": [
+          {
+            "policy_id": "generated_tests_require_decomposition",
+            "name": "generated_tests_require_decomposition",
+            "severity": "error",
+            "formula": "G(GeneratedTests → Decomposition ∈ ancestors(derived_from))"
+          }
+        ]
+      },
+      "progress": 1.0,
+      "cone": [
+        1,
+        3,
+        4,
+        10,
+        11
+      ],
+      "open_gaps": 0,
+      "faithfulness": {
+        "met": true,
+        "certified": true,
+        "uncovered_clauses": []
+      },
+      "governed": true,
+      "governance": [
+        {
+          "policy_id": "generated_tests_require_decomposition",
+          "name": "generated_tests_require_decomposition",
+          "severity": "error",
+          "status": "passed",
+          "note": null
+        }
+      ]
+    }
+  ],
+  "residuals": [],
+  "policies": [],
+  "policy_evaluations": [],
+  "files_modified": [
+    "pricing/tax.py"
+  ],
+  "metrics": {
+    "total_actions": 12,
+    "meta_action_count": 6
+  },
+  "exploration_actions": [
+    2,
+    5,
+    6,
+    7,
+    8,
+    9,
+    12
+  ],
+  "summary": {
+    "policy_violations": 0,
+    "open_residuals": 1,
+    "open_high": 0,
+    "stale_evidence": 0,
+    "goals_total": 1,
+    "goals_met": 1,
+    "goals_governed": 1,
+    "goals_certified": 1
+  }
+}

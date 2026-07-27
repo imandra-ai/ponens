@@ -55,7 +55,14 @@ async function syncViewer() {
     await cp(from, resolve(dest, "demo-traces", s.file));
     await cp(from, resolve(pluginDemos, s.file));
   }
-  console.log(`synced viewer → public/viewer (${manifest.samples.length} demo traces)`);
+
+  // Internal goal-contract gallery: the /internal page deep-links each example into the viewer via
+  // ?trace=demo-traces/goal-contract/<file>, so sync that whole dir too.
+  const gcSrc = resolve(root, "examples/goal-contract");
+  const gcManifest = JSON.parse(await readFile(resolve(gcSrc, "manifest.json"), "utf8"));
+  const gcCount = gcManifest.groups.reduce((n, g) => n + g.examples.length, 0);
+  await cp(gcSrc, resolve(dest, "demo-traces", "goal-contract"), { recursive: true });
+  console.log(`synced viewer → public/viewer (${manifest.samples.length} demo + ${gcCount} goal-contract traces)`);
 }
 
 await syncGallery();

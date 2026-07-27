@@ -12,21 +12,18 @@ export function goalFaithfulnessV(g) {
   const required = acc.filter((a) => a.required !== false);
   const reqItems = required.length ? required : acc;
   const met = reqItems.length > 0 && reqItems.every((a) => norm(a.status) === 'done');
-  // "Hard" evidence = a proof (property) or a policy (obligation); a goal backed only by `change`
-  // edits is weakly specified — "done" the moment edits land, with nothing proved or checked.
-  const hasHard = reqItems.some((a) => a.kind === 'property' || a.kind === 'obligation');
-  const weak = acc.length > 0 && !hasHard;
   const clauses = g.intent_clauses || g.intentClauses || [];
   const covered = new Set();
   for (const a of acc) for (const c of (a.covers || [])) covered.add(c);
   const uncovered = clauses.filter((c) => !covered.has(c));
-  // Certified = a non-doer reviewer approved the definition of done, every clause is covered, and it
-  // isn't weakly specified. The party that MEETS a goal must not be the sole party that DEFINES it.
+  // Certified = a non-doer reviewer approved the definition of done and every clause is covered. The
+  // party that MEETS a goal must not be the sole party that DEFINES it. Evidence *strength* is no
+  // longer a certification condition — that is the governed axis (Goal Contract §5), not faithfulness.
   const review = g.criteria_review || g.criteriaReview;
   const reviewer = review && (review.reviewed_by || review.reviewedBy);
   const doers = new Set(acc.map((a) => a.author).filter(Boolean));
   const nonDoer = reviewer && !doers.has(reviewer);
   const approved = review && review.verdict === 'approved';
-  const certified = !!(approved && nonDoer && uncovered.length === 0 && !weak);
-  return { met, weak, uncovered, certified, reviewer, intentAuthor: g.intent_author || g.intentAuthor };
+  const certified = !!(approved && nonDoer && uncovered.length === 0);
+  return { met, uncovered, certified, reviewer, intentAuthor: g.intent_author || g.intentAuthor };
 }

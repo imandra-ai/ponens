@@ -12,6 +12,11 @@ on:
       - "gallery/**"
       - "spec/**"
       - "viewer/**"
+      # Build INPUTS that live outside website/: the /whats-new page renders CHANGELOG.md and both it
+      # and the layout read the version from cli/pyproject.toml. Without these, a release (changelog +
+      # version bump, no website/ change) never redeploys and the live site goes stale.
+      - "CHANGELOG.md"
+      - "cli/pyproject.toml"
       - ".github/workflows/deploy-website.yml"
   workflow_dispatch:
 

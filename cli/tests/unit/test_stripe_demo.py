@@ -83,6 +83,8 @@ def test_summary_counts():
         "goals_met": 0,             # gap items still open -> not fully met
         "goals_governed": 0,        # this fixture's goal declares no policies
         "goals_certified": 0,       # no criteria_review on this fixture
+        "goals_at_risk": 0,         # no stale proofs -> nothing met-but-stale
+        "criteria_at_risk": 0,
     }
 
 

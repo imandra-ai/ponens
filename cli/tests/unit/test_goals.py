@@ -82,6 +82,96 @@ def test_stale_evidence_none_when_no_later_edit():
     assert stale_evidence(t) == []
 
 
+def test_enrich_flags_met_but_stale_criterion_at_risk():
+    # Living goal guard (Phase 1): a1 is proved (met) but its symbol `foo` changed after the proof,
+    # so enrich marks it AT RISK — still `done`, but the guarantee no longer reflects the code.
+    t = enrich(_trace())
+    g = t["goals"][0]
+    a1 = next(i for i in g["acceptance"] if i["id"] == "a1")
+    assert a1["status"] == "done"                       # still met — the evidence exists
+    assert a1.get("at_risk") is True                    # but the proof is stale
+    assert "stale" in (a1.get("at_risk_reason") or "").lower()
+    assert a1.get("at_risk_residual_id") == "stale-vr1"  # links to the derived residual
+    # The change criterion a2 (evidence is a Diff, not a proof) is NOT at risk — only proofs go stale here.
+    a2 = next(i for i in g["acceptance"] if i["id"] == "a2")
+    assert a2["status"] == "done" and not a2.get("at_risk")
+    assert g["at_risk"] == 1
+    assert t["summary"]["goals_at_risk"] == 1
+    assert t["summary"]["criteria_at_risk"] == 1
+
+
+def test_enrich_no_at_risk_when_evidence_is_fresh():
+    t = _trace()
+    t["artifacts"][2]["producer_action_id"] = 1  # edit BEFORE the proof -> proof is fresh, not stale
+    t = enrich(t)
+    g = t["goals"][0]
+    a1 = next(i for i in g["acceptance"] if i["id"] == "a1")
+    assert a1["status"] == "done" and not a1.get("at_risk")
+    assert g["at_risk"] == 0
+    assert t["summary"]["goals_at_risk"] == 0
+    assert t["summary"]["criteria_at_risk"] == 0
+
+
+def _reprove(t, status, step=5):
+    """Simulate the user kicking off a MANUAL re-verify: a fresh result of `foo` lands after the edit."""
+    t["actions"].append({"id": step})
+    t["artifacts"].append({"artifact_id": "vr2", "artifact_type": "VerificationResult",
+                           "producer_action_id": step, "derived_from": ["vg1"],
+                           "payload": {"goal_id": "G1", "goal_artifact_id": "vg1", "status": status}})
+    return t
+
+
+def test_manual_reprove_heals_at_risk():
+    # Start stale (a1 at risk), then the user re-verifies and it PROVES against the current code.
+    assert enrich(_trace())["goals"][0]["acceptance"][0]["at_risk"] is True  # precondition
+    e = enrich(_reprove(_trace(), "proved"))
+    g = e["goals"][0]
+    a1 = next(i for i in g["acceptance"] if i["id"] == "a1")
+    assert a1["status"] == "done" and not a1.get("at_risk")   # healed — guarantee restored
+    assert g["at_risk"] == 0
+    assert e["summary"]["criteria_at_risk"] == 0
+    assert not any(r.get("residual_id") == "stale-vr1" for r in e["residuals"])  # superseded proof gone
+
+
+def test_at_risk_from_hash_freshness_external_edit():
+    # An EXTERNAL on-disk edit leaves no Diff on the trace, so structural stale_evidence can't see it —
+    # but the extension stamps `artifact_freshness` (store-ref -> stale). enrich must map the criterion's
+    # evidence (vr1, exported id) back to its store ref and flag at_risk. Move the edit before the proof
+    # so the ONLY staleness signal is freshness, not stale_evidence.
+    t = _trace()
+    t["artifacts"][2]["producer_action_id"] = 1  # kill structural staleness (edit precedes proof)
+    t["artifact_freshness"] = {"vr1": "stale"}    # extension re-hashed the source: proof is stale
+    e = enrich(t)
+    a1 = next(i for i in e["goals"][0]["acceptance"] if i["id"] == "a1")
+    assert a1["status"] == "done" and a1.get("at_risk") is True
+    assert "changed" in (a1.get("at_risk_reason") or "").lower()
+    assert e["summary"]["criteria_at_risk"] == 1
+
+
+def test_at_risk_from_freshness_prefix_mapping():
+    # Freshness is keyed by the STORE ref (`fr1`); the exported VR id is `fr1-result-3`. The prefix map
+    # must resolve it. (Rename vr1 -> fr1-result-3 and key freshness on the ref.)
+    t = _trace()
+    t["artifacts"][2]["producer_action_id"] = 1
+    t["artifacts"][1]["artifact_id"] = "fr1-result-3"  # exported-style id
+    # a1 (property) resolves to the latest matching VR by goal — still this one.
+    t["artifact_freshness"] = {"fr1": "gone"}
+    e = enrich(t)
+    a1 = next(i for i in e["goals"][0]["acceptance"] if i["id"] == "a1")
+    assert a1.get("at_risk") is True
+    assert "removed" in (a1.get("at_risk_reason") or "").lower()  # 'gone' -> removed
+
+
+def test_manual_reprove_that_refutes_becomes_issue_not_at_risk():
+    # The re-verify against the changed code REFUTES: the criterion is a live ISSUE (blocked), not "at risk".
+    e = enrich(_reprove(_trace(), "refuted"))
+    g = e["goals"][0]
+    a1 = next(i for i in g["acceptance"] if i["id"] == "a1")
+    assert a1["status"] == "blocked"      # broken — the fresh check refutes
+    assert not a1.get("at_risk")          # not "at risk"; it's a live issue now
+    assert g["at_risk"] == 0
+
+
 def test_relevance_cone_and_exploration():
     t = _trace()
     cone = goal_relevant_actions(t["goals"][0], t)
@@ -107,7 +197,8 @@ def test_enrich_end_to_end():
     assert any(r.get("derived") for r in e["residuals"])   # stale merged in
     assert e["summary"] == {
         "policy_violations": 0, "open_residuals": 2, "open_high": 1, "stale_evidence": 1,
-        "goals_total": 1, "goals_met": 0, "goals_governed": 0, "goals_certified": 0}
+        "goals_total": 1, "goals_met": 0, "goals_governed": 0, "goals_certified": 0,
+        "goals_at_risk": 1, "criteria_at_risk": 1}
     assert {i["id"]: i["status"] for i in g["acceptance"]} == {
         "a1": "done", "a2": "done", "a3": "todo", "a4": "done"}
     # source trace untouched

@@ -233,22 +233,43 @@ def faithfulness_of(goal, high_stakes=False):
 # ================================================================
 
 def stale_evidence(trace):
-    """Proofs invalidated by a later code change, as derived residuals (tagged `derived: True`)."""
+    """Proofs invalidated by a later code change, as derived residuals (tagged `derived: True`).
+
+    A symbol's proof is stale iff its LATEST proof predates the LATEST change to that symbol. Keying on
+    the latest proof (not every proof) means a property RE-PROVED after the change heals — the guard
+    clears itself once the user re-verifies, rather than leaving a superseded proof reported as stale."""
     arts = trace.get("artifacts", [])
     by_id = {a.get("artifact_id"): a for a in arts}
-    out = []
-    for vr in arts:
-        if vr.get("artifact_type") != "VerificationResult":
-            continue
-        if _lc(_payload(vr).get("status")) not in ("proved", "sat"):
-            continue
-        proved_at = vr.get("producer_action_id") or 0
+
+    def _vg_for(vr):
         vg = by_id.get(_payload(vr).get("goal_artifact_id"))
         if not (vg and vg.get("artifact_type") == "VerificationGoal"):
             vg = next((a for a in arts if a.get("artifact_type") == "VerificationGoal"
                        and _payload(a).get("goal_id") == _payload(vr).get("goal_id")), None)
-        sym = _payload(vg).get("target_symbol")
+        return vg
+
+    # Latest RESULT per target symbol (proved OR refuted) — only the freshest verdict matters. A proof
+    # superseded by a re-proof, or by a refutation, is no longer the live evidence.
+    latest = {}  # sym -> (step, status, vr, vg)
+    for vr in arts:
+        if vr.get("artifact_type") != "VerificationResult":
+            continue
+        status = _lc(_payload(vr).get("status"))
+        if status not in ("proved", "sat", "refuted"):
+            continue
+        vg = _vg_for(vr)
+        sym = _payload(vg).get("target_symbol") if vg else None
         if not sym:
+            continue
+        step = vr.get("producer_action_id") or 0
+        if sym not in latest or step > latest[sym][0]:
+            latest[sym] = (step, status, vr, vg)
+
+    out = []
+    for sym, (proved_at, status, vr, vg) in latest.items():
+        # A refutation (whenever) is a LIVE issue the criterion already reads as `blocked`, not a stale
+        # proof — only a standing PROOF that predates a change is stale.
+        if status not in ("proved", "sat"):
             continue
         changes = [a for a in arts if a.get("artifact_type") in ("Diff", "IMLModel")
                    and _lc(sym) in _lc(a.get("summary") or a.get("name"))
@@ -540,6 +561,31 @@ def enrich(trace):
         if r.get("residual_id") not in existing:
             arts.append(lineage.residual_to_artifact(r))
 
+    # Living goal guard (Phase 1): a criterion resolved `done` is AT RISK when its evidence no longer
+    # reflects the current code. Two independent signals feed it:
+    #   1. STRUCTURAL — a derived stale-evidence residual (a Diff/IMLModel touched the symbol after the
+    #      proof). Fires when the change is recorded on the trace (typically the agent's own edit).
+    #   2. HASH-BASED — `artifact_freshness` (stamped by the extension: store-ref -> fresh/stale/gone by
+    #      re-hashing the current source). This catches an EXTERNAL on-disk edit the trace has no Diff
+    #      for. Freshness is keyed by the store ref (`fr1`); a ponens artifact id is that ref prefixed
+    #      (`fr1-result-3`), so map back by prefix.
+    stale_by_vr = {}
+    for r in derived:
+        tgt = r.get("target") or {}
+        if tgt.get("target_type") == "artifact" and tgt.get("target_id"):
+            stale_by_vr[tgt["target_id"]] = r
+    freshness = t.get("artifact_freshness") or {}
+
+    def _freshness_for(aid):
+        if not aid or not freshness:
+            return None
+        if aid in freshness:
+            return freshness[aid]
+        for ref, fr in freshness.items():
+            if aid == ref or (isinstance(aid, str) and aid.startswith(str(ref) + "-")):
+                return fr
+        return None
+
     for g in t.get("goals", []):
         resolved = []
         for item in g.get("acceptance", []):
@@ -553,9 +599,26 @@ def enrich(trace):
                 it["evidence_ref"] = r["evidence"]
             else:
                 it["evidence"] = r["evidence"]
+            # AT RISK: resolved `done`, but the evidence no longer reflects the current code — via a
+            # structural stale-evidence residual OR hash-based freshness (an external edit). Still met
+            # (the evidence exists); this is the honesty layer that says "re-verify before you trust it".
+            if r["status"] == "done":
+                stale = stale_by_vr.get(r["evidence"])
+                fr = _freshness_for(r["evidence"])
+                if stale:
+                    it["at_risk"] = True
+                    it["at_risk_reason"] = stale.get("statement")
+                    it["at_risk_residual_id"] = stale.get("residual_id")
+                elif fr in ("stale", "gone"):
+                    it["at_risk"] = True
+                    it["at_risk_reason"] = ("The source was removed since this was verified."
+                                            if fr == "gone"
+                                            else "The code changed since this was verified — re-check to restore the guarantee.")
             resolved.append(it)
         g["acceptance"] = resolved
         g["progress"] = progress_of(resolved)
+        # Count of criteria that are met-but-stale, so a card can read "met, N at risk" at a glance.
+        g["at_risk"] = sum(1 for it in resolved if it.get("at_risk"))
         g["cone"] = sorted(goal_relevant_actions(g, t))
         # The residuals that QUALIFY this goal (bound to a gap item or touching its scope) — the ids so a
         # viewer can scope "needs attention" to THIS goal instead of the whole trace's negative space.
@@ -594,5 +657,8 @@ def enrich(trace):
         # GOVERNED counts only goals that DECLARE policies (governed present) and passed them.
         "goals_governed": sum(1 for g in goals if g.get("governed") is True),
         "goals_certified": sum(1 for f in faith if f.get("certified")),
+        # Living guard (Phase 1): goals with ≥1 met-but-stale criterion, and the total such criteria.
+        "goals_at_risk": sum(1 for g in goals if g.get("at_risk")),
+        "criteria_at_risk": sum(g.get("at_risk", 0) for g in goals),
     }
     return t

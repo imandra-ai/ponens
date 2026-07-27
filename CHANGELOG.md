@@ -7,6 +7,38 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.7.0] — 2026-07-27
+
+### Added
+- **Residuals are first-class artifacts (Trace Spec v1.8)** — a residual (an assumption relied on, a
+  claim left unverified, an out-of-scope item, a known limitation) is now an `artifact_type: "Residual"`
+  anchored into the lineage DAG via `derived_from` / `target`, so the trace's *negative space* hangs off
+  exactly the artifact it qualifies instead of floating in a separate list. The legacy top-level
+  `residuals[]` is still read - and `migrate_residuals` folds an old trace forward - so existing traces
+  keep working. See the new `TRACE_SPEC_v1_8` spec.
+- **Residual-surface policies** — a policy can now quantify over the residual surface (e.g.
+  `no_open_critical_residuals`): `enrich` evaluates it and reports its witnesses - the concrete residuals
+  that satisfy or violate it - so a governed goal can require its gaps be *closed*, not merely that its
+  evidence exists.
+
+### Changed
+- **Policy failures point at *where* they fail** — a structural policy evaluation now returns a witness
+  record (`ev_actions` / `vi_actions` / `ev_artifacts` / `vi_artifacts`): the concrete action and
+  artifact ids that support or violate it, instead of a bare pass/fail. A failed policy can name the
+  exact steps or artifacts at fault.
+
+### Fixed
+- **`Decomposition` criteria now resolve against a real decomposition** — a goal criterion asking for
+  `Decomposition` evidence matched nothing, because a region decomposition is recorded on the trace as
+  `StateSpaceAnalysisResult`. Resolution now canonicalizes artifact-type spellings
+  (Decomposition ≡ StateSpaceAnalysisResult ≡ Decomp), so a decomposition criterion ticks when the
+  decomposition exists.
+- **Criteria bind when the engine renamed the symbol** — a criterion's `component` may now carry both a
+  source `function` (the author's name, for display) and a formal `symbol` (the name the engine gave the
+  formalization, e.g. source `clamp` formalized as `clamp_decomp`), and resolves on *either*. A goal no
+  longer stays *todo* just because the proof was recorded under the engine's symbol rather than the
+  source name.
+
 ## [1.6.0] — 2026-07-25
 
 ### Added

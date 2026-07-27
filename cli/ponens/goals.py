@@ -68,19 +68,50 @@ def _artifact_type(ev):
     return ev.get("artifact") or ev.get("artifact_type") or ev.get("type")
 
 
+# The goal-contract evidence vocabulary and the trace's `artifact_type` vocabulary diverge for a few
+# types — most importantly a region decomposition, which authors name `Decomposition` but the trace
+# records as `StateSpaceAnalysisResult`. Without this bridge EVERY `Decomposition` criterion stays
+# `todo` even when the decomposition plainly exists. Canonicalize both sides before comparing.
+_ART_TYPE_ALIASES = {
+    "decomposition": "decomposition",
+    "statespaceanalysisresult": "decomposition",
+    "regiondecomposition": "decomposition",
+    "decomp": "decomposition",
+    "generatedtests": "generatedtests",
+    "tests": "generatedtests",
+}
+
+
+def _canon_art_type(s):
+    """Fold artifact-type spellings to a canonical key for cross-vocabulary comparison (case-, space-,
+    and underscore-insensitive)."""
+    k = (s or "").lower().replace("_", "").replace(" ", "")
+    return _ART_TYPE_ALIASES.get(k, k)
+
+
 def _resolve_typed(item, trace):
     """Resolve a typed criterion (`component` + `evidence: {artifact}`) by lineage: MET iff an artifact
     of the required type roots in the component. Quality of derivation is left to policies. Returns a
     resolution dict, or None if the item is not a typed criterion (caller falls back to legacy)."""
-    comp = item.get("component") or {}
-    comp = comp.get("function") or comp.get("function_") or comp.get("symbol")
+    compd = item.get("component") or {}
+    # A criterion may name the source `function` (for display / authoring) AND a formal `symbol` — the
+    # name the engine actually gave the formalization (e.g. source `clamp` -> IML `clamp_decomp`). The
+    # two can differ, so accept evidence rooting in EITHER: deduped, order-preserving. Only `function`
+    # is ever set by deterministic authoring, so this is a no-op there; `symbol` is stamped by the
+    # attribution reconciler when the engine renamed the symbol out from under the source name.
+    cands, seen = [], set()
+    for c in (compd.get("function"), compd.get("function_"), compd.get("symbol")):
+        if c and c not in seen:
+            seen.add(c)
+            cands.append(c)
     art_type = _artifact_type(item.get("evidence") or {})
-    if not comp or not art_type:
+    if not cands or not art_type:
         return None
     keep = {"status": item.get("status", "todo"), "from_trace": False, "evidence": None}
+    want_type = _canon_art_type(art_type)
     matches = [a for a in trace.get("artifacts", [])
-               if _lc(a.get("artifact_type")) == _lc(art_type)
-               and lineage.roots_in_component(a.get("artifact_id"), comp, trace)]
+               if _canon_art_type(a.get("artifact_type")) == want_type
+               and any(lineage.roots_in_component(a.get("artifact_id"), c, trace) for c in cands)]
     if not matches:
         return keep
     a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact

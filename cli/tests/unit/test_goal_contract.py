@@ -94,6 +94,33 @@ def test_wrong_component_stays_todo():
     assert r == {"status": "todo", "from_trace": False, "evidence": None}
 
 
+# --- Symbol alias: the engine renamed the symbol out from under the source name ------------
+# A criterion may name the source `function` (author's name, for display) AND a formal `symbol` —
+# the name the engine actually gave the formalization (e.g. source `money_transfer` proved as
+# `settle`). The attribution reconciler stamps `component.symbol` when the two diverge; resolution
+# then binds on EITHER, so the criterion resolves without discarding the human-authored name.
+
+def test_component_symbol_alias_resolves_when_function_name_differs():
+    item = {"id": "c", "component": {"function": "money_transfer", "symbol": "settle"},
+            "evidence": {"artifact": "VerificationResult"}}
+    r = resolve_item(item, _trace())
+    assert r["status"] == "done"
+    assert r["evidence"] == "vr1"
+
+
+def test_component_symbol_alias_still_todo_when_neither_name_matches():
+    item = {"id": "c", "component": {"function": "money_transfer", "symbol": "also_wrong"},
+            "evidence": {"artifact": "VerificationResult"}}
+    r = resolve_item(item, _trace())
+    assert r == {"status": "todo", "from_trace": False, "evidence": None}
+
+
+def test_component_function_alone_still_resolves_unchanged():
+    # The common case (only `function`, no `symbol`) must be untouched by the alias support.
+    r = resolve_item(crit("settle", "VerificationResult"), _trace())
+    assert r["status"] == "done" and r["evidence"] == "vr1"
+
+
 def test_latest_artifact_of_type_wins():
     t = _trace()
     t["artifacts"].append(

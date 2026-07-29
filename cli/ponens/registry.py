@@ -21,6 +21,7 @@ import urllib.error
 from .formatting import (
     bold, gray, red, green, yellow, blue, cyan, magenta, underline, table, heading,
 )
+from .policy_compiler import CheckError, check_policy
 
 DEFAULT_GALLERY_URL = "https://ponens.dev/gallery/policies"
 
@@ -450,6 +451,62 @@ def cmd_policies_add(args):
     print(gray(f"  run: ponens trace check {path}"))
 
 
+def cmd_policies_lint(args):
+    """Lint policy definitions locally: required fields + formula syntax.
+
+    Runs the same oracle `trace check` applies before evaluating
+    (policy_compiler.check_policy), so a policy that lints valid cannot be
+    marked syntax-invalid by check later. With --json, exits 0 whenever
+    linting ran — per-policy verdicts are in the records; without it, exits 1
+    if any policy is invalid. An unreadable or malformed input file exits 1.
+    """
+    try:
+        with open(args.policy_file) as f:
+            policy_data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"Error: cannot read policy file: {e}", file=sys.stderr)
+        return 1
+    policies = policy_data if isinstance(policy_data, list) else policy_data.get("policies", [])
+    if not isinstance(policies, list) or not all(isinstance(p, dict) for p in policies):
+        print('Error: policy file must be a JSON array of policy objects, or {"policies": [...]}',
+              file=sys.stderr)
+        return 1
+
+    as_json = getattr(args, "json", False)
+    records = []
+    invalid = 0
+    for p in policies:
+        pid = p.get("policy_id", p.get("name", "?"))
+        if "name" not in p:
+            # check_policy indexes policy['name'] before it can report it missing;
+            # produce the message it would have produced.
+            errors, warnings = [CheckError("Missing required field 'name'", pid)], []
+        else:
+            try:
+                _, errors, warnings = check_policy(p)
+            except Exception as e:  # a policy the checker cannot inspect is invalid, not a crash
+                errors, warnings = [CheckError(f"Policy could not be checked: {e!r}", pid)], []
+        record = {"policy_id": pid, "status": "invalid" if errors else "valid"}
+        if errors:
+            record["errors"] = [{"message": e.message, "path": e.path} for e in errors]
+            invalid += 1
+        if warnings:
+            record["warnings"] = [{"message": w.message, "path": w.path} for w in warnings]
+        records.append(record)
+        if not as_json:
+            print(f"  {'INVALID' if errors else 'OK     '} {pid}")
+            for e in errors:
+                print(f"          {e.message}")
+            for w in warnings:
+                print(f"          warning: {w.message}")
+
+    if as_json:
+        print(json.dumps(records, indent=2, ensure_ascii=False))
+        return 0
+    print(f"\n  {len(records)} policies linted, {invalid} invalid")
+    return 1 if invalid else 0
+
+
 # ----------------------------------------------------------------------------
 # Commands — unified search (policies, packs, organizations)
 # ----------------------------------------------------------------------------
@@ -611,3 +668,9 @@ def register(subparsers):
     p.add_argument("--into", required=True, help="Path to the trace JSON file")
     p.add_argument("--refresh", action="store_true", help="Force re-fetch, bypassing the cache")
     p.set_defaults(func=cmd_policies_add)
+
+    p = pol_sub.add_parser("lint", help="Lint policy definitions locally (required fields + formula syntax)")
+    p.add_argument("policy_file", help='Policy JSON file: an array of policies, or {"policies": [...]}')
+    p.add_argument("--json", action="store_true",
+                   help="Emit per-policy verdicts as JSON (machine-readable; exits 0 whenever linting ran)")
+    p.set_defaults(func=cmd_policies_lint)

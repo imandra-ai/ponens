@@ -7,6 +7,27 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.7.1] — 2026-07-29
+
+### Added
+- **`ponens policies lint` — validate policies without a trace** — lint a policy file locally
+  (`ponens policies lint policies.json [--json]`): required fields, the severity/scope vocabularies,
+  and formula syntax, using exactly the oracle `trace check` applies before evaluating — a policy that
+  lints `valid` can never come back syntax-invalid at check time. Errors are structured
+  (`{message, path}`, the path into the formula's operator tree), so authoring tools can surface them
+  in place. With `--json` the exit code is 0 whenever linting ran and the per-policy verdicts are in
+  the records (machine mode, mirroring `trace check --json`); without it, a human-readable report that
+  exits 1 if anything is invalid. Accepts the same file shapes as `trace check --policy-file` (a JSON
+  array, or `{"policies": [...]}`).
+
+### Fixed
+- **Stale-proof detection keys on the *latest* proof** — a symbol's proof is stale iff its latest
+  proof predates the latest change to that symbol, so a property re-proved after an edit heals its
+  stale-evidence residual instead of the superseded proof staying reported stale forever. A refutation
+  surfaces as the live `blocked` issue it is, never as staleness. The at-risk guard now reads two
+  independent signals: a change recorded on the trace (structural), and `artifact_freshness`
+  re-hashing that catches an on-disk edit the trace has no Diff for.
+
 ## [1.7.0] — 2026-07-27
 
 ### Added

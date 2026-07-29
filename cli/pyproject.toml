@@ -1,6 +1,6 @@
 [project]
 name = "ponens"
-version = "1.7.0"
+version = "1.7.1"
 description = "Author, govern, and validate reasoning traces — the open CLI for the reasoning-policies ecosystem"
 readme = "README.md"
 requires-python = ">=3.11"

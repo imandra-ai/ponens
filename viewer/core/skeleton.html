@@ -23,13 +23,13 @@
 
 <div class="artifact-bar">
   <div class="view-switcher">
-    <button id="goalsViewBtn" style="display:none" onclick="switchView('goals')">Goals</button>
+    <button id="goalsViewBtn" style="display:none" onclick="switchView('goals')"><img class="view-icon" src="icons/ponens-goals-icon.svg" alt="">Goals</button>
     <button id="gradeViewBtn" style="display:none" onclick="switchView('grade')">Grade</button>
-    <button class="active" onclick="switchView('flow')">Flow</button>
-    <button onclick="switchView('lineage')">Lineage</button>
-    <button id="dagViewBtn" onclick="switchView('dag')">Artifacts</button>
-    <button id="funnelViewBtn" onclick="switchView('funnel')">Reasoning</button>
-    <button id="policyViewBtn" onclick="switchView('policy')">Policies</button>
+    <button class="active" onclick="switchView('flow')"><img class="view-icon" src="icons/ponens-flow-icon.svg" alt="">Flow</button>
+    <button onclick="switchView('lineage')"><img class="view-icon" src="icons/ponens-lineage-icon.svg" alt="">Lineage</button>
+    <button id="dagViewBtn" onclick="switchView('dag')"><img class="view-icon" src="icons/ponens-artifacts-icon.svg" alt="">Artifacts</button>
+    <button id="funnelViewBtn" onclick="switchView('funnel')"><img class="view-icon" src="icons/ponens-reasoning-icon.svg" alt="">Reasoning</button>
+    <button id="policyViewBtn" onclick="switchView('policy')"><img class="view-icon" src="icons/ponens-policies-icon.svg" alt="">Policies</button>
   </div>
   <!-- The artifact-category shortcuts (Verification Goals, Edge Cases, …) now live inside the
        Artifacts tab (renderDAGView), not in this top bar — see viewer.js. -->

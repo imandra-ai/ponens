@@ -14,7 +14,10 @@ const read = (f) => readFileSync(join(here, 'core', f), 'utf8');
 
 const head = read('head.html');
 const css = read('viewer.css');
-const skeleton = read('skeleton.html');
+const skeleton = read('skeleton.html').replace(
+  /src="icons\/([^"]+\.svg)"/g,
+  (_, file) => `src="data:image/svg+xml;base64,${Buffer.from(read(`icons/${file}`)).toString('base64')}"`,
+);
 // Inline the shared faithfulness module (export stripped) ahead of viewer.js, so the Goals view calls
 // goalFaithfulnessV() from the same script scope. The module is separately import-tested for parity
 // with the CLI's Python faithfulness_of (parity/check_faithfulness_parity.py).

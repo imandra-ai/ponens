@@ -1679,6 +1679,21 @@
        Artifacts tab (renderDAGView), not in this top bar — see viewer.js. -->
 </div>
 
+<style>
+  .view-help { padding: 5px 16px 0; }
+  .view-help-toggle { background: none; border: none; font: inherit; font-size: 12px; cursor: pointer;
+    color: var(--text-dim, #64748b); display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; }
+  .view-help-toggle:hover { color: var(--text, #0f172a); }
+  .vh-chev { display: inline-block; font-size: 10px; transition: transform .15s; }
+  .view-help.open .vh-chev { transform: rotate(90deg); }
+  .view-help-body { color: var(--text-dim, #475569); font-size: 13px; line-height: 1.55; max-width: 880px; padding: 4px 0 12px; }
+  .view-help-body b { color: var(--text, #0f172a); }
+</style>
+<div class="view-help" id="viewHelp">
+  <button class="view-help-toggle" onclick="toggleViewHelp()" aria-expanded="false"><span class="vh-chev" id="vhChev">&#9656;</span> About this view</button>
+  <div class="view-help-body" id="viewHelpBody" hidden>The <b>Flow</b> view lists the actions in the order they happened &mdash; the step-by-step timeline of what the assistant did. Click any step to inspect it.</div>
+</div>
+
 <div class="top-view main-area active" id="view-flow">
   <div class="flow-scroll" id="flowPanel"></div>
   <div class="resize-handle" id="resizeHandle"></div>
@@ -3059,6 +3074,29 @@ function traceLineage(actionId) {
 // ============================================================
 // Top-level view switcher
 // ============================================================
+// Short "what is this view" blurbs, shown in the collapsible note under the tab bar.
+const VIEW_HELP = {
+  flow: 'The <b>Flow</b> view lists the actions in the order they happened &mdash; the step-by-step timeline of what the assistant did. Click any step to inspect it.',
+  lineage: 'The <b>Lineage</b> view is the provenance graph: what each artifact was derived from and what it produced. Trace any result (e.g. a proof) back to the source and reasoning it rests on &mdash; and see the code changes and their revisions.',
+  dag: 'The <b>Artifacts</b> view lists everything the run produced &mdash; formal models, verification goals and results, region decompositions, code edits, generated tests &mdash; grouped by kind.',
+  funnel: 'The <b>Reasoning</b> view shows the <b>formal reasoning</b> steps &mdash; formalize, verify, decompose, &hellip; &mdash; and the evidence each one produced.',
+  policy: 'The <b>Policies</b> view shows the standing rules checked across the whole trace, and whether each passed or failed.',
+  grade: 'The <b>Grade</b> view is a quality scorecard for the trace &mdash; structure, rationale, declared gaps (negative space), reproducibility, verification evidence, and lineage / integrity.',
+  goals: 'The <b>Goals</b> view shows the goals this work is scoped to and how their acceptance criteria resolve from the trace’s artifacts.',
+};
+function updateViewHelp(view) {
+  const body = document.getElementById('viewHelpBody');
+  if (body && VIEW_HELP[view]) body.innerHTML = VIEW_HELP[view];
+}
+function toggleViewHelp() {
+  const wrap = document.getElementById('viewHelp');
+  const body = document.getElementById('viewHelpBody');
+  if (!wrap || !body) return;
+  const open = wrap.classList.toggle('open');
+  body.hidden = !open;
+  wrap.querySelector('.view-help-toggle').setAttribute('aria-expanded', String(open));
+}
+
 function switchView(view) {
   // Match button by data-view or text content
   document.querySelectorAll('.view-switcher button').forEach(b => {
@@ -3067,6 +3105,7 @@ function switchView(view) {
   });
   document.querySelectorAll('.top-view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
+  updateViewHelp(view); // keep the "About this view" note in sync (stays collapsed unless the user opened it)
   if (view === 'grade') renderGradeView();
   if (view === 'goals') renderGoalsView();
   if (view === 'lineage') renderLineageView();

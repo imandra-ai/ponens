@@ -18,6 +18,7 @@ from . import demos as demos_mod
 from . import otel as otel_mod
 from . import langfuse as langfuse_mod
 from . import sync as sync_mod
+from . import objects as objects_mod
 from . import emit as emit_mod
 from . import agent as agent_mod
 from . import reasoners as reasoners_mod
@@ -668,6 +669,8 @@ def build_parser():
 
     # ── git/hub sync (bind, push, pull, status) ──────────────────
     sync_mod.register(subparsers)
+
+    objects_mod.register(subparsers)
 
     # ── emit (derive a trace from an agent session transcript) ───
     emit_mod.register(subparsers)

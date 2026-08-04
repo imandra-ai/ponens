@@ -175,6 +175,41 @@ def get_ancestors(artifact_id, trace, visited=None):
     return result
 
 
+def superseded_ids(trace):
+    """The set of artifact ids that some later revision REPLACED (its `supersedes`). These are the
+    historical revisions — retained for audit, but not the current state (spec §7.3). `supersedes` is a
+    single predecessor id per the spec; tolerate a list too, for producers that emit one."""
+    out = set()
+    for art in trace.get('artifacts', []):
+        sup = art.get('supersedes')
+        if isinstance(sup, str) and sup:
+            out.add(sup)
+        elif isinstance(sup, list):
+            out.update(s for s in sup if isinstance(s, str) and s)
+    return out
+
+
+def current_artifacts(trace):
+    """Artifacts that are the CURRENT revision of their target — the full history with superseded
+    predecessors folded out. Use this (not `trace['artifacts']`) for current-state views/metrics."""
+    dropped = superseded_ids(trace)
+    return [a for a in trace.get('artifacts', []) if a.get('artifact_id') not in dropped]
+
+
+def revision_chain(artifact_id, trace):
+    """The revision history for an artifact, newest→oldest: [artifact_id, its predecessor, …], walking
+    `supersedes` back. The audit answer to "how did this result evolve?" (spec §7.3)."""
+    by_id = {a.get('artifact_id'): a for a in trace.get('artifacts', [])}
+    chain, seen = [], set()
+    cur = artifact_id
+    while cur and cur not in seen and cur in by_id:
+        seen.add(cur)
+        chain.append(cur)
+        sup = by_id[cur].get('supersedes')
+        cur = sup if isinstance(sup, str) else (sup[0] if isinstance(sup, list) and sup else None)
+    return chain
+
+
 def in_dependency_chain(earlier_action, current_action, trace):
     current_inputs = current_action.get('outputs', []) + current_action.get('inputs', [])
     all_ancestors = set()
@@ -741,6 +776,16 @@ def evaluate_policy(policy, trace):
 def normalize_trace(trace):
     if not trace.get('artifacts'):
         return
+    from . import objects as _ob
+
+    def _payload(art):
+        # Resolve externalized blobs (Gap 2) so policy eval / rendering still see inline content on a
+        # bound trace. Identity-preserving for the common inline case (no `*_ref` → the original dict).
+        p = art['payload']
+        if isinstance(p, dict) and any(k.endswith('_ref') and _ob.is_ref(v) for k, v in p.items()):
+            return _ob.resolve_payload(p)
+        return p
+
     art_map = {a['artifact_id']: a for a in trace['artifacts']}
     for action in trace.get('actions', []):
         for out_id in action.get('outputs', []):
@@ -748,22 +793,27 @@ def normalize_trace(trace):
             if not art or 'payload' not in art:
                 continue
             at = art['artifact_type']
-            if at in ('IMLModel', 'FormalModel') and 'iml_code' in art['payload']:
-                action['formalization'] = art['payload']
+            payload = _payload(art)
+            if at in ('IMLModel', 'FormalModel') and 'iml_code' in payload:
+                action['formalization'] = payload
             elif at in ('Formalization', 'FormalModel'):
-                action['formalization'] = art['payload']
+                action['formalization'] = payload
             elif at == 'VerificationGoal':
-                action['vg_defined'] = art['payload']
+                action['vg_defined'] = payload
             elif at == 'VerificationResult':
-                action['vg_result'] = art['payload']
+                action['vg_result'] = payload
             elif at in ('Decomposition', 'StateSpaceAnalysisResult'):
-                action['decomposition'] = art['payload']
+                action['decomposition'] = payload
             elif at == 'ConformanceResult':
-                action['conformance'] = art['payload']
+                action['conformance'] = payload
             elif at == 'CoSimulationResult':
-                action['cosimulation'] = art['payload']
+                action['cosimulation'] = payload
             elif at == 'GeneratedTests':
-                action['generated_tests'] = art['payload']
+                action['generated_tests'] = payload
+            elif at == 'CommandResult':
+                # A failed/aborted reasoning ATTEMPT (no positive result) — carries outcome/exit_code so a
+                # policy can distinguish "attempted and failed" from "never attempted".
+                action['command_result'] = payload
 
 
 # ================================================================
@@ -906,6 +956,7 @@ def validate_trace(trace):
         if not a.get('rationale'):
             warnings.append(f"action {aid}: no rationale")
 
+    art_ids = {a.get('artifact_id') for a in artifacts if isinstance(a, dict) and a.get('artifact_id')}
     for i, art in enumerate(artifacts):
         if not isinstance(art, dict):
             errors.append(f"artifact #{i} is not an object")
@@ -914,6 +965,12 @@ def validate_trace(trace):
             errors.append(f"artifact #{i} missing 'artifact_id'")
         if not art.get('artifact_type'):
             errors.append(f"artifact {art.get('artifact_id', '?')}: missing 'artifact_type'")
+        # A `supersedes` (spec §7.3: a replaced predecessor) must resolve to an artifact in the trace,
+        # else the revision chain dangles. Tolerate a single id (canonical) or a list.
+        sup = art.get('supersedes')
+        for sid in ([sup] if isinstance(sup, str) else sup if isinstance(sup, list) else []):
+            if sid and sid not in art_ids:
+                warnings.append(f"artifact {art.get('artifact_id', '?')}: supersedes '{sid}' does not exist")
 
     if not (trace.get('trigger') or {}).get('type'):
         warnings.append("trigger has no 'type' (trace may be incomplete)")
@@ -1329,7 +1386,9 @@ def cmd_report(args):
 # Commands safe to replay during reproduction (read-only / verification only).
 _REPRO_SAFE = ("pytest", "npm test", "npm run build", "npm run lint", "go test",
                "cargo test", "make test", "make check", "git status", "git diff",
-               "git log", "ls ", "cat ", "grep ")
+               "git log", "ls ", "cat ", "grep ",
+               # read-only formal-verification re-execution (ImandraX replay of a ReproductionBundle)
+               "codelogician")
 _REPRO_DANGER = ("rm ", "git push", "git commit", "sudo", " > ", ">>", "mv ", "dd ",
                  "curl", "wget", "chmod", "kill", "npm publish", "pip install", "git reset")
 
@@ -1383,6 +1442,109 @@ def cmd_reproduce(args):
             print(f"      expected: {expected[:80]}")
             print(f"      actual:   {actual[:80]}")
     print(f"\n{len(safe)} replayed · {diverged} diverged.")
+    return 1 if diverged else 0
+
+
+def _run_and_compare(cmd, expected, timeout=300):
+    """Run ``cmd`` and report whether its output contains the ``expected`` token — the shared
+    "replay and check for divergence" primitive (used by bundle replay). Returns (ok, actual)."""
+    import subprocess
+    try:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        actual = " ".join((r.stdout + r.stderr).split())
+    except Exception as e:  # noqa: BLE001 — any failure is a non-reproduction, reported as such
+        actual = f"(execution failed: {e})"
+    exp = (expected or "").replace("ERROR: ", "").strip().strip("…")
+    ok = bool(exp) and exp[:60].lower() in actual.lower()
+    return ok, actual
+
+
+def cmd_replay(args):
+    """Replay ReproductionBundle artifacts (Gap 4): materialize the content-addressed model from the
+    object store and re-run the engine, reporting where the verdict diverges from the record.
+
+    Dry by default (report the plan + whether each bundle is self-contained); ``--run`` executes the
+    referenced environment's ``replay_command`` (safe-allowlisted), substituting ``{model}`` with the
+    materialized model file."""
+    from . import objects as ob
+    trace = load_trace(args.trace_file)
+    arts = trace.get("artifacts", [])
+    by_id = {a.get("artifact_id"): a for a in arts if isinstance(a, dict)}
+    envs = {e.get("environment_id"): e for e in trace.get("execution_environments", []) if isinstance(e, dict)}
+    bundles = [a for a in arts if isinstance(a, dict) and a.get("artifact_type") == "ReproductionBundle"]
+    if not bundles:
+        print("No ReproductionBundle artifacts in this trace.")
+        return 0
+
+    def _model_text(bundle, art_ids):
+        # Prefer the bundle's own content_ref; else the referenced IMLModel's content_ref, then inline.
+        if ob.is_ref(bundle.get("content_ref")):
+            t = ob.get_text(bundle["content_ref"], args.objects_dir)
+            if t is not None:
+                return t
+        model = next((by_id[i] for i in art_ids
+                      if by_id.get(i, {}).get("artifact_type") in ("IMLModel", "FormalModel")), None)
+        if not model:
+            return None
+        if ob.is_ref(model.get("content_ref")):
+            t = ob.get_text(model["content_ref"], args.objects_dir)
+            if t is not None:
+                return t
+        return ob.resolve_payload(model.get("payload") or {}, args.objects_dir).get("iml_code")
+
+    print(f"{len(bundles)} reproduction bundle(s){'' if args.run else ' (dry run)'}.")
+    diverged = 0
+    for b in bundles:
+        bid = b.get("artifact_id", "?")
+        payload = b.get("payload") or {}
+        art_ids = payload.get("artifact_ids", []) or []
+        model_text = _model_text(b, art_ids)
+        expected = [(by_id[i].get("payload") or {}).get("status")
+                    for i in art_ids if by_id.get(i, {}).get("artifact_type") == "VerificationResult"]
+        env = envs.get((payload.get("environment_ids") or [None])[0]) or {}
+        # An engine adapter (Gap 4) supplies the replay command + preflights the engine; falls back to
+        # the environment's own replay_command when no adapter matches.
+        from . import engines
+        adapter = engines.adapter_for(env)
+        replay_cmd = adapter.replay_command(env) if adapter else (env.get("configuration") or {}).get("replay_command")
+        contained = model_text is not None
+        print(f"  bundle {bid}: model={'resolved' if contained else 'MISSING'}  "
+              f"expects={expected or '—'}  env={env.get('name', '?')}"
+              f"{('  engine=' + adapter.name) if adapter else ''}")
+        if not args.run:
+            print(f"    would replay: {replay_cmd}" if replay_cmd
+                  else "    (no replay_command on the environment — dry only)")
+            continue
+        if not contained:
+            print("    ✗ cannot replay — model content is not resolvable (missing object)")
+            diverged += 1
+            continue
+        if not replay_cmd:
+            print("    (skipped — no replay_command configured on the environment)")
+            continue
+        # The engine must actually be runnable here (binary on PATH, credentials present).
+        blocked = adapter.preflight() if adapter else None
+        if blocked:
+            print(f"    (skipped — engine not runnable here: {blocked})")
+            continue
+        probe = replay_cmd.replace("{model}", "model.iml")
+        if not _repro_safe(probe):
+            print("    (skipped — replay_command is not in the safe allowlist)")
+            continue
+        import tempfile
+        fd, model_path = tempfile.mkstemp(suffix=".iml")
+        with os.fdopen(fd, "w") as f:
+            f.write(model_text)
+        try:
+            exp = next((e for e in expected if e), "")
+            ok, actual = _run_and_compare(replay_cmd.replace("{model}", model_path), exp)
+            print(f"    {'✓ reproduced' if ok else '✗ DIVERGED'} — expected {exp!r}")
+            if not ok:
+                diverged += 1
+                print(f"      actual: {actual[:80]}")
+        finally:
+            os.remove(model_path)
+    print(f"\n{len(bundles)} bundle(s) · {diverged} diverged.")
     return 1 if diverged else 0
 
 
@@ -1688,6 +1850,13 @@ def cmd_check(args):
         pid = p.get('policy_id', p.get('name', '?'))
         name = p.get('name', pid)
         severity = p.get('severity', 'error')
+        # A policy the user turned off: record it as `disabled` (neutral — never passed/failed, never
+        # blocking) so it stays visible and re-enableable, but does not gate. Mirrors the goal policy
+        # bar's `disabled` handling (governance_of).
+        if p.get('disabled'):
+            emit(f"  SKIP    {name} (disabled)")
+            record_eval(pid, 'disabled', 'Disabled by the user — not evaluated.')
+            continue
         _, syntax_errors, syntax_warnings = syntax_check_policy(p)
         if syntax_errors:
             emit(f"  SYNTAX  {name}")
@@ -2413,6 +2582,14 @@ def register(subparsers):
     p.add_argument("trace_file")
     p.add_argument("--run", action="store_true", help="Execute the safe commands (default: dry run)")
     p.set_defaults(func=cmd_reproduce)
+
+    # replay (ReproductionBundle — engine re-execution against the object store; Gap 4)
+    p = trace_sub.add_parser("replay", help="Replay ReproductionBundle artifacts against the object store")
+    p.add_argument("trace_file")
+    p.add_argument("--run", action="store_true", help="Execute the environment's replay command (default: dry)")
+    p.add_argument("--objects-dir", default=None,
+                   help="Object store dir (default: $PONENS_OBJECTS_DIR or .ponens/objects)")
+    p.set_defaults(func=cmd_replay)
 
     # grade
     p = trace_sub.add_parser("grade", help="Grade the trace's quality across dimensions")

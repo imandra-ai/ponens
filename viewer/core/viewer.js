@@ -520,10 +520,10 @@ function zoomToolbar(trace) {
   let tb = `<div class="zoom-toolbar"><span class="zoom-label">Zoom</span>
     <button class="zoom-btn ${z === 'meta' ? 'active' : ''}" onclick="setFlowZoom('meta')">Steps · ${nMeta}</button>
     <button class="zoom-btn ${z === 'actions' ? 'active' : ''}" onclick="setFlowZoom('actions')">Actions · ${nAct}</button>`;
-  // Scope: restrict to a goal's relevance cone, or off-goal exploration (both from `ponens trace enrich`).
+  // Scope: restrict to a goal's relevance cone (from `ponens trace enrich`). Off-goal work belongs to
+  // the General goal, so there is no separate "exploration" bucket.
   const goals = (trace.goals || []).filter((g) => Array.isArray(g.cone) && g.cone.length);
-  const explN = (trace.exploration_actions || []).length;
-  if (goals.length || explN) {
+  if (goals.length) {
     const cur = window._flowScope || 'all';
     const clip = (s) => { s = String(s || ''); return s.length > 30 ? s.slice(0, 29) + '…' : s; };
     const opt = (v, l) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
@@ -531,7 +531,6 @@ function zoomToolbar(trace) {
       + `<select class="scope-sel" onchange="setFlowScope(this.value)">`
       + opt('all', `All steps · ${nAct}`)
       + goals.map((g) => opt(g.id, `Goal: ${clip(g.intent || g.id)} · ${g.cone.length}`)).join('')
-      + (explN ? opt('exploration', `Exploration · ${explN}`) : '')
       + `</select>`;
   }
   return tb + `</div>`;
@@ -544,7 +543,6 @@ function focusMeta(id) { window._focusMeta = id; renderFlow(traceData); }
 function _scopeActionIds(trace) {
   const s = window._flowScope || 'all';
   if (s === 'all' || !s) return null;
-  if (s === 'exploration') return new Set(trace.exploration_actions || []);
   const g = (trace.goals || []).find((x) => x.id === s);
   return new Set((g && g.cone) || []);
 }
@@ -767,8 +765,8 @@ function actionCardHTML(a, vgByAction) {
   const ins = a.inputs || [], outs = a.outputs || [];
   if (ins.length || outs.length) {
     html += `<div class="card-data">`;
-    for (const i of ins) html += `<span class="cd-tag cd-in">← ${esc(i)}</span>`;
-    for (const o of outs) html += `<span class="cd-tag cd-out">${esc(o)} \u2192</span>`;
+    for (const i of ins) html += `<span class="cd-tag cd-in" title="${esc(i)}">← ${esc(dagShortName(i))}</span>`;
+    for (const o of outs) html += `<span class="cd-tag cd-out" title="${esc(o)}">${esc(dagShortName(o))} \u2192</span>`;
     html += `</div>`;
   }
 
@@ -1224,7 +1222,7 @@ function selectAction(actionId) {
   // ---- Data flow ---- (each input/output is an artifact; make it clickable to open/navigate)
   const dtagLinks = (names, ids) => names.map((n, i) => {
     const id = (ids && ids[i] != null) ? ids[i] : n;
-    return `<span class="dtag dtag-link" style="cursor:pointer;color:var(--accent);" title="Open ${esc(String(n))}" onclick="event.stopPropagation();openArtifactRef('${esc(String(id))}')">${esc(n)}</span>`;
+    return `<span class="dtag dtag-link" style="cursor:pointer;color:var(--accent);" title="Open ${esc(String(n))}" onclick="event.stopPropagation();openArtifactRef('${esc(String(id))}')">${esc(dagShortName(n))}</span>`;
   }).join(' ');
   if (d.inputs?.length) html += `<div class="detail-section"><p class="label">Inputs</p>${dtagLinks(d.inputs, d._original_inputs)}</div>`;
   if (d.outputs?.length) html += `<div class="detail-section"><p class="label">Outputs</p>${dtagLinks(d.outputs, d._original_outputs)}</div>`;

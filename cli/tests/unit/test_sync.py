@@ -133,6 +133,25 @@ def test_bind_stamps_trace(git_repo):
     assert t["content_hash"].startswith("sha256:")
 
 
+def test_bind_externalize_moves_inline_blobs_to_the_store(git_repo):
+    from ponens import objects as ob
+    d = git_repo / ".ponens"
+    d.mkdir()
+    objdir = git_repo / ".ponens" / "objects"
+    tf = d / "t.json"
+    tf.write_text(json.dumps({"trace_id": "trace-ext", "actions": [], "artifacts": [
+        {"artifact_id": "m1", "artifact_type": "IMLModel",
+         "payload": {"iml_code": "let f x = x", "symbols": ["f"]}},
+    ]}))
+    sync.cmd_bind(args(file=str(tf), no_note=True, externalize=True, objects_dir=str(objdir)))
+    t = json.loads(tf.read_text())
+    payload = t["artifacts"][0]["payload"]
+    assert "iml_code" not in payload                          # inline moved out
+    assert ob.is_ref(payload["iml_code_ref"])                 # → content ref
+    assert ob.get_text(payload["iml_code_ref"], str(objdir)) == "let f x = x"  # resolvable from store
+    assert t["content_hash"].startswith("sha256:")            # hash computed over the externalized form
+
+
 def test_bind_writes_git_note(git_repo):
     d = git_repo / ".ponens"
     d.mkdir()

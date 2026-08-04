@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "gallery/policies",
-  "policy_count": 211,
+  "policy_count": 213,
   "policies": [
     {
       "id": "accessibility_state_managed",
@@ -1675,6 +1675,28 @@
       "reference_compiler": "ok",
       "hash": "sha256:bc0b0496f932237856a059eb4f6b788e92643afbc82d0bda2002fbff5548cca8",
       "file": "form_validation_complete.json"
+    },
+    {
+      "id": "formalization_is_analyzed",
+      "name": "Formalization Is Analyzed",
+      "category": "reasoning",
+      "severity": "warning",
+      "domain": "formal-reasoning",
+      "tags": [
+        "formal-verification",
+        "reasoning",
+        "workflow"
+      ],
+      "language_level": "scoped_temporal",
+      "reasoner": "codelogician",
+      "description": "Every formalized model is either verified or analyzed — no model is built and left unused.",
+      "formula": "G(Formalize → F(Verify ∨ StateSpaceAnalysis))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:ee3047b98fb4d2942a817030278347bf7d5671d902355d54ff718a44d1bf9631",
+      "file": "formalization_is_analyzed.json",
+      "pack": "apply-formal-methods",
+      "group": "rigor"
     },
     {
       "id": "formalize_before_verify",
@@ -4999,6 +5021,28 @@
       "tier": "A-B"
     },
     {
+      "id": "verified_claims_are_fidelity_checked",
+      "name": "Verified Claims Are Fidelity-Checked",
+      "category": "conformance",
+      "severity": "warning",
+      "domain": "formal-reasoning",
+      "tags": [
+        "conformance",
+        "fidelity",
+        "formal-verification"
+      ],
+      "language_level": "scoped_temporal",
+      "reasoner": "codelogician",
+      "description": "Every verification should be backed by a passed model↔code fidelity check — a verdict is fully code-grounded only when the model provably reproduces the real code.",
+      "formula": "G(Verify → F(ConformanceResult(passed)))",
+      "version": "1.0.0",
+      "reference_compiler": "ok",
+      "hash": "sha256:477a06fd40d56987c1819c7be9e54f11b4d78898e11614c43102e085b02d0bf5",
+      "file": "verified_claims_are_fidelity_checked.json",
+      "pack": "apply-formal-methods",
+      "group": "rigor"
+    },
+    {
       "id": "within_constraint_scope",
       "name": "Within Constraint Scope",
       "category": "conformance",
@@ -5193,6 +5237,7 @@
     "editing",
     "esma",
     "federal",
+    "fidelity",
     "files",
     "fix",
     "fix-ai-wg",
@@ -5314,6 +5359,7 @@
     "ux",
     "validation",
     "verification",
+    "workflow",
     "xstate"
   ],
   "domains": {
@@ -5599,7 +5645,7 @@
           "label": "Rigorous pipeline"
         }
       ],
-      "policy_count": 6
+      "policy_count": 8
     },
     {
       "id": "cert-secure-coding",

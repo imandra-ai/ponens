@@ -133,6 +133,9 @@ RESIDUAL_TYPE = "Residual"
 _RESIDUAL_PAYLOAD_KEYS = (
     "kind", "severity", "status", "source", "statement", "target",
     "related_artifact_ids", "suggested_check", "introduced_by_action_id", "tags", "derived",
+    # Plain-language lead (`summary`) shown first by viewers, with the formal IML kept as detail —
+    # the `property` that was checked and a `counterexample` input that breaks it (§13).
+    "summary", "property", "counterexample",
 )
 
 

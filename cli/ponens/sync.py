@@ -135,6 +135,12 @@ def cmd_bind(args):
     trace["repo"] = slug
     trace["branch"] = branch
     trace["commit_sha"] = sha
+    # Opt-in: externalize inline blobs into the content-addressed object store BEFORE hashing, so a
+    # bound (share-ready) trace is deduped + portable (the reader rehydrates with `objects inline`).
+    externalized = 0
+    if getattr(args, "externalize", False):
+        from . import objects as _ob
+        externalized = _ob.externalize(trace, getattr(args, "objects_dir", None))
     trace["content_hash"] = content_hash(trace)
     save_trace(tf, trace)
 
@@ -147,6 +153,8 @@ def cmd_bind(args):
     print(f"  hash:   {gray(trace['content_hash'])}")
     if noted:
         print(f"  note:   {gray('refs/notes/ponens  (Trace-Id: ' + tid + ')')}")
+    if externalized:
+        print(f"  objects: {gray(str(externalized) + ' blob(s) externalized (rehydrate: ponens objects inline)')}")
     print(gray("  next: ponens push"))
 
 
@@ -305,6 +313,10 @@ def register(subparsers):
         if name == "bind":
             p.add_argument("--no-note", action="store_true",
                            help="Do not write the Trace-Id git note")
+            p.add_argument("--externalize", action="store_true",
+                           help="Move inline blobs into the content-addressed object store (portable bundle)")
+            p.add_argument("--objects-dir", default=None,
+                           help="Object store dir (default: $PONENS_OBJECTS_DIR or .ponens/objects)")
         if name == "push":
             p.add_argument("--visibility", choices=["private", "org", "shared_link"],
                            help="Trace visibility on the hub (default: org)")

@@ -1,0 +1,29 @@
+{
+  "id": "verified_claims_are_fidelity_checked",
+  "name": "Verified Claims Are Fidelity-Checked",
+  "category": "conformance",
+  "severity": "warning",
+  "description": "Every verification should be backed by a passed model↔code fidelity check — a verdict is fully code-grounded only when the model provably reproduces the real code.",
+  "formula": "G(Verify → F(ConformanceResult(passed)))",
+  "language_level": "scoped_temporal",
+  "reasoner": "codelogician",
+  "rationale": "A proof holds of the MODEL. Without a fidelity (conformance) check linking the model to the real code, a 'verified' verdict is only provisional — it may not reflect the deployed system. Fidelity is optional in the current flow, so a missing check is a flagged gap, not a hard failure (hence warning).",
+  "tags": [
+    "conformance",
+    "fidelity",
+    "formal-verification"
+  ],
+  "examples": {
+    "passes": "Verify(model) → ConformanceResult(passed) linking the model to the real code",
+    "fails": "Verify(model) with no passed fidelity/conformance check"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra-ai"
+  },
+  "date_added": "2026-08-02",
+  "downloads": 0,
+  "pack": "apply-formal-methods",
+  "group": "rigor"
+}

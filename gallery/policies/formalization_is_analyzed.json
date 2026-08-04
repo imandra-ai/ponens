@@ -1,0 +1,29 @@
+{
+  "id": "formalization_is_analyzed",
+  "name": "Formalization Is Analyzed",
+  "category": "reasoning",
+  "severity": "warning",
+  "description": "Every formalized model is either verified or analyzed — no model is built and left unused.",
+  "formula": "G(Formalize → F(Verify ∨ StateSpaceAnalysis))",
+  "language_level": "scoped_temporal",
+  "reasoner": "codelogician",
+  "rationale": "A formalization that is never verified or decomposed is dead weight — building a model only pays off when the model is actually reasoned over, so an unused Formalize is a flagged gap.",
+  "tags": [
+    "reasoning",
+    "formal-verification",
+    "workflow"
+  ],
+  "examples": {
+    "passes": "Formalize(model) → Verify(model) (or StateSpaceAnalysis(model)) later in the trace",
+    "fails": "Formalize(model) with no subsequent Verify or StateSpaceAnalysis"
+  },
+  "domain": "formal-reasoning",
+  "author": {
+    "name": "Imandra",
+    "github": "imandra-ai"
+  },
+  "date_added": "2026-08-02",
+  "downloads": 0,
+  "pack": "apply-formal-methods",
+  "group": "rigor"
+}

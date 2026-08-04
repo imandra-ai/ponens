@@ -365,8 +365,16 @@ def cmd_emit(args):
               file=sys.stderr)
         sys.exit(1)
     if not getattr(adapter, "IMPLEMENTED", True):
-        print(f"Error: the '{adapter.NAME}' adapter is not implemented yet — only "
-              "'claude-code' is supported today. Contributions welcome.", file=sys.stderr)
+        implemented = [
+            n for n in adapter_names()
+            if getattr(get_adapter(n), "IMPLEMENTED", True)
+        ]
+        print(
+            f"Error: the '{adapter.NAME}' adapter is not implemented yet — "
+            f"supported today: {', '.join(implemented) or '(none)'}. "
+            "Contributions welcome.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     path = args.transcript or adapter.default_transcript()
@@ -405,8 +413,13 @@ def register(subparsers):
     p = subparsers.add_parser("emit", help="Derive a trace from an agent session transcript")
     p.add_argument("transcript", nargs="?",
                    help="Path to the session transcript (default: newest for this project)")
-    p.add_argument("--from", dest="source", default="claude-code", choices=adapter_names(),
-                   help="Agent transcript format (only claude-code is implemented today)")
+    p.add_argument(
+        "--from",
+        dest="source",
+        default="claude-code",
+        choices=adapter_names(),
+        help="Agent transcript format (claude-code, cursor, and pi are implemented)",
+    )
     p.add_argument("-o", "--output", help="Write the trace here (default: stdout)")
     p.add_argument("--title", help="Trace title")
     p.add_argument("--summarize", action="store_true",

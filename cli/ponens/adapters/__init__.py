@@ -10,9 +10,9 @@ new agent is just a new module here. An adapter module exposes:
     read_entries(path) -> list
     parse(entries) -> {"events", "model", "assistant", "last_reasoning"}
 """
-from . import claude_code, codex, gemini, pi
+from . import claude_code, codex, cursor, gemini, pi
 
-ADAPTERS = {a.NAME: a for a in (claude_code, gemini, codex, pi)}
+ADAPTERS = {a.NAME: a for a in (claude_code, cursor, gemini, codex, pi)}
 
 
 def get_adapter(name):

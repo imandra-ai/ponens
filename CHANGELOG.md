@@ -7,6 +7,34 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.8.0] — 2026-08-04
+
+### Added
+- **Content-addressed object store (`ponens objects`)** — an immutable, sha256-keyed blob store so a
+  trace can reference large content (source, formal model, tests) by `content_ref` instead of inlining
+  it: identical content is stored once (dedup) and a trace plus its reachable objects is a portable,
+  self-contained bundle. Layout is a stable spec (`<dir>/sha256/<ab>/<rest>`, overridable via
+  `$PONENS_OBJECTS_DIR`) so any producer that can hash may write blobs directly. New CLI:
+  `ponens objects put | get | externalize | inline | gc | stat`. `ponens bind --externalize` moves
+  inline blobs into the store at the share boundary; `objects inline` rehydrates a received bundle.
+- **`ponens trace replay` — re-run a ReproductionBundle.** Materializes the content-addressed model
+  from the object store and re-executes it through a pluggable **engine adapter** (`engines.py`, with an
+  ImandraX adapter), flagging where the fresh verdict **diverges** from the recorded one. Dry by default
+  (reports the plan + self-containment); `--run` executes the safe-allowlisted replay command and
+  preflights the engine (binary on PATH, credentials present).
+- **Revision-aware lineage (`supersedes` / `revision`).** Helpers for append-only revision chains:
+  `current_artifacts` (fold history to the latest revision), `superseded_ids`, and `revision_chain`
+  (walk a revision newest→oldest, cycle-safe). `trace validate` now warns on a dangling `supersedes`.
+
+### Changed
+- **`normalize_trace` surfaces failed/aborted attempts and resolves externalized blobs.** A
+  `CommandResult` (carrying an `outcome`/`exit_code`) is mapped onto its action so policies can
+  distinguish *attempted-and-failed* from *never-attempted*; externalized `content_ref` blobs are
+  resolved back to inline content for policy evaluation on a bound trace.
+- **Residual payload preserves `summary` / `property` / `counterexample`.** The plain-language lead, the
+  formal property that was checked, and a counterexample input now survive residual processing
+  (Trace Spec v1.8 §13), instead of being dropped by the residual-surface filter.
+
 ## [1.7.1] — 2026-07-29
 
 ### Added

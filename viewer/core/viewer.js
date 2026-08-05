@@ -2566,6 +2566,7 @@ let _selectedDAGNode = null;
 // Artifacts view has two lenses: the lineage GRAPH (default) and a filterable LIST. --------------------
 let _dagViewMode = 'graph';           // 'graph' | 'list'
 let _dagListTypes = null;             // null = all types shown; else a Set of active artifact_types
+let _dagListSortDesc = true;          // artifact list order: newest (highest action #) first by default
 
 function _dagModeToggle() {
   const b = (m, label) => `<button class="dag-mode-btn ${_dagViewMode === m ? 'active' : ''}" `
@@ -2582,6 +2583,9 @@ function toggleDagListType(t) {
   if (_dagListTypes.size === all.length) _dagListTypes = null;   // everything on → back to "all"
   renderDAGView();
 }
+
+// Flip the artifact list between newest-first and oldest-first (by producer action #).
+function toggleDagListSort() { _dagListSortDesc = !_dagListSortDesc; renderDAGView(); }
 
 // Open an artifact from a list row. In a host embedding (desktop), open the host's individual-artifact
 // view (rich result view for results, else the file) — mirroring the DAG node detail's actions. In the
@@ -2620,26 +2624,35 @@ function _dagListHtml() {
   }).join('');
   const filterLabel = `<span class="dag-flabel">Filter by type <span class="dag-flabel-hint">— click to toggle</span></span>`;
 
-  const rows = arts.filter((a) => active(a.artifact_type)).map((a) => {
+  // Order by producer action # (creation order); newest first by default, flippable via the header.
+  const ord = (a) => (a.producer_action_id != null ? Number(a.producer_action_id) : -1);
+  const shownArts = arts.filter((a) => active(a.artifact_type))
+    .sort((a, b) => (_dagListSortDesc ? 1 : -1) * (ord(b) - ord(a)));
+  const rows = shownArts.map((a) => {
     const c = dagTypeColor(a.artifact_type);
     const parents = (a.derived_from || []).map((p) => esc(dagShortName(traceData._artifactMap?.[p]?.name || p))).join(', ');
     const meta = [];
-    if (a.producer_action_id != null) meta.push(`action #${esc(String(a.producer_action_id))}`);
     if (parents) meta.push(`← ${parents}`);
     if (a.format) meta.push(esc(a.format));
     // Show the id only when it differs from the (short) name — otherwise it's just repeated.
     const nm = dagShortName(a.name || a.artifact_id);
     const showId = a.artifact_id && a.artifact_id !== (a.name || a.artifact_id);
+    const num = a.producer_action_id != null ? `#${esc(String(a.producer_action_id))}` : '';
     return `<tr class="dag-lrow" onclick="dagListOpen('${esc(a.artifact_id)}')" title="Show in graph">`
+      + `<td class="dag-lnum">${num}</td>`
       + `<td><span class="dag-ltype" style="background:${c.bg};color:${c.text};border-color:${c.border};">${esc(dagTypeLabel(a.artifact_type))}</span></td>`
       + `<td class="dag-lname">${esc(nm)}${showId ? `<span class="dag-lid">${esc(a.artifact_id)}</span>` : ''}</td>`
       + `<td class="dag-lmeta">${meta.join(' · ')}</td></tr>`;
   }).join('');
 
-  const shownN = arts.filter((a) => active(a.artifact_type)).length;
+  const shownN = shownArts.length;
+  const caret = _dagListSortDesc ? '▼' : '▲';
+  const thead = `<thead><tr class="dag-lhead">`
+    + `<th class="dag-lnum dag-lsort" onclick="toggleDagListSort()" title="Creation order — click to sort ${_dagListSortDesc ? 'oldest' : 'newest'} first"># ${caret}</th>`
+    + `<th>Type</th><th>Artifact</th><th>Lineage</th></tr></thead>`;
   return `<div class="dag-list">`
     + `<div class="dag-filters">${filterLabel}${chips}<span class="dag-filters-n">${shownN} of ${arts.length}</span></div>`
-    + `<table class="dag-ltable"><tbody>${rows}</tbody></table></div>`;
+    + `<table class="dag-ltable">${thead}<tbody>${rows}</tbody></table></div>`;
 }
 // The CONNECTED COMPONENT of a node: every artifact reachable from it along `derived_from` edges in
 // EITHER direction, recursively (its ancestors AND descendants, and theirs). Used to isolate a

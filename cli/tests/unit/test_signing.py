@@ -120,3 +120,102 @@ def test_live_rfc3161_roundtrip(tmp_path):
     assert t["signatures"][0]["timestamp"]["standard"] == "rfc3161"
     res = signing.verify_trace(t)                 # no CA -> present-but-untrusted, but must parse
     assert res[0]["timestamp"]["status"] in ("untrusted", "valid")
+
+
+# ── GPG backend ─────────────────────────────────────────────────────────────────
+_HAS_GPG = bool(shutil.which("gpg") or shutil.which("gpg2"))
+
+
+def _gen_gpg_key(email="gpgtester@acme"):
+    """Generate an unattended, passphrase-less ed25519 signing key in the ambient GNUPGHOME; return
+    (email, fingerprint)."""
+    gpg = shutil.which("gpg") or shutil.which("gpg2")
+    subprocess.run([gpg, "--batch", "--pinentry-mode", "loopback", "--passphrase", "",
+                    "--quick-generate-key", email, "ed25519", "sign", "0"],
+                   check=True, capture_output=True)
+    out = subprocess.run([gpg, "--with-colons", "--list-keys", email],
+                         capture_output=True, text=True).stdout
+    fpr = next(ln.split(":")[9] for ln in out.splitlines() if ln.startswith("fpr:"))
+    return email, fpr
+
+
+@pytest.fixture
+def gpg_home(monkeypatch):
+    # A SHORT GNUPGHOME: the gpg-agent unix socket lives at $GNUPGHOME/S.gpg-agent and must stay under
+    # the ~104-char sun_path limit — pytest's tmp_path is far too long (agent fails to start on macOS).
+    import tempfile
+    home = tempfile.mkdtemp(prefix="pgpg-", dir="/tmp")
+    os.chmod(home, 0o700)
+    monkeypatch.setenv("GNUPGHOME", home)
+    yield home
+    subprocess.run(["gpgconf", "--kill", "all"], env={**os.environ, "GNUPGHOME": home}, capture_output=True)
+    shutil.rmtree(home, ignore_errors=True)
+
+
+@pytest.mark.skipif(not _HAS_GPG, reason="gpg not available")
+def test_gpg_sign_inlines_pubkey_and_verifies_untrusted_without_roster(gpg_home):
+    email, fpr = _gen_gpg_key()
+    t = _trace()
+    rec = signing.sign_trace(t, signer=email, algo="gpg")
+    assert rec["algo"] == "gpg" and rec["key_id"] == fpr and rec["signer"] == email
+    assert rec["signature"].startswith("-----BEGIN PGP SIGNATURE-----")
+    assert rec["public_key"].startswith("-----BEGIN PGP PUBLIC KEY BLOCK-----")
+    # verify uses the INLINED pubkey in an ephemeral keyring -> crypto-valid but untrusted (no roster).
+    res = signing.verify_trace(t)
+    assert res[0]["status"] == "untrusted" and res[0]["algo"] == "gpg"
+
+
+@pytest.mark.skipif(not _HAS_GPG, reason="gpg not available")
+def test_gpg_valid_when_fingerprint_in_roster(gpg_home, tmp_path):
+    email, fpr = _gen_gpg_key()
+    t = _trace()
+    signing.sign_trace(t, signer=email, algo="gpg")
+    roster = tmp_path / "gpg_roster"
+    roster.write_text(f"# auditors\n{fpr}\n")
+    res = signing.verify_trace(t, gpg_roster_path=str(roster))
+    assert res[0]["status"] == "valid"
+
+
+@pytest.mark.skipif(not _HAS_GPG, reason="gpg not available")
+def test_gpg_untrusted_when_fingerprint_not_in_roster(gpg_home, tmp_path):
+    email, _fpr = _gen_gpg_key()
+    t = _trace()
+    signing.sign_trace(t, signer=email, algo="gpg")
+    roster = tmp_path / "gpg_roster"
+    roster.write_text("DEADBEEF" * 5 + "\n")               # a different fingerprint
+    res = signing.verify_trace(t, gpg_roster_path=str(roster))
+    assert res[0]["status"] == "untrusted"
+
+
+@pytest.mark.skipif(not _HAS_GPG, reason="gpg not available")
+def test_gpg_tamper_is_detected(gpg_home):
+    email, _fpr = _gen_gpg_key()
+    t = _trace()
+    signing.sign_trace(t, signer=email, algo="gpg")
+    t["artifacts"].append({"artifact_id": "a2", "artifact_type": "Diff"})   # mutate signed content
+    res = signing.verify_trace(t)
+    assert res[0]["status"] == "tampered"
+
+
+# ── sigstore backend + dispatch ──────────────────────────────────────────────────
+
+@pytest.mark.skipif(bool(shutil.which("sigstore")), reason="sigstore present — this tests the absent path")
+def test_sigstore_sign_requires_the_tool():
+    with pytest.raises(RuntimeError, match="sigstore not found"):
+        signing.sign_trace(_trace(), algo="sigstore", signer="a@b.com",
+                           oidc_issuer="https://accounts.example")
+
+
+@pytest.mark.skipif(bool(shutil.which("sigstore")), reason="sigstore present — this tests the absent path")
+def test_sigstore_verify_is_unknown_without_the_tool():
+    t = _trace()
+    t["signatures"] = [{"signer": "a@b.com", "algo": "sigstore", "content_hash": sync.content_hash(t),
+                        "bundle": "{}", "signature": "{}", "oidc_issuer": "https://accounts.example"}]
+    res = signing.verify_trace(t, expect_identity="a@b.com", oidc_issuer="https://accounts.example")
+    assert res[0]["status"] == "unknown" and res[0]["algo"] == "sigstore"
+
+
+def test_unknown_backend_verifies_as_invalid():
+    t = _trace()
+    t["signatures"] = [{"signer": "x", "algo": "weird", "content_hash": sync.content_hash(t)}]
+    assert signing.verify_trace(t)[0]["status"] == "invalid"

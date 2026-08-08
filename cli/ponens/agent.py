@@ -121,9 +121,11 @@ Procedure:
   6. Verdict — approve only if no open blocking residual remains and every consequential claim was
      re-verified; else request-changes (list the residual_ids to close) or escalate-to-human.
      SIGN your sign-off: `ponens trace sign <trace> --role auditor --disposition approved|rejected`
-     signs the content_hash with your private key (non-repudiable, tamper-evident; add `--tsa <url>`
-     for an RFC-3161 trusted timestamp). Anyone re-checks with `ponens trace verify <trace>
-     --allowed-signers <roster> [--tsa-ca <cert>]`.
+     signs the content_hash (non-repudiable, tamper-evident). Pick a backend with `--backend`: ssh
+     (default), gpg, or keyless sigstore (`--signer <email> --oidc-issuer <url>`, identity-bound +
+     Rekor-logged); add `--tsa <url>` for an RFC-3161 trusted timestamp. Anyone re-checks with `ponens
+     trace verify <trace>` + the matching trust flag (`--allowed-signers` | `--gpg-roster` |
+     `--identity`/`--oidc-issuer`) `[--tsa-ca <cert>]`.
 
 Never treat prose as evidence. Never auto-resolve an open_question. Traces are immutable — gaps
 close in a SUCCESSOR trace, not by editing this one.

@@ -1767,20 +1767,26 @@ def cmd_export(args):
 
 
 def cmd_sign(args):
-    """Cryptographically sign a trace over its content_hash with an SSH private key — non-repudiation
-    for audit sign-off (see spec/AUDIT_READINESS_v0_1.md). Others verify with `ponens trace verify`."""
+    """Cryptographically sign a trace over its content_hash — non-repudiation for audit sign-off (see
+    spec/AUDIT_READINESS_v0_1.md). Backend: ssh (default) | gpg | sigstore. Others verify with
+    `ponens trace verify`."""
     from . import signing
     trace = load_trace(args.trace_file)
     try:
         rec = signing.sign_trace(trace, args.key, signer=args.signer,
-                                 role=args.role, disposition=args.disposition, tsa=args.tsa)
+                                 role=args.role, disposition=args.disposition, tsa=args.tsa,
+                                 algo=args.backend, oidc_issuer=args.oidc_issuer,
+                                 identity_token=args.identity_token)
     except RuntimeError as e:
         print(f"sign failed: {e}", file=sys.stderr)
         return 1
     _save_trace_fmt(args.trace_file, trace)
     tag = f" [{rec.get('role', '')}{'/' + rec['disposition'] if rec.get('disposition') else ''}]" \
         if (rec.get("role") or rec.get("disposition")) else ""
-    print(f"Signed {args.trace_file} as {rec['signer']}{tag} ({rec.get('key_id')}) over {rec['content_hash']}")
+    ident = rec.get("key_id") or rec.get("algo")
+    print(f"Signed {args.trace_file} as {rec['signer']}{tag} ({ident}) over {rec['content_hash']}")
+    if rec.get("transparency_log") == "rekor":
+        print("  recorded in the Rekor public transparency log (sigstore)")
     if rec.get("timestamp"):
         print(f"  trusted timestamp: {rec['timestamp'].get('time')} (RFC-3161 via {rec['timestamp'].get('tsa')})")
     return 0
@@ -1793,7 +1799,8 @@ def cmd_verify(args):
     trace = load_trace(args.trace_file)
     try:
         results = signing.verify_trace(trace, allowed_signers_path=args.allowed_signers,
-                                       tsa_ca_path=args.tsa_ca)
+                                       tsa_ca_path=args.tsa_ca, gpg_roster_path=args.gpg_roster,
+                                       expect_identity=args.identity, oidc_issuer=args.oidc_issuer)
     except RuntimeError as e:
         print(f"verify failed: {e}", file=sys.stderr)
         return 1
@@ -1806,7 +1813,8 @@ def cmd_verify(args):
         st = r["status"]
         tag = f" [{r.get('role', '')}{'/' + r['disposition'] if r.get('disposition') else ''}]" \
             if (r.get("role") or r.get("disposition")) else ""
-        print(f"  {mark.get(st, '?')} {r['signer']}{tag}: {st} — {r.get('detail', '')}")
+        algo = f" <{r.get('algo')}>" if r.get("algo") else ""
+        print(f"  {mark.get(st, '?')} {r['signer']}{algo}{tag}: {st} — {r.get('detail', '')}")
         ts = r.get("timestamp")
         if ts:
             print(f"      {mark.get(ts['status'], '?')} timestamp: {ts['status']} — {ts.get('time') or ''} "
@@ -2515,25 +2523,33 @@ def register(subparsers):
     p.add_argument("-o", "--output", help="Write to this file (default: stdout)")
     p.set_defaults(func=cmd_export)
 
-    # sign (non-repudiation)
-    p = trace_sub.add_parser("sign", help="Cryptographically sign a trace (over its content_hash) with an SSH key")
+    # sign (non-repudiation) — backends: ssh (default) | gpg | sigstore
+    p = trace_sub.add_parser("sign", help="Cryptographically sign a trace (over its content_hash): ssh | gpg | sigstore")
     p.add_argument("trace_file")
-    p.add_argument("--key", default="~/.ssh/id_ed25519", help="SSH private key to sign with")
-    p.add_argument("--signer", help="Signer identity (default: the key's comment)")
+    p.add_argument("--backend", choices=["ssh", "gpg", "sigstore"], default="ssh",
+                   help="Signing backend (default: ssh)")
+    p.add_argument("--key", default="~/.ssh/id_ed25519", help="SSH private key to sign with (ssh backend)")
+    p.add_argument("--signer", help="Signer identity — ssh: key comment; gpg: key id/email (--local-user); "
+                                    "sigstore: the OIDC identity (email) to record")
     p.add_argument("--role", help="Role of the signer, e.g. author | reviewer | auditor")
     p.add_argument("--disposition", choices=["approved", "rejected", "noted"], help="The sign-off decision")
     p.add_argument("--tsa", help="RFC-3161 Time-Stamping Authority URL — attach a trusted timestamp "
                                  "over the signature (e.g. https://freetsa.org/tsr)")
+    p.add_argument("--oidc-issuer", help="OIDC issuer URL (sigstore backend)")
+    p.add_argument("--identity-token", help="Ambient OIDC identity token (sigstore backend, non-interactive)")
     p.set_defaults(func=cmd_sign)
 
-    # verify (check signatures)
-    p = trace_sub.add_parser("verify", help="Verify a trace's signatures (SSH); trust keys via an allowed-signers roster")
+    # verify (check signatures) — dispatches on each signature's backend
+    p = trace_sub.add_parser("verify", help="Verify a trace's signatures (ssh/gpg/sigstore); trust via a roster or identity")
     p.add_argument("trace_file")
-    p.add_argument("--allowed-signers", help="allowed_signers roster (git format); else keys are valid-but-untrusted")
+    p.add_argument("--allowed-signers", help="ssh allowed_signers roster (git format); else ssh keys are valid-but-untrusted")
+    p.add_argument("--gpg-roster", help="gpg roster: allowed key fingerprints (one per line); else gpg keys are untrusted")
+    p.add_argument("--identity", help="sigstore: the cert identity (email) a signature must bind to; else untrusted")
+    p.add_argument("--oidc-issuer", help="sigstore: the OIDC issuer the cert must come from")
     p.add_argument("--tsa-ca", help="TSA CA cert (PEM) to verify RFC-3161 timestamps against; else a "
                                     "present timestamp reads untrusted")
     p.add_argument("--require-trusted", action="store_true",
-                   help="Fail unless every signature's key (and timestamp, if present) is trusted")
+                   help="Fail unless every signature (and timestamp, if present) is trusted")
     p.set_defaults(func=cmd_verify)
 
     # check

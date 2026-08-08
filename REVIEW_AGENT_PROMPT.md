@@ -86,10 +86,13 @@ Otherwise: **request-changes** (list the `residual_id`s that must close in a suc
 
 **Sign your sign-off.** When you approve (or reject), record it cryptographically:
 `ponens trace sign <trace> --role auditor --disposition approved|rejected` signs the trace's
-`content_hash` with your private key — non-repudiable and tamper-evident. Add `--tsa <url>` for an
-RFC-3161 **trusted timestamp** (a TSA-attested "when"). Anyone re-checks with `ponens trace verify
-<trace> --allowed-signers <roster> [--tsa-ca <cert>]`; a later edit to the trace breaks the signature
-(`tampered`), so an approval binds to exactly the content you reviewed, at the time you signed it.
+`content_hash` — non-repudiable and tamper-evident. Choose a backend with `--backend`: **ssh**
+(default; `--key`), **gpg** (`--signer <key id>`), or keyless **sigstore** (`--signer <email>
+--oidc-issuer <url>`, identity-bound via Fulcio + logged to Rekor). Add `--tsa <url>` for an RFC-3161
+**trusted timestamp** (a TSA-attested "when"). Anyone re-checks with `ponens trace verify <trace>`,
+establishing trust per backend — `--allowed-signers <roster>` (ssh), `--gpg-roster <fingerprints>`
+(gpg), or `--identity <email> --oidc-issuer <url>` (sigstore) `[--tsa-ca <cert>]`; a later edit breaks
+the signature (`tampered`), so an approval binds to exactly the content you reviewed, when you signed it.
 
 ## Anti-patterns
 

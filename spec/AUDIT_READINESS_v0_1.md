@@ -26,7 +26,7 @@ value is that it is checkable, not that it is signed off.
 | What an auditor asks | ponens answer | Where |
 |---|---|---|
 | Is the record **unaltered**? | Canonical `content_hash` (sha256); 1:1 bind to a git commit via git notes | `CLI_SYNC_MODEL_v0_1.md`; `ponens bind` |
-| Who **approved** it, provably, and **when**? | Cryptographic signatures over `content_hash` (`ponens trace sign`), verified with the public key + an allowed-signers roster; optional **RFC-3161 trusted timestamp** (`--tsa`) for a TSA-attested "when" | `ponens trace sign`/`verify`; `signing.py` |
+| Who **approved** it, provably, and **when**? | Cryptographic signatures over `content_hash` (`ponens trace sign`), pluggable backends — **SSH**, **GPG**, or keyless identity-bound **sigstore** (Fulcio + Rekor) — verified against a roster or an expected OIDC identity; optional **RFC-3161 trusted timestamp** (`--tsa`) for a TSA-attested "when" | `ponens trace sign`/`verify`; `signing.py` |
 | Is "done" **real or self-reported**? | Acceptance resolves *deterministically from evidence* (typed artifact in the component's lineage), never from prose | TRACE §18.2–18.3 |
 | Are the **gaps disclosed**? | The residual surface — assumptions, unverified, out-of-scope, limitations, open questions | TRACE §13 |
 | Is there **counter-evidence**? | First-class `Defeater` residuals (rebuts / undermines / undercuts) that *block* a contested claim | TRACE §13, §18.2 |
@@ -47,16 +47,21 @@ To move from *"we can show this to an auditor"* to *"an auditor/regulator will r
 evidence,"* ranked by impact:
 
 1. **Integrity → non-repudiation.** `content_hash` proves *unaltered*; **cryptographic signing** now
-   adds *by whom*. `ponens trace sign` signs the `content_hash` with an SSH private key (an audit
-   sign-off carries `--role`/`--disposition`); `ponens trace verify` checks each signature with the
-   public key and reports **valid** (key in the allowed-signers roster) / **untrusted** (crypto-valid,
-   unknown key) / **invalid** / **tampered** — gating on failure (`--require-trusted` to require the
-   roster). Signatures live in `signatures[]`, excluded from `content_hash`, so parties co-sign the
-   same content. **Trusted timestamp**: `sign --tsa <url>` attaches an **RFC-3161** timestamp over the
-   signature (a TSA-signed "existed by <time>"); `verify --tsa-ca <cert>` checks it **offline** against
-   the TSA certificate — so *when* is TSA-attested, not machine-clock-asserted. *Status: **shipped** —
-   SSH signatures + RFC-3161 timestamps, both offline-verifiable. Follow-on: GPG / sigstore backends
-   alongside SSH; a rekor transparency-log option.*
+   adds *by whom*. `ponens trace sign --backend <ssh|gpg|sigstore>` signs the `content_hash` (an audit
+   sign-off carries `--role`/`--disposition`); `ponens trace verify` dispatches on each signature's
+   backend and reports **valid** (signer established) / **untrusted** (crypto-valid, signer not
+   established) / **invalid** / **tampered** — gating on failure (`--require-trusted`). Signatures live
+   in `signatures[]`, excluded from `content_hash`, so parties **co-sign the same content with different
+   backends**. Trust is established per backend: **ssh** via an allowed-signers roster
+   (`--allowed-signers`); **gpg** via an allowed-fingerprints roster (`--gpg-roster`), with the public
+   key inlined so verification is offline; **sigstore** is *keyless and identity-bound* — a short-lived
+   Fulcio certificate binds the signature to an **OIDC identity** (`--identity`/`--oidc-issuer`), so
+   there is no long-lived key to manage or leak, and the proof is recorded in the **Rekor** public
+   transparency log (delivering the transparency-log option for free). **Trusted timestamp**: `sign
+   --tsa <url>` attaches an **RFC-3161** timestamp over the signature (a TSA-signed "existed by
+   <time>"); `verify --tsa-ca <cert>` checks it **offline** against the TSA certificate — so *when* is
+   TSA-attested, not machine-clock-asserted. *Status: **shipped** — SSH + GPG + sigstore (keyless)
+   backends and RFC-3161 timestamps, all offline-verifiable (sigstore identity/Rekor over the network).*
 2. **Tool trust / qualification.** A verdict is only as trustworthy as the engine + checker that
    produced it. For certification *credit* (DO-178C-class), the verification tool itself must be
    qualified; for finance / AI-governance (MiFID, NIST AI RMF), reproducibility usually suffices.

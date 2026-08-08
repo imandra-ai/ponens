@@ -1,14 +1,25 @@
 """Cryptographic signing of a reasoning trace — non-repudiation for audit sign-off.
 
-A signer signs the trace's `content_hash` (sync.content_hash) with their **private** key; anyone
-verifies with the **public** key. The signature does two things at once: detects **tampering** (it is
-over the content digest, so any later edit breaks it) and identifies **who** signed. Signatures live
-in `trace["signatures"]`, which is EXCLUDED from `content_hash` (see sync.HASH_EXCLUDE), so multiple
-parties can co-sign the *same* content.
+A signer signs the trace's `content_hash` (sync.content_hash) with their **private** key/identity; anyone
+verifies with the **public** key/identity. The signature does two things at once: detects **tampering**
+(it is over the content digest, so any later edit breaks it) and identifies **who** signed. Signatures
+live in `trace["signatures"]`, which is EXCLUDED from `content_hash` (see sync.HASH_EXCLUDE), so multiple
+parties can co-sign the *same* content, each with whatever backend they trust.
 
-Backend: OpenSSH signatures (`ssh-keygen -Y sign|verify`) — no new dependencies, reuses the keys
-people already have, and verification is fully **offline**. A signature is only *trusted* when its key
-appears in an **allowed-signers** roster (git's model); otherwise it is crypto-valid but *untrusted*.
+Pluggable backends (each signature records its `algo`, and `verify_trace` dispatches on it):
+  - **ssh**      OpenSSH signatures (`ssh-keygen -Y sign|verify`) — no new deps, reuses existing keys,
+                 verifies fully **offline**. Trust: the key is in an **allowed-signers** roster (git's model).
+  - **gpg**      GnuPG detached signatures (`gpg --detach-sign|--verify`). The signer's public key is
+                 inlined on the record so verification is **offline** against an ephemeral keyring; trust:
+                 the key fingerprint is in a **gpg roster** (an allowed-fingerprints file).
+  - **sigstore** Keyless, identity-bound signing (`sigstore sign|verify`, PyPI): a short-lived Fulcio
+                 certificate binds the signature to an **OIDC identity** (email + issuer) and the proof is
+                 recorded in the **Rekor** public transparency log. Trust: the cert identity matches an
+                 expected `--identity`/`--oidc-issuer`. No long-lived key to manage or leak.
+
+Across all backends the verdicts are uniform: **tampered** (content_hash changed), **invalid** (crypto
+fails), **untrusted** (crypto-valid but the signer isn't established by a roster/identity), **valid**
+(crypto-valid AND the signer is a recognised/expected party).
 """
 
 import base64
@@ -40,10 +51,6 @@ def _run(argv, inp=None):
 def _now():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-def _require():
-    if not available():
-        raise RuntimeError("ssh-keygen not found — install OpenSSH to sign/verify traces")
 
 
 def timestamp_signature(signature, tsa_url, timeout=30):
@@ -118,66 +125,232 @@ def verify_timestamp(sig_rec, tsa_ca_path=None):
                 "detail": "timestamp present; pass --tsa-ca to verify it against the TSA certificate"}
 
 
-def sign_trace(trace, key_path, signer=None, role=None, disposition=None, when=None, tsa=None):
-    """Sign `trace`'s content_hash with the SSH private key at `key_path`; append a signature record
-    to `trace["signatures"]` and return it. With `tsa` (a TSA URL), also attach an RFC-3161 trusted
-    timestamp over the signature."""
-    _require()
-    key_path = os.path.expanduser(key_path)
+# ── SSH backend (OpenSSH signatures) ────────────────────────────────────────────
+
+def _sign_ssh(content_hash, key_path=None, signer=None):
+    if not available():
+        raise RuntimeError("ssh-keygen not found — install OpenSSH to sign with the ssh backend")
+    key_path = os.path.expanduser(key_path or "~/.ssh/id_ed25519")
     if not os.path.exists(key_path):
         raise RuntimeError(f"private key not found: {key_path}")
-    ch = sync.content_hash(trace)
-
-    r = _run(["ssh-keygen", "-Y", "sign", "-f", key_path, "-n", NAMESPACE], inp=ch)
+    r = _run(["ssh-keygen", "-Y", "sign", "-f", key_path, "-n", NAMESPACE], inp=content_hash)
     if r.returncode != 0:
         raise RuntimeError(f"ssh-keygen sign failed: {r.stderr.strip()}")
     signature = r.stdout
-
     pub = _run(["ssh-keygen", "-y", "-f", key_path]).stdout.strip()   # "ssh-ed25519 AAAA… comment"
     parts = pub.split()
-    key_type = parts[0] if parts else None
     comment = " ".join(parts[2:]) if len(parts) > 2 else None
     fp = _run(["ssh-keygen", "-lf", "-"], inp=pub).stdout.strip()      # "256 SHA256:… comment (ED25519)"
     key_id = next((t for t in fp.split() if t.startswith("SHA256:")), None)
+    return {"signer": signer or comment or "unknown", "key_type": parts[0] if parts else None,
+            "key_id": key_id, "public_key": pub, "namespace": NAMESPACE, "signature": signature}
 
-    rec = {
-        "signer": signer or comment or "unknown",
-        "content_hash": ch,
-        "algo": "ssh",
-        "key_type": key_type,
-        "key_id": key_id,
-        "public_key": pub,
-        "namespace": NAMESPACE,
-        "signed_at": when or _now(),
-        "signature": signature,
-    }
+
+def _verify_ssh(content_hash, rec, allowed_signers_path=None):
+    if not available():
+        return "unknown", "ssh-keygen not installed — cannot verify the ssh signature"
+    roster = os.path.expanduser(allowed_signers_path) if allowed_signers_path else None
+    have_roster = bool(roster and os.path.exists(roster))
+    signer = rec.get("signer") or "unknown"
+    with tempfile.TemporaryDirectory() as d:
+        sigf = os.path.join(d, "sig")
+        with open(sigf, "w") as f:
+            f.write(rec.get("signature", ""))
+        if have_roster:
+            af = roster
+        else:
+            af = os.path.join(d, "allowed_signers")
+            with open(af, "w") as f:
+                f.write(f"{signer} {rec.get('public_key', '')}\n")
+        v = _run(["ssh-keygen", "-Y", "verify", "-f", af, "-I", signer, "-n", NAMESPACE, "-s", sigf],
+                 inp=content_hash)
+    if v.returncode == 0:
+        return ("valid", "verified") if have_roster else \
+               ("untrusted", "crypto-valid; key not checked against an allowed-signers roster")
+    return "invalid", v.stderr.strip()
+
+
+# ── GPG backend (GnuPG detached signatures) ──────────────────────────────────────
+
+def _gpg():
+    return shutil.which("gpg") or shutil.which("gpg2")
+
+
+def _sign_gpg(content_hash, signer=None):
+    gpg = _gpg()
+    if not gpg:
+        raise RuntimeError("gpg not found — install GnuPG to sign with the gpg backend")
+    with tempfile.TemporaryDirectory() as d:
+        data = os.path.join(d, "data")
+        with open(data, "w") as f:
+            f.write(content_hash)
+        argv = [gpg, "--batch", "--yes", "--armor", "--status-fd", "2", "--detach-sign"]
+        if signer:
+            argv += ["--local-user", signer]
+        argv += ["--output", "-", data]
+        r = subprocess.run(argv, capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"gpg sign failed: {r.stderr.strip() or 'no secret key?'}")
+        signature = r.stdout
+        # [GNUPG:] SIG_CREATED <type> <pk_algo> <hash_algo> <class> <ts> <fingerprint>
+        fpr = next((ln.split()[-1] for ln in r.stderr.splitlines() if "SIG_CREATED" in ln), None)
+        # Inline the ascii-armored public key so verification is offline (independent of the verifier's
+        # keyring), and read the primary uid for a human signer label.
+        export_sel = [fpr] if fpr else ([signer] if signer else [])
+        pub = subprocess.run([gpg, "--armor", "--export", *export_sel], capture_output=True, text=True).stdout.strip()
+        uid = None
+        if fpr:
+            lk = subprocess.run([gpg, "--with-colons", "--list-keys", fpr], capture_output=True, text=True).stdout
+            uid = next((ln.split(":")[9] for ln in lk.splitlines()
+                        if ln.startswith("uid:") and len(ln.split(":")) > 9 and ln.split(":")[9]), None)
+    return {"signer": signer or uid or (f"gpg:{fpr}" if fpr else "unknown"), "key_type": "gpg",
+            "key_id": fpr, "public_key": pub or None, "signature": signature}
+
+
+def _load_fpr_roster(path):
+    """A gpg roster: one allowed key fingerprint per line (`#` comments, spaces ignored)."""
+    allowed = set()
+    for line in open(path, encoding="utf-8"):
+        f = line.split("#", 1)[0].strip().replace(" ", "").upper()
+        if f:
+            allowed.add(f)
+    return allowed
+
+
+def _verify_gpg(content_hash, rec, roster_path=None):
+    gpg = _gpg()
+    if not gpg:
+        return "unknown", "gpg not installed — cannot verify the gpg signature"
+    pub, sig = rec.get("public_key"), rec.get("signature")
+    if not pub or not sig:
+        return "invalid", "missing public key or signature"
+    with tempfile.TemporaryDirectory() as home:
+        os.chmod(home, 0o700)
+        env = {**os.environ, "GNUPGHOME": home}
+        subprocess.run([gpg, "--batch", "--import"], input=pub, capture_output=True, text=True, env=env)
+        data, sigf = os.path.join(home, "data"), os.path.join(home, "sig.asc")
+        with open(data, "w") as f:
+            f.write(content_hash)
+        with open(sigf, "w") as f:
+            f.write(sig)
+        v = subprocess.run([gpg, "--batch", "--status-fd", "2", "--verify", sigf, data],
+                           capture_output=True, text=True, env=env)
+    if "GOODSIG" not in v.stderr and "VALIDSIG" not in v.stderr:
+        return "invalid", (v.stderr.strip().splitlines() or ["signature does not verify"])[-1]
+    vfpr = next((ln.split()[2] for ln in v.stderr.splitlines()
+                 if "VALIDSIG" in ln and len(ln.split()) >= 3), None)
+    roster = os.path.expanduser(roster_path) if roster_path else None
+    if roster and os.path.exists(roster):
+        match = (vfpr or rec.get("key_id") or "").replace(" ", "").upper()
+        if match and match in _load_fpr_roster(roster):
+            return "valid", "verified; fingerprint in the gpg roster"
+        return "untrusted", "crypto-valid; fingerprint not in the gpg roster"
+    return "untrusted", "crypto-valid; no --gpg-roster given to establish trust"
+
+
+# ── sigstore backend (keyless, identity-bound; Rekor transparency log) ────────────
+
+def _sign_sigstore(content_hash, signer=None, oidc_issuer=None, identity_token=None):
+    if not shutil.which("sigstore"):
+        raise RuntimeError("sigstore not found — `pip install sigstore` for keyless, identity-bound signing")
+    with tempfile.TemporaryDirectory() as d:
+        data = os.path.join(d, "data")
+        bundle = os.path.join(d, "trace.sigstore.json")
+        with open(data, "w") as f:
+            f.write(content_hash)
+        argv = ["sigstore", "sign", "--bundle", bundle]
+        if identity_token:
+            argv += ["--identity-token", identity_token]
+        if oidc_issuer:
+            argv += ["--oidc-issuer", oidc_issuer]
+        argv += [data]
+        r = subprocess.run(argv, capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"sigstore sign failed: {r.stderr.strip()}")
+        with open(bundle, encoding="utf-8") as f:
+            bundle_json = f.read()
+    # The Fulcio cert in the bundle binds the signature to the OIDC identity; `signer` should be that
+    # identity (email). The proof is recorded in Rekor (public transparency log) by `sigstore sign`.
+    return {"signer": signer or "unknown", "key_type": "sigstore", "key_id": None,
+            "bundle": bundle_json, "signature": bundle_json, "oidc_issuer": oidc_issuer,
+            "transparency_log": "rekor"}
+
+
+def _verify_sigstore(content_hash, rec, expect_identity=None, oidc_issuer=None):
+    if not shutil.which("sigstore"):
+        return "unknown", "sigstore not installed — cannot verify (pip install sigstore)"
+    bundle = rec.get("bundle") or rec.get("signature")
+    if not bundle:
+        return "invalid", "missing sigstore bundle"
+    identity = expect_identity or rec.get("signer")
+    issuer = oidc_issuer or rec.get("oidc_issuer")
+    if not identity or identity == "unknown" or not issuer:
+        return "untrusted", ("crypto material present, but no expected identity/issuer to bind it to "
+                             "(pass --identity and --oidc-issuer)")
+    with tempfile.TemporaryDirectory() as d:
+        data = os.path.join(d, "data")
+        bf = os.path.join(d, "trace.sigstore.json")
+        with open(data, "w") as f:
+            f.write(content_hash)
+        with open(bf, "w") as f:
+            f.write(bundle)
+        v = subprocess.run(["sigstore", "verify", "identity", "--bundle", bf,
+                            "--cert-identity", identity, "--cert-oidc-issuer", issuer, data],
+                           capture_output=True, text=True)
+    if v.returncode == 0:
+        return "valid", f"verified against identity {identity} (Rekor-logged)"
+    return "invalid", (v.stderr.strip().splitlines() or ["identity verification failed"])[-1]
+
+
+# ── Dispatch ─────────────────────────────────────────────────────────────────────
+
+_SIGN = {"ssh": _sign_ssh, "gpg": _sign_gpg, "sigstore": _sign_sigstore}
+
+
+def sign_trace(trace, key_path=None, signer=None, role=None, disposition=None, when=None, tsa=None,
+               algo="ssh", oidc_issuer=None, identity_token=None):
+    """Sign `trace`'s content_hash with backend `algo` (ssh | gpg | sigstore); append a signature record
+    to `trace["signatures"]` and return it. `key_path` is the ssh/gpg key (ssh path or gpg key id via
+    `signer`); sigstore is keyless (OIDC). With `tsa` (a TSA URL), also attach an RFC-3161 trusted
+    timestamp over the signature (redundant for sigstore, which is already Rekor-logged)."""
+    ch = sync.content_hash(trace)
+    if algo == "ssh":
+        fields = _sign_ssh(ch, key_path, signer)
+    elif algo == "gpg":
+        fields = _sign_gpg(ch, signer)
+    elif algo == "sigstore":
+        fields = _sign_sigstore(ch, signer, oidc_issuer, identity_token)
+    else:
+        raise RuntimeError(f"unknown signing backend: {algo!r} (choose ssh | gpg | sigstore)")
+    rec = {"signer": fields.get("signer") or "unknown", "content_hash": ch, "algo": algo,
+           "signed_at": when or _now(), **{k: v for k, v in fields.items() if k != "signer"}}
     if role:
         rec["role"] = role
     if disposition:
         rec["disposition"] = disposition
     if tsa:
-        rec["timestamp"] = timestamp_signature(signature, tsa)  # RFC-3161 trusted "existed by <time>"
+        rec["timestamp"] = timestamp_signature(fields["signature"], tsa)  # RFC-3161 trusted "existed by <time>"
     trace.setdefault("signatures", []).append(rec)
     return rec
 
 
-def verify_trace(trace, allowed_signers_path=None, tsa_ca_path=None):
-    """Verify every signature on `trace`. Returns a list of per-signature verdicts:
+def verify_trace(trace, allowed_signers_path=None, tsa_ca_path=None, gpg_roster_path=None,
+                 expect_identity=None, oidc_issuer=None):
+    """Verify every signature on `trace`, dispatching on each record's `algo` (default "ssh" for legacy
+    records). Returns a list of per-signature verdicts:
       - "tampered"  : content_hash no longer matches — the trace changed since signing;
-      - "invalid"   : the signature does not verify against its key;
-      - "untrusted" : crypto-valid, but the key is not in the allowed-signers roster (or none given);
-      - "valid"     : crypto-valid AND the key is a recognised signer in the roster.
-    Each entry also carries `timestamp` (the RFC-3161 verdict from `verify_timestamp`) when the
-    signature was timestamped."""
-    _require()
+      - "invalid"   : the signature does not verify against its key/identity;
+      - "untrusted" : crypto-valid, but the signer isn't established (no roster / no expected identity);
+      - "valid"     : crypto-valid AND the signer is a recognised/expected party;
+      - "unknown"   : the backend's tool isn't installed here, so it couldn't be checked.
+    Each entry also carries `timestamp` (the RFC-3161 verdict) when the signature was timestamped."""
     ch = sync.content_hash(trace)
-    roster = os.path.expanduser(allowed_signers_path) if allowed_signers_path else None
-    have_roster = bool(roster and os.path.exists(roster))
     out = []
     for rec in trace.get("signatures", []) or []:
         signer = rec.get("signer") or "unknown"
+        algo = rec.get("algo", "ssh")
         ts_verdict = verify_timestamp(rec, tsa_ca_path)
-        base = {"signer": signer, "key_id": rec.get("key_id"),
+        base = {"signer": signer, "key_id": rec.get("key_id"), "algo": algo,
                 "role": rec.get("role"), "disposition": rec.get("disposition")}
         if ts_verdict:
             base["timestamp"] = ts_verdict
@@ -185,22 +358,13 @@ def verify_trace(trace, allowed_signers_path=None, tsa_ca_path=None):
             out.append({**base, "status": "tampered",
                         "detail": "content_hash no longer matches — the trace changed since signing"})
             continue
-        with tempfile.TemporaryDirectory() as d:
-            sigf = os.path.join(d, "sig")
-            with open(sigf, "w") as f:
-                f.write(rec.get("signature", ""))
-            if have_roster:
-                af = roster
-            else:
-                af = os.path.join(d, "allowed_signers")
-                with open(af, "w") as f:
-                    f.write(f"{signer} {rec.get('public_key', '')}\n")
-            v = _run(["ssh-keygen", "-Y", "verify", "-f", af, "-I", signer, "-n", NAMESPACE, "-s", sigf],
-                     inp=ch)
-            if v.returncode == 0:
-                out.append({**base, "status": "valid" if have_roster else "untrusted",
-                            "detail": "verified" if have_roster
-                                      else "crypto-valid; key not checked against an allowed-signers roster"})
-            else:
-                out.append({**base, "status": "invalid", "detail": v.stderr.strip()})
+        if algo == "ssh":
+            status, detail = _verify_ssh(ch, rec, allowed_signers_path)
+        elif algo == "gpg":
+            status, detail = _verify_gpg(ch, rec, gpg_roster_path)
+        elif algo == "sigstore":
+            status, detail = _verify_sigstore(ch, rec, expect_identity, oidc_issuer)
+        else:
+            status, detail = "invalid", f"unknown signing backend: {algo!r}"
+        out.append({**base, "status": status, "detail": detail})
     return out

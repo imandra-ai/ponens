@@ -1,11 +1,11 @@
 ---
-import Layout from "./Layout.astro";
+import DocsLayout from "./DocsLayout.astro";
 const { frontmatter } = Astro.props;
 ---
 
-<Layout title={`${frontmatter.title} — ponens spec`}>
+<DocsLayout title={`${frontmatter.title} — ponens spec`}>
   <article class="prose">
     <p class="spec-back"><a href="/spec">← All specifications</a></p>
     <slot />
   </article>
-</Layout>
+</DocsLayout>

@@ -1,0 +1,54 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import TutorialFooter from "../../components/TutorialFooter.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Declare the negative space — ponens tutorials">
+  <article class="prose">
+    <p class="tut-crumb"><a href="/tutorials">Tutorials</a> · Lesson 3 of 7</p>
+    <h1>3 · Declare the negative space</h1>
+    <p class="tut-lead"><strong>You'll</strong> add the two things emission can't derive: the artifacts
+      that make lineage real, and the <strong>residual surface</strong> — what you did NOT establish.
+      <strong>You need:</strong> your curated <code>trace.json</code>.</p>
+
+    <h2>Declare artifacts (so lineage is real)</h2>
+    <p>An artifact is a typed thing the work produced — a verification result, a decomposition, a test
+      suite, a diff. Declaring one and pointing it at the action that produced it makes the lineage
+      graph real, so later a goal can resolve "done" by <em>finding the evidence</em>, not by reading
+      prose.</p>
+    <Code lang="bash" code={`ponens trace artifact trace.json --type VerificationResult \\
+    --name "no double-charge" --producer-action-id 12`} />
+
+    <h2>Declare the residuals (the honest gaps)</h2>
+    <p>The <strong>residual surface</strong> is the negative space — everything the trace did <em>not</em>
+      establish. This is the most valuable thing you contribute as the producer: it tells a reviewer
+      exactly where to look. A trace with <em>no</em> declared residuals is suspicious, not clean.</p>
+    <Code lang="bash" code={`ponens trace residual add trace.json --kind assumption --severity high \\
+    --statement "Assumes the gateway sends a stable idempotency key" \\
+    --suggested-check "confirm the retry contract with the gateway team"`} />
+    <p>The <code>--kind</code> vocabulary names the <em>type</em> of gap:</p>
+    <ul>
+      <li><strong>assumption</strong> — a premise the result rests on.</li>
+      <li><strong>unverified</strong> — a claim you did not check.</li>
+      <li><strong>out_of_scope</strong> — deliberately excluded.</li>
+      <li><strong>limitation</strong> — a known boundary of the approach.</li>
+      <li><strong>open_question</strong> — a decision left for a human.</li>
+      <li><strong>defeater</strong> — <em>counter-evidence against a claim</em> (you'll meet this in Lesson 6).</li>
+    </ul>
+    <p>Give each a <code>--severity</code> (<code>info | low | medium | high | critical</code>) and,
+      where you can, a <code>--suggested-check</code> — a cheap way for a reviewer to close it.</p>
+
+    <h2>Read the surface back</h2>
+    <Code lang="bash" code={`ponens trace residuals trace.json         # the declared gaps, by severity`} />
+
+    <h2>What you learned</h2>
+    <ul>
+      <li><strong>Artifacts</strong> make lineage real — evidence a goal can resolve against.</li>
+      <li>The <strong>residual surface</strong> is the honest negative space; disclosing it is the point.</li>
+      <li>Every residual has a <code>kind</code> and a <code>severity</code>; add a <code>suggested_check</code> when you can.</li>
+    </ul>
+
+    <TutorialFooter />
+  </article>
+</DocsLayout>

@@ -1,0 +1,67 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import TutorialFooter from "../../components/TutorialFooter.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Goals & the three axes — ponens tutorials">
+  <article class="prose">
+    <p class="tut-crumb"><a href="/tutorials">Tutorials</a> · Lesson 4 of 7</p>
+    <h1>4 · Goals &amp; the three axes</h1>
+    <p class="tut-lead"><strong>You'll</strong> state a goal as a contract and read back <em>met</em>,
+      <em>governed</em>, and <em>certified</em> — the heart of the methodology.
+      <strong>You need:</strong> your enriched <code>trace.json</code> with a declared artifact.</p>
+
+    <h2>A goal is a contract</h2>
+    <p>Declare what the change was <em>for</em> and what "done" means: an <strong>intent</strong>, a
+      <strong>scope</strong>, typed <strong>acceptance</strong> criteria, and the <strong>policies</strong>
+      that set the rigor bar. Author it as JSON:</p>
+    <Code lang="json" code={`{
+  "intent": "Payment capture is safe to retry",
+  "scope": ["capture_payment"],
+  "acceptance": [
+    {"id": "c1", "component": {"function": "capture_payment"},
+     "evidence": {"artifact": "VerificationResult"}},
+    {"id": "c2", "component": {"function": "capture_payment"},
+     "evidence": {"artifact": "Tests"}}
+  ],
+  "policies": {"packs": ["apply_formal_methods"]}
+}`} />
+    <Code lang="bash" code={`ponens trace goal set trace.json --json contract.json`} />
+    <p>Each criterion just names the <strong>artifact type</strong> that must exist in the component's
+      lineage. It is MET when that artifact is present — resolved deterministically by lineage, never by
+      reading prose. <strong>No model decides whether a goal is met; the evidence does.</strong></p>
+
+    <h2>Resolve it</h2>
+    <Code lang="bash" code={`ponens trace resolve trace.json           # each acceptance item's live status
+ponens trace enrich  trace.json -o enriched.json   # + progress, relevance cone, derived gaps`} />
+
+    <h2>The three independent axes</h2>
+    <p>A goal yields three separate verdicts — keep them distinct, this is the whole point:</p>
+    <ul>
+      <li><strong>MET</strong> — every component has its required evidence artifact (by lineage).</li>
+      <li><strong>GOVERNED</strong> — its policies held: the evidence was derived <em>correctly</em>
+        (proved, autoformalized, tests pass). That's Lesson 5.</li>
+      <li><strong>CERTIFIED</strong> — a reviewer <em>other than the doer</em> confirmed the criteria were
+        the <em>right</em> ones. That's Lesson 7 — you must never self-certify.</li>
+    </ul>
+    <p>MET is "the evidence exists"; GOVERNED is "the evidence is good enough"; CERTIFIED is "the
+      definition of done was correct." A change can be met but ungoverned, or met-and-governed but
+      uncertified — each combination means something different.</p>
+
+    <h2>See every combination</h2>
+    <p>The bundled <a href="https://github.com/imandra-ai/ponens/tree/main/examples/goal-contract">goal-contract
+      examples</a> demonstrate each case — met-but-ungoverned, certified-but-unmet, an uncovered intent
+      clause, and more. Open them in the viewer to build intuition for the axes.</p>
+
+    <h2>What you learned</h2>
+    <ul>
+      <li>A goal is a <strong>contract</strong>: intent + scope + typed acceptance + policies.</li>
+      <li>Acceptance resolves from <strong>evidence in the lineage</strong>, deterministically.</li>
+      <li>Three independent axes: <strong>met</strong> (evidence exists), <strong>governed</strong>
+        (derived correctly), <strong>certified</strong> (the right definition of done).</li>
+    </ul>
+
+    <TutorialFooter />
+  </article>
+</DocsLayout>

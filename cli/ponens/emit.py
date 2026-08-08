@@ -418,7 +418,7 @@ def register(subparsers):
         dest="source",
         default="claude-code",
         choices=adapter_names(),
-        help="Agent transcript format (claude-code, cursor, and pi are implemented)",
+        help="Agent transcript format (default: claude-code)",
     )
     p.add_argument("-o", "--output", help="Write the trace here (default: stdout)")
     p.add_argument("--title", help="Trace title")

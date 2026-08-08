@@ -7,34 +7,81 @@ import Layout from "./Layout.astro";
 import { sections } from "../data/docsNav.js";
 
 const { title = "Docs — ponens", onThisPage = [] } = Astro.props;
+
+// Enumerate EVERY generated spec page (same source as the /spec index) so the Spec section lists them
+// all, and stays complete automatically as specs are added. `prepare.mjs` writes these before build.
+const specMods = import.meta.glob("../pages/spec/*.md", { eager: true });
+const specPages = Object.values(specMods)
+  // Drop the trailing version (e.g. "Trace Spec v1.9" -> "Trace Spec") for the sidebar only — the full
+  // versioned title still shows on the /spec index and the page tab.
+  .map((m) => ({ href: m.url, label: m.frontmatter.title.replace(/\s+v\d+(?:\.\d+)*$/i, ""),
+                 pack: (m.frontmatter.file || "").endsWith("_PACK.md") }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+// The core specs and the policy PACKS are distinct kinds — list the specs first, then a divided
+// "Policy packs" group. Packs are classified by their `_PACK.md` filename, so this stays automatic.
+const specCore = specPages.filter((s) => !s.pack);
+const specPacks = specPages.filter((s) => s.pack);
+const specItems = [
+  { href: "/spec", label: "All specifications" },
+  ...specCore,
+  ...(specPacks.length ? [{ heading: "Policy packs" }, ...specPacks] : []),
+];
+const navSections = sections.map((s) => (s.id === "spec" ? { ...s, items: specItems } : s));
+
 const norm = (p) => (p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p);
 const here = norm(Astro.url.pathname);
-const isActive = (href) => here === norm(href);
-const groupActive = (s) =>
-  here === norm(s.href) || here.startsWith(norm(s.href) + "/") || s.items.some((i) => isActive(i.href));
+const isActive = (href) => !!href && here === norm(href);   // heading markers have no href
+
+// Exactly ONE section is active: the most specific match among each section's own href and its items'
+// hrefs — an exact page match wins, otherwise the longest href that is a path-prefix of the current
+// page. This stops the shallow "/docs" (Overview) section from also lighting up on /docs/adapters,
+// /docs/writing-policies, and every other /docs/* page.
+const matchLen = (s) => {
+  let best = -1;
+  for (const href of [s.href, ...s.items.map((i) => i.href)]) {
+    if (!href) continue;
+    const n = norm(href);
+    if (here === n) return 100000 + n.length;              // exact page match wins outright
+    if (here.startsWith(n + "/")) best = Math.max(best, n.length);
+  }
+  return best;
+};
+let activeId = null, activeScore = 0;
+for (const s of navSections) {
+  const score = matchLen(s);
+  if (score > activeScore) { activeScore = score; activeId = s.id; }
+}
+const sectionActive = (s) => s.id === activeId;
 ---
 
 <Layout title={title}>
   <div class="docs-shell">
     <aside class="docs-side">
-      {sections.map((s) => (
-        <div class="docs-side-group">
-          <a href={s.href} class:list={["docs-side-head", (isActive(s.href) || groupActive(s)) && "active"]}>
-            {s.label}
-          </a>
-          {groupActive(s) && s.items.length > 0 && (
-            <nav>
-              {s.items.map((i) => (
-                <a href={i.href} class:list={[isActive(i.href) && "active"]}>{i.label}</a>
-              ))}
-            </nav>
-          )}
-        </div>
-      ))}
+      <p class="docs-side-label">Documentation</p>
+      <nav class="docs-side-nav">
+        {navSections.map((s) => (
+          <div class="docs-side-item">
+            <a href={s.href} class:list={["docs-side-link", sectionActive(s) && "active"]}>
+              {s.label}
+            </a>
+            {/* only expand when there's more than one page — a lone sub-item just repeats the section */}
+            {sectionActive(s) && s.items.length > 1 && (
+              <nav class="docs-side-sub">
+                {s.items.map((i) => (
+                  i.heading
+                    ? <p class="docs-side-subhead">{i.heading}</p>
+                    : <a href={i.href} class:list={[isActive(i.href) && "active"]}>{i.label}</a>
+                ))}
+              </nav>
+            )}
+          </div>
+        ))}
+      </nav>
+
       {onThisPage.length > 0 && (
-        <div class="docs-side-group">
-          <p class="docs-side-head">On this page</p>
-          <nav>
+        <div class="docs-side-toc">
+          <p class="docs-side-label">On this page</p>
+          <nav class="docs-side-sub">
             {onThisPage.map(([id, label]) => <a href={`#${id}`} data-spy={id}>{label}</a>)}
           </nav>
         </div>

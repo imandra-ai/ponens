@@ -1,0 +1,76 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import TutorialFooter from "../../components/TutorialFooter.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Review and sign off — ponens tutorials">
+  <article class="prose">
+    <p class="tut-crumb"><a href="/tutorials">Tutorials</a> · Lesson 7 of 7</p>
+    <h1>7 · Review and sign off</h1>
+    <p class="tut-lead"><strong>You'll</strong> switch to the reviewer's seat — verify the consequential
+      claims, certify the goal, and cryptographically sign the result. <strong>You need:</strong> a
+      finished <code>trace.json</code> (ideally someone else's).</p>
+
+    <h2>Review by reading the trace, not just the diff</h2>
+    <p>The trace tells you <em>where to look</em> and <em>what was claimed</em>; your job is to establish
+      what's <em>true</em>. The reviewing protocol ships inside the CLI:</p>
+    <Code lang="bash" code={`ponens agent --review                     # the full reviewing-agent protocol`} />
+    <p>The core moves:</p>
+    <ul>
+      <li><strong>Orient</strong> — <code>ponens trace status</code> and <code>enrich</code>: intent,
+        outcome, the three axes, uncovered clauses.</li>
+      <li><strong>Verify the positive space</strong> — re-run the consequential proofs and tests; a
+        "verified" claim with no backing artifact is really <code>unverified</code>. Treat any
+        <strong>stale/detached</strong> result as not current.</li>
+      <li><strong>Work the residual surface</strong> — highest severity first; run each
+        <code>suggested_check</code>.</li>
+      <li><strong>Hunt the undeclared gaps</strong> — anything the change touches that is neither
+        verified nor declared is a gap <em>you</em> raise (a <code>defeater</code> if it's counter-evidence).</li>
+    </ul>
+    <Code lang="bash" code={`ponens trace reproduce trace.json --run   # re-run recorded commands; report divergence
+ponens trace check     trace.json         # re-run the attached policies`} />
+
+    <h2>Certify — the third axis</h2>
+    <p>If the work re-derives and the definition of done was the <em>right</em> one, certify it. Because
+      CERTIFIED means "a non-doer confirmed the criteria," you may only certify a trace you did
+      <em>not</em> produce:</p>
+    <Code lang="bash" code={`ponens trace goal certify --by reviewer`} />
+
+    <h2>Sign it — non-repudiable, tamper-evident</h2>
+    <p>Record your disposition cryptographically. The signature is over the trace's
+      <code>content_hash</code>, so any later edit breaks it (<code>tampered</code>). Pick a backend:</p>
+    <Code lang="bash" code={`ponens trace sign trace.json --role auditor --disposition approved         # ssh (default)
+ponens trace sign trace.json --backend gpg --signer you@org.com --disposition approved
+ponens trace sign trace.json --backend sigstore --signer you@org.com --oidc-issuer <url>
+ponens trace sign trace.json --role auditor --disposition approved --tsa https://freetsa.org/tsr`} />
+    <p>Add <code>--tsa</code> for an RFC-3161 <strong>trusted timestamp</strong> — a TSA-attested
+      "existed by &lt;time&gt;". Anyone re-checks, establishing trust per backend:</p>
+    <Code lang="bash" code={`ponens trace verify trace.json --allowed-signers roster        # ssh
+ponens trace verify trace.json --gpg-roster fingerprints       # gpg
+ponens trace verify trace.json --identity you@org.com --oidc-issuer <url>   # sigstore`} />
+
+    <h2>Share it</h2>
+    <Code lang="bash" code={`ponens bind && ponens push                # bind 1:1 to the commit, publish for review
+ponens trace export trace.json --to prov  # or export to W3C PROV-JSON for other tools`} />
+    <p>Or post it straight on the pull request — the grade, the residuals, and a one-click viewer — with
+      the <a href="https://github.com/imandra-ai/ponens/tree/main/.github/actions/pr-trace">pr-trace</a>
+      GitHub Action.</p>
+
+    <h2>You've done the whole loop</h2>
+    <p>Capture → curate → declare → goal &amp; axes → govern → keep-honest → review &amp; sign. That's the
+      full ponens methodology on a real change: a curated, governed, reviewed, and signed reasoning
+      record anyone can re-check. From here, the <a href="/guides">task guides</a> go deeper on
+      individual jobs, and the <a href="/spec">spec</a> is the reference.</p>
+
+    <h2>What you learned</h2>
+    <ul>
+      <li>Review is <strong>targeted verification, not trust</strong> — re-check the consequential claims.</li>
+      <li><strong>Certify</strong> is a non-doer's act — never self-certify.</li>
+      <li><strong>Sign</strong> over <code>content_hash</code> (ssh / gpg / sigstore, + trusted timestamp)
+        makes approval non-repudiable and tamper-evident.</li>
+    </ul>
+
+    <TutorialFooter />
+  </article>
+</DocsLayout>

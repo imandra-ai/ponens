@@ -1,0 +1,62 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import TutorialFooter from "../../components/TutorialFooter.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Keep the evidence honest — ponens tutorials">
+  <article class="prose">
+    <p class="tut-crumb"><a href="/tutorials">Tutorials</a> · Lesson 6 of 7</p>
+    <h1>6 · Keep the evidence honest</h1>
+    <p class="tut-lead"><strong>You'll</strong> grade the trace, watch a proof go stale when code
+      changes, and record counter-evidence with a defeater. <strong>You need:</strong> your governed
+      <code>trace.json</code>.</p>
+
+    <h2>Grade — the hygiene floor</h2>
+    <p>Grading scores the trace on structure, rationale coverage, negative space, reproducibility,
+      verification evidence, and lineage. Treat it as a floor to <em>clear</em>, not a number to game —
+      a thin trace (no artifacts, no residuals) grades low because it's hard to review.</p>
+    <Code lang="bash" code={`ponens trace grade trace.json`} />
+
+    <h2>Freshness — evidence expires</h2>
+    <p>A formal result — a proof, a state-space decomposition, a conformance check — is only as current
+      as the model it ran on. ponens computes a dependency-<strong>closure</strong> fingerprint of the
+      target, so it can tell you when a result no longer reflects the code:</p>
+    <ul>
+      <li><strong>Fresh</strong> — the target (and everything it uses) is unchanged since the result.</li>
+      <li><strong>Stale</strong> — the target, or something in its dependency closure, changed after the
+        result. The verdict no longer applies.</li>
+      <li><strong>Detached</strong> — the target was removed from the model entirely.</li>
+    </ul>
+    <p>Stale/detached results surface as <em>derived</em> residuals, and <strong>a goal never resolves
+      "done" over non-fresh evidence</strong>. Edit the modelled code, re-enrich, and watch a proved
+      criterion flip to "at risk":</p>
+    <Code lang="bash" code={`ponens trace enrich   trace.json          # recomputes freshness
+ponens trace residuals trace.json --derived   # declared gaps + computed stale/detached proofs`} />
+    <p>The fix is simple: re-run the affected result against the current model — a fresh result heals it.</p>
+
+    <h2>Defeaters — counter-evidence</h2>
+    <p>A residual gap says "we didn't check this." A <strong>defeater</strong> is stronger: it's evidence
+      <em>against</em> a claim — a counterexample, a model that doesn't match the code, a test that
+      doesn't actually establish the property. An <em>open defeater blocks the claim it targets</em>: a
+      Property over that result reads <code>blocked</code>, not <code>done</code>.</p>
+    <Code lang="bash" code={`ponens trace residual add trace.json --kind defeater \\
+    --defeater-kind rebuts --target-id fr3-result \\
+    --statement "Counterexample at amount=0 violates the non-negative invariant" \\
+    --severity high`} />
+    <p><code>--defeater-kind</code> is <code>rebuts</code> (contradicts the conclusion),
+      <code>undermines</code> (attacks the evidence, e.g. model ≠ code), or <code>undercuts</code>
+      (breaks the inference). Traces are immutable — you close a defeater in a <em>successor</em> trace
+      by fixing the code and re-verifying, not by editing this one.</p>
+
+    <h2>What you learned</h2>
+    <ul>
+      <li><code>trace grade</code> is a reviewability floor to clear.</li>
+      <li>Results are <strong>Fresh / Stale / Detached</strong> vs. the current model; goals never resolve
+        done over stale evidence.</li>
+      <li>A <strong>defeater</strong> is counter-evidence that <em>blocks</em> a claim — stronger than a gap.</li>
+    </ul>
+
+    <TutorialFooter />
+  </article>
+</DocsLayout>

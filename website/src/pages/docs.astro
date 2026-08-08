@@ -3,160 +3,65 @@ import DocsLayout from "../layouts/DocsLayout.astro";
 import { Code } from "astro:components";
 import { sections as hubSections } from "../data/docsNav.js";
 
-// The getting-started tour's steps — rendered as the sidebar's "On this page" jump-nav.
-const tour = [
-  ["install", "Install"],
-  ["emit", "1 · Emit"],
-  ["curate", "2 · Curate"],
-  ["declare", "3 · Declare"],
-  ["goals", "4 · Goals"],
-  ["grade", "5 · Grade"],
-  ["govern", "6 · Govern"],
-  ["view", "7 · View"],
-  ["share", "8 · Share"],
-  ["concepts", "Concepts"],
-];
-// The hub landing grid links out to the other sections (Getting started is this page).
+// The Overview home links out to every OTHER hub section (all but itself).
 const explore = hubSections.filter((s) => s.id !== "start");
 ---
 
-<DocsLayout title="Docs — ponens" onThisPage={tour}>
-    <article class="prose">
-      <h1>Documentation</h1>
-      <p><strong>ponens</strong> turns an AI coding agent's session into a higher-level
-        <strong>reasoning record</strong> — a curated, verifiable account of what it built and why —
-        then makes the reasoning rigorous and governs it with <strong>Computable Governance</strong>
-        (machine-checkable best-practice policies). The CLI is terminal-first; the browser is the
-        escalation.</p>
+<DocsLayout title="Documentation — ponens">
+  <article class="prose">
+    <h1>Documentation</h1>
+    <p><strong>ponens</strong> turns an AI coding agent's session into a higher-level
+      <strong>reasoning record</strong> — a curated, verifiable account of what it built and why — then
+      makes the reasoning rigorous and governs it with <strong>Computable Governance</strong>
+      (machine-checkable best-practice policies). You do the work in the terminal; the browser is for
+      reading, reviewing, and sharing the result.</p>
 
-      <div class="guide-grid docs-hub-grid">
-        {explore.map((s) => (
-          <a class="guide-card" href={s.href}>
-            <h3>{s.label}</h3>
-            <p>{s.blurb}</p>
-          </a>
-        ))}
+    <div class="docs-cta">
+      <div>
+        <h2>New here? Take the course.</h2>
+        <p>The <a href="/tutorials">Tutorials</a> walk you through the whole methodology on your own
+          agent session — capture, curate, declare, set a goal, govern, review, and sign — one lesson at
+          a time.</p>
       </div>
+      <a class="docs-cta-btn" href="/tutorials/first-trace">Start the tutorials →</a>
+    </div>
 
-      <h2 id="install">Install</h2>
-      <Code lang="bash" code={`# from this repo
-pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
+    <h2>Quickstart</h2>
+    <Code lang="bash" code={`pip install ponens
 
-# or for local development
-pip install -e ./cli`} />
+ponens emit -o trace.json        # capture your latest agent session as a trace
+ponens trace view trace.json     # read the reasoning behind the change`} />
+    <p>That's the first minute. The <a href="/tutorials">Tutorials</a> take it from there; the
+      <a href="/guides">guides</a> are task-focused recipes; the <a href="/spec">spec</a> is the reference.</p>
 
-      <p>The flow: <strong>emit</strong> a draft from the session, <strong>curate</strong> the
-        narrative, <strong>declare</strong> what only the agent can (artifacts, gaps, and the
-        <strong>goal</strong> it was pursuing), <strong>grade</strong> and <strong>govern</strong> it,
-        then <strong>view</strong> and share.
-        Every command is plain text — greppable, pipeable, <code>--json</code> where you script it.
-        This is the agent / CI surface too.</p>
-      <p>Looking for a specific task instead of the full tour? See the
-        <a href="/guides">practical guides</a> — capture &amp; curate a trace, review an AI-generated
-        PR, add ponens to CI, and govern a repo with policies.</p>
+    <h2>Explore</h2>
+    <div class="guide-grid docs-hub-grid">
+      {explore.map((s) => (
+        <a class="guide-card" href={s.href}>
+          <h3>{s.label}</h3>
+          <p>{s.blurb}</p>
+        </a>
+      ))}
+    </div>
 
-      <h2 id="emit">1 · Emit — capture the session</h2>
-      <p>An agent emits the trace from its own session transcript; you write nothing. Emission
-        captures the actions, file lineage, decisions, and reasoning as ground truth.</p>
-      <Code lang="bash" code={`ponens emit -o trace.json                            # newest session for this project
-ponens emit transcript.jsonl -o trace.json --from claude-code`} />
-
-      <h2 id="curate">2 · Curate the narrative</h2>
-      <p>Emission seeds each step's title from the raw directives ("yes", "ok now fix it"). Those are
-        drafts — rewrite them into a clean account of what was built and why. The atomic actions
-        underneath stay untouched and honest.</p>
-      <Code lang="bash" code={`ponens trace meta ls trace.json                      # the steps, and how curated each is
-ponens trace meta set trace.json m3 --title "Add idempotency to capture" --status completed
-ponens trace meta merge trace.json m7 m8             # fold dead-ends into one step
-ponens trace retitle trace.json --title "…" --outcome "…"`} />
-
-      <h2 id="declare">3 · Declare — what emission can't derive</h2>
-      <p>The produced artifacts (so the lineage DAG is real) and the <strong>negative space</strong> —
-        the gaps only the agent can declare.</p>
-      <Code lang="bash" code={`ponens trace artifact trace.json --type VerificationResult --name "no double-charge" --producer-action-id 12
-ponens trace residual add trace.json --kind assumption --severity high \\
-    --statement "Assumes the gateway sends a stable idempotency key" \\
-    --suggested-check "confirm the retry contract"`} />
-
-      <h2 id="goals">4 · Goals &amp; acceptance — declare intent, resolve it</h2>
-      <p>Declare what a change is <em>for</em> and what "done" means: a <strong>goal</strong> (intent +
-        scope) with typed <strong>acceptance items</strong> (change / property / obligation / gap).
-        Acceptance adds no new evaluator — each item <strong>resolves</strong> from evidence already in
-        the trace (a verification result, a policy evaluation, a residual, a diff).</p>
-      <p><strong>No model decides whether a goal is met — the evidence does.</strong> Resolution is
-        <em>deterministic</em>: each binding is matched against the typed artifacts in the trace, and the
-        relevance cone is a walk over the existing lineage — no LLM, no scoring. So every "done" traces
-        to a specific artifact, and re-running it always gives the same answer: progress that is
-        <strong>grounded, reproducible, and auditable</strong>, not asserted
-        (<a href="/spec/TRACE_SPEC_v1_9">Trace Spec §18</a>).</p>
-      <Code lang="bash" code={`ponens trace resolve trace.json --goals goals.json   # each acceptance item's live status
-ponens trace enrich  trace.json --goals goals.json -o enriched.json   # + progress, relevance cone, derived stale-evidence gaps
-ponens trace residuals trace.json --derived          # declared gaps + computed stale proofs`} />
-
-      <h2 id="grade">5 · Grade it</h2>
-      <p>A quality rubric — structure, rationale coverage, negative space, reproducibility,
-        verification evidence, and lineage — plus a separate policy-compliance line. Treat the grade
-        as a hygiene floor to <em>clear</em>, not a number to game.</p>
-      <Code lang="bash" code={`ponens trace grade trace.json`} />
-
-      <h2 id="govern">6 · Govern — Computable Governance</h2>
-      <p>Check the trace against best-practice policies — conformance checks evaluated over the record.
-        A real, automatic gate (exit code), fully offline.</p>
-      <Code lang="bash" code={`ponens registry update
-ponens policies search testing
-ponens policies add tests_before_commit --into trace.json
-ponens trace check trace.json                        # → PASS / FAIL`} />
-
-      <h2 id="view">7 · View it</h2>
-      <p>Read the reasoning behind the commit — zoom from intent-named steps down to atomic actions,
-        with the lineage DAG, decisions, and the residual surface.</p>
-      <Code lang="bash" code={`ponens trace view trace.json                         # self-contained page; opens in a browser
-ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI artifact)`} />
-      <p>Headless (SSH/CI)? It prints the file path instead. See it live in the <a href="/demo">demo</a>.</p>
-
-      <h2 id="share">8 · Share it</h2>
-      <Code lang="bash" code={`ponens bind && ponens push                           # bind 1:1 to the commit, publish for review`} />
-      <p>Or post it on the pull request — the grade, the declared gaps, and a one-click interactive
-        viewer — with the
-        <a href="https://github.com/imandra-ai/ponens/tree/main/.github/actions/pr-trace">pr-trace</a>
-        GitHub Action.</p>
-
-      <h2 id="concepts">Concepts</h2>
-      <ul>
-        <li><strong>Trace</strong> — the curated, verifiable record of an agent's work session, in two
-          layers: faithful <em>atomic actions</em> (ground truth) and a curated <em>meta-action
-          narrative</em> (<a href="/spec">spec</a>).</li>
-        <li><strong>Residual surface</strong> — what the trace did <em>not</em> establish: assumptions,
-          unverified claims, out-of-scope items, limitations, open questions. It tells a reviewer
-          <em>where to look</em>.</li>
-        <li><strong>Goals &amp; acceptance</strong> — what the trace was <em>for</em> and its definition
-          of done: a goal's intent plus typed acceptance items (change / property / obligation / gap)
-          that <em>resolve</em> from the trace's own evidence, so progress is grounded rather than
-          asserted (<a href="/spec/TRACE_SPEC_v1_9">spec §18</a>). The positive-target dual of the
-          residual surface.</li>
-        <li><strong>Computable Governance</strong> — best-practice policies as machine-checkable rules
-          over the trace, written in LTLf extended with scoped-past and structural operators. Browse the
-          <a href="/gallery">gallery</a>, read the <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language reference</a>,
-          or <a href="/docs/writing-policies">write your own</a>.</li>
-        <li><strong>Review handoff</strong> — how a reviewing agent consumes a trace: verify the
-          consequential claims, triage the declared gaps, hunt the undeclared ones.</li>
-      </ul>
-    </article>
-
-  <script>
-    const links = [...document.querySelectorAll(".docs-side a[data-spy]")];
-    const byId = new Map(links.map((a) => [a.dataset.spy, a]));
-    const obs = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            links.forEach((a) => a.classList.remove("active"));
-            byId.get(e.target.id)?.classList.add("active");
-          }
-        }
-      },
-      { rootMargin: "0px 0px -78% 0px", threshold: 0 }
-    );
-    document.querySelectorAll(".prose h2[id]").forEach((h) => obs.observe(h));
-  </script>
+    <h2>Key concepts</h2>
+    <ul>
+      <li><strong>Trace</strong> — the curated, verifiable record of an agent's work session, in two
+        layers: faithful <em>atomic actions</em> (ground truth) and a curated <em>meta-action narrative</em>.</li>
+      <li><strong>Residual surface</strong> — what the trace did <em>not</em> establish: assumptions,
+        unverified claims, out-of-scope items, limitations, open questions, and counter-evidence
+        (<em>defeaters</em>). It tells a reviewer where to look.</li>
+      <li><strong>Goals &amp; acceptance</strong> — what the trace was <em>for</em> and its definition of
+        done: typed criteria that <em>resolve</em> from the trace's own evidence, yielding three
+        independent verdicts — <strong>met</strong>, <strong>governed</strong>, and
+        <strong>certified</strong> (<a href="/spec/TRACE_SPEC_v1_9">spec §18</a>).</li>
+      <li><strong>Computable Governance</strong> — best-practice policies as machine-checkable rules over
+        the trace. Browse the <a href="/gallery">gallery</a>, read the
+        <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language reference</a>, or
+        <a href="/docs/writing-policies">write your own</a>.</li>
+      <li><strong>Freshness &amp; defeaters</strong> — evidence expires: a formal result is
+        <em>Fresh</em>, <em>Stale</em>, or <em>Detached</em> as the code moves under it, and a defeater is
+        counter-evidence that blocks a claim.</li>
+    </ul>
+  </article>
 </DocsLayout>

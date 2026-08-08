@@ -1,0 +1,52 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import TutorialFooter from "../../components/TutorialFooter.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Curate the narrative — ponens tutorials">
+  <article class="prose">
+    <p class="tut-crumb"><a href="/tutorials">Tutorials</a> · Lesson 2 of 7</p>
+    <h1>2 · Curate the narrative</h1>
+    <p class="tut-lead"><strong>You'll</strong> turn the raw, auto-seeded steps into a clean account of
+      what was built and why. <strong>You need:</strong> the <code>trace.json</code> from Lesson 1.</p>
+
+    <h2>Curated story, honest evidence</h2>
+    <p>Emission seeds each step's title from your raw directives — "yes", "ok now fix it". Those are
+      <em>drafts</em>. Curation is where you rewrite the <strong>meta-action narrative</strong> into a
+      clean story. The atomic actions underneath never change, so the record stays honest even as the
+      telling gets clearer. You are editing the <em>story</em>, not the <em>evidence</em>.</p>
+
+    <h2>See the steps</h2>
+    <Code lang="bash" code={`ponens trace meta ls trace.json           # the steps, and how curated each is`} />
+
+    <h2>Rewrite a step's intent</h2>
+    <p>Give a step a clean, intent-level title (and mark it done):</p>
+    <Code lang="bash" code={`ponens trace meta set trace.json m3 --title "Add idempotency to capture" --status completed`} />
+
+    <h2>Fold dead-ends together</h2>
+    <p>Real sessions wander — a false start, a retry. Merge those into a single coherent step so the
+      story reads as intent, not as keystrokes:</p>
+    <Code lang="bash" code={`ponens trace meta merge trace.json m7 m8   # fold m8 into m7`} />
+
+    <h2>Set the headline</h2>
+    <p>Finally, give the whole trace a title and an outcome — the one-line answer to "what did this
+      session accomplish?"</p>
+    <Code lang="bash" code={`ponens trace retitle trace.json --title "Idempotent payment capture" \\
+    --outcome "Capture is now safe to retry; verified no double-charge."`} />
+
+    <h2>Check your work</h2>
+    <Code lang="bash" code={`ponens trace view trace.json              # read the cleaned-up story`} />
+    <p>Notice you only touched titles and grouping — every atomic action, file, and result is exactly
+      as it happened. That separation is what lets a reviewer trust the trace later.</p>
+
+    <h2>What you learned</h2>
+    <ul>
+      <li>Curation rewrites the <strong>meta-action narrative</strong>; the atomic actions stay untouched.</li>
+      <li><code>meta ls / set / merge</code> and <code>retitle</code> turn raw directives into intent.</li>
+      <li>A good title + outcome make the trace scannable at a glance.</li>
+    </ul>
+
+    <TutorialFooter />
+  </article>
+</DocsLayout>

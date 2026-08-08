@@ -322,7 +322,34 @@ ponens trace check t.json    # → 🟢 / 🔴`}</code></pre>
         <div class="sw-arrow" aria-hidden="true">→</div>
         <div class="sw-step"><span class="sw-num">2</span><div class="sw-h">Verify what matters</div><p>Check the consequential claims; skip the noise.</p></div>
         <div class="sw-arrow" aria-hidden="true">→</div>
-        <div class="sw-step ok"><span class="sw-num">3</span><div class="sw-h">Certify &amp; merge</div><p>The reviewer certifies the definition of done was the right one — <strong>met</strong> by the agent, <strong>governed</strong> by its policies, <strong>certified</strong> by a non-doer. Bound 1:1 to the commit.</p></div>
+        <div class="sw-step ok"><span class="sw-num">3</span><div class="sw-h">Certify, sign &amp; merge</div><p>The reviewer certifies the definition of done was the right one — <strong>met</strong> by the agent, <strong>governed</strong> by its policies, <strong>certified</strong> by a non-doer — then <strong>cryptographically signs</strong> the approval. Bound 1:1 to the commit.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="audit" aria-label="what makes a ponens trace credible to an auditor">
+    <div class="audit-head">
+      <h2>Audit-ready by construction</h2>
+      <p class="audit-sub">Two things make a reasoning record credible to an auditor or regulator — that
+        the practices <em>held</em>, and <em>who approved it</em>, provably. ponens gives you both.</p>
+    </div>
+    <div class="audit-grid">
+      <div class="audit-card">
+        <div class="audit-tag">The rules held</div>
+        <h3>Computable Governance</h3>
+        <p>Every "done" resolves to a specific artifact, and each best-practice policy is a machine-checked
+          formula over the trace — a deterministic <strong>PASS / FAIL</strong>, run offline in CI, not a
+          checklist a human eyeballs. Waivers are recorded on the record, never silent.</p>
+        <p class="audit-links"><a href="/gallery">Policy gallery →</a> · <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language →</a></p>
+      </div>
+      <div class="audit-card">
+        <div class="audit-tag">Who approved it</div>
+        <h3>Cryptographic sign-off</h3>
+        <p>An approval is signed over the trace's <code>content_hash</code> — <strong>non-repudiable</strong>
+          and <strong>tamper-evident</strong> (any later edit breaks the signature). Choose a backend —
+          <strong>SSH</strong>, <strong>GPG</strong>, or keyless <strong>sigstore</strong> (Fulcio + Rekor) —
+          and add an <strong>RFC-3161 trusted timestamp</strong> so <em>when</em> is attested too.</p>
+        <p class="audit-links"><a href="/spec/AUDIT_READINESS_v0_1">Audit readiness →</a> · <a href="/tutorials/review-and-sign">Sign a trace →</a></p>
       </div>
     </div>
   </section>

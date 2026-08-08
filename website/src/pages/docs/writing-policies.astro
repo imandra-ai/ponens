@@ -1,5 +1,5 @@
 ---
-import Layout from "../../layouts/Layout.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro";
 import { Code } from "astro:components";
 import { highlightFormula } from "../../lib/formula-fmt.mjs";
 
@@ -14,7 +14,7 @@ const formulaBlock = (src) => src.split("\n").map((line) => {
 }).join("\n");
 ---
 
-<Layout title="Writing policies — ponens">
+<DocsLayout title="Writing policies — ponens">
   <article class="prose">
     <p class="spec-back"><a href="/docs">← Docs</a></p>
     <h1>Writing policies</h1>
@@ -134,4 +134,4 @@ ponens trace check ./trace.json`} /></li>
       whether the reference compiler can evaluate each formula. See the
       <a href="/spec">Policy Specification</a> for the full grammar.</p>
   </article>
-</Layout>
+</DocsLayout>

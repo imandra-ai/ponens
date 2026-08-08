@@ -39,11 +39,7 @@ const explore = hubSections.filter((s) => s.id !== "start");
       </div>
 
       <h2 id="install">Install</h2>
-      <Code lang="bash" code={`# from this repo
-pip install "ponens @ git+https://github.com/imandra-ai/ponens.git#subdirectory=cli"
-
-# or for local development
-pip install -e ./cli`} />
+      <Code lang="bash" code={`pip install ponens`} />
 
       <p>The flow: <strong>emit</strong> a draft from the session, <strong>curate</strong> the
         narrative, <strong>declare</strong> what only the agent can (artifacts, gaps, and the

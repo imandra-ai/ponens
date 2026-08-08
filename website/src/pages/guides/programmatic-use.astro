@@ -1,5 +1,5 @@
 ---
-import Layout from "../../layouts/Layout.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro";
 import { Code } from "astro:components";
 import { readFileSync } from "node:fs";
 
@@ -12,7 +12,7 @@ try {
 } catch { /* built outside the monorepo — omit the version badge */ }
 ---
 
-<Layout title="Use ponens programmatically — ponens">
+<DocsLayout title="Use ponens programmatically — ponens">
   <article class="prose">
     <p class="spec-back"><a href="/guides">← Guides</a></p>
     <h1>Use ponens programmatically</h1>
@@ -124,4 +124,4 @@ if failed:
     <p class="spec-back" style="margin-top:2rem"><a href="/guides">← Back to guides</a> ·
       <a href="/docs/writing-policies">Writing policies →</a></p>
   </article>
-</Layout>
+</DocsLayout>

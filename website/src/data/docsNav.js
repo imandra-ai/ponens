@@ -74,16 +74,20 @@ export const sections = [
     items: [{ href: "/agents", label: "Agent workflow" }],
   },
   {
+    id: "adapters",
+    label: "Adapters",
+    href: "/docs/adapters",
+    blurb: "Capture any coding agent's session — Claude Code, pi, and more — via emit adapters.",
+    items: [{ href: "/docs/adapters", label: "Agent adapters" }],
+  },
+  {
     id: "spec",
     label: "Spec",
     href: "/spec",
     blurb: "The open standards — the trace, policy, and review-case models.",
-    items: [
-      { href: "/spec", label: "All specifications" },
-      { href: "/spec/TRACE_SPEC_v1_9", label: "Trace spec" },
-      { href: "/spec/POLICY_LANGUAGE_v0_2", label: "Policy language" },
-      { href: "/spec/GOAL_CONTRACT_v0_1", label: "Goal contract" },
-    ],
+    // The Spec section's items are filled in DocsLayout by globbing every generated spec page (so the
+    // list is always complete); this is just the fallback landing link.
+    items: [{ href: "/spec", label: "All specifications" }],
   },
 ];
 

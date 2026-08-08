@@ -10,6 +10,36 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..", "..");        // repo root
 const site = resolve(here, "..");              // website/
 
+// Turn a spec FILENAME into a readable title for the nav/sidebar/tab (e.g. TRACE_SPEC_v1_9.md ->
+// "Trace Spec v1.9"). Generic rules cover most files; a few irregular names are listed explicitly.
+// Tokens whose UPPERCASE form is a known acronym stay uppercase; a `vN_M` pair renders as `vN.M`.
+const SPEC_ACRONYMS = new Set([
+  "PROV", "CLI", "NIST", "AI", "RMF", "SSDF", "ESMA", "IOSCO", "CMS", "JSF", "AV", "MISRA", "CERT",
+  "IML", "VG", "API", "SSDLC",
+]);
+const SPEC_TITLE_OVERRIDES = {
+  "DO_178C_PACK.md": "DO-178C Pack",
+  "JSF_AV_CPP_PACK.md": "JSF AV C++ Pack",
+  "ESMA_MIFID_AI_PACK.md": "ESMA MiFID AI Pack",
+  "TRACE_POLICY_REVIEWCASE_SEMANTICS_v0_2.md": "Trace · Policy · Review-case Semantics v0.2",
+};
+function prettifySpecTitle(file) {
+  if (SPEC_TITLE_OVERRIDES[file]) return SPEC_TITLE_OVERRIDES[file];
+  const toks = file.replace(/\.md$/, "").split("_");
+  const out = [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (/^v\d+$/i.test(t) && i + 1 < toks.length && /^\d+$/.test(toks[i + 1])) {
+      out.push(`v${t.slice(1)}.${toks[i + 1]}`);   // v1 + 9 -> v1.9
+      i++;
+      continue;
+    }
+    if (SPEC_ACRONYMS.has(t.toUpperCase())) { out.push(t.toUpperCase()); continue; }
+    out.push(t.charAt(0).toUpperCase() + t.slice(1).toLowerCase());
+  }
+  return out.join(" ");
+}
+
 async function syncGallery() {
   for (const sub of ["policies", "reasoners", "packs", "organizations"]) {
     const dest = resolve(site, `public/gallery/${sub}`);
@@ -31,7 +61,7 @@ async function syncSpecs() {
   for (const f of await readdir(src)) {
     if (!f.endsWith(".md") || f === "README.md") continue;   // README is the repo's spec index; the site has its own
     const body = await readFile(resolve(src, f), "utf8");
-    const title = f.replace(/\.md$/, "").replace(/_/g, " ");
+    const title = prettifySpecTitle(f);
     const fm = `---\nlayout: ../../layouts/SpecLayout.astro\ntitle: ${JSON.stringify(title)}\nfile: ${JSON.stringify(f)}\n---\n\n`;
     await writeFile(resolve(dest, f), fm + body);
   }

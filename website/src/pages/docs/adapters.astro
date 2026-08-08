@@ -1,0 +1,94 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Adapters — ponens">
+  <article class="prose">
+    <h1>Adapters</h1>
+    <p>An <strong>adapter</strong> teaches <code>ponens emit</code> to read a specific coding agent's
+      session transcript and turn it into a reasoning trace. The trace model is agent-agnostic — the
+      adapter is the thin layer that maps one agent's transcript (its messages, tool calls, and results)
+      onto ponens's canonical actions and lineage. Pick one with <code>--from</code>; the rest of the
+      workflow (curate, declare, grade, govern) is identical no matter which agent produced the work.</p>
+
+    <h2 id="available">Available adapters</h2>
+    <table>
+      <thead>
+        <tr><th>Agent</th><th><code>--from</code></th><th>Status</th><th>Reads</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Claude Code</strong></td>
+          <td><code>claude-code</code> <span class="adapter-default">(default)</span></td>
+          <td>Available</td>
+          <td>The session JSONL under <code>~/.claude/projects/&lt;project&gt;/</code></td>
+        </tr>
+        <tr>
+          <td><strong>Cursor</strong></td>
+          <td><code>cursor</code></td>
+          <td>Available</td>
+          <td>The agent-transcript JSONL under <code>~/.cursor/projects/&lt;project&gt;/agent-transcripts/</code></td>
+        </tr>
+        <tr>
+          <td><strong>pi</strong> (CodeLogician)</td>
+          <td><code>pi</code></td>
+          <td>Available</td>
+          <td>The session JSONL under <code>.pi/sessions/</code> or <code>~/.pi/agent/sessions/</code></td>
+        </tr>
+        <tr>
+          <td><strong>Google Gemini</strong></td>
+          <td><code>gemini</code></td>
+          <td>Planned</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>Codex</strong></td>
+          <td><code>codex</code></td>
+          <td>Planned</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>The <code>gemini</code> and <code>codex</code> names are reserved and stubbed — selecting them today
+      exits with a clear "not implemented yet" message rather than a wrong trace.</p>
+
+    <Code lang="bash" code={`ponens emit -o trace.json                            # newest session for this project (Claude Code)
+ponens emit -o trace.json --from cursor              # a Cursor IDE session
+ponens emit -o trace.json --from pi                  # a pi / CodeLogician session
+ponens emit transcript.jsonl -o trace.json --from claude-code   # an explicit transcript file`} />
+
+    <h2 id="auto-detect">Auto-detection</h2>
+    <p>With no transcript path and no <code>--from</code>, <code>emit</code> finds the
+      <strong>newest Claude Code session for the current project</strong> automatically — the common case
+      is simply <code>ponens emit -o trace.json</code> right after a session. Each adapter knows its own
+      storage convention, so pass <code>--from</code> to auto-detect a different agent's latest session,
+      or give an explicit transcript path to pin one.</p>
+
+    <h2 id="observability">From your observability stack</h2>
+    <p>If your agent already exports traces to an observability backend, ponens can import those instead of
+      a raw transcript — <strong>OpenTelemetry</strong> spans and <strong>Langfuse</strong> observations
+      become actions + lineage (these are dedicated bridges, not <code>--from</code> adapters):</p>
+    <Code lang="bash" code={`ponens otel import spans.json -o trace.json          # OpenTelemetry spans
+ponens langfuse import trace.json -o trace.json      # Langfuse observations`} />
+    <p>See <a href="/guides/import-observability">Import from your observability stack</a> for the full
+      walkthrough.</p>
+
+    <h2 id="write-your-own">Write your own adapter</h2>
+    <p>Adapters are small, self-contained Python modules — a new agent (Windsurf, an in-house harness,
+      …) is a single file. Each module in <code>cli/ponens/adapters/</code> exposes:</p>
+    <Code lang="python" code={`NAME = "windsurf"               # the --from identifier
+IMPLEMENTED = True              # flip on when it works
+
+def default_transcript():      # newest session for this project, or None
+    ...
+def read_entries(path):        # transcript file -> list of raw records
+    ...
+def parse(entries):            # raw records -> normalized events + model/assistant metadata
+    return {"events": [...], "model": ..., "assistant": ..., "last_reasoning": ...}`} />
+    <p>Register it in <code>cli/ponens/adapters/__init__.py</code> and it becomes a
+      <code>--from</code> choice. The <code>claude-code</code> and <code>pi</code> adapters are the
+      reference implementations to copy from; the trace builder that turns normalized events into a trace
+      is shared, so an adapter only has to speak its agent's transcript format.</p>
+  </article>
+</DocsLayout>

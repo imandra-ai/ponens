@@ -37,24 +37,28 @@ import { Code } from "astro:components";
           <td>The session JSONL under <code>.pi/sessions/</code> or <code>~/.pi/agent/sessions/</code></td>
         </tr>
         <tr>
-          <td><strong>Google Gemini</strong></td>
-          <td><code>gemini</code></td>
-          <td>Planned</td>
-          <td>—</td>
-        </tr>
-        <tr>
           <td><strong>Codex</strong></td>
           <td><code>codex</code></td>
-          <td>Planned</td>
-          <td>—</td>
+          <td>Available</td>
+          <td>The rollout JSONL under <code>~/.codex/sessions/&lt;date&gt;/rollout-*.jsonl</code></td>
+        </tr>
+        <tr>
+          <td><strong>Google Gemini</strong></td>
+          <td><code>gemini</code></td>
+          <td>Available</td>
+          <td>The chat JSONL under <code>~/.gemini/tmp/&lt;project&gt;/chats/session-*.jsonl</code></td>
         </tr>
       </tbody>
     </table>
-    <p>The <code>gemini</code> and <code>codex</code> names are reserved and stubbed — selecting them today
-      exits with a clear "not implemented yet" message rather than a wrong trace.</p>
+    <p>Codex and Gemini drive much of their work through the shell, so those adapters classify shell
+      commands into canonical actions (a <code>sed -n</code>/<code>cat</code> reads, an <code>rg</code>
+      searches, <code>apply_patch</code> edits/creates, <code>pytest</code> runs tests) instead of
+      collapsing the session to opaque commands.</p>
 
     <Code lang="bash" code={`ponens emit -o trace.json                            # newest session for this project (Claude Code)
 ponens emit -o trace.json --from cursor              # a Cursor IDE session
+ponens emit -o trace.json --from codex               # a Codex CLI session
+ponens emit -o trace.json --from gemini              # a Gemini CLI session
 ponens emit -o trace.json --from pi                  # a pi / CodeLogician session
 ponens emit transcript.jsonl -o trace.json --from claude-code   # an explicit transcript file`} />
 

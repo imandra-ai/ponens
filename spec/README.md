@@ -20,6 +20,7 @@ pins the current set.
 | [`CLI_SYNC_MODEL_v0_1.md`](CLI_SYNC_MODEL_v0_1.md) | 0.1 | Draft | How the CLI syncs a trace: local file ↔ git commit (1:1 binding, git notes) ↔ a hub backend. |
 | [`POLICY_SOURCES_v0_1.md`](POLICY_SOURCES_v0_1.md) | 0.1 | Draft | The multi-source policy registry — the community gallery, local sources, and corporate/hub packs, with qualified ids and provenance. |
 | [`PRIOR_ART_ALIGNMENT_v0_1.md`](PRIOR_ART_ALIGNMENT_v0_1.md) | 0.1 | Draft | **Where this sits in the landscape.** Aligns the trace model against Why3 sessions, W3C PROV, GSN/SACM assurance cases, and Lean Blueprint — dimension by dimension (lineage, residuals, staleness, policy): what to borrow, what's novel, and a PROV-O interchange mapping. |
+| [`PROV_INTERCHANGE_v0_1.md`](PROV_INTERCHANGE_v0_1.md) | 0.1 | Draft | **Export to the provenance ecosystem.** The normative mapping from a trace onto **W3C PROV** (Entity/Activity/Agent + `wasDerivedFrom`/`wasGeneratedBy`/…), serialized as PROV-JSON via `ponens trace export --to prov`. Lineage & attribution round-trip; residuals/verdicts/freshness ride as `ponens:` attributes (opaque to PROV). |
 
 Also here: [`schema/`](schema/) — JSON Schemas derived from the trace spec (§16, "Interchange
 Projection"); [`iml-model/`](iml-model/) — the IML / ImandraX formal model.

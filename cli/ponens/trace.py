@@ -1751,6 +1751,21 @@ def cmd_fmt(args):
     return 0
 
 
+def cmd_export(args):
+    """Export a trace to an interchange format. `prov` = W3C PROV-JSON — the trace's typed-artifact
+    lineage projected onto the standard provenance vocabulary (see spec/PROV_INTERCHANGE_v0_1.md)."""
+    from . import prov as provmod
+    trace = load_trace(args.trace_file)
+    out = json.dumps(provmod.to_prov_json(trace), indent=2, ensure_ascii=False) + "\n"
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(out)
+        print(f"Wrote {args.output}")
+    else:
+        sys.stdout.write(out)
+    return 0
+
+
 def _faithfulness_findings(trace):
     """Grade each goal on the three axes (met / governed / certified), not just trace-level policies.
     Returns (fails, warns, rows): `fails` gate under --strict — the GOVERNED axis failing (a declared
@@ -2437,6 +2452,14 @@ def register(subparsers):
     p.add_argument("--to", choices=["json", "yaml"], required=True, help="Target format")
     p.add_argument("-o", "--output", help="Write to this file (default: stdout)")
     p.set_defaults(func=cmd_fmt)
+
+    # export (interchange)
+    p = trace_sub.add_parser("export", help="Export a trace to an interchange format (W3C PROV-JSON)")
+    p.add_argument("trace_file")
+    p.add_argument("--to", choices=["prov"], default="prov",
+                   help="Interchange target (prov = W3C PROV-JSON; see PROV_INTERCHANGE_v0_1.md)")
+    p.add_argument("-o", "--output", help="Write to this file (default: stdout)")
+    p.set_defaults(func=cmd_export)
 
     # check
     p = trace_sub.add_parser("check", help="Check the trace against policies")

@@ -1,0 +1,17 @@
+---
+// Prev / next navigation for a tutorial lesson, derived from the ordered `tutorials` list so the
+// sequence stays in one place. Drops on the current lesson's page and figures out its neighbours.
+import { tutorials } from "../data/docsNav.js";
+const here = Astro.url.pathname.replace(/\/+$/, "") || "/";
+const i = tutorials.findIndex((t) => t.href === here);
+const prev = i > 0 ? tutorials[i - 1] : null;
+const next = i >= 0 && i < tutorials.length - 1 ? tutorials[i + 1] : null;
+---
+<nav class="tut-nav">
+  {prev
+    ? <a class="tut-nav-prev" href={prev.href}><span class="tut-nav-dir">← Previous</span>{prev.n} · {prev.title}</a>
+    : <a class="tut-nav-prev" href="/tutorials"><span class="tut-nav-dir">←</span>All tutorials</a>}
+  {next
+    ? <a class="tut-nav-next" href={next.href}><span class="tut-nav-dir">Next →</span>{next.n} · {next.title}</a>
+    : <a class="tut-nav-next" href="/guides"><span class="tut-nav-dir">Done →</span>Explore the task guides</a>}
+</nav>

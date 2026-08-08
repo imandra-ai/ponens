@@ -31,8 +31,27 @@ const navSections = sections.map((s) => (s.id === "spec" ? { ...s, items: specIt
 const norm = (p) => (p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p);
 const here = norm(Astro.url.pathname);
 const isActive = (href) => !!href && here === norm(href);   // heading markers have no href
-const groupActive = (s) =>
-  here === norm(s.href) || here.startsWith(norm(s.href) + "/") || s.items.some((i) => isActive(i.href));
+
+// Exactly ONE section is active: the most specific match among each section's own href and its items'
+// hrefs — an exact page match wins, otherwise the longest href that is a path-prefix of the current
+// page. This stops the shallow "/docs" (Overview) section from also lighting up on /docs/adapters,
+// /docs/writing-policies, and every other /docs/* page.
+const matchLen = (s) => {
+  let best = -1;
+  for (const href of [s.href, ...s.items.map((i) => i.href)]) {
+    if (!href) continue;
+    const n = norm(href);
+    if (here === n) return 100000 + n.length;              // exact page match wins outright
+    if (here.startsWith(n + "/")) best = Math.max(best, n.length);
+  }
+  return best;
+};
+let activeId = null, activeScore = 0;
+for (const s of navSections) {
+  const score = matchLen(s);
+  if (score > activeScore) { activeScore = score; activeId = s.id; }
+}
+const sectionActive = (s) => s.id === activeId;
 ---
 
 <Layout title={title}>
@@ -42,10 +61,11 @@ const groupActive = (s) =>
       <nav class="docs-side-nav">
         {navSections.map((s) => (
           <div class="docs-side-item">
-            <a href={s.href} class:list={["docs-side-link", (isActive(s.href) || groupActive(s)) && "active"]}>
+            <a href={s.href} class:list={["docs-side-link", sectionActive(s) && "active"]}>
               {s.label}
             </a>
-            {groupActive(s) && s.items.length > 0 && (
+            {/* only expand when there's more than one page — a lone sub-item just repeats the section */}
+            {sectionActive(s) && s.items.length > 1 && (
               <nav class="docs-side-sub">
                 {s.items.map((i) => (
                   i.heading

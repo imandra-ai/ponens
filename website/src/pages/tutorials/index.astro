@@ -1,0 +1,27 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { tutorials } from "../../data/docsNav.js";
+---
+
+<DocsLayout title="Tutorials — ponens">
+  <section class="page-head">
+    <h1>Tutorials</h1>
+    <p>A guided, hands-on course through the whole ponens methodology. You start with a real session
+      from your own AI coding agent and, one lesson at a time, turn it into a curated, governed,
+      reviewed, and cryptographically signed <strong>reasoning record</strong>. Every lesson builds on
+      the same <code>trace.json</code>, so by the end you've run the entire loop end to end.</p>
+    <p>Prefer the big picture first? Skim the <a href="/docs">getting-started tour</a>, then work through
+      these in order. Already know what you need? Jump to a task-focused <a href="/guides">guide</a>.</p>
+  </section>
+
+  <ol class="tut-list">
+    {tutorials.map((t) => (
+      <li>
+        <a href={t.href}>
+          <span class="tut-n">{t.n}</span>
+          <span><strong>{t.title}</strong><p>{t.blurb}</p></span>
+        </a>
+      </li>
+    ))}
+  </ol>
+</DocsLayout>

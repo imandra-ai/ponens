@@ -1,0 +1,60 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import TutorialFooter from "../../components/TutorialFooter.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Capture your first trace — ponens tutorials">
+  <article class="prose">
+    <p class="tut-crumb"><a href="/tutorials">Tutorials</a> · Lesson 1 of 7</p>
+    <h1>1 · Capture your first trace</h1>
+    <p class="tut-lead"><strong>You'll</strong> install ponens and turn a real agent session into a
+      reasoning trace, then open it to see what was captured. <strong>You need:</strong> a recent coding
+      session from an AI agent (Claude Code, Cursor, Codex, Gemini, or pi).</p>
+
+    <h2>Why a trace at all?</h2>
+    <p>When an AI agent finishes a task you're left with a diff and a chat log — but not a clear,
+      checkable account of <em>what</em> it did and <em>why</em>, or what it left unverified. A ponens
+      <strong>reasoning trace</strong> is that account: a curated, verifiable record you can review,
+      govern with policies, and sign. This course builds one from your own work, step by step.</p>
+
+    <h2>Install</h2>
+    <Code lang="bash" code={`pip install ponens`} />
+
+    <h2>Emit the trace</h2>
+    <p>Finish a task with your agent, then, from the project directory, capture the session. With no
+      arguments ponens finds the newest Claude Code session for this project; pass <code>--from</code>
+      to read a different agent (see <a href="/docs/adapters">Adapters</a>).</p>
+    <Code lang="bash" code={`ponens emit -o trace.json                 # newest Claude Code session for this project
+ponens emit -o trace.json --from cursor   # or: cursor | codex | gemini | pi`} />
+    <p>Emission derives the trace from the transcript — you write nothing. It captures the actions, the
+      file lineage, and the reasoning as <strong>ground truth</strong>.</p>
+
+    <h2>The two layers</h2>
+    <p>A trace has two layers, treated very differently — remember this, it's the heart of the model:</p>
+    <ul>
+      <li><strong>Atomic actions</strong> — the faithful record of what happened (files read/edited,
+        commands run, results). Ground truth. <em>Never rewritten.</em></li>
+      <li><strong>Meta-action narrative</strong> — the curated story on top, seeded from your raw
+        directives ("yes", "ok fix it"). This is the part <em>you</em> clean up (Lesson 2).</li>
+    </ul>
+
+    <h2>Look at it</h2>
+    <p>Open the self-contained viewer — zoom from the intent-level steps down to the atomic actions,
+      with the lineage graph and the residual surface.</p>
+    <Code lang="bash" code={`ponens trace view trace.json              # opens in your browser
+ponens trace status trace.json            # or a one-line summary in the terminal`} />
+    <p>Headless (SSH/CI)? <code>view</code> writes the HTML with <code>--out trace.html</code>. You can
+      also explore a bundled example live in the <a href="/demo">demo</a>.</p>
+
+    <h2>What you learned</h2>
+    <ul>
+      <li>A trace is a curated, verifiable record of an agent session — captured with <code>ponens emit</code>.</li>
+      <li>It has two layers: faithful <strong>atomic actions</strong> and a curated <strong>meta-action
+        narrative</strong>.</li>
+      <li>Any supported agent works via an <a href="/docs/adapters">adapter</a> (<code>--from</code>).</li>
+    </ul>
+
+    <TutorialFooter />
+  </article>
+</DocsLayout>

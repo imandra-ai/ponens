@@ -47,38 +47,87 @@ export const guides = [
   },
 ];
 
+// The Tutorials track — a numbered, sequential course through the whole methodology (produce → govern
+// → review → sign). Each lesson carries the same trace forward. `n` drives the sidebar/prev-next order;
+// `short` is the sidebar label; `title`/`blurb` feed the /tutorials index and the hub grid.
+export const tutorials = [
+  {
+    href: "/tutorials/first-trace", n: 1, short: "First trace",
+    title: "Capture your first trace",
+    blurb: "Install ponens and turn your latest agent session into a reasoning trace — the two layers, and how to read it.",
+  },
+  {
+    href: "/tutorials/curate", n: 2, short: "Curate",
+    title: "Curate the narrative",
+    blurb: "Rewrite the raw session into a clean account of what was built and why — without touching the ground-truth actions underneath.",
+  },
+  {
+    href: "/tutorials/declare", n: 3, short: "Declare gaps",
+    title: "Declare the negative space",
+    blurb: "Add the two things emission can't derive: the artifacts that make lineage real, and the residual surface — what you did NOT establish.",
+  },
+  {
+    href: "/tutorials/goals", n: 4, short: "Goals & axes",
+    title: "Goals & the three axes",
+    blurb: "State a goal as a contract and read back met / governed / certified — how ponens decides 'done' from evidence, not prose.",
+  },
+  {
+    href: "/tutorials/govern", n: 5, short: "Govern",
+    title: "Govern with policies",
+    blurb: "Attach best-practice policies and turn `trace check` into a real gate — Computable Governance, block-by-default, waivers on the record.",
+  },
+  {
+    href: "/tutorials/keep-honest", n: 6, short: "Keep it honest",
+    title: "Keep the evidence honest",
+    blurb: "Grade the trace, watch proofs go Fresh / Stale / Detached as code changes, and record counter-evidence with defeaters.",
+  },
+  {
+    href: "/tutorials/review-and-sign", n: 7, short: "Review & sign",
+    title: "Review and sign off",
+    blurb: "Switch to the reviewer's seat: verify the consequential claims, certify the goal, and cryptographically sign the result.",
+  },
+];
+
 // The hub's sections. Each has a `head` link (the section landing) and `items` (its pages, shown in the
 // sidebar when that section is current). `blurb` feeds the /docs landing grid.
 export const sections = [
   {
     id: "start",
-    label: "Getting started",
+    label: "Overview",
     href: "/docs",
-    blurb: "Install, then the emit → curate → declare → govern → share tour.",
-    items: [
-      { href: "/docs/writing-policies", label: "Writing policies" },
-    ],
+    blurb: "What ponens is, how the pieces fit, and where to start.",
+    items: [],
+  },
+  {
+    id: "tutorials",
+    label: "Tutorials",
+    href: "/tutorials",
+    blurb: "A guided, hands-on course through the whole methodology — produce, govern, review, and sign a trace.",
+    items: tutorials.map((t) => ({ href: t.href, label: `${t.n} · ${t.short}` })),
   },
   {
     id: "guides",
     label: "Guides",
     href: "/guides",
     blurb: "Short, copy-pasteable how-tos for real tasks — capture, review, CI, govern.",
-    items: guides.map((g) => ({ href: g.href, label: g.title })),
+    items: [
+      ...guides.map((g) => ({ href: g.href, label: g.title })),
+      { href: "/docs/writing-policies", label: "Writing policies" },
+    ],
   },
   {
     id: "agents",
     label: "For agents",
     href: "/agents",
     blurb: "ponens is agent-first: how an agent produces and reviews its own traces.",
-    items: [{ href: "/agents", label: "Agent workflow" }],
+    items: [],   // single page — the section head is the link (no lone sub-item)
   },
   {
     id: "adapters",
     label: "Adapters",
     href: "/docs/adapters",
     blurb: "Capture any coding agent's session — Claude Code, pi, and more — via emit adapters.",
-    items: [{ href: "/docs/adapters", label: "Agent adapters" }],
+    items: [],   // single page — the section head is the link (no lone sub-item)
   },
   {
     id: "spec",
@@ -94,4 +143,4 @@ export const sections = [
 // True when a path is anywhere in the Docs hub — the top nav uses this to keep "Docs" active across
 // /docs, /guides, /agents, and /spec.
 export const isDocsPath = (p) =>
-  ["/docs", "/guides", "/agents", "/spec"].some((b) => p === b || p.startsWith(b + "/"));
+  ["/docs", "/tutorials", "/guides", "/agents", "/spec"].some((b) => p === b || p.startsWith(b + "/"));

@@ -1,0 +1,55 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import TutorialFooter from "../../components/TutorialFooter.astro";
+import { Code } from "astro:components";
+---
+
+<DocsLayout title="Govern with policies — ponens tutorials">
+  <article class="prose">
+    <p class="tut-crumb"><a href="/tutorials">Tutorials</a> · Lesson 5 of 7</p>
+    <h1>5 · Govern with policies</h1>
+    <p class="tut-lead"><strong>You'll</strong> attach best-practice policies and turn
+      <code>trace check</code> into a real gate — the <strong>GOVERNED</strong> axis.
+      <strong>You need:</strong> your <code>trace.json</code> with a goal.</p>
+
+    <h2>Computable Governance</h2>
+    <p>A <strong>policy</strong> is a machine-checkable rule evaluated over the trace — written in LTLf
+      (temporal logic over the trace's actions), with a plain-English rationale and a pass/fail verdict.
+      Policies are how you encode "the evidence was derived correctly": a proof was required on a
+      high-stakes path, tests ran before commit, a model was autoformalized. This is the GOVERNED axis
+      from Lesson 4, made mechanical.</p>
+
+    <h2>Find and attach a policy</h2>
+    <Code lang="bash" code={`ponens registry update                       # refresh the policy gallery
+ponens policies search testing               # browse by keyword
+ponens policies add tests_before_commit --into trace.json`} />
+    <p>Or attach a whole <strong>pack</strong> (DO-178C, MISRA, NIST AI RMF, …) via the goal's
+      <code>policies</code> block, as you did in Lesson 4. Browse them in the
+      <a href="/gallery">gallery</a>.</p>
+
+    <h2>Run the gate</h2>
+    <Code lang="bash" code={`ponens trace check trace.json                # → PASS / FAIL (exit code)`} />
+    <p>This is a real, automatic gate — fully offline, keyed on the exit code, so it drops straight into
+      CI. Policies <strong>block by default</strong>. Add <code>--strict</code> to also fail on an
+      uncovered intent clause or a failing governed axis.</p>
+
+    <h2>Disable or waive — on the record</h2>
+    <p>Sometimes a policy doesn't apply. You can disable or waive it — but never silently: the
+      waiver is recorded <em>on the trace</em>, with your justification, so the exception is auditable
+      rather than invisible.</p>
+
+    <h2>Author your own rule</h2>
+    <p>When no gallery policy fits, write one. The <a href="/docs/writing-policies">Writing policies</a>
+      guide walks through the LTLf grammar and the operators; the
+      <a href="/spec/POLICY_LANGUAGE_v0_2">Policy Language spec</a> is the full reference.</p>
+
+    <h2>What you learned</h2>
+    <ul>
+      <li>Policies are machine-checkable rules — the GOVERNED axis, made mechanical.</li>
+      <li><code>trace check</code> is a real gate (exit code, offline); policies block by default.</li>
+      <li>Exceptions are <strong>waived on the record</strong>, never silent — that's what keeps it auditable.</li>
+    </ul>
+
+    <TutorialFooter />
+  </article>
+</DocsLayout>

@@ -14,6 +14,8 @@ Bindings (snake_case, matching the rest of the trace):
 """
 
 import copy
+import hashlib
+import re
 
 from . import lineage  # artifact provenance primitive — dependency-free, no import cycle
 
@@ -232,12 +234,95 @@ def faithfulness_of(goal, high_stakes=False):
 # Stale evidence -> derived residuals (was staleness.ts)
 # ================================================================
 
-def stale_evidence(trace):
-    """Proofs invalidated by a later code change, as derived residuals (tagged `derived: True`).
+# ── Freshness of reasoning evidence (TRACE_SPEC §18.3) ──────────────────────────
+# A result is Fresh / Stale / Detached w.r.t. the CURRENT model. When the model's IML source is on the
+# trace (FormalModel/IMLModel `payload.formal_code`) we decide by a dependency-CLOSURE checksum of the
+# target symbol — the sound signal §18.3 prescribes (the target PLUS every definition it transitively
+# uses), so a change to a *dependency* is caught, not just a change to the target's own text. An
+# explicit producer-emitted `payload.fingerprint.task_checksum` on the result is honored when present.
+# Absent both, we fall back to the legacy heuristic (a Diff/IMLModel naming the symbol at a later step).
 
-    A symbol's proof is stale iff its LATEST proof predates the LATEST change to that symbol. Keying on
-    the latest proof (not every proof) means a property RE-PROVED after the change heals — the guard
-    clears itself once the user re-verifies, rather than leaving a superseded proof reported as stale."""
+_MODEL_TYPES = ("FormalModel", "IMLModel")
+
+
+def _top_level_defs(src):
+    """Map each top-level `let NAME ... = ...` to its full definition text, from IML source."""
+    defs = {}
+    for chunk in re.split(r"(?m)^(?=let\b)", src or ""):
+        m = re.match(r"let\s+(?:rec\s+)?([A-Za-z_][A-Za-z0-9_']*)", chunk)
+        if m:
+            defs[m.group(1)] = chunk
+    return defs
+
+
+def _symbol_closure(sym, defs):
+    """The transitive set of top-level defs `sym` depends on (whole-word identifier references)."""
+    seen, stack = set(), [sym]
+    while stack:
+        n = stack.pop()
+        if n in seen or n not in defs:
+            continue
+        seen.add(n)
+        for other in defs:
+            if other != n and other not in seen and re.search(r"\b" + re.escape(other) + r"\b", defs[n]):
+                stack.append(other)
+    return seen
+
+
+def _closure_checksum(src, sym):
+    """Checksum of `sym`'s definition + its full dependency closure, or None if `sym` isn't defined."""
+    defs = _top_level_defs(src)
+    if sym not in defs:
+        return None
+    blob = "\n".join(defs[n] for n in sorted(_symbol_closure(sym, defs)))
+    return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _model_src(a):
+    return _payload(a).get("formal_code")
+
+
+def _freshness_verdict(vr, sym, proved_at, arts):
+    """Return "fresh" | "stale" | "detached" for a result `vr` of symbol `sym`, or None when it can't
+    be decided from the trace (the caller then applies the legacy heuristic). Never returns a false
+    "fresh"/"stale"/"detached": we only reason from models that carry INLINE source (`formal_code`), so
+    a partial/focused later model that merely omits a symbol (a common, benign case — see the
+    `symbols` list) is never mistaken for a deletion."""
+    # Only models with inline source are usable — the `symbols` list alone is unreliable (a focused
+    # re-model lists a subset). Without inline source we can't recompute a closure -> defer to heuristic.
+    src_models = [a for a in arts if a.get("artifact_type") in _MODEL_TYPES and _model_src(a)]
+    if not src_models:
+        return None
+    cur_model = max(src_models, key=lambda a: a.get("producer_action_id") or 0)
+    cur_defs = _top_level_defs(_model_src(cur_model))
+    if sym not in cur_defs:
+        # Detached only if the symbol was DEFINED in an earlier source model and is now gone — a real
+        # removal, not merely a model that never covered it.
+        cur_step = cur_model.get("producer_action_id") or 0
+        was_defined = any(sym in _top_level_defs(_model_src(m)) for m in src_models
+                          if (m.get("producer_action_id") or 0) < cur_step)
+        return "detached" if was_defined else None
+    stored_ck = (_payload(vr).get("fingerprint") or {}).get("task_checksum")
+    cur_ck = _closure_checksum(_model_src(cur_model), sym)
+    if stored_ck is None:
+        # No producer fingerprint: reconstruct the checksum against the source model current AT proof time.
+        prior = [a for a in src_models if (a.get("producer_action_id") or 0) <= proved_at]
+        if prior:
+            model_at = max(prior, key=lambda a: a.get("producer_action_id") or 0)
+            stored_ck = _closure_checksum(_model_src(model_at), sym)
+    if cur_ck is not None and stored_ck is not None:
+        return "fresh" if cur_ck == stored_ck else "stale"
+    return None
+
+
+def stale_evidence(trace):
+    """Proofs invalidated by a later model change (Stale) or by their target's removal (Detached), as
+    derived residuals (tagged `derived: True`). TRACE_SPEC §18.3.
+
+    Preferred signal: a dependency-CLOSURE checksum over the model's IML source (or an explicit
+    producer `fingerprint`) — sound against a change to a *dependency*, not just the target's own text.
+    Fallback (no inline source / no fingerprint): the legacy heuristic (a Diff/IMLModel naming the
+    symbol at a later step). Keying on the LATEST result per symbol means a re-proof heals the guard."""
     arts = trace.get("artifacts", [])
     by_id = {a.get("artifact_id"): a for a in arts}
 
@@ -248,45 +333,90 @@ def stale_evidence(trace):
                        and _payload(a).get("goal_id") == _payload(vr).get("goal_id")), None)
         return vg
 
-    # Latest RESULT per target symbol (proved OR refuted) — only the freshest verdict matters. A proof
-    # superseded by a re-proof, or by a refutation, is no longer the live evidence.
-    latest = {}  # sym -> (step, status, vr, vg)
-    for vr in arts:
-        if vr.get("artifact_type") != "VerificationResult":
+    # Standing reasoning RESULTS that can go stale — any result computed over the model, generically:
+    # verifications (proofs) and state-space analyses (decompositions). (Conformance / co-simulation
+    # follow the same shape and slot in here.) Each candidate is (kind, symbol, label, standing); the
+    # freshest per (kind, symbol) is the live evidence, so a re-run heals the guard.
+    def _candidate(a):
+        t = a.get("artifact_type")
+        if t == "VerificationResult":
+            status = _lc(_payload(a).get("status"))
+            if status not in ("proved", "sat", "refuted"):
+                return None
+            vg = _vg_for(a)
+            sym = _payload(vg).get("target_symbol") if vg else None
+            if not sym:
+                return None
+            desc = (_payload(vg).get("description") if vg else None) or f"property of {sym}"
+            # Only a standing PROOF (proved/sat) can be stale; a refutation is a live issue, not stale.
+            return ("vr", sym, f'Proof of "{desc}"', status in ("proved", "sat"))
+        if t == "StateSpaceAnalysisResult":
+            sym = _payload(a).get("target_symbol")
+            if not sym:
+                return None
+            desc = _payload(a).get("description")
+            label = f'State-space analysis "{desc}"' if desc else f"State-space analysis of `{sym}`"
+            return ("ssa", sym, label, True)  # a decomposition is always standing evidence
+        return None
+
+    latest = {}  # (kind, sym) -> (step, art, label, standing)
+    for a in arts:
+        c = _candidate(a)
+        if not c:
             continue
-        status = _lc(_payload(vr).get("status"))
-        if status not in ("proved", "sat", "refuted"):
-            continue
-        vg = _vg_for(vr)
-        sym = _payload(vg).get("target_symbol") if vg else None
-        if not sym:
-            continue
-        step = vr.get("producer_action_id") or 0
-        if sym not in latest or step > latest[sym][0]:
-            latest[sym] = (step, status, vr, vg)
+        kind, sym, label, standing = c
+        step = a.get("producer_action_id") or 0
+        key = (kind, sym)
+        if key not in latest or step > latest[key][0]:
+            latest[key] = (step, a, label, standing)
 
     out = []
-    for sym, (proved_at, status, vr, vg) in latest.items():
-        # A refutation (whenever) is a LIVE issue the criterion already reads as `blocked`, not a stale
-        # proof — only a standing PROOF that predates a change is stale.
-        if status not in ("proved", "sat"):
+    for (kind, sym), (at, art, label, standing) in latest.items():
+        if not standing:
             continue
-        changes = [a for a in arts if a.get("artifact_type") in ("Diff", "IMLModel")
-                   and _lc(sym) in _lc(a.get("summary") or a.get("name"))
-                   and (a.get("producer_action_id") or 0) > proved_at]
+        vid = art.get("artifact_id")
+        verdict = _freshness_verdict(art, sym, at, arts)
+        if verdict == "fresh":
+            continue
+        if verdict == "detached":
+            out.append({
+                "residual_id": f"detached-{vid}",
+                "kind": "detached_evidence",
+                "severity": "high",
+                "status": "open",
+                "statement": f"{label} is detached: its target `{sym}` no longer exists in the current model.",
+                "suggested_check": f"Confirm removing `{sym}` was intended, or restore it and re-run.",
+                "target": {"target_type": "artifact", "target_id": vid},
+                "derived": True,
+            })
+            continue
+        if verdict == "stale":
+            out.append({
+                "residual_id": f"stale-{vid}",
+                "kind": "stale_evidence",
+                "severity": "medium",
+                "status": "open",
+                "statement": f"{label} is stale: a definition `{sym}` depends on changed after step #{at}.",
+                "suggested_check": f"Re-run it against the current {sym}.",
+                "target": {"target_type": "artifact", "target_id": vid},
+                "derived": True,
+            })
+            continue
+        # verdict is None -> legacy heuristic: a Diff/IMLModel naming the symbol at a later step.
+        changes = [c for c in arts if c.get("artifact_type") in ("Diff", "IMLModel")
+                   and _lc(sym) in _lc(c.get("summary") or c.get("name"))
+                   and (c.get("producer_action_id") or 0) > at]
         if not changes:
             continue
         changed_at = max(c.get("producer_action_id") or 0 for c in changes)
-        desc = _payload(vg).get("description") or f"property of {sym}"
         out.append({
-            "residual_id": f"stale-{vr.get('artifact_id')}",
+            "residual_id": f"stale-{vid}",
             "kind": "stale_evidence",
             "severity": "medium",
             "status": "open",
-            "statement": f'Proof of "{desc}" is stale: verified at step #{proved_at}, '
-                         f"but {sym} changed at step #{changed_at}.",
-            "suggested_check": f"Re-verify the property against the current {sym}.",
-            "target": {"target_type": "artifact", "target_id": vr.get("artifact_id")},
+            "statement": f"{label} is stale: computed at step #{at}, but {sym} changed at step #{changed_at}.",
+            "suggested_check": f"Re-run it against the current {sym}.",
+            "target": {"target_type": "artifact", "target_id": vid},
             "derived": True,
         })
     return out

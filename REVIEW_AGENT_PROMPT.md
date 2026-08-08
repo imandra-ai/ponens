@@ -47,6 +47,10 @@ Sort everything in a trace into three buckets and treat each differently:
 2. **Verify the positive space, proportionally.** Re-check the consequential checkable artifacts on
    the changed / high-stakes surface — re-run proofs and tests where cheap. Do **not** re-derive the
    whole trace. Downgrade any unbacked "verified" claim to an undeclared `unverified` residual (step 4).
+   Treat a **stale** or **detached** result (proof, decomposition, conformance, …; a derived residual
+   from `enrich` — the target symbol, or a definition in its dependency closure, changed after the
+   result; or the symbol was removed) as **not current**: require re-running it against the current
+   model, don't credit the old verdict.
 3. **Work the residual surface, highest severity first** (`ponens trace residuals`). For each declared
    gap: jump to its `target`, run its `suggested_check` if cheap, and triage it (see below).
 4. **Hunt the *undeclared* negative space.** Compare the changed surface against what step 2 verified

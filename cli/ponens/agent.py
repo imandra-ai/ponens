@@ -65,6 +65,14 @@ Workflow — after you finish the work:
 A trace with NO declared residuals is suspicious, not clean. The value to a reviewer is that you
 disclosed what you did NOT establish.
 
+Keep formal results current: a formal-reasoning result — verification (proof), state-space analysis
+(decomposition), conformance, co-simulation — is only as current as the model it ran on. ponens
+recomputes a dependency-CLOSURE fingerprint of the target symbol, so a later change to that symbol —
+or anything it transitively uses — marks the result STALE, and removing the symbol marks it DETACHED;
+enrich/check surface these as derived residuals and a goal never resolves done over them. After editing
+modelled code, RE-RUN the affected result (a fresh result heals it). For this to work, declare
+formal-model artifacts (IMLModel/FormalModel) WITH their source + symbols in step 3, and point each result at its model.
+
 A goal yields three INDEPENDENT verdicts (see `ponens trace enrich`): MET (each component has its
 evidence artifact), GOVERNED (its policies held — i.e. the evidence was derived correctly), and
 CERTIFIED (a non-doer confirmed the criteria were the RIGHT ones). `enrich` resolves met + governed;
@@ -98,7 +106,9 @@ Procedure:
      your sign-off (`ponens trace goal certify --by reviewer`) IS that certification; never self-certify
      your own work.
   3. Verify the positive space proportionally — re-check the consequential proofs/tests; downgrade
-     any unbacked "verified" claim to an undeclared `unverified` residual.
+     any unbacked "verified" claim to an undeclared `unverified` residual. Treat a STALE or DETACHED
+     result (a proof, decomposition, conformance, …; a derived residual from enrich) as NOT current —
+     the code moved under it; require re-running it against the current model, don't credit the old verdict.
   4. Work the residual surface, highest severity first — run each suggested_check if cheap.
   5. Hunt the UNDECLARED gaps — anything the change touches that is neither verified nor declared.
   6. Verdict — approve only if no open blocking residual remains and every consequential claim was

@@ -31,7 +31,8 @@ let empty_action_common (id : int) (label : string) (rationale : string) : actio
     evidence = [];
     observations = [];
     execution = None;
-    reproducibility = None; }
+    reproducibility = None;
+    meta_action_id = None; }
 
 let ac (id : int) (aid : string) : artifact_common =
   { artifact_id = aid;
@@ -62,14 +63,15 @@ let good_trace : trace =
     VerificationResultArtifact
       ({ (ac 4 "a_result") with artifact_role = Some ReasoningResultRole; derived_from = ["a_goal"] },
        { goal_id = 1; goal_artifact_id = "a_goal"; status = VrProved; engine = Some "imandrax";
-         completed_at = None; result = ProvedResult { proof_pp = "proof"; properties = [] } })
+         completed_at = None; result = ProvedResult { proof_pp = "proof"; properties = [] };
+         fingerprint = None })
   in
   let a_ssa =
     StateSpaceAnalysisResultArtifact
       ({ (ac 5 "a_ssa") with artifact_role = Some StateSpaceAnalysisRole; derived_from = ["a_model"] },
        { target_artifact_id = "a_model"; target_symbol = Some "f"; analysis_kind = "region_decomposition";
          analysis_revision = None; description = None; complete = Some true; regions = [];
-         coverage_summary = None; notes = None })
+         coverage_summary = None; notes = None; fingerprint = None })
   in
   let a_tests =
     GeneratedTestsArtifact
@@ -77,7 +79,7 @@ let good_trace : trace =
        { function_ = "f"; language = "python"; source_analysis_artifact_id = "a_ssa"; tests = [] })
   in
   { trace_id = "good";
-    spec_version = "1.4";
+    spec_version = "1.9";
     assistant = "codelogician";
     model = "test";
     timestamp = "2026-01-01T00:00:00Z";
@@ -97,6 +99,7 @@ let good_trace : trace =
           Some { empty_action_payload with target_artifact_id = Some "a_ssa" });
         ActivityAction (empty_action_common 7 "commit" "commit approved result", GitCommit,
           Some { empty_action_payload with target_path = Some "/src/core.py" }) ];
+    meta_actions = [];
     outcome = { empty_event with typ = ProcessCompleted };
     artifacts = [a_model; a_goal; a_result; a_ssa; a_tests];
     reference_artifacts = [];
@@ -106,6 +109,8 @@ let good_trace : trace =
     reproducibility = None;
     comments = [];
     review_items = [];
+    residuals = [];
+    goals = [];
     trace_links = [];
     trace_lineage = None;
     files_modified = ["/src/core.py"];

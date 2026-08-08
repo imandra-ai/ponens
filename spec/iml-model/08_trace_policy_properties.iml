@@ -151,3 +151,62 @@ let generated_tests_require_state_space_analysis (tr : trace) : bool =
       | _ -> go rest
       end
   in go tr.artifacts
+
+(* ── Freshness soundness (TRACE_SPEC §18.3) ───────────────────────────────────
+   Universal properties of `freshness_of` / `counts_as_evidence` (03_accessors). Each is a
+   verification goal: it should hold for ALL (stored, current) fingerprints. Together they pin the
+   guarantee that a reasoning result NEVER counts as evidence unless it is provably Fresh — the
+   formal counterpart to the §18.2 rule "only a Fresh proved result resolves a Property AcceptDone".
+   `current = None` models the target symbol being absent from the current model. *)
+
+(* Fresh is granted only on an exact task-checksum match with an unchanged engine and a present target. *)
+let prop_fresh_implies_task_match (stored : reasoning_fingerprint)
+                                  (current : reasoning_fingerprint option) : bool =
+  match freshness_of stored current with
+  | Fresh ->
+    begin match current with
+    | Some cur -> cur.task_checksum = stored.task_checksum && not (engine_changed stored cur)
+    | None -> false   (* unreachable: current = None forces Detached *)
+    end
+  | Stale | Detached -> true
+
+(* Detached is granted EXACTLY when the target no longer exists in the current model. *)
+let prop_detached_iff_target_absent (stored : reasoning_fingerprint)
+                                    (current : reasoning_fingerprint option) : bool =
+  (freshness_of stored current = Detached) = (current = None)
+
+(* The headline guarantee: a Stale or Detached result never counts as evidence. *)
+let prop_stale_or_detached_not_evidence (stored : reasoning_fingerprint)
+                                        (current : reasoning_fingerprint option) : bool =
+  match freshness_of stored current with
+  | Stale | Detached -> not (counts_as_evidence stored current)
+  | Fresh -> true
+
+(* And the converse: a result counts as evidence iff it is Fresh. *)
+let prop_evidence_iff_fresh (stored : reasoning_fingerprint)
+                            (current : reasoning_fingerprint option) : bool =
+  counts_as_evidence stored current = (freshness_of stored current = Fresh)
+
+(* ── Acceptance × freshness (TRACE_SPEC §18.2 / §18.3) ────────────────────────
+   The gap this closes: "no AcceptDone over Stale/Detached evidence", now stated directly over the
+   §18.2 resolution rule (resolve_property_status, 03_accessors) rather than only at the
+   counts_as_evidence level. *)
+
+(* A Property acceptance item resolves AcceptDone only if its backing result is Fresh. *)
+let prop_property_done_requires_fresh (rs : verification_result_status) (fr : freshness) : bool =
+  not (resolve_property_status rs fr = AcceptDone) || (fr = Fresh)
+
+(* … and only if its backing result is proved. *)
+let prop_property_done_requires_proved (rs : verification_result_status) (fr : freshness) : bool =
+  not (resolve_property_status rs fr = AcceptDone) || (rs = VrProved)
+
+(* THE HEADLINE, end to end: a Property item whose backing result (stored fingerprint `stored`, vs the
+   current model fingerprint `current`) resolves AcceptDone must have a result that counts as evidence
+   — i.e. is Fresh. Composes resolve_property_status ∘ freshness_of, so a Stale or Detached result can
+   never carry a goal to done. *)
+let prop_no_acceptdone_over_nonfresh
+    (rs : verification_result_status)
+    (stored : reasoning_fingerprint)
+    (current : reasoning_fingerprint option) : bool =
+  not (resolve_property_status rs (freshness_of stored current) = AcceptDone)
+  || counts_as_evidence stored current

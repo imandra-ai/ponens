@@ -83,7 +83,7 @@ ponens trace residual add trace.json --kind assumption --severity high \\
         relevance cone is a walk over the existing lineage — no LLM, no scoring. So every "done" traces
         to a specific artifact, and re-running it always gives the same answer: progress that is
         <strong>grounded, reproducible, and auditable</strong>, not asserted
-        (<a href="/spec/TRACE_SPEC_v1_8">Trace Spec §18</a>).</p>
+        (<a href="/spec/TRACE_SPEC_v1_9">Trace Spec §18</a>).</p>
       <Code lang="bash" code={`ponens trace resolve trace.json --goals goals.json   # each acceptance item's live status
 ponens trace enrich  trace.json --goals goals.json -o enriched.json   # + progress, relevance cone, derived stale-evidence gaps
 ponens trace residuals trace.json --derived          # declared gaps + computed stale proofs`} />
@@ -127,7 +127,7 @@ ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI
         <li><strong>Goals &amp; acceptance</strong> — what the trace was <em>for</em> and its definition
           of done: a goal's intent plus typed acceptance items (change / property / obligation / gap)
           that <em>resolve</em> from the trace's own evidence, so progress is grounded rather than
-          asserted (<a href="/spec/TRACE_SPEC_v1_8">spec §18</a>). The positive-target dual of the
+          asserted (<a href="/spec/TRACE_SPEC_v1_9">spec §18</a>). The positive-target dual of the
           residual surface.</li>
         <li><strong>Computable Governance</strong> — best-practice policies as machine-checkable rules
           over the trace, written in LTLf extended with scoped-past and structural operators. Browse the

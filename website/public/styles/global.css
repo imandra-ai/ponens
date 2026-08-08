@@ -658,6 +658,28 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
   .docs-nav a.active { border-color: var(--accent); }
 }
 
+/* Docs hub: one shared left section nav (Getting started · Guides · For agents · Spec) + content, used
+   across /docs, /guides, /agents, /spec so they read as a single documentation area. */
+.docs-shell { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 2.5rem; align-items: start; }
+.docs-shell .prose { margin: 0; max-width: 74ch; }
+.docs-shell .page-head { padding-top: 2.5rem; }
+.docs-side { position: sticky; top: 1.5rem; align-self: start; padding-top: 2.7rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.docs-side-group nav { display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.25rem; }
+.docs-side-head { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 700; padding: 0.15rem 0.7rem; margin: 0; }
+a.docs-side-head:hover { color: var(--fg); text-decoration: none; }
+a.docs-side-head.active { color: var(--fg); }
+.docs-side nav a { font-size: 0.88rem; color: var(--muted); padding: 0.26rem 0.7rem; border-left: 2px solid var(--border); }
+.docs-side nav a:hover { color: var(--fg); text-decoration: none; }
+.docs-side nav a.active { color: var(--fg); border-left-color: var(--accent); font-weight: 600; }
+.docs-hub-grid { margin: 1.5rem 0 0.5rem; }
+@media (max-width: 820px) {
+  .docs-shell { grid-template-columns: 1fr; gap: 0; }
+  .docs-side { position: static; padding-top: 0; margin-bottom: 1.5rem; }
+  .docs-side-group nav { flex-direction: row; flex-wrap: wrap; gap: 0.4rem; }
+  .docs-side nav a { border-left: none; border: 1px solid var(--border); border-radius: 999px; }
+  .docs-side nav a.active { border-color: var(--accent); }
+}
+
 /* prose (docs + spec markdown) */
 .prose { max-width: 80ch; margin: 0 auto; padding: 2rem 0 1rem; }
 .prose h1 { letter-spacing: -0.02em; margin: 1.5rem 0 1rem; }

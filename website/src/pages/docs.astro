@@ -1,8 +1,10 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import DocsLayout from "../layouts/DocsLayout.astro";
 import { Code } from "astro:components";
+import { sections as hubSections } from "../data/docsNav.js";
 
-const sections = [
+// The getting-started tour's steps — rendered as the sidebar's "On this page" jump-nav.
+const tour = [
   ["install", "Install"],
   ["emit", "1 · Emit"],
   ["curate", "2 · Curate"],
@@ -14,24 +16,27 @@ const sections = [
   ["share", "8 · Share"],
   ["concepts", "Concepts"],
 ];
+// The hub landing grid links out to the other sections (Getting started is this page).
+const explore = hubSections.filter((s) => s.id !== "start");
 ---
 
-<Layout title="Docs — ponens">
-  <div class="docs-layout">
-    <aside class="docs-nav">
-      <p class="docs-nav-title">On this page</p>
-      <nav>
-        {sections.map(([id, label]) => <a href={`#${id}`} data-spy={id}>{label}</a>)}
-      </nav>
-    </aside>
-
+<DocsLayout title="Docs — ponens" onThisPage={tour}>
     <article class="prose">
-      <h1>Getting started</h1>
+      <h1>Documentation</h1>
       <p><strong>ponens</strong> turns an AI coding agent's session into a higher-level
         <strong>reasoning record</strong> — a curated, verifiable account of what it built and why —
         then makes the reasoning rigorous and governs it with <strong>Computable Governance</strong>
         (machine-checkable best-practice policies). The CLI is terminal-first; the browser is the
         escalation.</p>
+
+      <div class="guide-grid docs-hub-grid">
+        {explore.map((s) => (
+          <a class="guide-card" href={s.href}>
+            <h3>{s.label}</h3>
+            <p>{s.blurb}</p>
+          </a>
+        ))}
+      </div>
 
       <h2 id="install">Install</h2>
       <Code lang="bash" code={`# from this repo
@@ -137,10 +142,9 @@ ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI
           consequential claims, triage the declared gaps, hunt the undeclared ones.</li>
       </ul>
     </article>
-  </div>
 
   <script>
-    const links = [...document.querySelectorAll(".docs-nav a[data-spy]")];
+    const links = [...document.querySelectorAll(".docs-side a[data-spy]")];
     const byId = new Map(links.map((a) => [a.dataset.spy, a]));
     const obs = new IntersectionObserver(
       (entries) => {
@@ -155,4 +159,4 @@ ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI
     );
     document.querySelectorAll(".prose h2[id]").forEach((h) => obs.observe(h));
   </script>
-</Layout>
+</DocsLayout>

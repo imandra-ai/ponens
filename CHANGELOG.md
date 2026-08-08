@@ -7,6 +7,44 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.9.0] — 2026-08-07
+
+### Added
+- **Cryptographic sign-off (`ponens trace sign` / `ponens trace verify`)** — non-repudiable,
+  tamper-evident audit sign-off over a trace's `content_hash`, with pluggable backends: **SSH**
+  (`ssh-keygen`, trusted via an allowed-signers roster), **GPG** (detached signatures, trusted via an
+  allowed-fingerprints roster, with the public key inlined so verification is offline), and **keyless
+  sigstore** (a short-lived Fulcio certificate binds the signature to an *OIDC identity*, and the proof
+  is recorded in the **Rekor** public transparency log — no long-lived key to manage). An audit sign-off
+  carries `--role`/`--disposition`; `verify` dispatches per signature and reports **valid** / **untrusted**
+  / **invalid** / **tampered**, gating on failure (`--require-trusted`). Signatures live in `signatures[]`,
+  excluded from `content_hash`, so parties co-sign the *same* content with whatever backend they trust.
+- **RFC-3161 trusted timestamps.** `trace sign --tsa <url>` attaches a Time-Stamping Authority signature
+  over the signature (a TSA-attested "existed by <time>"); `trace verify --tsa-ca <cert>` checks it
+  **offline** against the TSA certificate — so *when* is attested, not machine-clock-asserted.
+- **PROV interchange (`ponens trace export --to prov`).** Export a trace to **W3C PROV-JSON** (Entity /
+  Activity / Agent + `wasGeneratedBy` / `used` / `wasDerivedFrom` / `wasAttributedTo`), so the record
+  speaks a standard provenance vocabulary auditors and tools already read (`PROV_INTERCHANGE_v0_1.md`).
+- **Evidence freshness — `Fresh` / `Stale` / `Detached` (Trace Spec §18.3).** A formal-reasoning result
+  (a proof, a state-space decomposition, conformance, co-simulation) is only as current as the model it
+  ran on. `enrich` / `residuals --derived` now derive a stale- or detached-evidence residual from a
+  dependency-**closure** fingerprint of the target symbol — a change to anything the target transitively
+  uses invalidates it, and removing the symbol detaches it — and a goal **never resolves `done` over
+  non-fresh evidence**. Generic across result kinds, not verification-only.
+- **First-class counter-evidence — `Defeater` residuals (Trace Spec §13 / §18.2).** `ponens trace
+  residual add --kind defeater --defeater-kind rebuts|undermines|undercuts --target-id <result>` records
+  evidence *against* a claim (a counterexample, a model that doesn't match the code, evidence that
+  doesn't support it). An open defeater **blocks** the claim it targets — a contested `Property` reads
+  `blocked`, not `done` — which is stronger than a mere declared gap.
+
+### Changed
+- **Freshness reasons per-symbol from the model's inline source.** The check reads the model the producer
+  already inlines (`iml_code`, or the spec's canonical `formal_code`) and selects the current model **per
+  target symbol**, so a multi-file session (one focused model per formalization run) no longer
+  false-flags an earlier symbol's proof as `detached`. An explicit producer
+  `reasoning_fingerprint.task_checksum` on a result is honored directly; absent it, the closure checksum
+  is reconstructed from the model current at proof time.
+
 ## [1.8.0] — 2026-08-04
 
 ### Added

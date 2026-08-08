@@ -1,0 +1,48 @@
+---
+// The shared Docs-hub shell: the main site chrome (Layout) plus a sticky left sidebar that lists every
+// hub section (Getting started · Guides · For agents · Spec). The current section expands to show its
+// pages, so /docs, /guides, /agents, and /spec all read as one documentation area. Pass `onThisPage`
+// (an array of [anchorId, label]) to add an "On this page" block for a long single page (the tour).
+import Layout from "./Layout.astro";
+import { sections } from "../data/docsNav.js";
+
+const { title = "Docs — ponens", onThisPage = [] } = Astro.props;
+const norm = (p) => (p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p);
+const here = norm(Astro.url.pathname);
+const isActive = (href) => here === norm(href);
+const groupActive = (s) =>
+  here === norm(s.href) || here.startsWith(norm(s.href) + "/") || s.items.some((i) => isActive(i.href));
+---
+
+<Layout title={title}>
+  <div class="docs-shell">
+    <aside class="docs-side">
+      {sections.map((s) => (
+        <div class="docs-side-group">
+          <a href={s.href} class:list={["docs-side-head", (isActive(s.href) || groupActive(s)) && "active"]}>
+            {s.label}
+          </a>
+          {groupActive(s) && s.items.length > 0 && (
+            <nav>
+              {s.items.map((i) => (
+                <a href={i.href} class:list={[isActive(i.href) && "active"]}>{i.label}</a>
+              ))}
+            </nav>
+          )}
+        </div>
+      ))}
+      {onThisPage.length > 0 && (
+        <div class="docs-side-group">
+          <p class="docs-side-head">On this page</p>
+          <nav>
+            {onThisPage.map(([id, label]) => <a href={`#${id}`} data-spy={id}>{label}</a>)}
+          </nav>
+        </div>
+      )}
+    </aside>
+
+    <div class="docs-body">
+      <slot />
+    </div>
+  </div>
+</Layout>

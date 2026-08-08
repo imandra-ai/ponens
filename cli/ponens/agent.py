@@ -30,9 +30,13 @@ Workflow — after you finish the work:
   3. ENRICH   ponens trace artifact trace.json --type <SourceCode|VerificationResult|...> \\
                 --name "..." --producer-action-id <n>               # declare artifacts -> lineage
               ponens trace residual add trace.json \\
-                --kind <assumption|unverified|out_of_scope|limitation|open_question> \\
+                --kind <assumption|unverified|out_of_scope|limitation|open_question|defeater> \\
                 --severity <info|low|medium|high|critical> --statement "..." \\
+                [--defeater-kind <rebuts|undermines|undercuts> --target-id <result>] \\
                 [--suggested-check "how a reviewer could close it"]  # declare your gaps
+              # `defeater` = counter-evidence AGAINST a claim (a counterexample, model≠code, a test that
+              # doesn't establish the property), not a missing gap. An open defeater BLOCKS the claim it
+              # targets (a Property over it reads `blocked`); close it in a successor trace.
   4. GOAL     State the goal as a CONTRACT: accomplish these things, subject to these policies.
               Author it as JSON, then load in one shot (`goal set --json`):
                 {
@@ -109,6 +113,9 @@ Procedure:
      any unbacked "verified" claim to an undeclared `unverified` residual. Treat a STALE or DETACHED
      result (a proof, decomposition, conformance, …; a derived residual from enrich) as NOT current —
      the code moved under it; require re-running it against the current model, don't credit the old verdict.
+     If you find a claim is actually WRONG (a counterexample, model≠code, evidence that doesn't support
+     it), raise a `defeater` (`--defeater-kind rebuts|undermines|undercuts`, `--target-id` the result) —
+     counter-evidence BLOCKS the claim, unlike a mere gap.
   4. Work the residual surface, highest severity first — run each suggested_check if cheap.
   5. Hunt the UNDECLARED gaps — anything the change touches that is neither verified nor declared.
   6. Verdict — approve only if no open blocking residual remains and every consequential claim was

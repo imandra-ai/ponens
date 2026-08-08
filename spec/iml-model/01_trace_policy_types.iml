@@ -283,6 +283,13 @@ type residual_kind =
   | OutOfScope
   | Limitation
   | OpenQuestion
+  | Defeater          (* counter-evidence AGAINST a claim (§13, 1.9) — carries a defeater_kind *)
+
+(* What a Defeater attacks (Pollock / SEI Eliminative Argumentation). *)
+type defeater_kind =
+  | Rebuts           (* the claim may be false (e.g. a counterexample) *)
+  | Undermines       (* the evidence/premise is invalid (e.g. model ≠ code) *)
+  | Undercuts        (* the inference is deficient (evidence doesn't support the claim) *)
 
 type residual_severity =
   | InfoResidual
@@ -305,6 +312,7 @@ type residual_status =
 
 type residual_payload = {
   kind : residual_kind;
+  defeater_kind : defeater_kind option;   (* set iff kind = Defeater (§13.1) *)
   statement : string;
   severity : residual_severity option;
   target : target_ref option;

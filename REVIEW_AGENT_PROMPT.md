@@ -50,7 +50,10 @@ Sort everything in a trace into three buckets and treat each differently:
    Treat a **stale** or **detached** result (proof, decomposition, conformance, …; a derived residual
    from `enrich` — the target symbol, or a definition in its dependency closure, changed after the
    result; or the symbol was removed) as **not current**: require re-running it against the current
-   model, don't credit the old verdict.
+   model, don't credit the old verdict. If you find a claim is actually **wrong** — a counterexample, a
+   model that doesn't match the code, evidence that doesn't support it — raise a **`defeater`** residual
+   (`--defeater-kind rebuts|undermines|undercuts`, `--target-id` the contested result). Counter-evidence
+   is stronger than a gap: an open defeater **blocks** the claim (`Property` reads `blocked`, not `done`).
 3. **Work the residual surface, highest severity first** (`ponens trace residuals`). For each declared
    gap: jump to its `target`, run its `suggested_check` if cheap, and triage it (see below).
 4. **Hunt the *undeclared* negative space.** Compare the changed surface against what step 2 verified

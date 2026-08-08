@@ -364,3 +364,36 @@ def test_freshness_generic_detached_state_space_analysis():
     stale = stale_evidence(t)
     assert [r["residual_id"] for r in stale] == ["detached-ssa1"]
     assert stale[0]["kind"] == "detached_evidence"
+
+
+# ── Counter-evidence: an open Defeater contests a proof (TRACE_SPEC §13 / §18.2) ──
+
+def _defeater_art(rid, target_id, status="open", dkind="rebuts"):
+    from ponens import lineage
+    return lineage.residual_to_artifact({
+        "residual_id": rid, "kind": "defeater", "defeater_kind": dkind,
+        "statement": "counter-evidence", "status": status,
+        "target": {"target_type": "artifact", "target_id": target_id}})
+
+
+def test_open_defeater_blocks_proved_property():
+    t = _trace()
+    items = {i["id"]: i for i in t["goals"][0]["acceptance"]}
+    assert resolve_item(items["a1"], t)["status"] == "done"       # proved, uncontested
+    t["artifacts"].append(_defeater_art("rd1", "vr1"))            # open rebuttal of the result
+    assert resolve_item(items["a1"], t)["status"] == "blocked"    # now contested
+
+
+def test_addressed_defeater_does_not_block():
+    t = _trace()
+    items = {i["id"]: i for i in t["goals"][0]["acceptance"]}
+    t["artifacts"].append(_defeater_art("rd1", "vr1", status="addressed"))
+    assert resolve_item(items["a1"], t)["status"] == "done"       # resolved defeater no longer blocks
+
+
+def test_defeater_kind_carried_through_surface():
+    from ponens import lineage
+    art = lineage.residual_to_artifact({"residual_id": "x", "kind": "defeater",
+        "defeater_kind": "undermines", "statement": "model != code", "status": "open"})
+    r = lineage.artifact_to_residual(art)
+    assert r["kind"] == "defeater" and r["defeater_kind"] == "undermines"

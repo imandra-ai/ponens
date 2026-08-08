@@ -291,3 +291,9 @@ let resolve_property_status (rs : verification_result_status) (fr : freshness) :
   | VrProved, Fresh -> AcceptDone
   | VrRefuted, _ -> AcceptBlocked
   | _, _ -> AcceptTodo
+
+(* Property resolution accounting for counter-evidence (§13 Defeater / §18.2): an OPEN Defeater
+   contesting the result blocks it — a contested proof is never Done, exactly like a refutation. *)
+let resolve_property_status_contested (rs : verification_result_status) (fr : freshness)
+                                      (contested : bool) : acceptance_status =
+  if contested then AcceptBlocked else resolve_property_status rs fr

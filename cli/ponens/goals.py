@@ -120,6 +120,22 @@ def _resolve_typed(item, trace):
     return {"status": "done", "from_trace": True, "evidence": a.get("artifact_id")}
 
 
+def _open_defeater_contests(ids, trace):
+    """True if an OPEN `Defeater` residual (§13) targets any artifact id in `ids` — i.e. there is live
+    counter-evidence against that claim, so it is contested (§18.2)."""
+    ids = set(ids)
+    for r in lineage.residual_surface(trace):
+        if _lc(r.get("kind")) != "defeater" or _lc(r.get("status") or "open") != "open":
+            continue
+        refs = set(r.get("related_artifact_ids") or [])
+        tgt = (r.get("target") or {}).get("target_id")
+        if tgt:
+            refs.add(tgt)
+        if refs & ids:
+            return True
+    return False
+
+
 def resolve_item(item, trace):
     """Resolve one acceptance item to {status, from_trace, evidence} against the trace's evidence."""
     # Goal Contract typed criterion (component + evidence) → resolve by lineage (§4), not text.
@@ -168,6 +184,10 @@ def resolve_item(item, trace):
         vr = max(vrs, key=lambda a: a.get("producer_action_id") or 0)
         s = _lc(_payload(vr).get("status"))
         st = "done" if s in ("proved", "sat") else "blocked" if s == "refuted" else "doing"
+        # Counter-evidence (§13 Defeater / §18.2): an OPEN defeater contesting the result (or its goal)
+        # blocks it — a contested proof is never done, exactly like a refutation.
+        if st == "done" and _open_defeater_contests({vr.get("artifact_id")} | vg_ids, trace):
+            st = "blocked"
         return {"status": st, "from_trace": True, "evidence": vr.get("artifact_id")}
 
     if kind == "change":

@@ -909,7 +909,8 @@ def cmd_complete(args):
     return 0
 
 
-RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'open_question'}
+RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'open_question', 'defeater'}
+DEFEATER_KINDS = {'rebuts', 'undermines', 'undercuts'}  # what a Defeater attacks (§13.1)
 RESIDUAL_SEVERITIES = {'info', 'low', 'medium', 'high', 'critical'}
 RESIDUAL_STATUSES = {'open', 'acknowledged', 'addressed', 'waived'}
 META_SOURCES = {'plan_declared', 'turn_segmented', 'intent_inferred', 'curated'}
@@ -1570,6 +1571,8 @@ def cmd_residual_add(args):
     rid = f"r{existing + 1}"
     r = {"residual_id": rid, "kind": args.kind, "severity": args.severity,
          "statement": args.statement, "source": "agent_declared", "status": args.status}
+    if getattr(args, "defeater_kind", None):
+        r["defeater_kind"] = args.defeater_kind
     if args.target_type:
         r["target"] = {"target_type": args.target_type, "target_id": args.target_id}
     if getattr(args, "related", None):
@@ -2478,8 +2481,10 @@ def register(subparsers):
     p = rp_sub.add_parser("add", help="Declare a residual")
     p.add_argument("trace_file")
     p.add_argument("--kind", required=True, choices=sorted(RESIDUAL_KINDS))
+    p.add_argument("--defeater-kind", choices=sorted(DEFEATER_KINDS),
+                   help="For --kind defeater: what the counter-evidence attacks (rebuts|undermines|undercuts)")
     p.add_argument("--severity", default="medium", choices=["info", "low", "medium", "high", "critical"])
-    p.add_argument("--statement", required=True, help="The gap, in plain language")
+    p.add_argument("--statement", required=True, help="The gap, or (for a defeater) the challenge, in plain language")
     p.add_argument("--target-type", choices=["trace", "action", "artifact", "policy"])
     p.add_argument("--target-id")
     p.add_argument("--suggested-check", help="How a reviewer could close it")

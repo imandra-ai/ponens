@@ -210,3 +210,17 @@ let prop_no_acceptdone_over_nonfresh
     (current : reasoning_fingerprint option) : bool =
   not (resolve_property_status rs (freshness_of stored current) = AcceptDone)
   || counts_as_evidence stored current
+
+(* ── Counter-evidence (TRACE_SPEC §13 Defeater / §18.2) ───────────────────────
+   An OPEN Defeater contesting a result blocks it: a contested proof is never Done, whatever its
+   status/freshness — the negative-evidence dual of the freshness guarantee above. *)
+
+(* A contested Property never resolves AcceptDone… *)
+let prop_contested_never_done (rs : verification_result_status) (fr : freshness)
+                              (contested : bool) : bool =
+  not contested || not (resolve_property_status_contested rs fr contested = AcceptDone)
+
+(* …it resolves AcceptBlocked, exactly as a refutation does. *)
+let prop_contested_is_blocked (rs : verification_result_status) (fr : freshness)
+                              (contested : bool) : bool =
+  not contested || (resolve_property_status_contested rs fr contested = AcceptBlocked)

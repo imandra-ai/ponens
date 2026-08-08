@@ -9,6 +9,22 @@
 
 > **Changes in 1.9 (additive, backward-compatible).** Makes **evidence freshness sound**, for *every* formal-reasoning result (§18.3). Any reasoning result — `VerificationResult`, `StateSpaceAnalysisResult`, `ConformanceResult`, `CoSimulationResult` — may now carry a **`reasoning_fingerprint`** (§10.4a): a checksum (and optional structural *shape*) of the **task it was computed over** (the target symbol **plus its dependency closure in the model**, not just the target's own text), together with the `engine` and `engine_version` that produced it. Freshness becomes a **derived** verdict — `Fresh | Stale | Detached` (§18.3) — obtained by recomputing the current fingerprint and comparing: an exact checksum match is `Fresh`; a mismatch (or an advanced engine version) is `Stale`; a result whose target no longer exists in the current model is `Detached` (orphaned work — kept for audit and recovery, never counted as evidence). This replaces the 1.7 heuristic ("the target symbol was edited at a later action"), which both **missed** staleness (a result invalidated by a change to a *dependency* rather than the target itself read as fresh) and **over-reported** it (a comment/format edit that left the task unchanged read as stale). The fingerprint is **optional** on every result kind: a result without one falls back to the 1.7 action-ordering heuristic, so existing 1.5–1.8 traces remain valid and unchanged.
 
+> **Also in 1.9 (additive, backward-compatible).** Adds **counter-evidence** to the residual
+> surface (§13): a new residual `kind` `Defeater` — evidence *against* a claim, not merely a *gap* in
+> what was established. Where the 1.5 kinds record **missing positive space** (an `Assumption` not
+> checked, an `Unverified` output), a `Defeater` records **negative evidence** — a reason to believe a
+> stated result is wrong. Its `defeater_kind` (§13.1) names *what* it attacks, following the standard
+> argumentation taxonomy: **`Rebuts`** (the claim itself may be false — e.g. a counterexample),
+> **`Undermines`** (the evidence/premise is invalid — e.g. the test was wrong, the model doesn't match
+> the code), **`Undercuts`** (the inference is deficient — e.g. "passing tests don't establish this
+> property"). A `Defeater` anchors (via `derived_from`/`target`) to the claim it contests and cites the
+> counter-evidence in `related_artifact_ids`; an *open* one makes that claim **contested** (§13.2), and
+> a `Property` acceptance item over a contested proof resolves `AcceptBlocked`, not `AcceptDone` (§18.2).
+> Because a `Defeater` is just another residual kind, existing severity/status/source, the residual
+> surface, and all §13.5 policies apply to it unchanged. Existing traces remain valid; `defeater_kind`
+> is optional and absent on the 1.5 kinds. Aligns with SACM's `isCounter` and SEI Eliminative
+> Argumentation (see `PRIOR_ART_ALIGNMENT_v0_1.md`).
+
 > **Changes in 1.8 (backward-compatible read).** Makes the **residual surface (§13) first-class artifacts** rather than a separate top-level list. A residual is now an artifact of `artifact_type` `Residual`: its residual-specific fields (`kind`, `severity`, `status`, `statement`, `suggested_check`, …) live in `payload`, and it **anchors into the lineage DAG** via `derived_from` (the artifact it qualifies). This unifies positive and negative space under one addressable, lineage-connected model — a gap now hangs off exactly what it is about, and policies can quantify over it by type. The legacy top-level `residuals` list is **deprecated but still read**: a producer folds it forward into `Residual` artifacts (`migrate_residuals`), and every consumer reads the *residual surface* — the union of `Residual` artifacts and any legacy `residuals[]`. Existing 1.5-1.7 traces remain valid and render unchanged.
 
 > **Changes in 1.7 (additive, backward-compatible).** Adds **Goals & Acceptance** (§18) — an optional, typed record of a trace's *intent and definition of done*. A **goal** states what is being changed and why, and decomposes it into **acceptance items** (change / property / obligation / gap): the *end node*, what "done" means. Acceptance introduces no new evaluator — each item **resolves** against machinery already in the trace (a verification result, a policy evaluation, a residual, a diff), so progress is grounded in evidence rather than self-reported. Where §8.4 meta-actions capture the *structure* of the work (how atomic actions group into intent), a goal captures its *target* (the conditions the work must meet), and may reference a meta-action via `meta_action_id`. The resolved state — per-item status, progress, the goal's relevance cone, and its open gaps — is a **derived** projection, not an authored field. Existing 1.6 traces remain valid; `goals` canonicalizes to the empty list.
@@ -1040,6 +1056,16 @@ type residual_kind =
   | OutOfScope       (* deliberately not addressed in this trace *)
   | Limitation       (* a known constraint under which the established results hold *)
   | OpenQuestion     (* a decision deferred to a reviewer or human *)
+  | Defeater         (* counter-evidence AGAINST a claim (not a gap): a reason to believe a stated
+                        result is wrong. Carries a `defeater_kind`; anchors to the claim it contests. *)
+
+(* What a Defeater attacks (Pollock / SEI Eliminative Argumentation taxonomy). *)
+type defeater_kind =
+  | Rebuts           (* the CLAIM may be false — e.g. a counterexample to a proved property *)
+  | Undermines       (* the EVIDENCE/premise is invalid — e.g. the test was wrong; the model does not
+                        match the code (a failed fidelity/conformance check) *)
+  | Undercuts        (* the INFERENCE is deficient — the evidence does not support the claim (e.g.
+                        "passing unit tests do not establish this invariant") *)
 
 type residual_severity =
   | InfoResidual
@@ -1062,10 +1088,11 @@ type residual_status =
 
 type residual_payload =
   { kind : residual_kind
-  ; statement : string                    (* the gap, in plain language *)
+  ; defeater_kind : defeater_kind option  (* set iff kind = Defeater — what the counter-evidence attacks *)
+  ; statement : string                    (* the gap (or, for a Defeater, the challenge), in plain language *)
   ; severity : residual_severity option   (* impact if wrong or left unaddressed *)
-  ; target : target_ref option            (* where it bites (see §14.1) *)
-  ; related_artifact_ids : string list    (* affected or supporting artifacts *)
+  ; target : target_ref option            (* where it bites — for a Defeater, the claim it contests (§14.1) *)
+  ; related_artifact_ids : string list    (* affected or supporting artifacts — for a Defeater, the counter-evidence *)
   ; rationale : string option             (* why assumed / not verified / out of scope *)
   ; suggested_check : string option       (* how a reviewer could close it *)
   ; source : residual_source option
@@ -1095,6 +1122,9 @@ A trace's **residual surface** is the projection back to the flat `residual` sha
 - `OutOfScope` — a deliberate exclusion (e.g. "idempotency under retries was not addressed").
 - `Limitation` — a boundary on the established results (e.g. "invariants hold under single-threaded application only").
 - `OpenQuestion` — a genuine decision punted to review (e.g. "should a refund reset the approval count?").
+- `Defeater` — **counter-evidence against a claim**, not a gap in it. The first five kinds record *missing positive space* (something not established); a `Defeater` records *negative evidence* — a concrete reason to believe a stated result is **wrong**. Its `defeater_kind` says what it attacks: `Rebuts` the claim (e.g. a counterexample to a "proved" property), `Undermines` the evidence (e.g. the model doesn't match the code — a failed fidelity check), or `Undercuts` the inference (the evidence doesn't support the claim). It anchors (`derived_from`/`target`) to the claim it contests and cites the counter-evidence in `related_artifact_ids`.
+
+**Contested vs. unestablished.** A gap says a claim is *unbacked*; a `Defeater` says a claim is *contested* — there is evidence it is false. An **open** `Defeater` is therefore stronger than a gap: a claim it targets must not be treated as established while it stands. This mirrors a refutation (§10.4) but is first-class and reviewer-raisable, and it drives resolution — a `Property` acceptance item whose result is contested by an open `Defeater` resolves `AcceptBlocked`, not `AcceptDone` (§18.2). A `Defeater` is **addressed** in a successor trace that refutes it or re-establishes the claim, and **waived** only by an explicit, auditable decision that it does not block.
 
 **Severity is impact, not probability.** `severity` records how much it matters *if* the residual is wrong or left unaddressed, independent of how likely that is, so a reviewer can triage by consequence.
 
@@ -1179,6 +1209,24 @@ A payments trace declaring its negative space — residuals are entries in `arti
       "source": "agent_declared",
       "status": "open",
       "tags": ["coverage"]
+    }
+  },
+  {
+    "artifact_id": "r3",
+    "artifact_type": "Residual",
+    "name": "defeater: amount_inv is refuted by a captured-over-authorized counterexample",
+    "derived_from": ["a12", "a13"],
+    "summary": "amount_inv does not hold: capture can exceed the authorized amount (counterexample a13).",
+    "payload": {
+      "kind": "defeater",
+      "defeater_kind": "rebuts",
+      "statement": "The proved `amount_inv` is refuted under interleaved capture: amount_captured can exceed amount (counterexample: amt=1797, cap=1798).",
+      "severity": "critical",
+      "target": { "target_type": "artifact", "target_id": "a12" },
+      "related_artifact_ids": ["a13"],
+      "source": "reviewer_added",
+      "status": "open",
+      "tags": ["payments", "counterexample"]
     }
   }
 ]
@@ -1498,7 +1546,7 @@ The trace record (§5) carries `goals : goal list`, canonicalized as an empty li
 **Acceptance reuses existing evaluation — no new evaluator.** Each acceptance kind *binds* to machinery already in the trace, and its status is **resolved** from that evidence rather than asserted:
 
 - `Change` — resolves from a `Diff` / `IMLModel` artifact touching the bound `symbol` → `AcceptDone` when the edit has landed.
-- `Property` — resolves from a `VerificationGoal` (§10.3) matching the binding and its **latest** `VerificationResult` (§10.4) → `AcceptDone` when *proved* **and `Fresh`** (§18.3), `AcceptBlocked` when *refuted* (carrying the counterexample). A *proved-but-`Stale`* or *`Detached`* result does **not** resolve `AcceptDone` — it reopens as a derived gap (§18.3).
+- `Property` — resolves from a `VerificationGoal` (§10.3) matching the binding and its **latest** `VerificationResult` (§10.4) → `AcceptDone` when *proved*, **`Fresh`** (§18.3), **and uncontested**; `AcceptBlocked` when *refuted* (carrying the counterexample) **or when an open `Defeater` (§13) targets the result** (contested). A *proved-but-`Stale`* or *`Detached`* result does **not** resolve `AcceptDone` — it reopens as a derived gap (§18.3).
 - `Obligation` — resolves from the `policy_evaluation` for the bound `policy_id` → `AcceptDone` when *passed*, `AcceptBlocked` when *failed*.
 - `Gap` — resolves from the bound residual's status (§13) → `AcceptDone` when `ResidualAddressed` / `ResidualWaived`.
 

@@ -1766,6 +1766,60 @@ def cmd_export(args):
     return 0
 
 
+def cmd_sign(args):
+    """Cryptographically sign a trace over its content_hash with an SSH private key — non-repudiation
+    for audit sign-off (see spec/AUDIT_READINESS_v0_1.md). Others verify with `ponens trace verify`."""
+    from . import signing
+    trace = load_trace(args.trace_file)
+    try:
+        rec = signing.sign_trace(trace, args.key, signer=args.signer,
+                                 role=args.role, disposition=args.disposition, tsa=args.tsa)
+    except RuntimeError as e:
+        print(f"sign failed: {e}", file=sys.stderr)
+        return 1
+    _save_trace_fmt(args.trace_file, trace)
+    tag = f" [{rec.get('role', '')}{'/' + rec['disposition'] if rec.get('disposition') else ''}]" \
+        if (rec.get("role") or rec.get("disposition")) else ""
+    print(f"Signed {args.trace_file} as {rec['signer']}{tag} ({rec.get('key_id')}) over {rec['content_hash']}")
+    if rec.get("timestamp"):
+        print(f"  trusted timestamp: {rec['timestamp'].get('time')} (RFC-3161 via {rec['timestamp'].get('tsa')})")
+    return 0
+
+
+def cmd_verify(args):
+    """Verify a trace's signatures. Keys are TRUSTED only if in --allowed-signers (git's roster
+    format); otherwise a crypto-valid signature reads `untrusted`. Non-zero exit on any failure."""
+    from . import signing
+    trace = load_trace(args.trace_file)
+    try:
+        results = signing.verify_trace(trace, allowed_signers_path=args.allowed_signers,
+                                       tsa_ca_path=args.tsa_ca)
+    except RuntimeError as e:
+        print(f"verify failed: {e}", file=sys.stderr)
+        return 1
+    if not results:
+        print("No signatures on this trace.")
+        return 1
+    mark = {"valid": "✓", "untrusted": "?", "invalid": "✗", "tampered": "✗", "unknown": "?"}
+    ok = True
+    for r in results:
+        st = r["status"]
+        tag = f" [{r.get('role', '')}{'/' + r['disposition'] if r.get('disposition') else ''}]" \
+            if (r.get("role") or r.get("disposition")) else ""
+        print(f"  {mark.get(st, '?')} {r['signer']}{tag}: {st} — {r.get('detail', '')}")
+        ts = r.get("timestamp")
+        if ts:
+            print(f"      {mark.get(ts['status'], '?')} timestamp: {ts['status']} — {ts.get('time') or ''} "
+                  f"({ts.get('detail', '')})")
+        if st in ("invalid", "tampered") or (ts and ts.get("status") == "invalid"):
+            ok = False
+        if args.require_trusted and ts and ts.get("status") == "untrusted":
+            ok = False
+    if args.require_trusted and any(r["status"] == "untrusted" for r in results):
+        ok = False
+    return 0 if ok else 1
+
+
 def _faithfulness_findings(trace):
     """Grade each goal on the three axes (met / governed / certified), not just trace-level policies.
     Returns (fails, warns, rows): `fails` gate under --strict — the GOVERNED axis failing (a declared
@@ -2460,6 +2514,27 @@ def register(subparsers):
                    help="Interchange target (prov = W3C PROV-JSON; see PROV_INTERCHANGE_v0_1.md)")
     p.add_argument("-o", "--output", help="Write to this file (default: stdout)")
     p.set_defaults(func=cmd_export)
+
+    # sign (non-repudiation)
+    p = trace_sub.add_parser("sign", help="Cryptographically sign a trace (over its content_hash) with an SSH key")
+    p.add_argument("trace_file")
+    p.add_argument("--key", default="~/.ssh/id_ed25519", help="SSH private key to sign with")
+    p.add_argument("--signer", help="Signer identity (default: the key's comment)")
+    p.add_argument("--role", help="Role of the signer, e.g. author | reviewer | auditor")
+    p.add_argument("--disposition", choices=["approved", "rejected", "noted"], help="The sign-off decision")
+    p.add_argument("--tsa", help="RFC-3161 Time-Stamping Authority URL — attach a trusted timestamp "
+                                 "over the signature (e.g. https://freetsa.org/tsr)")
+    p.set_defaults(func=cmd_sign)
+
+    # verify (check signatures)
+    p = trace_sub.add_parser("verify", help="Verify a trace's signatures (SSH); trust keys via an allowed-signers roster")
+    p.add_argument("trace_file")
+    p.add_argument("--allowed-signers", help="allowed_signers roster (git format); else keys are valid-but-untrusted")
+    p.add_argument("--tsa-ca", help="TSA CA cert (PEM) to verify RFC-3161 timestamps against; else a "
+                                    "present timestamp reads untrusted")
+    p.add_argument("--require-trusted", action="store_true",
+                   help="Fail unless every signature's key (and timestamp, if present) is trusted")
+    p.set_defaults(func=cmd_verify)
 
     # check
     p = trace_sub.add_parser("check", help="Check the trace against policies")

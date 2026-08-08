@@ -84,6 +84,13 @@ only on a high-stakes path; `low`/`info` → comment or acknowledge.
 Otherwise: **request-changes** (list the `residual_id`s that must close in a successor trace) or
 **escalate-to-human** (open questions).
 
+**Sign your sign-off.** When you approve (or reject), record it cryptographically:
+`ponens trace sign <trace> --role auditor --disposition approved|rejected` signs the trace's
+`content_hash` with your private key — non-repudiable and tamper-evident. Add `--tsa <url>` for an
+RFC-3161 **trusted timestamp** (a TSA-attested "when"). Anyone re-checks with `ponens trace verify
+<trace> --allowed-signers <roster> [--tsa-ca <cert>]`; a later edit to the trace breaks the signature
+(`tampered`), so an approval binds to exactly the content you reviewed, at the time you signed it.
+
 ## Anti-patterns
 
 - Trusting the producer's claims instead of re-checking them.

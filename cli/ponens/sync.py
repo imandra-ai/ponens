@@ -22,7 +22,9 @@ from .trace import load_trace, save_trace
 from .formatting import bold, gray, red, green, yellow, cyan, magenta, underline, color_status
 
 # Fields excluded from content_hash: transport/binding metadata, not reasoning content.
-HASH_EXCLUDE = {"timestamp", "content_hash", "repo", "branch", "commit_sha"}
+# `signatures` is excluded so a signer signs the content and appending the signature doesn't
+# invalidate it — letting multiple parties co-sign the same content_hash (see signing.py).
+HASH_EXCLUDE = {"timestamp", "content_hash", "repo", "branch", "commit_sha", "signatures"}
 
 
 def _err(msg):

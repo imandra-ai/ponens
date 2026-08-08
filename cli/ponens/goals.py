@@ -299,37 +299,57 @@ def _closure_checksum(src, sym):
 
 
 def _model_src(a):
-    return _payload(a).get("formal_code")
+    # The producer (imandra-pi-agent) inlines the IML model under `iml_code` (the field the desktop and
+    # viewer read); the spec's canonical name is `formal_code`. Accept either so freshness fires on real
+    # producer traces, not only on hand-authored ones. `src_code` is the ORIGINAL (e.g. Python) source,
+    # never the formal model — deliberately not consulted here.
+    return _payload(a).get("formal_code") or _payload(a).get("iml_code")
+
+
+def _same_model_line(m1, m2):
+    """Are two model artifacts revisions of the SAME model — so one can meaningfully DROP a symbol the
+    other defined? Producer models derive from their source node, so revisions of one file share a
+    `derived_from`. Bare models (no `derived_from` — hand-authored / tests) are treated as one evolving
+    model, preserving the original single-model behavior."""
+    d1 = set(m1.get("derived_from") or [])
+    d2 = set(m2.get("derived_from") or [])
+    if not d1 and not d2:
+        return True
+    return bool(d1 & d2)
 
 
 def _freshness_verdict(vr, sym, proved_at, arts):
     """Return "fresh" | "stale" | "detached" for a result `vr` of symbol `sym`, or None when it can't
     be decided from the trace (the caller then applies the legacy heuristic). Never returns a false
-    "fresh"/"stale"/"detached": we only reason from models that carry INLINE source (`formal_code`), so
-    a partial/focused later model that merely omits a symbol (a common, benign case — see the
-    `symbols` list) is never mistaken for a deletion."""
+    verdict: we reason only from models that carry INLINE source, and PER SYMBOL. The producer emits ONE
+    model per formalization run (per file), NOT one evolving model — so the "current model" for `sym` is
+    the latest inline model that actually DEFINES `sym`, and a focused later model for a DIFFERENT symbol
+    is never mistaken for a deletion. Detached requires a LATER revision of the SAME model line (shared
+    source) to have dropped `sym`."""
+    step = lambda a: a.get("producer_action_id") or 0  # noqa: E731
     # Only models with inline source are usable — the `symbols` list alone is unreliable (a focused
     # re-model lists a subset). Without inline source we can't recompute a closure -> defer to heuristic.
     src_models = [a for a in arts if a.get("artifact_type") in _MODEL_TYPES and _model_src(a)]
     if not src_models:
         return None
-    cur_model = max(src_models, key=lambda a: a.get("producer_action_id") or 0)
-    cur_defs = _top_level_defs(_model_src(cur_model))
-    if sym not in cur_defs:
-        # Detached only if the symbol was DEFINED in an earlier source model and is now gone — a real
-        # removal, not merely a model that never covered it.
-        cur_step = cur_model.get("producer_action_id") or 0
-        was_defined = any(sym in _top_level_defs(_model_src(m)) for m in src_models
-                          if (m.get("producer_action_id") or 0) < cur_step)
-        return "detached" if was_defined else None
+    defining = [m for m in src_models if sym in _top_level_defs(_model_src(m))]
+    if not defining:
+        # `sym` is defined in no inline model — can't recompute a closure -> defer to heuristic.
+        return None
+    cur_model = max(defining, key=step)
+    # Detached: a LATER revision of the SAME model line dropped `sym` — a real removal, not a focused
+    # model that simply never covered it.
+    dropped = [m for m in src_models if step(m) > step(cur_model)
+               and _same_model_line(m, cur_model) and sym not in _top_level_defs(_model_src(m))]
+    if dropped:
+        return "detached"
     stored_ck = (_payload(vr).get("fingerprint") or {}).get("task_checksum")
-    cur_ck = _closure_checksum(_model_src(cur_model), sym)
     if stored_ck is None:
-        # No producer fingerprint: reconstruct the checksum against the source model current AT proof time.
-        prior = [a for a in src_models if (a.get("producer_action_id") or 0) <= proved_at]
-        if prior:
-            model_at = max(prior, key=lambda a: a.get("producer_action_id") or 0)
-            stored_ck = _closure_checksum(_model_src(model_at), sym)
+        # No producer fingerprint: reconstruct the checksum against the DEFINING model current AT proof
+        # time (fall back to the earliest defining model if the proof predates them all).
+        prior = [m for m in defining if step(m) <= proved_at] or defining
+        stored_ck = _closure_checksum(_model_src(max(prior, key=step)), sym)
+    cur_ck = _closure_checksum(_model_src(cur_model), sym)
     if cur_ck is not None and stored_ck is not None:
         return "fresh" if cur_ck == stored_ck else "stale"
     return None

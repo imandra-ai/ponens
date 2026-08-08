@@ -332,6 +332,32 @@ def test_explicit_producer_fingerprint_is_honored():
     assert [r["residual_id"] for r in stale] == ["stale-vr1"]
 
 
+def _iml_model(aid, step, code, syms, src="src1"):
+    """A producer-shaped model: IMLModel, inline source under `iml_code`, derived from a source node."""
+    return {"artifact_id": aid, "artifact_type": "IMLModel", "producer_action_id": step,
+            "derived_from": [src], "payload": {"iml_code": code, "symbols": syms}}
+
+
+def test_freshness_reads_producer_iml_code_field():
+    # The producer inlines the model as `iml_code` (not the spec's `formal_code`); freshness must still
+    # fire — a change in f's dependency g marks the proof stale, via the SAME closure logic.
+    t = _fp_trace([
+        _iml_model("m0", 1, "let g x = x + 1\nlet f x = g x", ["f", "g"]),
+        _iml_model("m2", 3, "let g x = x + 2\nlet f x = g x", ["f", "g"]),
+    ])
+    assert [r["residual_id"] for r in stale_evidence(t)] == ["stale-vr1"]
+
+
+def test_no_false_detached_across_focused_per_file_models():
+    # The producer emits ONE model per formalization run (per file). A later focused model for a
+    # DIFFERENT file (different source line) must NOT mark f's proof detached — f was never in it.
+    t = _fp_trace([
+        _iml_model("mA", 1, "let f x = x + 1", ["f"], src="srcA"),
+        _iml_model("mB", 5, "let tax y = y * 2", ["tax"], src="srcB"),
+    ])
+    assert stale_evidence(t) == []
+
+
 def test_freshness_is_generic_state_space_analysis_goes_stale():
     # Generic (TRACE_SPEC §18.3): a region decomposition (StateSpaceAnalysisResult) — not just a proof
     # — goes stale when the model it ran on changes (here `g`, in `f`'s dependency closure).

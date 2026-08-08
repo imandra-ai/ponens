@@ -2,10 +2,28 @@
 
 ## Version
 
-**Version:** 1.8  
+**Version:** 1.9  
 **Status:** Draft  
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
+
+> **Changes in 1.9 (additive, backward-compatible).** Makes **evidence freshness sound**, for *every* formal-reasoning result (§18.3). Any reasoning result — `VerificationResult`, `StateSpaceAnalysisResult`, `ConformanceResult`, `CoSimulationResult` — may now carry a **`reasoning_fingerprint`** (§10.4a): a checksum (and optional structural *shape*) of the **task it was computed over** (the target symbol **plus its dependency closure in the model**, not just the target's own text), together with the `engine` and `engine_version` that produced it. Freshness becomes a **derived** verdict — `Fresh | Stale | Detached` (§18.3) — obtained by recomputing the current fingerprint and comparing: an exact checksum match is `Fresh`; a mismatch (or an advanced engine version) is `Stale`; a result whose target no longer exists in the current model is `Detached` (orphaned work — kept for audit and recovery, never counted as evidence). This replaces the 1.7 heuristic ("the target symbol was edited at a later action"), which both **missed** staleness (a result invalidated by a change to a *dependency* rather than the target itself read as fresh) and **over-reported** it (a comment/format edit that left the task unchanged read as stale). The fingerprint is **optional** on every result kind: a result without one falls back to the 1.7 action-ordering heuristic, so existing 1.5–1.8 traces remain valid and unchanged.
+
+> **Also in 1.9 (additive, backward-compatible).** Adds **counter-evidence** to the residual
+> surface (§13): a new residual `kind` `Defeater` — evidence *against* a claim, not merely a *gap* in
+> what was established. Where the 1.5 kinds record **missing positive space** (an `Assumption` not
+> checked, an `Unverified` output), a `Defeater` records **negative evidence** — a reason to believe a
+> stated result is wrong. Its `defeater_kind` (§13.1) names *what* it attacks, following the standard
+> argumentation taxonomy: **`Rebuts`** (the claim itself may be false — e.g. a counterexample),
+> **`Undermines`** (the evidence/premise is invalid — e.g. the test was wrong, the model doesn't match
+> the code), **`Undercuts`** (the inference is deficient — e.g. "passing tests don't establish this
+> property"). A `Defeater` anchors (via `derived_from`/`target`) to the claim it contests and cites the
+> counter-evidence in `related_artifact_ids`; an *open* one makes that claim **contested** (§13.2), and
+> a `Property` acceptance item over a contested proof resolves `AcceptBlocked`, not `AcceptDone` (§18.2).
+> Because a `Defeater` is just another residual kind, existing severity/status/source, the residual
+> surface, and all §13.5 policies apply to it unchanged. Existing traces remain valid; `defeater_kind`
+> is optional and absent on the 1.5 kinds. Aligns with SACM's `isCounter` and SEI Eliminative
+> Argumentation (see `PRIOR_ART_ALIGNMENT_v0_1.md`).
 
 > **Changes in 1.8 (backward-compatible read).** Makes the **residual surface (§13) first-class artifacts** rather than a separate top-level list. A residual is now an artifact of `artifact_type` `Residual`: its residual-specific fields (`kind`, `severity`, `status`, `statement`, `suggested_check`, …) live in `payload`, and it **anchors into the lineage DAG** via `derived_from` (the artifact it qualifies). This unifies positive and negative space under one addressable, lineage-connected model — a gap now hangs off exactly what it is about, and policies can quantify over it by type. The legacy top-level `residuals` list is **deprecated but still read**: a producer folds it forward into `Residual` artifacts (`migrate_residuals`), and every consumer reads the *residual surface* — the union of `Residual` artifacts and any legacy `residuals[]`. Existing 1.5-1.7 traces remain valid and render unchanged.
 
@@ -716,8 +734,50 @@ type verification_result_payload =
   ; engine : string option
   ; completed_at : string option
   ; result : verification_result_variant
+  ; fingerprint : reasoning_fingerprint option  (* §10.4a — freshness anchor (§18.3) *)
   }
 ```
+
+## 10.4a Reasoning-result fingerprint (freshness anchor)
+
+A **formal-reasoning result is only as current as the task it was computed over** — and this is true
+of *every* reasoning result, not just verification: a region decomposition (§10.5), a conformance
+check (§10.6), and a co-simulation (§10.7) all become stale when the model they ran on changes, in
+exactly the same way a proof does. So the fingerprint is a **shared, result-kind-agnostic** anchor:
+the `reasoning_fingerprint` captures the task a `VerificationResult` / `StateSpaceAnalysisResult` /
+`ConformanceResult` / `CoSimulationResult` was computed over, so freshness (§18.3) can be recomputed
+deterministically by comparing a stored fingerprint against the one derived from the *current* model.
+
+```ocaml
+type reasoning_fingerprint =
+  { task_checksum : string          (* strong hash of the full reasoning TASK: the target symbol PLUS
+                                       its dependency closure in the model — every definition the
+                                       result actually rests on, not just the target's own text.
+                                       Exact-identity key. (For verification the task is the VC; for
+                                       state-space analysis, the decomposition target + its closure.) *)
+  ; task_shape : string option      (* weaker STRUCTURAL hash, for fuzzy re-pairing when the checksum
+                                       differs (rename, reorder, α-renaming): distinguishes "the task
+                                       changed" from "the same task, moved". *)
+  ; target_symbol : string option   (* the symbol the result is about; its ABSENCE from the current
+                                       model is what makes a result `Detached` (§18.3). *)
+  ; engine : string option          (* the reasoner that produced the result *)
+  ; engine_version : string option  (* its version — a newer engine can change a result, so an
+                                       advanced version obsoletes it even on an exact checksum. *)
+  ; model_artifact_id : string option (* the FormalModel artifact the task was taken from *)
+  ; model_revision : int option       (* that model's revision at compute time *)
+  }
+```
+
+**Why the task, not the source text.** Hashing the target function's source alone is unsound in both
+directions: it **misses** staleness when the result is invalidated by a change to a *dependency* (a
+helper, type, or constant the result rests on) that the target's own text doesn't reflect; and it
+**over-reports** staleness on edits that don't change the task (comments, formatting, reordering).
+`task_checksum` fingerprints the task's full dependency closure, so a result goes stale exactly when
+the *logic it depends on* changes — no sooner, no later.
+
+**Optionality and fallback.** `fingerprint` is optional on every result kind that carries it. A result
+with one is checked by fingerprint (the sound path); a result without one falls back to the 1.7
+action-ordering heuristic (§18.3). Producers that can compute a task checksum SHOULD emit it.
 
 ## 10.5 State-space analysis
 
@@ -741,6 +801,7 @@ type state_space_analysis_result_payload =
   ; regions : region list
   ; coverage_summary : string option
   ; notes : string option
+  ; fingerprint : reasoning_fingerprint option  (* §10.4a — freshness anchor (§18.3) *)
   }
 ```
 
@@ -766,6 +827,7 @@ type conformance_result_payload =
   ; engine : string option
   ; findings : string list
   ; note : string option
+  ; fingerprint : reasoning_fingerprint option  (* §10.4a — freshness anchor (§18.3) *)
   }
 ```
 
@@ -789,6 +851,7 @@ type cosimulation_result_payload =
   ; divergence_points : divergence_point list
   ; summary : string option
   ; observations : string list
+  ; fingerprint : reasoning_fingerprint option  (* §10.4a — freshness anchor (§18.3) *)
   }
 ```
 
@@ -993,6 +1056,16 @@ type residual_kind =
   | OutOfScope       (* deliberately not addressed in this trace *)
   | Limitation       (* a known constraint under which the established results hold *)
   | OpenQuestion     (* a decision deferred to a reviewer or human *)
+  | Defeater         (* counter-evidence AGAINST a claim (not a gap): a reason to believe a stated
+                        result is wrong. Carries a `defeater_kind`; anchors to the claim it contests. *)
+
+(* What a Defeater attacks (Pollock / SEI Eliminative Argumentation taxonomy). *)
+type defeater_kind =
+  | Rebuts           (* the CLAIM may be false — e.g. a counterexample to a proved property *)
+  | Undermines       (* the EVIDENCE/premise is invalid — e.g. the test was wrong; the model does not
+                        match the code (a failed fidelity/conformance check) *)
+  | Undercuts        (* the INFERENCE is deficient — the evidence does not support the claim (e.g.
+                        "passing unit tests do not establish this invariant") *)
 
 type residual_severity =
   | InfoResidual
@@ -1015,10 +1088,11 @@ type residual_status =
 
 type residual_payload =
   { kind : residual_kind
-  ; statement : string                    (* the gap, in plain language *)
+  ; defeater_kind : defeater_kind option  (* set iff kind = Defeater — what the counter-evidence attacks *)
+  ; statement : string                    (* the gap (or, for a Defeater, the challenge), in plain language *)
   ; severity : residual_severity option   (* impact if wrong or left unaddressed *)
-  ; target : target_ref option            (* where it bites (see §14.1) *)
-  ; related_artifact_ids : string list    (* affected or supporting artifacts *)
+  ; target : target_ref option            (* where it bites — for a Defeater, the claim it contests (§14.1) *)
+  ; related_artifact_ids : string list    (* affected or supporting artifacts — for a Defeater, the counter-evidence *)
   ; rationale : string option             (* why assumed / not verified / out of scope *)
   ; suggested_check : string option       (* how a reviewer could close it *)
   ; source : residual_source option
@@ -1048,6 +1122,9 @@ A trace's **residual surface** is the projection back to the flat `residual` sha
 - `OutOfScope` — a deliberate exclusion (e.g. "idempotency under retries was not addressed").
 - `Limitation` — a boundary on the established results (e.g. "invariants hold under single-threaded application only").
 - `OpenQuestion` — a genuine decision punted to review (e.g. "should a refund reset the approval count?").
+- `Defeater` — **counter-evidence against a claim**, not a gap in it. The first five kinds record *missing positive space* (something not established); a `Defeater` records *negative evidence* — a concrete reason to believe a stated result is **wrong**. Its `defeater_kind` says what it attacks: `Rebuts` the claim (e.g. a counterexample to a "proved" property), `Undermines` the evidence (e.g. the model doesn't match the code — a failed fidelity check), or `Undercuts` the inference (the evidence doesn't support the claim). It anchors (`derived_from`/`target`) to the claim it contests and cites the counter-evidence in `related_artifact_ids`.
+
+**Contested vs. unestablished.** A gap says a claim is *unbacked*; a `Defeater` says a claim is *contested* — there is evidence it is false. An **open** `Defeater` is therefore stronger than a gap: a claim it targets must not be treated as established while it stands. This mirrors a refutation (§10.4) but is first-class and reviewer-raisable, and it drives resolution — a `Property` acceptance item whose result is contested by an open `Defeater` resolves `AcceptBlocked`, not `AcceptDone` (§18.2). A `Defeater` is **addressed** in a successor trace that refutes it or re-establishes the claim, and **waived** only by an explicit, auditable decision that it does not block.
 
 **Severity is impact, not probability.** `severity` records how much it matters *if* the residual is wrong or left unaddressed, independent of how likely that is, so a reviewer can triage by consequence.
 
@@ -1132,6 +1209,24 @@ A payments trace declaring its negative space — residuals are entries in `arti
       "source": "agent_declared",
       "status": "open",
       "tags": ["coverage"]
+    }
+  },
+  {
+    "artifact_id": "r3",
+    "artifact_type": "Residual",
+    "name": "defeater: amount_inv is refuted by a captured-over-authorized counterexample",
+    "derived_from": ["a12", "a13"],
+    "summary": "amount_inv does not hold: capture can exceed the authorized amount (counterexample a13).",
+    "payload": {
+      "kind": "defeater",
+      "defeater_kind": "rebuts",
+      "statement": "The proved `amount_inv` is refuted under interleaved capture: amount_captured can exceed amount (counterexample: amt=1797, cap=1798).",
+      "severity": "critical",
+      "target": { "target_type": "artifact", "target_id": "a12" },
+      "related_artifact_ids": ["a13"],
+      "source": "reviewer_added",
+      "status": "open",
+      "tags": ["payments", "counterexample"]
     }
   }
 ]
@@ -1451,7 +1546,7 @@ The trace record (§5) carries `goals : goal list`, canonicalized as an empty li
 **Acceptance reuses existing evaluation — no new evaluator.** Each acceptance kind *binds* to machinery already in the trace, and its status is **resolved** from that evidence rather than asserted:
 
 - `Change` — resolves from a `Diff` / `IMLModel` artifact touching the bound `symbol` → `AcceptDone` when the edit has landed.
-- `Property` — resolves from a `VerificationGoal` (§10.3) matching the binding and its **latest** `VerificationResult` (§10.4) → `AcceptDone` when *proved*, `AcceptBlocked` when *refuted* (carrying the counterexample).
+- `Property` — resolves from a `VerificationGoal` (§10.3) matching the binding and its **latest** `VerificationResult` (§10.4) → `AcceptDone` when *proved*, **`Fresh`** (§18.3), **and uncontested**; `AcceptBlocked` when *refuted* (carrying the counterexample) **or when an open `Defeater` (§13) targets the result** (contested). A *proved-but-`Stale`* or *`Detached`* result does **not** resolve `AcceptDone` — it reopens as a derived gap (§18.3).
 - `Obligation` — resolves from the `policy_evaluation` for the bound `policy_id` → `AcceptDone` when *passed*, `AcceptBlocked` when *failed*.
 - `Gap` — resolves from the bound residual's status (§13) → `AcceptDone` when `ResidualAddressed` / `ResidualWaived`.
 
@@ -1468,12 +1563,35 @@ Like the grade, and unlike the *authored* residual surface, a goal's **resolved 
 - each acceptance item's resolved `status` and an **evidence** pointer (the artifact / evaluation / residual that resolves it);
 - the goal's `progress` — resolved items over total (`AcceptDoing` counts as a half);
 - the goal's **relevance cone** — the set of `action`s that produced the goal's evidence, obtained by walking each resolved item's evidence artifact backward through `derived_from` lineage; this is the goal-scoped slice of the trace (the steps that mattered for *this* goal);
-- the goal's **open gaps** — the goal-scoped residuals: declared residuals bound to a `Gap` item or touching the goal's `scope`, plus derived stale-evidence residuals for the goal's symbols;
+- the goal's **open gaps** — the goal-scoped residuals: declared residuals bound to a `Gap` item or touching the goal's `scope`, plus derived **stale-** and **detached-**evidence residuals for the goal's symbols (see *Freshness* below);
 - **exploration** — the actions in *no* goal's cone.
 
 These are **derived** and never mutate the record, preserving the ground-truth discipline of §2.3: the authored trace carries only `goals`; a consumer computes their resolution on demand.
 
-**Stale evidence.** A `Property` item is resolved from the *latest* verification result, and a proof is only as current as the code it verified. If the symbol a proof constrains is edited at a *later* action than the proof, the proof is stale — surfaced as a **derived** stale-evidence residual (a computed `Gap`, §13). Consequently a goal cannot silently remain reached after the code underlying one of its proofs changes; the reopened gap is visible in its open-gap set.
+**Freshness (derived).** Every **formal-reasoning result** (verification, state-space analysis, conformance, co-simulation) is only as current as the task it was computed over. Freshness is a **derived verdict** on each such result — never an authored field — recomputed by comparing the result's stored `reasoning_fingerprint` (§10.4a) against the fingerprint of the *current* model:
+
+```ocaml
+type freshness =
+  | Fresh      (* the current task checksum equals the result's stored task_checksum — the result
+                  still applies as-is *)
+  | Stale      (* the result's target still exists but its CURRENT reasoning task differs (checksum
+                  mismatch, or only a shape match), OR the engine_version has advanced past the one
+                  that produced the result — it must be re-established *)
+  | Detached   (* the result's target_symbol no longer exists in the current model — the task is gone.
+                  Orphaned work: kept for audit and recovery (reverting the deletion re-pairs it), but
+                  never counted as evidence *)
+```
+
+Computation, for a reasoning result `r` (against its target/goal):
+
+1. If `r.fingerprint` is absent → fall back to the **1.7 heuristic**: `Stale` iff the symbol the result is about was edited at a *later* action than the result; else `Fresh`. (No `Detached` under the fallback.)
+2. Else recompute the current fingerprint for `r`'s target from the current `FormalModel`:
+   - target symbol **absent** from the current model → **`Detached`**;
+   - current `task_checksum` **equals** stored → **`Fresh`**;
+   - otherwise (checksum differs, whether or not `task_shape` still matches) → **`Stale`**;
+   - independently, an **advanced `engine_version`** forces **`Stale`** even on an exact checksum match (a newer reasoner may decide the same task differently).
+
+**Effect on resolution and the residual surface.** A `Property` item resolves from its *latest* `VerificationResult`, and resolves `AcceptDone` only when that result is *proved* **and** `Fresh` (§18.2); the same freshness verdict applies to a `StateSpaceAnalysisResult` backing a decomposition, a `ConformanceResult`, or a `CoSimulationResult`. A `Stale` result surfaces a **derived** stale-evidence residual (a computed `Gap`, §13, `suggested_check` = "re-verify"); a `Detached` result surfaces a **derived** detached-evidence residual (a computed `Gap` whose `suggested_check` asks a human to confirm the deletion was intended, or restore the target). Consequently a goal cannot silently remain reached after the *logic underlying* one of its results changes — not only when the target's own text changes, but when any definition in the task's dependency closure does — and a result whose target was deleted is visibly detached rather than silently dropped. Both reopened gaps appear in the goal's open-gap set. This mirrors the keep / obsolete / detached trichotomy of Why3's session-pairing model (see `PRIOR_ART_ALIGNMENT_v0_1.md`).
 
 ## 18.4 Relationship to existing constructs
 
@@ -1489,7 +1607,7 @@ Because goals and their acceptance are typed and queryable, policies (see the Po
 - **active goals declare acceptance** — every `GoalActive` goal must have a non-empty `acceptance` list.
 - **no commit against an unreached goal** — `G(GitCommit → ∀ i ∈ active_goal.acceptance . i.status = AcceptDone)` (for the required items).
 - **reached goals carry no open critical gaps** — `G(GoalDone → ¬∃ r ∈ open_gaps(goal) . r.severity = Critical ∧ r.status = ResidualOpen)`.
-- **proofs stay current** — a `Property` item whose evidence is stale (§18.3) must not resolve `AcceptDone`.
+- **proofs stay current** — a `Property` item whose evidence is `Stale` or `Detached` (§18.3) must not resolve `AcceptDone`.
 
 As with the residual surface, the bar is not that goals be *trivially* met, but that their intent, criteria, and evidence be *declared and checkable*.
 

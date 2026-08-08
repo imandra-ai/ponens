@@ -168,10 +168,19 @@ When a human asks you to "produce / complete a trace" of work you did:
    `ponens trace artifact trace.json --type <SourceCode|IMLModel|GeneratedTests|VerificationResult|Diff|...> --name "..." --producer-action-id <n> [--derived-from <ids>]`
    Then wire the actions' `inputs`/`outputs` to those artifact IDs so each result traces back
    to what produced it. This is what makes the lineage graph — and the integrity check — real.
+   For a **formal-model** artifact (`IMLModel`/`FormalModel`), include its source and the symbols it
+   defines, and point each **formal-reasoning result** (`VerificationResult`,
+   `StateSpaceAnalysisResult`, `ConformanceResult`, …) at the model it was computed against — this is
+   what lets ponens tell whether a result is still **current** (see *Keep formal results current* below).
 5. **Declare your gaps honestly (negative space)** — for each thing you assumed, did not
    verify, left out of scope, the limitations of your work, and any open questions, run:
-   `ponens trace residual add trace.json --kind <assumption|unverified|out_of_scope|limitation|open_question> --severity <info|low|medium|high|critical> --statement "..." [--target-type artifact --target-id a3] [--suggested-check "how a reviewer could close it"]`
+   `ponens trace residual add trace.json --kind <assumption|unverified|out_of_scope|limitation|open_question|defeater> --severity <info|low|medium|high|critical> --statement "..." [--target-type artifact --target-id a3] [--suggested-check "how a reviewer could close it"]`
    Be candid: the value of the trace to a reviewer is that you disclosed what you did *not* establish.
+   Use `--kind defeater` for **counter-evidence** — not a missing gap but a reason to believe a stated
+   result is *wrong* (a counterexample to a "proved" property, a model that doesn't match the code, a
+   test that doesn't establish what it claims). Add `--defeater-kind <rebuts|undermines|undercuts>` and
+   `--target-id` the contested result; an open defeater **blocks** that claim (a `Property` over it reads
+   `blocked`, not `done`), so raise it when you find it and close it in a successor trace.
 6. **Check against best-practice policies** — the gallery encodes good coding and reasoning
    discipline as machine-checkable rules. Pull it and attach the ones that fit this change, then
    check:
@@ -187,6 +196,17 @@ When a human asks you to "produce / complete a trace" of work you did:
 > A trace with no declared residuals is suspicious, not clean — and one with no artifacts shows
 > *that* you worked but not *what your work produced*. Declaring the negative space and wiring
 > the lineage are what turn the trace from a claim into a reviewable, trustworthy record.
+
+> **Keep formal results current.** A **formal-reasoning result** — a verification (proof), a
+> state-space analysis (region decomposition), a conformance check, a co-simulation — is only as
+> current as the model it ran on. ponens recomputes a **dependency-closure fingerprint** of the
+> target symbol from the model, so a later change to that symbol — *or to anything it transitively
+> uses* — marks the result **stale**, and removing the symbol marks it **detached**. `ponens trace
+> enrich` / `check` surface these as derived residuals, and a goal never resolves *done* over stale or
+> detached evidence. So after an edit that touches modelled code, **re-run the affected result** — a
+> fresh result against the current model heals the gap (superseding the stale one). This works only if
+> the model artifact carries its source + symbols (step 4), so
+> declare those.
 
 ### Upload and review a trace
 

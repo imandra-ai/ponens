@@ -47,6 +47,13 @@ Sort everything in a trace into three buckets and treat each differently:
 2. **Verify the positive space, proportionally.** Re-check the consequential checkable artifacts on
    the changed / high-stakes surface — re-run proofs and tests where cheap. Do **not** re-derive the
    whole trace. Downgrade any unbacked "verified" claim to an undeclared `unverified` residual (step 4).
+   Treat a **stale** or **detached** result (proof, decomposition, conformance, …; a derived residual
+   from `enrich` — the target symbol, or a definition in its dependency closure, changed after the
+   result; or the symbol was removed) as **not current**: require re-running it against the current
+   model, don't credit the old verdict. If you find a claim is actually **wrong** — a counterexample, a
+   model that doesn't match the code, evidence that doesn't support it — raise a **`defeater`** residual
+   (`--defeater-kind rebuts|undermines|undercuts`, `--target-id` the contested result). Counter-evidence
+   is stronger than a gap: an open defeater **blocks** the claim (`Property` reads `blocked`, not `done`).
 3. **Work the residual surface, highest severity first** (`ponens trace residuals`). For each declared
    gap: jump to its `target`, run its `suggested_check` if cheap, and triage it (see below).
 4. **Hunt the *undeclared* negative space.** Compare the changed surface against what step 2 verified
@@ -76,6 +83,16 @@ only on a high-stakes path; `low`/`info` → comment or acknowledge.
 
 Otherwise: **request-changes** (list the `residual_id`s that must close in a successor trace) or
 **escalate-to-human** (open questions).
+
+**Sign your sign-off.** When you approve (or reject), record it cryptographically:
+`ponens trace sign <trace> --role auditor --disposition approved|rejected` signs the trace's
+`content_hash` — non-repudiable and tamper-evident. Choose a backend with `--backend`: **ssh**
+(default; `--key`), **gpg** (`--signer <key id>`), or keyless **sigstore** (`--signer <email>
+--oidc-issuer <url>`, identity-bound via Fulcio + logged to Rekor). Add `--tsa <url>` for an RFC-3161
+**trusted timestamp** (a TSA-attested "when"). Anyone re-checks with `ponens trace verify <trace>`,
+establishing trust per backend — `--allowed-signers <roster>` (ssh), `--gpg-roster <fingerprints>`
+(gpg), or `--identity <email> --oidc-issuer <url>` (sigstore) `[--tsa-ca <cert>]`; a later edit breaks
+the signature (`tampered`), so an approval binds to exactly the content you reviewed, when you signed it.
 
 ## Anti-patterns
 

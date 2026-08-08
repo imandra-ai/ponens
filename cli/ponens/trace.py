@@ -909,7 +909,8 @@ def cmd_complete(args):
     return 0
 
 
-RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'open_question'}
+RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'open_question', 'defeater'}
+DEFEATER_KINDS = {'rebuts', 'undermines', 'undercuts'}  # what a Defeater attacks (§13.1)
 RESIDUAL_SEVERITIES = {'info', 'low', 'medium', 'high', 'critical'}
 RESIDUAL_STATUSES = {'open', 'acknowledged', 'addressed', 'waived'}
 META_SOURCES = {'plan_declared', 'turn_segmented', 'intent_inferred', 'curated'}
@@ -1570,6 +1571,8 @@ def cmd_residual_add(args):
     rid = f"r{existing + 1}"
     r = {"residual_id": rid, "kind": args.kind, "severity": args.severity,
          "statement": args.statement, "source": "agent_declared", "status": args.status}
+    if getattr(args, "defeater_kind", None):
+        r["defeater_kind"] = args.defeater_kind
     if args.target_type:
         r["target"] = {"target_type": args.target_type, "target_id": args.target_id}
     if getattr(args, "related", None):
@@ -1746,6 +1749,83 @@ def cmd_fmt(args):
     else:
         sys.stdout.write(out)
     return 0
+
+
+def cmd_export(args):
+    """Export a trace to an interchange format. `prov` = W3C PROV-JSON — the trace's typed-artifact
+    lineage projected onto the standard provenance vocabulary (see spec/PROV_INTERCHANGE_v0_1.md)."""
+    from . import prov as provmod
+    trace = load_trace(args.trace_file)
+    out = json.dumps(provmod.to_prov_json(trace), indent=2, ensure_ascii=False) + "\n"
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(out)
+        print(f"Wrote {args.output}")
+    else:
+        sys.stdout.write(out)
+    return 0
+
+
+def cmd_sign(args):
+    """Cryptographically sign a trace over its content_hash — non-repudiation for audit sign-off (see
+    spec/AUDIT_READINESS_v0_1.md). Backend: ssh (default) | gpg | sigstore. Others verify with
+    `ponens trace verify`."""
+    from . import signing
+    trace = load_trace(args.trace_file)
+    try:
+        rec = signing.sign_trace(trace, args.key, signer=args.signer,
+                                 role=args.role, disposition=args.disposition, tsa=args.tsa,
+                                 algo=args.backend, oidc_issuer=args.oidc_issuer,
+                                 identity_token=args.identity_token)
+    except RuntimeError as e:
+        print(f"sign failed: {e}", file=sys.stderr)
+        return 1
+    _save_trace_fmt(args.trace_file, trace)
+    tag = f" [{rec.get('role', '')}{'/' + rec['disposition'] if rec.get('disposition') else ''}]" \
+        if (rec.get("role") or rec.get("disposition")) else ""
+    ident = rec.get("key_id") or rec.get("algo")
+    print(f"Signed {args.trace_file} as {rec['signer']}{tag} ({ident}) over {rec['content_hash']}")
+    if rec.get("transparency_log") == "rekor":
+        print("  recorded in the Rekor public transparency log (sigstore)")
+    if rec.get("timestamp"):
+        print(f"  trusted timestamp: {rec['timestamp'].get('time')} (RFC-3161 via {rec['timestamp'].get('tsa')})")
+    return 0
+
+
+def cmd_verify(args):
+    """Verify a trace's signatures. Keys are TRUSTED only if in --allowed-signers (git's roster
+    format); otherwise a crypto-valid signature reads `untrusted`. Non-zero exit on any failure."""
+    from . import signing
+    trace = load_trace(args.trace_file)
+    try:
+        results = signing.verify_trace(trace, allowed_signers_path=args.allowed_signers,
+                                       tsa_ca_path=args.tsa_ca, gpg_roster_path=args.gpg_roster,
+                                       expect_identity=args.identity, oidc_issuer=args.oidc_issuer)
+    except RuntimeError as e:
+        print(f"verify failed: {e}", file=sys.stderr)
+        return 1
+    if not results:
+        print("No signatures on this trace.")
+        return 1
+    mark = {"valid": "✓", "untrusted": "?", "invalid": "✗", "tampered": "✗", "unknown": "?"}
+    ok = True
+    for r in results:
+        st = r["status"]
+        tag = f" [{r.get('role', '')}{'/' + r['disposition'] if r.get('disposition') else ''}]" \
+            if (r.get("role") or r.get("disposition")) else ""
+        algo = f" <{r.get('algo')}>" if r.get("algo") else ""
+        print(f"  {mark.get(st, '?')} {r['signer']}{algo}{tag}: {st} — {r.get('detail', '')}")
+        ts = r.get("timestamp")
+        if ts:
+            print(f"      {mark.get(ts['status'], '?')} timestamp: {ts['status']} — {ts.get('time') or ''} "
+                  f"({ts.get('detail', '')})")
+        if st in ("invalid", "tampered") or (ts and ts.get("status") == "invalid"):
+            ok = False
+        if args.require_trusted and ts and ts.get("status") == "untrusted":
+            ok = False
+    if args.require_trusted and any(r["status"] == "untrusted" for r in results):
+        ok = False
+    return 0 if ok else 1
 
 
 def _faithfulness_findings(trace):
@@ -2435,6 +2515,43 @@ def register(subparsers):
     p.add_argument("-o", "--output", help="Write to this file (default: stdout)")
     p.set_defaults(func=cmd_fmt)
 
+    # export (interchange)
+    p = trace_sub.add_parser("export", help="Export a trace to an interchange format (W3C PROV-JSON)")
+    p.add_argument("trace_file")
+    p.add_argument("--to", choices=["prov"], default="prov",
+                   help="Interchange target (prov = W3C PROV-JSON; see PROV_INTERCHANGE_v0_1.md)")
+    p.add_argument("-o", "--output", help="Write to this file (default: stdout)")
+    p.set_defaults(func=cmd_export)
+
+    # sign (non-repudiation) — backends: ssh (default) | gpg | sigstore
+    p = trace_sub.add_parser("sign", help="Cryptographically sign a trace (over its content_hash): ssh | gpg | sigstore")
+    p.add_argument("trace_file")
+    p.add_argument("--backend", choices=["ssh", "gpg", "sigstore"], default="ssh",
+                   help="Signing backend (default: ssh)")
+    p.add_argument("--key", default="~/.ssh/id_ed25519", help="SSH private key to sign with (ssh backend)")
+    p.add_argument("--signer", help="Signer identity — ssh: key comment; gpg: key id/email (--local-user); "
+                                    "sigstore: the OIDC identity (email) to record")
+    p.add_argument("--role", help="Role of the signer, e.g. author | reviewer | auditor")
+    p.add_argument("--disposition", choices=["approved", "rejected", "noted"], help="The sign-off decision")
+    p.add_argument("--tsa", help="RFC-3161 Time-Stamping Authority URL — attach a trusted timestamp "
+                                 "over the signature (e.g. https://freetsa.org/tsr)")
+    p.add_argument("--oidc-issuer", help="OIDC issuer URL (sigstore backend)")
+    p.add_argument("--identity-token", help="Ambient OIDC identity token (sigstore backend, non-interactive)")
+    p.set_defaults(func=cmd_sign)
+
+    # verify (check signatures) — dispatches on each signature's backend
+    p = trace_sub.add_parser("verify", help="Verify a trace's signatures (ssh/gpg/sigstore); trust via a roster or identity")
+    p.add_argument("trace_file")
+    p.add_argument("--allowed-signers", help="ssh allowed_signers roster (git format); else ssh keys are valid-but-untrusted")
+    p.add_argument("--gpg-roster", help="gpg roster: allowed key fingerprints (one per line); else gpg keys are untrusted")
+    p.add_argument("--identity", help="sigstore: the cert identity (email) a signature must bind to; else untrusted")
+    p.add_argument("--oidc-issuer", help="sigstore: the OIDC issuer the cert must come from")
+    p.add_argument("--tsa-ca", help="TSA CA cert (PEM) to verify RFC-3161 timestamps against; else a "
+                                    "present timestamp reads untrusted")
+    p.add_argument("--require-trusted", action="store_true",
+                   help="Fail unless every signature (and timestamp, if present) is trusted")
+    p.set_defaults(func=cmd_verify)
+
     # check
     p = trace_sub.add_parser("check", help="Check the trace against policies")
     p.add_argument("trace_file")
@@ -2478,8 +2595,10 @@ def register(subparsers):
     p = rp_sub.add_parser("add", help="Declare a residual")
     p.add_argument("trace_file")
     p.add_argument("--kind", required=True, choices=sorted(RESIDUAL_KINDS))
+    p.add_argument("--defeater-kind", choices=sorted(DEFEATER_KINDS),
+                   help="For --kind defeater: what the counter-evidence attacks (rebuts|undermines|undercuts)")
     p.add_argument("--severity", default="medium", choices=["info", "low", "medium", "high", "critical"])
-    p.add_argument("--statement", required=True, help="The gap, in plain language")
+    p.add_argument("--statement", required=True, help="The gap, or (for a defeater) the challenge, in plain language")
     p.add_argument("--target-type", choices=["trace", "action", "artifact", "policy"])
     p.add_argument("--target-id")
     p.add_argument("--suggested-check", help="How a reviewer could close it")

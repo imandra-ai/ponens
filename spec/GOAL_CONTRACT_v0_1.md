@@ -1,6 +1,6 @@
 # Goal Contract — accomplish these things, subject to these policies (v0.1)
 
-**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_8.md) and
+**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_9.md) and
 complements [Goal Faithfulness v0.1](GOAL_FAITHFULNESS_v0_1.md), [Policy Spec v0.2](POLICY_SPEC_v0_2.md),
 and the [Apply Formal Methods Pack](APPLY_FORMAL_METHODS_PACK.md). Additive and backward-compatible —
 existing text-bound acceptance items keep resolving (§8). Driven by the CodeLogician Desktop goal loop

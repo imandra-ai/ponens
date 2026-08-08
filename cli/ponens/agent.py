@@ -30,9 +30,13 @@ Workflow — after you finish the work:
   3. ENRICH   ponens trace artifact trace.json --type <SourceCode|VerificationResult|...> \\
                 --name "..." --producer-action-id <n>               # declare artifacts -> lineage
               ponens trace residual add trace.json \\
-                --kind <assumption|unverified|out_of_scope|limitation|open_question> \\
+                --kind <assumption|unverified|out_of_scope|limitation|open_question|defeater> \\
                 --severity <info|low|medium|high|critical> --statement "..." \\
+                [--defeater-kind <rebuts|undermines|undercuts> --target-id <result>] \\
                 [--suggested-check "how a reviewer could close it"]  # declare your gaps
+              # `defeater` = counter-evidence AGAINST a claim (a counterexample, model≠code, a test that
+              # doesn't establish the property), not a missing gap. An open defeater BLOCKS the claim it
+              # targets (a Property over it reads `blocked`); close it in a successor trace.
   4. GOAL     State the goal as a CONTRACT: accomplish these things, subject to these policies.
               Author it as JSON, then load in one shot (`goal set --json`):
                 {
@@ -64,6 +68,14 @@ Workflow — after you finish the work:
 
 A trace with NO declared residuals is suspicious, not clean. The value to a reviewer is that you
 disclosed what you did NOT establish.
+
+Keep formal results current: a formal-reasoning result — verification (proof), state-space analysis
+(decomposition), conformance, co-simulation — is only as current as the model it ran on. ponens
+recomputes a dependency-CLOSURE fingerprint of the target symbol, so a later change to that symbol —
+or anything it transitively uses — marks the result STALE, and removing the symbol marks it DETACHED;
+enrich/check surface these as derived residuals and a goal never resolves done over them. After editing
+modelled code, RE-RUN the affected result (a fresh result heals it). For this to work, declare
+formal-model artifacts (IMLModel/FormalModel) WITH their source + symbols in step 3, and point each result at its model.
 
 A goal yields three INDEPENDENT verdicts (see `ponens trace enrich`): MET (each component has its
 evidence artifact), GOVERNED (its policies held — i.e. the evidence was derived correctly), and
@@ -98,11 +110,22 @@ Procedure:
      your sign-off (`ponens trace goal certify --by reviewer`) IS that certification; never self-certify
      your own work.
   3. Verify the positive space proportionally — re-check the consequential proofs/tests; downgrade
-     any unbacked "verified" claim to an undeclared `unverified` residual.
+     any unbacked "verified" claim to an undeclared `unverified` residual. Treat a STALE or DETACHED
+     result (a proof, decomposition, conformance, …; a derived residual from enrich) as NOT current —
+     the code moved under it; require re-running it against the current model, don't credit the old verdict.
+     If you find a claim is actually WRONG (a counterexample, model≠code, evidence that doesn't support
+     it), raise a `defeater` (`--defeater-kind rebuts|undermines|undercuts`, `--target-id` the result) —
+     counter-evidence BLOCKS the claim, unlike a mere gap.
   4. Work the residual surface, highest severity first — run each suggested_check if cheap.
   5. Hunt the UNDECLARED gaps — anything the change touches that is neither verified nor declared.
   6. Verdict — approve only if no open blocking residual remains and every consequential claim was
      re-verified; else request-changes (list the residual_ids to close) or escalate-to-human.
+     SIGN your sign-off: `ponens trace sign <trace> --role auditor --disposition approved|rejected`
+     signs the content_hash (non-repudiable, tamper-evident). Pick a backend with `--backend`: ssh
+     (default), gpg, or keyless sigstore (`--signer <email> --oidc-issuer <url>`, identity-bound +
+     Rekor-logged); add `--tsa <url>` for an RFC-3161 trusted timestamp. Anyone re-checks with `ponens
+     trace verify <trace>` + the matching trust flag (`--allowed-signers` | `--gpg-roster` |
+     `--identity`/`--oidc-issuer`) `[--tsa-ca <cert>]`.
 
 Never treat prose as evidence. Never auto-resolve an open_question. Traces are immutable — gaps
 close in a SUCCESSOR trace, not by editing this one.

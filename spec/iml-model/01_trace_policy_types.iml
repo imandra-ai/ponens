@@ -120,6 +120,27 @@ type verification_goal_payload = {
   properties : property_item list;
 }
 
+(* A fingerprint of the reasoning TASK a formal-reasoning result was computed over — the target
+   symbol plus its dependency closure in the model — with the engine that produced it. Freshness
+   (see 03_accessors: freshness_of) is decided by comparing a result's stored fingerprint to the one
+   recomputed from the CURRENT model. Shared by every reasoning result (verification, state-space
+   analysis, conformance, co-simulation). See TRACE_SPEC §10.4a. *)
+type reasoning_fingerprint = {
+  task_checksum : string;              (* strong exact-identity hash of the task + its closure *)
+  task_shape : string option;         (* weaker structural hash, for fuzzy re-pairing *)
+  target_symbol : string option;      (* absence from the current model => Detached *)
+  engine : string option;
+  engine_version : string option;     (* an advanced version obsoletes the result *)
+  model_artifact_id : string option;
+  model_revision : int option;
+}
+
+(* The derived freshness verdict on a reasoning result (TRACE_SPEC §18.3). Never authored. *)
+type freshness =
+  | Fresh      (* current task checksum equals the stored one, engine unchanged: still applies *)
+  | Stale      (* target exists but the task changed (or the engine advanced): must be re-established *)
+  | Detached   (* target no longer exists in the current model: orphaned, never counts as evidence *)
+
 type verification_result_status =
   | VrProved
   | VrRefuted
@@ -157,6 +178,7 @@ type verification_result_payload = {
   engine : string option;
   completed_at : string option;
   result : verification_result_variant;
+  fingerprint : reasoning_fingerprint option;   (* freshness anchor, §10.4a / §18.3 *)
 }
 
 type region = {
@@ -176,6 +198,7 @@ type state_space_analysis_result_payload = {
   regions : region list;
   coverage_summary : string option;
   notes : string option;
+  fingerprint : reasoning_fingerprint option;   (* freshness anchor, §10.4a / §18.3 *)
 }
 
 type conformance_status =
@@ -191,6 +214,7 @@ type conformance_result_payload = {
   engine : string option;
   findings : string list;
   note : string option;
+  fingerprint : reasoning_fingerprint option;   (* freshness anchor, §10.4a / §18.3 *)
 }
 
 type cosimulation_status =
@@ -208,6 +232,7 @@ type cosimulation_result_payload = {
   divergence_points : divergence_point list;
   summary : string option;
   observations : string list;
+  fingerprint : reasoning_fingerprint option;   (* freshness anchor, §10.4a / §18.3 *)
 }
 
 type generated_test = {
@@ -233,6 +258,79 @@ type reproduction_bundle_payload = {
   notes : string option;
 }
 
+(* ── Common target reference (TRACE_SPEC §14.1) ───────────────────────────────
+   Relocated above `type artifact` so a Residual artifact's payload can reference it. *)
+type target_type =
+  | TraceTarget
+  | ActionTarget
+  | ArtifactTarget
+  | PolicyTarget
+  | PolicyEvaluationTarget
+  | ReferenceArtifactTarget
+
+type target_ref = {
+  target_type : target_type;
+  target_id : string option;
+}
+
+(* ── Residual surface (TRACE_SPEC §13) ────────────────────────────────────────
+   A trace's negative space. As of 1.8 a residual is a first-class artifact
+   (`ResidualArtifact` below) carrying a `residual_payload`; the deprecated top-level
+   `residuals : residual list` (see `type trace`) is still read. *)
+type residual_kind =
+  | Assumption
+  | Unverified
+  | OutOfScope
+  | Limitation
+  | OpenQuestion
+  | Defeater          (* counter-evidence AGAINST a claim (§13, 1.9) — carries a defeater_kind *)
+
+(* What a Defeater attacks (Pollock / SEI Eliminative Argumentation). *)
+type defeater_kind =
+  | Rebuts           (* the claim may be false (e.g. a counterexample) *)
+  | Undermines       (* the evidence/premise is invalid (e.g. model ≠ code) *)
+  | Undercuts        (* the inference is deficient (evidence doesn't support the claim) *)
+
+type residual_severity =
+  | InfoResidual
+  | LowResidual
+  | MediumResidual
+  | HighResidual
+  | CriticalResidual
+
+type residual_source =
+  | AgentDeclared
+  | PolicyDerived
+  | ToolInferred
+  | ReviewerAdded
+
+type residual_status =
+  | ResidualOpen
+  | ResidualAcknowledged
+  | ResidualAddressed
+  | ResidualWaived
+
+type residual_payload = {
+  kind : residual_kind;
+  defeater_kind : defeater_kind option;   (* set iff kind = Defeater (§13.1) *)
+  statement : string;
+  severity : residual_severity option;
+  target : target_ref option;
+  related_artifact_ids : string list;
+  rationale : string option;
+  suggested_check : string option;
+  source : residual_source option;
+  status : residual_status option;
+  introduced_by_action_id : int option;
+  tags : string list;
+}
+
+(* The deprecated flat form (top-level `residuals` list, §13.7): id + payload. *)
+type residual = {
+  residual_id : string;
+  payload : residual_payload;
+}
+
 type artifact =
   | UserInstructionArtifact of artifact_common
   | SourceCodeArtifact of artifact_common
@@ -253,6 +351,7 @@ type artifact =
   | UserApprovalArtifact of artifact_common
   | CommitArtifact of artifact_common
   | ReproductionBundleArtifact of artifact_common * reproduction_bundle_payload
+  | ResidualArtifact of artifact_common * residual_payload   (* §13, first-class as of 1.8 *)
 
 type reference_artifact_type =
   | RefFormalModel
@@ -415,6 +514,7 @@ type action_common = {
   observations : observation list;
   execution : execution_metadata option;
   reproducibility : action_reproducibility option;
+  meta_action_id : string option;   (* enclosing meta-action, §8.4 (1.6) *)
 }
 
 type activity_action_type =
@@ -490,18 +590,8 @@ type action =
   | ReasoningAction of action_common * reasoning_action_type * action_payload option
   | GovernanceAction of action_common * governance_action_type * action_payload option
 
-type target_type =
-  | TraceTarget
-  | ActionTarget
-  | ArtifactTarget
-  | PolicyTarget
-  | PolicyEvaluationTarget
-  | ReferenceArtifactTarget
-
-type target_ref = {
-  target_type : target_type;
-  target_id : string option;
-}
+(* target_type / target_ref are defined above `type artifact` (a Residual artifact's payload
+   references target_ref). See the "Common target reference" block earlier. *)
 
 type comment_status =
   | Open
@@ -762,6 +852,79 @@ type policy_evaluation = {
   note : string option;
 }
 
+(* ── Goals & Acceptance (TRACE_SPEC §18) ──────────────────────────────────────
+   A goal's acceptance items state what "done" means; each resolves from evidence already in the
+   trace. Freshness (above) gates the `Property` kind: a proved-but-stale/detached result must NOT
+   resolve `AcceptDone` (see 03_accessors: resolve_property_status; proofs in 08). NOTE: `type trace`
+   below is still at the model's ~1.4 shape and does not yet carry `goals`; wiring the goal list (and
+   meta-actions / residual-as-artifact) into the trace record is a separate 1.9 modernization. *)
+type acceptance_kind =
+  | Change        (* an edit to a symbol *)
+  | Property      (* a property that must hold *)
+  | Obligation    (* a policy that must be satisfied *)
+  | Gap           (* a declared residual that must be closed *)
+
+type acceptance_status =
+  | AcceptTodo
+  | AcceptDoing
+  | AcceptDone
+  | AcceptBlocked
+
+type acceptance_binding =
+  | ChangeBinding of { symbol : string; file : string option }
+  | PropertyBinding of { symbol : string option; property : string option }
+  | ObligationBinding of { policy_id : string }
+  | GapBinding of { residual_id : string }
+
+type acceptance_item = {
+  acceptance_id : string;
+  kind : acceptance_kind;
+  label : string;
+  binding : acceptance_binding option;
+  status : acceptance_status option;   (* authored fallback when unbound; else derived (§18.3) *)
+}
+
+type goal_status =
+  | GoalScratch
+  | GoalActive
+  | GoalDone
+  | GoalAbandoned
+
+type goal = {
+  goal_id : string;
+  intent : string;
+  scope : string list;
+  acceptance : acceptance_item list;
+  status : goal_status option;
+  meta_action_id : string option;
+}
+
+(* ── Meta-actions (TRACE_SPEC §8.4, 1.6) ──────────────────────────────────────
+   An intent overlay grouping atomic actions; the actions remain ground truth. *)
+type meta_action_status =
+  | MetaCompleted
+  | MetaPartial
+  | MetaAbandoned
+
+type meta_action_source =
+  | PlanDeclared
+  | TurnSegmented
+  | IntentInferred
+
+type meta_action = {
+  id : string;
+  title : string;
+  intent : string option;
+  action_ids : int list;
+  outcome : string option;
+  status : meta_action_status option;
+  source : meta_action_source option;
+  parent_id : string option;
+  produced_artifact_ids : string list;
+  residual_ids : string list;
+  tags : string list;
+}
+
 type trace = {
   trace_id : string;
   spec_version : string;
@@ -770,6 +933,7 @@ type trace = {
   timestamp : string;
   trigger : event;
   actions : action list;
+  meta_actions : meta_action list;   (* §8.4 (1.6); canonicalizes to [] *)
   outcome : event;
   artifacts : artifact list;
   reference_artifacts : reference_artifact list;
@@ -779,6 +943,8 @@ type trace = {
   reproducibility : trace_reproducibility option;
   comments : comment list;
   review_items : review_item list;
+  residuals : residual list;   (* §13 DEPRECATED (1.8): residuals are ResidualArtifact; read-only *)
+  goals : goal list;           (* §18 (1.7); canonicalizes to [] *)
   trace_links : trace_link list;
   trace_lineage : trace_lineage option;
   files_modified : string list;

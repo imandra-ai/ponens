@@ -268,3 +268,158 @@ def test_enrich_grades_faithfulness_orthogonal_to_met():
     assert fa["uncovered_clauses"] == []
     assert e["summary"]["goals_total"] == 1 and e["summary"]["goals_certified"] == 1
     assert e["summary"]["goals_met"] == 0
+
+
+# ── Freshness via dependency-closure checksum + Detached (TRACE_SPEC §18.3) ──────
+
+def _fp_trace(models):
+    """A trace with a proved result for `f` (step 2) plus the given FormalModel artifacts."""
+    return {
+        "trace_id": "t", "actions": [{"id": i} for i in (1, 2, 3)],
+        "artifacts": [
+            {"artifact_id": "vg1", "artifact_type": "VerificationGoal", "producer_action_id": 1,
+             "payload": {"goal_id": "G1", "target_symbol": "f", "description": "f invariant"}},
+            {"artifact_id": "vr1", "artifact_type": "VerificationResult", "producer_action_id": 2,
+             "derived_from": ["vg1"], "payload": {"goal_id": "G1", "goal_artifact_id": "vg1", "status": "proved"}},
+        ] + models,
+    }
+
+
+def _model(aid, step, code, syms):
+    return {"artifact_id": aid, "artifact_type": "FormalModel", "producer_action_id": step,
+            "payload": {"formal_code": code, "symbols": syms}}
+
+
+def test_closure_stale_on_dependency_change():
+    # f uses g; a LATER model changes g's body (f's own text is untouched). Closure of f = {f, g},
+    # so the checksum moves -> stale. (The old substring heuristic would MISS this.)
+    t = _fp_trace([
+        _model("m0", 1, "let g x = x + 1\nlet f x = g x", ["f", "g"]),
+        _model("m2", 3, "let g x = x + 2\nlet f x = g x", ["f", "g"]),
+    ])
+    stale = stale_evidence(t)
+    assert [r["residual_id"] for r in stale] == ["stale-vr1"]
+    assert stale[0]["kind"] == "stale_evidence"
+
+
+def test_closure_fresh_on_unrelated_change():
+    # A later model changes h only; f's closure ({f, g}) is unchanged -> fresh, no residual.
+    t = _fp_trace([
+        _model("m0", 1, "let g x = x + 1\nlet f x = g x\nlet h x = x - 1", ["f", "g", "h"]),
+        _model("m2", 3, "let g x = x + 1\nlet f x = g x\nlet h x = x - 99", ["f", "g", "h"]),
+    ])
+    assert stale_evidence(t) == []
+
+
+def test_detached_when_symbol_removed_from_model():
+    # The current model no longer declares f -> the proof is Detached, not merely stale.
+    t = _fp_trace([
+        _model("m0", 1, "let g x = x + 1\nlet f x = g x", ["f", "g"]),
+        _model("m2", 3, "let g x = x + 2", ["g"]),
+    ])
+    stale = stale_evidence(t)
+    assert [r["residual_id"] for r in stale] == ["detached-vr1"]
+    assert stale[0]["kind"] == "detached_evidence"
+    assert stale[0]["severity"] == "high"
+
+
+def test_explicit_producer_fingerprint_is_honored():
+    # The result carries a producer fingerprint whose task_checksum won't match the current model's
+    # closure checksum -> stale, without reconstructing the prior model.
+    t = _fp_trace([_model("m2", 3, "let g x = x + 2\nlet f x = g x", ["f", "g"])])
+    t["artifacts"][1]["payload"]["fingerprint"] = {"task_checksum": "sha256:stale-value"}
+    stale = stale_evidence(t)
+    assert [r["residual_id"] for r in stale] == ["stale-vr1"]
+
+
+def _iml_model(aid, step, code, syms, src="src1"):
+    """A producer-shaped model: IMLModel, inline source under `iml_code`, derived from a source node."""
+    return {"artifact_id": aid, "artifact_type": "IMLModel", "producer_action_id": step,
+            "derived_from": [src], "payload": {"iml_code": code, "symbols": syms}}
+
+
+def test_freshness_reads_producer_iml_code_field():
+    # The producer inlines the model as `iml_code` (not the spec's `formal_code`); freshness must still
+    # fire — a change in f's dependency g marks the proof stale, via the SAME closure logic.
+    t = _fp_trace([
+        _iml_model("m0", 1, "let g x = x + 1\nlet f x = g x", ["f", "g"]),
+        _iml_model("m2", 3, "let g x = x + 2\nlet f x = g x", ["f", "g"]),
+    ])
+    assert [r["residual_id"] for r in stale_evidence(t)] == ["stale-vr1"]
+
+
+def test_no_false_detached_across_focused_per_file_models():
+    # The producer emits ONE model per formalization run (per file). A later focused model for a
+    # DIFFERENT file (different source line) must NOT mark f's proof detached — f was never in it.
+    t = _fp_trace([
+        _iml_model("mA", 1, "let f x = x + 1", ["f"], src="srcA"),
+        _iml_model("mB", 5, "let tax y = y * 2", ["tax"], src="srcB"),
+    ])
+    assert stale_evidence(t) == []
+
+
+def test_freshness_is_generic_state_space_analysis_goes_stale():
+    # Generic (TRACE_SPEC §18.3): a region decomposition (StateSpaceAnalysisResult) — not just a proof
+    # — goes stale when the model it ran on changes (here `g`, in `f`'s dependency closure).
+    t = {
+        "trace_id": "t", "actions": [{"id": i} for i in (1, 2, 3)],
+        "artifacts": [
+            {"artifact_id": "ssa1", "artifact_type": "StateSpaceAnalysisResult", "producer_action_id": 2,
+             "payload": {"target_symbol": "f", "analysis_kind": "region_decomposition"}},
+            _model("m0", 1, "let g x = x + 1\nlet f x = g x", ["f", "g"]),
+            _model("m2", 3, "let g x = x + 2\nlet f x = g x", ["f", "g"]),
+        ],
+    }
+    stale = stale_evidence(t)
+    assert [r["residual_id"] for r in stale] == ["stale-ssa1"]
+    assert stale[0]["kind"] == "stale_evidence"
+    assert "state-space analysis" in stale[0]["statement"].lower()
+
+
+def test_freshness_generic_detached_state_space_analysis():
+    # And Detached applies too: the decomposition's target is gone from the current model.
+    t = {
+        "trace_id": "t", "actions": [{"id": i} for i in (1, 2, 3)],
+        "artifacts": [
+            {"artifact_id": "ssa1", "artifact_type": "StateSpaceAnalysisResult", "producer_action_id": 2,
+             "payload": {"target_symbol": "f", "analysis_kind": "region_decomposition"}},
+            _model("m0", 1, "let f x = x", ["f"]),
+            _model("m2", 3, "let g x = x", ["g"]),
+        ],
+    }
+    stale = stale_evidence(t)
+    assert [r["residual_id"] for r in stale] == ["detached-ssa1"]
+    assert stale[0]["kind"] == "detached_evidence"
+
+
+# ── Counter-evidence: an open Defeater contests a proof (TRACE_SPEC §13 / §18.2) ──
+
+def _defeater_art(rid, target_id, status="open", dkind="rebuts"):
+    from ponens import lineage
+    return lineage.residual_to_artifact({
+        "residual_id": rid, "kind": "defeater", "defeater_kind": dkind,
+        "statement": "counter-evidence", "status": status,
+        "target": {"target_type": "artifact", "target_id": target_id}})
+
+
+def test_open_defeater_blocks_proved_property():
+    t = _trace()
+    items = {i["id"]: i for i in t["goals"][0]["acceptance"]}
+    assert resolve_item(items["a1"], t)["status"] == "done"       # proved, uncontested
+    t["artifacts"].append(_defeater_art("rd1", "vr1"))            # open rebuttal of the result
+    assert resolve_item(items["a1"], t)["status"] == "blocked"    # now contested
+
+
+def test_addressed_defeater_does_not_block():
+    t = _trace()
+    items = {i["id"]: i for i in t["goals"][0]["acceptance"]}
+    t["artifacts"].append(_defeater_art("rd1", "vr1", status="addressed"))
+    assert resolve_item(items["a1"], t)["status"] == "done"       # resolved defeater no longer blocks
+
+
+def test_defeater_kind_carried_through_surface():
+    from ponens import lineage
+    art = lineage.residual_to_artifact({"residual_id": "x", "kind": "defeater",
+        "defeater_kind": "undermines", "statement": "model != code", "status": "open"})
+    r = lineage.artifact_to_residual(art)
+    assert r["kind"] == "defeater" and r["defeater_kind"] == "undermines"

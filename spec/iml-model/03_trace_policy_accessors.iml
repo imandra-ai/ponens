@@ -26,7 +26,8 @@ let artifact_common_of (a : artifact) : artifact_common =
   | DiffArtifact c
   | UserApprovalArtifact c
   | CommitArtifact c
-  | ReproductionBundleArtifact (c, _) -> c
+  | ReproductionBundleArtifact (c, _)
+  | ResidualArtifact (c, _) -> c
 
 let artifact_id_of (a : artifact) : string =
   (artifact_common_of a).artifact_id
@@ -52,6 +53,7 @@ let artifact_type_name (a : artifact) : string =
   | UserApprovalArtifact _ -> "UserApproval"
   | CommitArtifact _ -> "Commit"
   | ReproductionBundleArtifact _ -> "ReproductionBundle"
+  | ResidualArtifact _ -> "Residual"
 
 let action_common_of (a : action) : action_common =
   match a with
@@ -248,3 +250,50 @@ let action_type_name (a : action) : string =
     | Reject -> "Reject" | CreateSnapshot -> "CreateSnapshot"
     | RecordAudit -> "RecordAudit" | LinkTrace -> "LinkTrace"
     end
+
+(* ── Freshness (TRACE_SPEC §18.3) ─────────────────────────────────────────────
+   The derived freshness verdict on a formal-reasoning result. A result carries the
+   `reasoning_fingerprint` it was computed over (§10.4a); freshness compares that STORED
+   fingerprint against the one recomputed from the CURRENT model. `current = None` models
+   "the target symbol no longer exists in the current model" (→ Detached). *)
+
+(* An engine-version change obsoletes a result. Modeled conservatively as "differs": any change
+   forces re-establishment, which is sound (never grants Fresh across an engine change). The real
+   system triggers only on an ADVANCE; treating any difference as obsoleting is a safe over-approx. *)
+let engine_changed (stored : reasoning_fingerprint) (current : reasoning_fingerprint) : bool =
+  match stored.engine_version, current.engine_version with
+  | Some s, Some c -> s <> c
+  | _ -> false
+
+let freshness_of (stored : reasoning_fingerprint)
+                 (current : reasoning_fingerprint option) : freshness =
+  match current with
+  | None -> Detached
+  | Some cur ->
+    if cur.task_checksum = stored.task_checksum && not (engine_changed stored cur)
+    then Fresh
+    else Stale
+
+(* A reasoning result counts as evidence (may resolve a goal / back a claim) ONLY when Fresh. *)
+let counts_as_evidence (stored : reasoning_fingerprint)
+                       (current : reasoning_fingerprint option) : bool =
+  match freshness_of stored current with
+  | Fresh -> true
+  | Stale | Detached -> false
+
+(* ── Acceptance resolution (TRACE_SPEC §18.2) ─────────────────────────────────
+   The resolved status of a `Property` acceptance item, from its latest verification result's status
+   and the FRESHNESS of that result. Only a *proved AND Fresh* result resolves `AcceptDone`; a refuted
+   result blocks; anything else — including a proved-but-`Stale`/`Detached` result — stays `AcceptTodo`.
+   This is the point at which stale/detached evidence is denied credit. *)
+let resolve_property_status (rs : verification_result_status) (fr : freshness) : acceptance_status =
+  match rs, fr with
+  | VrProved, Fresh -> AcceptDone
+  | VrRefuted, _ -> AcceptBlocked
+  | _, _ -> AcceptTodo
+
+(* Property resolution accounting for counter-evidence (§13 Defeater / §18.2): an OPEN Defeater
+   contesting the result blocks it — a contested proof is never Done, exactly like a refutation. *)
+let resolve_property_status_contested (rs : verification_result_status) (fr : freshness)
+                                      (contested : bool) : acceptance_status =
+  if contested then AcceptBlocked else resolve_property_status rs fr

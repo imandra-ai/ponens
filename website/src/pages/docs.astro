@@ -1,8 +1,10 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import DocsLayout from "../layouts/DocsLayout.astro";
 import { Code } from "astro:components";
+import { sections as hubSections } from "../data/docsNav.js";
 
-const sections = [
+// The getting-started tour's steps — rendered as the sidebar's "On this page" jump-nav.
+const tour = [
   ["install", "Install"],
   ["emit", "1 · Emit"],
   ["curate", "2 · Curate"],
@@ -14,24 +16,27 @@ const sections = [
   ["share", "8 · Share"],
   ["concepts", "Concepts"],
 ];
+// The hub landing grid links out to the other sections (Getting started is this page).
+const explore = hubSections.filter((s) => s.id !== "start");
 ---
 
-<Layout title="Docs — ponens">
-  <div class="docs-layout">
-    <aside class="docs-nav">
-      <p class="docs-nav-title">On this page</p>
-      <nav>
-        {sections.map(([id, label]) => <a href={`#${id}`} data-spy={id}>{label}</a>)}
-      </nav>
-    </aside>
-
+<DocsLayout title="Docs — ponens" onThisPage={tour}>
     <article class="prose">
-      <h1>Getting started</h1>
+      <h1>Documentation</h1>
       <p><strong>ponens</strong> turns an AI coding agent's session into a higher-level
         <strong>reasoning record</strong> — a curated, verifiable account of what it built and why —
         then makes the reasoning rigorous and governs it with <strong>Computable Governance</strong>
         (machine-checkable best-practice policies). The CLI is terminal-first; the browser is the
         escalation.</p>
+
+      <div class="guide-grid docs-hub-grid">
+        {explore.map((s) => (
+          <a class="guide-card" href={s.href}>
+            <h3>{s.label}</h3>
+            <p>{s.blurb}</p>
+          </a>
+        ))}
+      </div>
 
       <h2 id="install">Install</h2>
       <Code lang="bash" code={`# from this repo
@@ -83,7 +88,7 @@ ponens trace residual add trace.json --kind assumption --severity high \\
         relevance cone is a walk over the existing lineage — no LLM, no scoring. So every "done" traces
         to a specific artifact, and re-running it always gives the same answer: progress that is
         <strong>grounded, reproducible, and auditable</strong>, not asserted
-        (<a href="/spec/TRACE_SPEC_v1_8">Trace Spec §18</a>).</p>
+        (<a href="/spec/TRACE_SPEC_v1_9">Trace Spec §18</a>).</p>
       <Code lang="bash" code={`ponens trace resolve trace.json --goals goals.json   # each acceptance item's live status
 ponens trace enrich  trace.json --goals goals.json -o enriched.json   # + progress, relevance cone, derived stale-evidence gaps
 ponens trace residuals trace.json --derived          # declared gaps + computed stale proofs`} />
@@ -127,7 +132,7 @@ ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI
         <li><strong>Goals &amp; acceptance</strong> — what the trace was <em>for</em> and its definition
           of done: a goal's intent plus typed acceptance items (change / property / obligation / gap)
           that <em>resolve</em> from the trace's own evidence, so progress is grounded rather than
-          asserted (<a href="/spec/TRACE_SPEC_v1_8">spec §18</a>). The positive-target dual of the
+          asserted (<a href="/spec/TRACE_SPEC_v1_9">spec §18</a>). The positive-target dual of the
           residual surface.</li>
         <li><strong>Computable Governance</strong> — best-practice policies as machine-checkable rules
           over the trace, written in LTLf extended with scoped-past and structural operators. Browse the
@@ -137,10 +142,9 @@ ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI
           consequential claims, triage the declared gaps, hunt the undeclared ones.</li>
       </ul>
     </article>
-  </div>
 
   <script>
-    const links = [...document.querySelectorAll(".docs-nav a[data-spy]")];
+    const links = [...document.querySelectorAll(".docs-side a[data-spy]")];
     const byId = new Map(links.map((a) => [a.dataset.spy, a]));
     const obs = new IntersectionObserver(
       (entries) => {
@@ -155,4 +159,4 @@ ponens trace view trace.json --out trace.html        # write the HTML (e.g. a CI
     );
     document.querySelectorAll(".prose h2[id]").forEach((h) => obs.observe(h));
   </script>
-</Layout>
+</DocsLayout>

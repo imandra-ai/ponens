@@ -1,5 +1,5 @@
 ---
-import Layout from "../../layouts/Layout.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro";
 
 const mods = import.meta.glob("./*.md", { eager: true });
 const specs = Object.values(mods)
@@ -7,7 +7,7 @@ const specs = Object.values(mods)
   .sort((a, b) => a.title.localeCompare(b.title));
 ---
 
-<Layout title="Specifications — ponens">
+<DocsLayout title="Specifications — ponens">
   <section class="page-head">
     <h1>Specifications</h1>
     <p>The open standards behind ponens — the trace, policy, and review-case models, the
@@ -19,4 +19,4 @@ const specs = Object.values(mods)
       <li><a href={s.url}>{s.title}</a><code>{s.file}</code></li>
     ))}
   </ul>
-</Layout>
+</DocsLayout>

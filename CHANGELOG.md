@@ -7,6 +7,17 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.9.1] — 2026-08-09
+
+### Fixed
+- **Typed acceptance criteria now honor open defeaters (`goals.py::_resolve_typed`).** A typed criterion
+  (`component` + `evidence: {artifact}`) previously resolved `done` as soon as a matching artifact
+  existed, ignoring counter-evidence — so a criterion whose evidence (or the provenance it derives from)
+  is contested by an OPEN `Defeater` still read as met. It now resolves `blocked`, matching the legacy
+  property path (§13 / §18.2). In particular a **failing conformance** — whose `ConformanceResult`
+  carries an undermines-defeater — correctly leaves a `conformance` criterion unmet instead of silently
+  `done`.
+
 ## [1.9.0] — 2026-08-07
 
 ### Added

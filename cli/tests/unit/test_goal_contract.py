@@ -141,3 +141,42 @@ def test_legacy_binding_item_uses_the_old_path():
     # No component/evidence → legacy path. A non-matching binding keeps 'todo'.
     r = resolve_item({"id": "L", "kind": "property", "binding": {"symbol": "zzz", "property": "zzz"}}, _trace())
     assert r == {"status": "todo", "from_trace": False, "evidence": None}
+
+
+# --- Counter-evidence: an OPEN defeater on the evidence contests a typed criterion (not just legacy) ---
+
+def _open_defeater(target_id, status="open"):
+    from ponens import lineage
+    return lineage.residual_to_artifact({
+        "residual_id": "d1", "kind": "defeater", "defeater_kind": "undermines",
+        "statement": "model diverges from code", "status": status,
+        "target": {"target_type": "artifact", "target_id": target_id}})
+
+
+def test_open_defeater_blocks_a_typed_conformance_criterion():
+    # A FAILING conformance carries an undermines-defeater on its ConformanceResult; the conformance
+    # criterion must then read `blocked`, not silently `done` on the mere existence of the result.
+    t = _trace()
+    t["artifacts"].append({"artifact_id": "conf1", "artifact_type": "ConformanceResult",
+                           "derived_from": ["model"], "producer_action_id": 10, "payload": {"status": "passed"}})
+    c = crit("settle", "ConformanceResult")
+    assert resolve_item(c, t)["status"] == "done"          # conformance present + uncontested
+    t["artifacts"].append(_open_defeater("conf1"))
+    assert resolve_item(c, t)["status"] == "blocked"       # now contested → not met
+
+
+def test_defeater_on_the_provenance_also_blocks_a_typed_criterion():
+    # The defeater need not target the evidence directly — one on what it derives from (the model) counts.
+    t = _trace()
+    t["artifacts"].append({"artifact_id": "conf1", "artifact_type": "ConformanceResult",
+                           "derived_from": ["model"], "producer_action_id": 10, "payload": {"status": "passed"}})
+    t["artifacts"].append(_open_defeater("model"))
+    assert resolve_item(crit("settle", "ConformanceResult"), t)["status"] == "blocked"
+
+
+def test_addressed_defeater_does_not_block_a_typed_criterion():
+    t = _trace()
+    t["artifacts"].append({"artifact_id": "conf1", "artifact_type": "ConformanceResult",
+                           "derived_from": ["model"], "producer_action_id": 10, "payload": {"status": "passed"}})
+    t["artifacts"].append(_open_defeater("conf1", status="addressed"))
+    assert resolve_item(crit("settle", "ConformanceResult"), t)["status"] == "done"  # resolved → no longer blocks

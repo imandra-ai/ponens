@@ -117,6 +117,13 @@ def _resolve_typed(item, trace):
     if not matches:
         return keep
     a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact
+    # Counter-evidence (§13 Defeater / §18.2): an OPEN defeater contesting the evidence (or the provenance
+    # it derives from) blocks the criterion — a contested result is never done, exactly like the legacy
+    # property path. This is what makes a FAILING conformance (its ConformanceResult carries an undermines
+    # defeater) leave a `conformance` criterion unmet, not silently `done` on mere existence.
+    contest_ids = {a.get("artifact_id")} | set(a.get("derived_from") or [])
+    if _open_defeater_contests(contest_ids, trace):
+        return {"status": "blocked", "from_trace": True, "evidence": a.get("artifact_id")}
     return {"status": "done", "from_trace": True, "evidence": a.get("artifact_id")}
 
 

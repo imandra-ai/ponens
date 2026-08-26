@@ -1,10 +1,16 @@
-# Goal Contract — accomplish these things, subject to these policies (v0.1)
+# Goal Contract — accomplish these things, subject to these policies (v0.2)
 
-**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_9.md) and
+**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_11.md) and
 complements [Goal Faithfulness v0.1](GOAL_FAITHFULNESS_v0_1.md), [Policy Spec v0.2](POLICY_SPEC_v0_2.md),
 and the [Apply Formal Methods Pack](APPLY_FORMAL_METHODS_PACK.md). Additive and backward-compatible —
 existing text-bound acceptance items keep resolving (§8). Driven by the CodeLogician Desktop goal loop
 (`declare_goal` → per-session active goal → `ponens trace enrich`).
+
+> **v0.2 adds composable acceptance (§9).** Criteria compose with `and`/`or`/`not`/`⇒` and quantify
+> (`forall`/`exists`) over component **selectors** (`glob`/`module`/`scope`/`tag`), with a per-atom
+> **role** (`met` | `governed`) that selects which axis (§2) it is judged on. The atomic criterion of §3
+> is the leaf of this language, so **legacy single-criterion goals are unchanged** — they are the
+> implicit `Atom` case and resolve exactly as before.
 
 ## 1. Motivation — two unstructured seams
 
@@ -199,14 +205,82 @@ The enriched goal exposes `met / governed / certified` plus the residuals that e
 | policy engine | evaluate a goal's effective policy set over its cone; default layering (§5) |
 | `viewer/core/faithfulness.mjs` | mirror §4 resolution (parity) |
 
-## 9. Open questions
+## 9. Composable acceptance — the property language (v0.2)
 
-1. **Component cardinality** — is a criterion always 1 component, or may `component` be a set ("these
-   three functions each verified")? (Proposed: singular; use one criterion per component for clarity.)
-2. **Disambiguating within a component** — evidence names an artifact *type*, so if a component has
-   several artifacts of that type (e.g. two proved properties), the latest is taken. Do we need an
-   optional per-criterion selector (a property/name filter) to pin *which* one, or is one criterion per
-   (component, artifact) enough? (Proposed: keep evidence to `{artifact}`; add a selector only if a real
-   case needs it.)
+§3 gives one criterion = one required artifact over one component (the *atomic* case). v0.2 lets criteria
+**compose** and **quantify**, so a goal can state *"every payments function is proved **and**
+decomposition-backed"* in a single acceptance item. The atomic criterion is unchanged; it becomes the
+**leaf** of a small formula language evaluated by the same lineage resolution (§4).
+
+### 9.1 Formula
+
+```ocaml
+type formula =
+  | Atom    of acceptance_criterion            (* §3 — resolves by lineage (§4) *)
+  | And     of formula list
+  | Or      of formula list
+  | Not     of formula
+  | Implies of formula * formula
+  | Forall  of { in_ : selector; as_ : string; holds : formula }
+  | Exists  of { in_ : selector; as_ : string; holds : formula }
+  (* optional `role`, inherited down a subtree — how strictly each atom is judged (§9.2) *)
+```
+
+An acceptance item MAY carry a `formula` in place of a bare binding. An item **without** one is exactly
+today's atomic criterion (an implicit `Atom`), so **legacy goals resolve unchanged** (§7).
+
+### 9.2 Roles — met vs governed, per atom
+
+A `role` on a formula (inherited by its subtree) selects which axis of §2 an atom is judged on:
+
+| role | an atom resolves `done` when… |
+| --- | --- |
+| `met` | the evidence artifact **exists** in the component's lineage (§4) — the *met* axis only |
+| `governed` | it exists **and** is uncontested (no open `Defeater`, §18.2) **and** fresh (§18.3) |
+| *(default)* | today's behavior — exists **and** uncontested (defeater-gated), not freshness-gated |
+
+Roles make the met/governed split of §2 addressable *inside* a single criterion.
+
+### 9.3 Quantifiers & selectors
+
+`Forall`/`Exists` range a bound variable over a **selector** — a component set drawn from data the trace
+already carries (`component_id`s §7.1, per-model symbols, `high_stakes_paths`):
+
+| selector | the set |
+| --- | --- |
+| `glob("payments/**")` | components whose source file matches the glob |
+| `module("pricing")` | components in that module / path segment |
+| `scope` | the goal's own `scope` |
+| `tag("money")` | *(partial)* components under a high-stakes path — a full symbol→tag index is future work |
+
+A body atom names the bound component as `{ component = var "f" }` (substituted per element). `Forall` is
+`And` over the set; `Exists` is `Or`. An **empty selector resolves `todo`, never a vacuous `done`** — an
+empty match is almost always a mis-spec, and false-green is the dangerous direction.
+
+### 9.4 Status lattice
+
+Combinators compose the four resolved statuses (not booleans), so a contested or partial branch stays
+visible instead of collapsing to true/false:
+
+| op | result |
+| --- | --- |
+| `and` | `blocked` if any blocked; else `done` if all done; else `doing` if any progress; else `todo` |
+| `or` | `done` if any done; else `doing` if any progress; else `blocked` if all blocked; else `todo` |
+| `not` | `done`↔`todo`; `doing`→`doing`; `blocked`→`blocked` (contested stays contested — absence of proof is not proof of absence) |
+| `implies(a, b)` | `or(not a, b)` |
+
+Evaluation is additive to §4 and mirrored across the Python (`cli/ponens/goals.py`) and JS resolvers
+under the parity harness (§7).
+
+## 10. Open questions
+
+1. **Component cardinality** — *Resolved (v0.2, §9.3):* a criterion may quantify over a component set via
+   `Forall`/`Exists` over a selector; the singular criterion remains the atomic (`Atom`) case.
+2. **Disambiguating within a component** — *Partially addressed (v0.2).* The selector language pins which
+   *components* a criterion ranges over, but within a single component the latest artifact of the required
+   type is still taken (§4). An optional per-atom *artifact* filter (pin *which* of two proved properties)
+   is deferred until a real case needs it.
 3. **Baseline contents** — exactly which rules are non-optional global baseline vs. opt-in pack.
 4. **`satisfies` back-reference** — adopt now (airtight) or defer behind lineage matching.
+5. **A symbol→tag index** — `tag(...)` (§9.3) is best-effort over `high_stakes_paths` today; a first-class
+   tag index would make `tag` selectors precise.

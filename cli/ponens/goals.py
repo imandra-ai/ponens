@@ -91,10 +91,13 @@ def _canon_art_type(s):
     return _ART_TYPE_ALIASES.get(k, k)
 
 
-def _resolve_typed(item, trace):
+def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     """Resolve a typed criterion (`component` + `evidence: {artifact}`) by lineage: MET iff an artifact
     of the required type roots in the component. Quality of derivation is left to policies. Returns a
-    resolution dict, or None if the item is not a typed criterion (caller falls back to legacy)."""
+    resolution dict, or None if the item is not a typed criterion (caller falls back to legacy).
+
+    `gate_defeater` / `gate_fresh` are the role gates (§8.8): the defaults reproduce today's behavior
+    exactly (defeater-gated, not freshness-gated); `met` clears `gate_defeater`, `governed` sets both."""
     compd = item.get("component") or {}
     # A criterion may name the source `function` (for display / authoring) AND a formal `symbol` — the
     # name the engine actually gave the formalization (e.g. source `clamp` -> IML `clamp_decomp`). The
@@ -117,14 +120,19 @@ def _resolve_typed(item, trace):
     if not matches:
         return keep
     a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact
+    aid = a.get("artifact_id")
     # Counter-evidence (§13 Defeater / §18.2): an OPEN defeater contesting the evidence (or the provenance
     # it derives from) blocks the criterion — a contested result is never done, exactly like the legacy
     # property path. This is what makes a FAILING conformance (its ConformanceResult carries an undermines
-    # defeater) leave a `conformance` criterion unmet, not silently `done` on mere existence.
-    contest_ids = {a.get("artifact_id")} | set(a.get("derived_from") or [])
-    if _open_defeater_contests(contest_ids, trace):
-        return {"status": "blocked", "from_trace": True, "evidence": a.get("artifact_id")}
-    return {"status": "done", "from_trace": True, "evidence": a.get("artifact_id")}
+    # defeater) leave a `conformance` criterion unmet, not silently `done` on mere existence. Role-gated:
+    # the default (and `governed`) apply it; `met` = mere existence, so it does not.
+    contest_ids = {aid} | set(a.get("derived_from") or [])
+    if gate_defeater and _open_defeater_contests(contest_ids, trace):
+        return {"status": "blocked", "from_trace": True, "evidence": aid}
+    # Freshness (§18.3): `governed` additionally requires the evidence be non-stale.
+    if gate_fresh and _evidence_stale(aid, trace):
+        return {"status": "blocked", "from_trace": True, "evidence": aid}
+    return {"status": "done", "from_trace": True, "evidence": aid}
 
 
 def _open_defeater_contests(ids, trace):
@@ -143,11 +151,40 @@ def _open_defeater_contests(ids, trace):
     return False
 
 
-def resolve_item(item, trace):
-    """Resolve one acceptance item to {status, from_trace, evidence} against the trace's evidence."""
+# ================================================================
+# §8.8 property-language front-end: formula AST + recursive evaluator (Phase 1)
+# ================================================================
+#
+# The evidence logic is the design of record for acceptance; its LEAF ATOMS already exist (the kind /
+# typed resolution in `_resolve_criterion` below). Phase 1 adds the COMBINATOR layer so criteria
+# compose. A `formula` is JSON the agent can author:
+#     {"atom": <criterion>, "role"?: "met"|"governed"}   -- a leaf; <criterion> is the legacy item shape
+#     {"and": [F, ...]}   {"or": [F, ...]}   {"not": F}   {"implies": [F, F]}
+# `role` (inherited down a subtree) gates HOW an atom is judged, orthogonal to the boolean shape:
+#     (default, no role) -- today's behavior: the evidence EXISTS and is UNCONTESTED (defeater-gated),
+#                           NOT freshness-gated. A desugared legacy item uses this → identical results.
+#     "met"              -- the evidence merely EXISTS (no defeater / no freshness gate).
+#     "governed"         -- EXISTS and UNCONTESTED and FRESH (§18.3).
+# Phase 1 = combinators + roles only. Selectors / quantifiers (forall/exists over glob/module/tag) and
+# stable property ids (properties(S)) are later phases; the AST is shaped to accept a future
+# {"forall": {"in": <selector>, "holds": F}} node without disturbing this layer.
+
+
+def _evidence_stale(aid, trace):
+    """True if an OPEN stale/detached residual (§18.3) targets `aid`. Used only by the `governed`
+    role; recomputed per governed atom (Phase 1 simplicity — `governed` is opt-in and rare)."""
+    if not aid:
+        return False
+    return any((r.get("target") or {}).get("target_id") == aid for r in stale_evidence(trace))
+
+
+def _resolve_criterion(item, trace, gate_defeater=True, gate_fresh=False):
+    """Resolve ONE leaf criterion (an atom) to {status, from_trace, evidence}. This is the historical
+    kind-switch, now parameterized by the two gates the role selects. The defaults
+    (gate_defeater=True, gate_fresh=False) are exactly today's behavior."""
     # Goal Contract typed criterion (component + evidence) → resolve by lineage (§4), not text.
     if item.get("component") is not None and item.get("evidence") is not None:
-        typed = _resolve_typed(item, trace)
+        typed = _resolve_typed(item, trace, gate_defeater, gate_fresh)
         if typed is not None:
             return typed
     keep = {"status": item.get("status", "todo"), "from_trace": False, "evidence": None}
@@ -191,11 +228,14 @@ def resolve_item(item, trace):
         vr = max(vrs, key=lambda a: a.get("producer_action_id") or 0)
         s = _lc(_payload(vr).get("status"))
         st = "done" if s in ("proved", "sat") else "blocked" if s == "refuted" else "doing"
-        # Counter-evidence (§13 Defeater / §18.2): an OPEN defeater contesting the result (or its goal)
-        # blocks it — a contested proof is never done, exactly like a refutation.
-        if st == "done" and _open_defeater_contests({vr.get("artifact_id")} | vg_ids, trace):
+        vid = vr.get("artifact_id")
+        # Counter-evidence (§13 / §18.2): a contested proof is never done — role-gated (`met` skips it).
+        if st == "done" and gate_defeater and _open_defeater_contests({vid} | vg_ids, trace):
             st = "blocked"
-        return {"status": st, "from_trace": True, "evidence": vr.get("artifact_id")}
+        # Freshness (§18.3): `governed` additionally requires the proof be non-stale.
+        if st == "done" and gate_fresh and _evidence_stale(vid, trace):
+            st = "blocked"
+        return {"status": st, "from_trace": True, "evidence": vid}
 
     if kind == "change":
         sym = binding.get("symbol")
@@ -206,6 +246,144 @@ def resolve_item(item, trace):
         return keep
 
     return keep
+
+
+# ---- status lattice: compose child STATUSES (not booleans) so doing/blocked propagate -------------
+# DESIGN DECISION (reviewable): a criterion resolves to a 4-valued status, not a bool, so the
+# combinators lift and/or/not/implies over {done, doing, todo, blocked}:
+#   and: blocked if ANY blocked; else done if ALL done; else doing if ANY done|doing; else todo.
+#   or : done if ANY done; else doing if ANY doing; else blocked if ALL blocked; else todo.
+#   not: done<->todo; doing->doing; blocked->blocked  (contested stays contested — absence of proof is
+#        not proof of absence; a defeater against P is not evidence FOR not-P. Defeasible; documented.)
+#   implies(a, b) = or(not(a), b).
+# Empty and/or -> todo (no evidence), avoiding a vacuous `done`.
+
+def _pick_evidence(rs, want):
+    """Best-effort representative evidence id: prefer a child whose status drove the result, else any."""
+    for r in rs:
+        if r.get("status") == want and r.get("evidence"):
+            return r.get("evidence")
+    for r in rs:
+        if r.get("evidence"):
+            return r.get("evidence")
+    return None
+
+
+def _combine(status, rs, want_for_evidence):
+    return {"status": status,
+            "from_trace": any(r.get("from_trace") for r in rs),
+            "evidence": _pick_evidence(rs, want_for_evidence)}
+
+
+def _combine_and(rs):
+    ss = [r.get("status") for r in rs]
+    if any(s == "blocked" for s in ss):
+        return _combine("blocked", rs, "blocked")
+    if rs and all(s == "done" for s in ss):
+        return _combine("done", rs, "done")
+    if any(s in ("done", "doing") for s in ss):
+        return _combine("doing", rs, "doing")
+    return _combine("todo", rs, "doing")
+
+
+def _combine_or(rs):
+    ss = [r.get("status") for r in rs]
+    if any(s == "done" for s in ss):
+        return _combine("done", rs, "done")
+    if any(s == "doing" for s in ss):
+        return _combine("doing", rs, "doing")
+    if rs and all(s == "blocked" for s in ss):
+        return _combine("blocked", rs, "blocked")
+    return _combine("todo", rs, "doing")
+
+
+_NOT_STATUS = {"done": "todo", "todo": "done", "doing": "doing", "blocked": "blocked"}
+
+
+def _combine_not(r):
+    return {"status": _NOT_STATUS.get(r.get("status"), "todo"),
+            "from_trace": r.get("from_trace", False), "evidence": None}
+
+
+def _empty_resolution():
+    return {"status": "todo", "from_trace": False, "evidence": None}
+
+
+def _subst_atom(atom, env):
+    """Substitute a bound quantifier variable into an atom's element slots (§8.8 Phase 2). An inner atom
+    references the bound element as `{"component": {"var": "f"}}` and/or `binding: {"symbol": {"var":
+    "f"}}`; at eval time the element's concrete symbol replaces it. No-op with no env / no `var` refs."""
+    if not env or not isinstance(atom, dict):
+        return atom
+    a = dict(atom)
+    comp = a.get("component")
+    if isinstance(comp, dict) and "var" in comp:
+        el = env.get(comp["var"]) or {}
+        a["component"] = {"function": el.get("symbol"), "symbol": el.get("symbol")}
+    b = a.get("binding")
+    if isinstance(b, dict):
+        nb = dict(b)
+        for k in ("symbol", "property"):
+            v = nb.get(k)
+            if isinstance(v, dict) and "var" in v:
+                nb[k] = (env.get(v["var"]) or {}).get("symbol")
+        a["binding"] = nb
+    return a
+
+
+def eval_formula(node, trace, inherited_role=None, env=None, goal=None):
+    """Recursively resolve a formula node to {status, from_trace, evidence}. `role` on any node is
+    inherited by descendant atoms that don't set their own; `env` carries quantifier variable bindings
+    (var -> element); `goal` is the resolving goal (its `scope` feeds the `{"scope": true}` selector)."""
+    if not isinstance(node, dict):
+        return _empty_resolution()
+    role = node.get("role", inherited_role)
+    if "atom" in node:
+        return _resolve_criterion(_subst_atom(node["atom"], env), trace,
+                                  gate_defeater=(role != "met"), gate_fresh=(role == "governed"))
+    if "and" in node:
+        return _combine_and([eval_formula(c, trace, role, env, goal) for c in (node.get("and") or [])])
+    if "or" in node:
+        return _combine_or([eval_formula(c, trace, role, env, goal) for c in (node.get("or") or [])])
+    if "not" in node:
+        return _combine_not(eval_formula(node.get("not"), trace, role, env, goal))
+    if "implies" in node:
+        parts = node.get("implies") or []
+        a = eval_formula(parts[0], trace, role, env, goal) if len(parts) > 0 else _empty_resolution()
+        b = eval_formula(parts[1], trace, role, env, goal) if len(parts) > 1 else _empty_resolution()
+        return _combine_or([_combine_not(a), b])
+    if "forall" in node or "exists" in node:
+        is_forall = "forall" in node
+        q = (node.get("forall") if is_forall else node.get("exists")) or {}
+        from .component import resolve_selector  # lazy: component imports goals transitively
+        elements = resolve_selector(q.get("in"), trace, goal)
+        # Empty selector -> todo (REVIEWABLE DECISION): an empty match is almost always a mis-spec, and a
+        # vacuous `done` (∀ over ∅) would be false-green — the dangerous direction. Same for exists.
+        if not elements:
+            return _empty_resolution()
+        var = q.get("as") or "x"
+        holds = q.get("holds")
+        results = [eval_formula(holds, trace, role, {**(env or {}), var: el}, goal) for el in elements]
+        return _combine_and(results) if is_forall else _combine_or(results)
+    return _empty_resolution()
+
+
+def eval_atom(atom, trace, role=None, env=None):
+    """Resolve a single leaf criterion under a role (None = default/today, 'met', 'governed')."""
+    return _resolve_criterion(_subst_atom(atom, env), trace,
+                              gate_defeater=(role != "met"), gate_fresh=(role == "governed"))
+
+
+def resolve_item(item, trace, goal=None):
+    """Resolve one acceptance item to {status, from_trace, evidence} against the trace's evidence.
+
+    §8.8: if the item carries a `formula`, evaluate the AST (quantifier selectors read `goal.scope`).
+    Otherwise the item IS a single leaf criterion (the legacy kind-switch / typed criterion), desugared
+    to an atom with the default role — byte-for-byte identical to before the formula layer existed."""
+    formula = item.get("formula")
+    if formula is not None:
+        return eval_formula(formula, trace, goal=goal)
+    return _resolve_criterion(item, trace, gate_defeater=True, gate_fresh=False)
 
 
 def progress_of(items):
@@ -362,6 +540,29 @@ def _freshness_verdict(vr, sym, proved_at, arts):
     return None
 
 
+def _freshness_verdict_renamed(vr, old_sym, new_sym, proved_at, arts):
+    """Freshness of a result recorded against `old_sym` whose component is now named `new_sym` (2d,
+    component-identity rename path). The stored (proof-time) signal is `old_sym`'s closure checksum in
+    the model current AT proof time (the model that still defined `old_sym`); the current signal is
+    `new_sym`'s closure checksum in the latest model that defines `new_sym`. A mismatch is "stale"; equal
+    (a pure rename, identical body) is "fresh"; None when it can't be recomputed (caller falls back)."""
+    step = lambda a: a.get("producer_action_id") or 0  # noqa: E731
+    src_models = [a for a in arts if a.get("artifact_type") in _MODEL_TYPES and _model_src(a)]
+    old_defs = [m for m in src_models if old_sym in _top_level_defs(_model_src(m))]
+    new_defs = [m for m in src_models if new_sym in _top_level_defs(_model_src(m))]
+    if not old_defs or not new_defs:
+        return None
+    stored_ck = (_payload(vr).get("fingerprint") or {}).get("task_checksum")
+    if stored_ck is None:
+        prior = [m for m in old_defs if step(m) <= proved_at] or old_defs
+        stored_ck = _closure_checksum(_model_src(max(prior, key=step)), old_sym)
+    cur_model = max(new_defs, key=step)
+    cur_ck = _closure_checksum(_model_src(cur_model), new_sym)
+    if cur_ck is not None and stored_ck is not None:
+        return "fresh" if cur_ck == stored_ck else "stale"
+    return None
+
+
 def stale_evidence(trace):
     """Proofs invalidated by a later model change (Stale) or by their target's removal (Detached), as
     derived residuals (tagged `derived: True`). TRACE_SPEC §18.3.
@@ -406,23 +607,58 @@ def stale_evidence(trace):
             return ("ssa", sym, label, True)  # a decomposition is always standing evidence
         return None
 
-    latest = {}  # (kind, sym) -> (step, art, label, standing)
+    # Component-identity (2d): when the trace carries stamped `component_ids` (via assign_component_ids,
+    # injected by enrich), key the latest-per grouping on the COMPONENT id instead of the raw symbol name
+    # — so a proof of `clamp` and a later model that renamed it to `clamp_int` chain as the SAME component
+    # (the proof correctly follows the rename and goes stale). The current name of a component is read
+    # from the latest model's stamped map, so the freshness closure is recomputed under the CURRENT name.
+    # Additive: absent component_ids, `_component_id_for` returns None and the key is (kind, sym) as before.
+    comp_by_name = lineage._component_by_name(trace)          # name -> component_id (latest wins)
+    # component_id -> its CURRENT name: walk model stamps in ascending producer order so the latest
+    # model's name for a component wins (a rename's newest name, not an arbitrary dict order).
+    cur_name_of_comp = {}
+    _stamped_models = sorted(
+        (a for a in arts if a.get("artifact_type") in _MODEL_TYPES and _payload(a).get("component_ids")),
+        key=lambda a: a.get("producer_action_id") or 0)
+    for m in _stamped_models:
+        for name, cid in (_payload(m).get("component_ids") or {}).items():
+            cur_name_of_comp[cid] = name
+
+    def _component_id_for(a, sym):
+        """The component id stamped for this result's target, or None (pre-2d / unstamped)."""
+        if a.get("artifact_type") == "VerificationResult":
+            vg = _vg_for(a)
+            cid = _payload(vg).get("target_component_id") if vg else None
+        else:
+            cid = _payload(a).get("target_component_id")
+        return cid or comp_by_name.get(sym)
+
+    latest = {}  # (kind, key) -> (step, art, label, standing, sym, comp_id)
     for a in arts:
         c = _candidate(a)
         if not c:
             continue
         kind, sym, label, standing = c
         step = a.get("producer_action_id") or 0
-        key = (kind, sym)
+        comp_id = _component_id_for(a, sym)
+        key = (kind, comp_id) if comp_id is not None else (kind, sym)
         if key not in latest or step > latest[key][0]:
-            latest[key] = (step, a, label, standing)
+            latest[key] = (step, a, label, standing, sym, comp_id)
 
     out = []
-    for (kind, sym), (at, art, label, standing) in latest.items():
+    for _key, (at, art, label, standing, sym, comp_id) in latest.items():
         if not standing:
             continue
         vid = art.get("artifact_id")
-        verdict = _freshness_verdict(art, sym, at, arts)
+        # Follow the rename: check freshness under the component's CURRENT name when it differs from the
+        # name the result was recorded against (e.g. proof of `clamp`, component now named `clamp_int`).
+        # The rename path compares the OLD name's proof-time closure against the NEW name's current
+        # closure, so a renamed+changed component goes stale; a pure rename stays fresh.
+        fresh_sym = cur_name_of_comp.get(comp_id, sym) if comp_id is not None else sym
+        if fresh_sym != sym:
+            verdict = _freshness_verdict_renamed(art, sym, fresh_sym, at, arts)
+        else:
+            verdict = _freshness_verdict(art, sym, at, arts)
         if verdict == "fresh":
             continue
         if verdict == "detached":
@@ -728,6 +964,12 @@ def enrich(trace):
     The source trace (authored goals + emitted steps) is untouched.
     """
     t = copy.deepcopy(trace)
+    # Component identity (2c/2d): stamp durable component_ids onto the enrich PROJECTION (never the
+    # source trace) so the downstream consumers — roots_in_component (goal rooting) and stale_evidence
+    # (freshness) — can FOLLOW A RENAME by component instead of by name. Purely additive: on a trace with
+    # no stampable models the stamp is empty and every consumer is byte-identical to its pre-2d behavior.
+    from .component import assign_component_ids
+    assign_component_ids(t)
     # Residuals are first-class artifacts (§13, v1.8): fold any legacy list forward, then merge the
     # derived stale-evidence residuals in as Residual artifacts so the viewer sees a single surface.
     lineage.migrate_residuals(t)
@@ -763,10 +1005,28 @@ def enrich(trace):
                 return fr
         return None
 
+    # An OPEN drift residual the EXTENSION emitted for this evidence (freshness `limitation`/`defeater`
+    # over a stale/gone/hand-edited artifact), related to the evidence id. Lets the hash-based at_risk
+    # path name a residual + carry its statement, exactly like the structural stale_evidence path, so
+    # `at_risk_residual_id`/`at_risk_reason` are populated consistently however the drift was detected.
+    _DRIFT_KINDS = {"limitation", "defeater", "stale_evidence"}
+
+    def _drift_residual_for(aid):
+        if not aid:
+            return None
+        for r in lineage.residual_surface(t):
+            if str(r.get("status") or "open").lower() != "open" or r.get("kind") not in _DRIFT_KINDS:
+                continue
+            rel = r.get("related_artifact_ids") or []
+            if any(aid == x or (isinstance(aid, str) and isinstance(x, str)
+                                and (aid.startswith(x + "-") or x.startswith(aid + "-"))) for x in rel):
+                return r
+        return None
+
     for g in t.get("goals", []):
         resolved = []
         for item in g.get("acceptance", []):
-            r = resolve_item(item, t)
+            r = resolve_item(item, t, goal=g)
             it = dict(item)
             it["status"] = r["status"]
             it["from_trace"] = r["from_trace"]
@@ -788,9 +1048,16 @@ def enrich(trace):
                     it["at_risk_residual_id"] = stale.get("residual_id")
                 elif fr in ("stale", "gone"):
                     it["at_risk"] = True
-                    it["at_risk_reason"] = ("The source was removed since this was verified."
-                                            if fr == "gone"
-                                            else "The code changed since this was verified — re-check to restore the guarantee.")
+                    # Name the extension's drift residual when present, so this path carries an
+                    # `at_risk_residual_id` + statement like the structural path above.
+                    drift = _drift_residual_for(r["evidence"])
+                    if drift:
+                        it["at_risk_reason"] = drift.get("statement")
+                        it["at_risk_residual_id"] = drift.get("residual_id")
+                    else:
+                        it["at_risk_reason"] = ("The source was removed since this was verified."
+                                                if fr == "gone"
+                                                else "The code changed since this was verified — re-check to restore the guarantee.")
             resolved.append(it)
         g["acceptance"] = resolved
         g["progress"] = progress_of(resolved)

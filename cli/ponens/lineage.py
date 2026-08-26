@@ -5,7 +5,7 @@ transitive closure of that relation. These helpers answer, for a SPECIFIC artifa
 and does its provenance root in a given code component / kind of step?" — e.g. does this
 `VerificationResult` trace back to autoformalizing `settle`?
 
-This is the substrate for Goal-Contract acceptance resolution (GOAL_CONTRACT_v0_1 §4 — resolve by
+This is the substrate for Goal-Contract acceptance resolution (GOAL_CONTRACT_v0_2 §4 — resolve by
 lineage, not description text) and for provenance policies (APPLY_FORMAL_METHODS_PACK — "a proof or a
 decomposition in its lineage"). Kept dependency-free (walks the trace dict only) so both `goals.py`
 and the policy engine can use it without an import cycle.
@@ -84,9 +84,55 @@ def source_symbols(artifact_id, trace):
 def roots_in_component(artifact_id, component, trace):
     """Does this artifact's lineage rest SPECIFICALLY on the given component (function / symbol)? An
     artifact that declares its own `target_symbol` is about THAT symbol — not every symbol the shared
-    model formalized. Only when nothing in the lineage names a target do we fall back to model symbols."""
+    model formalized. Only when nothing in the lineage names a target do we fall back to model symbols.
+
+    ADDITIVE component-identity path (2d): when the trace carries stamped `component_ids` (via
+    `assign_component_ids`, injected by enrich), the artifact ALSO roots in `component` if its own (or a
+    lineage ancestor's) `target_component_id` equals the component id that the NAME `component` currently
+    resolves to. This makes rooting FOLLOW A RENAME (clamp -> clamp_int chains to the same component id).
+    The result is `name_result OR component_id_result` — purely additive: a trace with no component_ids
+    is byte-identical to the pre-2d behavior, and nothing that matched by name before stops matching."""
     specific, model = _lineage_symbols(artifact_id, trace)
-    return component in specific if specific else component in model
+    name_result = component in specific if specific else component in model
+    if name_result:
+        return True
+
+    # Component-identity alternative — only when the trace has been stamped.
+    by_name = _component_by_name(trace)
+    if not by_name:
+        return False
+    want = by_name.get(component)
+    if want is None:
+        return False
+    return want in _lineage_component_ids(artifact_id, trace)
+
+
+def _component_by_name(trace):
+    """The trace's LATEST-wins `name -> component_id` map, recovered from stamped `component_ids` on
+    model artifacts (`assign_component_ids`). Empty dict when the trace was never stamped — the signal
+    that turns the whole component-identity path off (pre-2d behavior). Latest wins: model artifacts are
+    read in ascending `producer_action_id` so a later revision's mapping overrides an earlier one."""
+    models = [a for a in trace.get("artifacts", []) or []
+              if isinstance(a, dict) and (_payload(a).get("component_ids"))]
+    models.sort(key=lambda a: a.get("producer_action_id") or 0)
+    out = {}
+    for m in models:
+        for name, cid in (_payload(m).get("component_ids") or {}).items():
+            out[name] = cid
+    return out
+
+
+def _lineage_component_ids(artifact_id, trace):
+    """The set of `target_component_id`s stamped on an artifact's lineage (self + ancestors) — mirrors
+    `_lineage_symbols`'s specific-target read, but over the stamped component id. A VerificationResult
+    has no target of its own; its VerificationGoal (an ancestor) carries the `target_component_id`."""
+    out = set()
+    for a in lineage_artifacts(artifact_id, trace):
+        p = _payload(a)
+        cid = p.get("target_component_id") or a.get("target_component_id")
+        if cid:
+            out.add(cid)
+    return out
 
 
 def autoformalized(artifact_id, trace):

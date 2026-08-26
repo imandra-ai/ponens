@@ -9,11 +9,11 @@ pins the current set.
 
 | Spec | Version | Status | What it defines |
 |---|---|---|---|
-| [`TRACE_SPEC_v1_9.md`](TRACE_SPEC_v1_9.md) | **1.9** | Draft | **The core.** The typed reasoning-trace format — actions, **meta-actions** (§8.4), artifacts & lineage (§7), the **residual surface** (§13), **goals & acceptance** (§18), reproducibility (§12). Everything else is a companion over this. |
+| [`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md) | **1.10** | Draft | **The core.** The typed reasoning-trace format — actions, **meta-actions** (§8.4), artifacts & lineage (§7), the **residual surface** (§13), **goals & acceptance** (§18), reproducibility (§12). Everything else is a companion over this. |
 | [`POLICY_SPEC_v0_2.md`](POLICY_SPEC_v0_2.md) | 0.2 | Draft | **Computable Governance.** The policy object model and the temporal/structural DSL (LTL over finite traces + lineage/residual/field predicates) evaluated over a trace. |
 | [`POLICY_LANGUAGE_v0_2.md`](POLICY_LANGUAGE_v0_2.md) | 0.2 | Draft | **Operator reference** (reader-friendly companion to `POLICY_SPEC` §9–13). The full operator set — future/past/scoped-past LTLf, boolean connectives, atomic propositions, structural predicates, quantifiers — trace semantics, and the `language_level` fragments. |
 | [`GOAL_FAITHFULNESS_v0_1.md`](GOAL_FAITHFULNESS_v0_1.md) | 0.1 | Draft | **Definition of done, done right.** Refines TRACE §18 — separates *met* (resolution) from *right* (criteria reviewed by a non-doer), with strength grading, coverage (`covers`), and temporal anchoring against retrofitting. |
-| [`GOAL_CONTRACT_v0_1.md`](GOAL_CONTRACT_v0_1.md) | 0.1 | Draft | **Accomplish these things, subject to these policies.** Typed acceptance criteria (component + evidence kind) resolved by artifact **lineage** (not description text — fixes the "goal never ticks" seam), plus goal-scoped **policies** with default layering. Composes *met ∧ governed ∧ certified*. |
+| [`GOAL_CONTRACT_v0_2.md`](GOAL_CONTRACT_v0_2.md) | 0.2 | Draft | **Accomplish these things, subject to these policies.** Typed acceptance criteria (component + evidence kind) resolved by artifact **lineage** (not description text — fixes the "goal never ticks" seam), plus goal-scoped **policies** with default layering. Composes *met ∧ governed ∧ certified*. **v0.2** adds a composable property language (`and`/`or`/`not`/`⇒`, `forall`/`exists` over selectors, per-atom `met`/`governed` roles). |
 | [`REVIEW_CASE_SPEC_v0_2.md`](REVIEW_CASE_SPEC_v0_2.md) | 0.2 | Draft | The reviewer-side object — comments, review items, dispositions, and the verdict over a trace (or a chain). |
 | [`TRACE_POLICY_REVIEWCASE_SEMANTICS_v0_2.md`](TRACE_POLICY_REVIEWCASE_SEMANTICS_v0_2.md) | 0.2 | Draft | The semantics tying the three together — how policy satisfaction is interpreted over a trace and its review-case context. |
 | [`REVIEW_HANDOFF_v0_1.md`](REVIEW_HANDOFF_v0_1.md) | 0.1 | Draft | The protocol by which a reviewing agent (or human) consumes a trace — triage the residual surface, re-verify claims, hunt undeclared gaps. |
@@ -24,7 +24,9 @@ pins the current set.
 | [`AUDIT_READINESS_v0_1.md`](AUDIT_READINESS_v0_1.md) | 0.1 | Draft | **Evidence, not attestation.** What makes a trace credible to an auditor/regulator, which credibility axes the specs already deliver (grounded resolution, freshness, defeaters, reproducibility, PROV export, packs, review), and the honest gap-list to "relied upon" — signing/non-repudiation, tool qualification, validated framework mappings, human accountability, claim-scoping. |
 
 Also here: [`schema/`](schema/) — JSON Schemas derived from the trace spec (§16, "Interchange
-Projection"); [`iml-model/`](iml-model/) — the IML / ImandraX formal model.
+Projection"). The IML / ImandraX formal models live in [`../formal/`](../formal/) — the framework's
+invariant models plus the layered trace+policy model in
+[`../formal/trace-policy-model/`](../formal/trace-policy-model/).
 
 ## How they relate
 

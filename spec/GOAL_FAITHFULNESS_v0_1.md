@@ -1,6 +1,6 @@
 # Goal Faithfulness — the definition of done, done right (v0.1)
 
-**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_9.md) — additive,
+**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_11.md) — additive,
 backward-compatible. Driven by the concrete goal use case in CodeLogician Desktop (the
 `declare_goal` tool → per-session active goal → `ponens trace enrich` resolution loop).
 
@@ -35,7 +35,7 @@ This is the formal-methods **"wrong spec / vacuous proof"** problem: proving a t
 Faithfulness cannot be decided mechanically — whether a formal acceptance faithfully captures an
 informal intent is the **formalization gap**, and "intent" lives in a human's head. So this spec does
 not try to *verify* faithfulness. It makes the seam **visible, reviewed by a different principal,
-coverage-checked, and hard to retrofit** (evidence rigor is the [governed axis](GOAL_CONTRACT_v0_1.md),
+coverage-checked, and hard to retrofit** (evidence rigor is the [governed axis](GOAL_CONTRACT_v0_2.md),
 not a faithfulness signal) — by separating two questions the current model conflates:
 
 | Question | Mechanism | Principal | Status |
@@ -52,7 +52,7 @@ The single normative rule of this spec:
 | Failure | What it looks like | Defense (§ below) |
 | --- | --- | --- |
 | **Incomplete** | a clause of the intent has no acceptance item ("3DS *and* 2-approval"; acceptance covers only 3DS → all green, intent unmet) | §5 coverage (`covers` + critic) |
-| **Weak evidence** | a `Diff` where a proof was needed ("add 2-approval" backed only by "an edit landed") | the [governed axis](GOAL_CONTRACT_v0_1.md) — a policy, not faithfulness (§6 superseded) |
+| **Weak evidence** | a `Diff` where a proof was needed ("add 2-approval" backed only by "an edit landed") | the [governed axis](GOAL_CONTRACT_v0_2.md) — a policy, not faithfulness (§6 superseded) |
 | **Vacuous** | a `Property` proved but trivially true (holds for *any* implementation) | §5 criteria review + refutation-bite |
 | **Adjacent** | proves something near but not the intent ("amount ≥ 0" when the user meant "captured ≤ authorized") | §5 criteria approval by the intent's author |
 | **Retrofitted** | acceptance authored *after* the evidence that resolves it (goalposts moved to match the work) | §7 temporal anchoring + append-only |
@@ -140,7 +140,7 @@ means"* — **before** it starts counting, by a principal that is **not the doer
 
 > **Superseded (Goal Contract v0.1).** This section originally graded evidence *strength* here and
 > emitted a `weakly_specified` flag. That overlapped with policy: "is a diff enough, or do you need a
-> proof?" is a **rigor** question, and rigor is the [Goal Contract](GOAL_CONTRACT_v0_1.md) **governed
+> proof?" is a **rigor** question, and rigor is the [Goal Contract](GOAL_CONTRACT_v0_2.md) **governed
 > axis** (policies over the goal's cone), not a faithfulness signal. To avoid two mechanisms answering
 > one question, `faithfulness_of` **no longer computes `weakly_specified`** and `certified` no longer
 > depends on it. The historical design is kept below for reference.
@@ -176,7 +176,7 @@ Acceptance is a claim about intent; intent precedes the work. So:
 - **met** (unchanged, §18): a goal is *reached* when all `required` items resolve `AcceptDone`.
 - **right** (new): a goal is *certified* when it carries a `criteria_review` with `verdict = Approved`
   by a non-doer principal and has **no uncovered `intent_clauses`**. (Evidence strength is no longer a
-  certification condition — it is the [governed axis](GOAL_CONTRACT_v0_1.md), §6 superseded.)
+  certification condition — it is the [governed axis](GOAL_CONTRACT_v0_2.md), §6 superseded.)
 - The two are **orthogonal**: a goal may be met-but-uncertified (green, but the definition was never
   reviewed) or certified-but-unmet (the right target, work in progress). The desktop should show both
   axes — never collapse "met" into "done" without "right".

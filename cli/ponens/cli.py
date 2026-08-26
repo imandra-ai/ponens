@@ -22,6 +22,7 @@ from . import objects as objects_mod
 from . import emit as emit_mod
 from . import agent as agent_mod
 from . import reasoners as reasoners_mod
+from . import oracles as oracles_mod
 
 
 # ── Helpers ─────────────────────────────────────────────────────
@@ -666,6 +667,8 @@ def build_parser():
 
     # ── reasoners (the reasoner registry) ────────────────────────
     reasoners_mod.register(subparsers)
+
+    oracles_mod.register(subparsers)
 
     # ── git/hub sync (bind, push, pull, status) ──────────────────
     sync_mod.register(subparsers)

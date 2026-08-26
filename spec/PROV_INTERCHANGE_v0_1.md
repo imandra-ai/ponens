@@ -5,7 +5,7 @@
 **Version:** 0.1
 **Status:** Draft
 **Purpose:** Define how a ponens trace projects onto **W3C PROV** so it interoperates with the
-provenance-tooling ecosystem. This is a lossy *interchange* view — the trace ([`TRACE_SPEC_v1_9.md`](TRACE_SPEC_v1_9.md))
+provenance-tooling ecosystem. This is a lossy *interchange* view — the trace ([`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md))
 remains the semantic source of truth; PROV is an export target. Implemented by `ponens trace export
 --to prov` (PROV-JSON) and `ponens/prov.py`.
 

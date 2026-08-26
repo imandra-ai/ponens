@@ -26,6 +26,7 @@ from .policy_compiler import (
 )
 from . import goals as goalops
 from . import lineage
+from . import merge as mergeops
 
 
 # ================================================================
@@ -418,7 +419,14 @@ def evaluate_formula(node, trace, ctx=None):
         a = ctx['action']
         name = node.name
         if name in ACTION_TYPES:
-            return _canon_type(a.get('type')) == _canon_type(name)
+            if _canon_type(a.get('type')) == _canon_type(name):
+                return True
+            # A dual-purpose name (also an artifact type, e.g. `SourceCode` / `Test`) that did NOT match
+            # the action's type falls through to artifact-output matching below — otherwise the artifact
+            # sense is permanently shadowed and an atom like `SourceCode` can never match a produced
+            # SourceCode artifact (only an action literally typed "SourceCode", which does not occur).
+            if name not in ARTIFACT_TYPES:
+                return False
         if name in ARTIFACT_TYPES:
             if _canon_type(a.get('type')) == _canon_type(name):
                 return True
@@ -909,7 +917,11 @@ def cmd_complete(args):
     return 0
 
 
-RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'open_question', 'defeater'}
+RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'open_question', 'defeater',
+                  # Merge-derived open obligations (materialized by `ponens trace merge --combine`):
+                  # a standing result whose closure the merge touched, and a goal whose covered surface
+                  # the merge changed. Genuine open-obligation kinds, hence first-class residual kinds.
+                  'needs_rereasoning', 'coverage_regression'}
 DEFEATER_KINDS = {'rebuts', 'undermines', 'undercuts'}  # what a Defeater attacks (§13.1)
 RESIDUAL_SEVERITIES = {'info', 'low', 'medium', 'high', 'critical'}
 RESIDUAL_STATUSES = {'open', 'acknowledged', 'addressed', 'waived'}
@@ -2104,7 +2116,7 @@ def cmd_resolve(args):
     for g in trace.get('goals', []):
         items = []
         for item in g.get('acceptance', []):
-            r = goalops.resolve_item(item, trace)
+            r = goalops.resolve_item(item, trace, goal=g)
             it = {**item, 'status': r['status'], 'from_trace': r['from_trace']}
             # Preserve a typed criterion's {artifact} spec; put the resolved id in evidence_ref.
             if isinstance(item.get('evidence'), dict):
@@ -2143,6 +2155,31 @@ def cmd_enrich(args):
         with open(out_path, 'w') as f:
             f.write(text + '\n')
         print(f"Wrote enriched trace -> {out_path}", file=sys.stderr)
+    else:
+        print(text)
+    return 0
+
+
+def cmd_merge(args):
+    """Merge two traces: carry forward the standing results OURS proved whose dependency closure the
+    incoming change never touches (SkipDisjoint), and flag the rest for re-reasoning (ReReason). Emits a
+    report projection; neither input trace is modified. Sound-but-conservative: the SkipContract branch
+    is deferred, so every touched result re-reasons."""
+    ours = load_trace(args.ours)
+    theirs = load_trace(args.theirs)
+    base = load_trace(args.base) if getattr(args, 'base', None) else None
+    if getattr(args, 'combine', False):
+        result = mergeops.combine(ours, theirs, base=base)
+        label = "merged trace"
+    else:
+        result = mergeops.merge(ours, theirs, base=base)
+        label = "merge report"
+    text = json.dumps(result, indent=2, ensure_ascii=False)
+    out_path = getattr(args, 'output', None)
+    if out_path:
+        with open(out_path, 'w') as f:
+            f.write(text + '\n')
+        print(f"Wrote {label} -> {out_path}", file=sys.stderr)
     else:
         print(text)
     return 0
@@ -2588,6 +2625,16 @@ def register(subparsers):
     p.add_argument("--goals", help="External goals file to merge before enriching")
     p.add_argument("-o", "--output", help="Write the enriched trace here (default: stdout)")
     p.set_defaults(func=cmd_enrich)
+
+    # merge (carry forward the provably-unaffected standing results, flag the rest)
+    p = trace_sub.add_parser("merge", help="Combine two traces: carry forward the provably-unaffected, flag the rest for re-reasoning")
+    p.add_argument("ours", help="Our trace (the standing results to carry or re-reason)")
+    p.add_argument("theirs", help="Their trace (the incoming changes)")
+    p.add_argument("--base", default=None, help="Common ancestor trace for 3-way delta attribution")
+    p.add_argument("--combine", "--emit-trace", dest="combine", action="store_true",
+                   help="Emit a materialized MERGED TRACE (validate/enrich/check-able) instead of the report")
+    p.add_argument("-o", "--output", help="Write the merge report (or merged trace) here (default: stdout)")
+    p.set_defaults(func=cmd_merge)
 
     # residual (declare)
     rp = trace_sub.add_parser("residual", help="Declare a residual (a gap the trace does not establish)")

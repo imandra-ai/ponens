@@ -2,10 +2,14 @@
 
 ## Version
 
-**Version:** 1.9  
+**Version:** 1.11  
 **Status:** Draft  
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
+
+> **Changes in 1.11 (additive, backward-compatible).** Specifies **integrity and cryptographic signatures** (§12.4) - the fields the sync/sign-off layer writes onto a trace, previously defined only in `CLI_SYNC_MODEL_v0_1.md` and `AUDIT_READINESS_v0_1.md`. Adds two top-level fields (§5): a **`content_hash`** (sha256 over the canonical trace, *excluding* transport/binding metadata and signatures - the `HASH_EXCLUDE` set) and a **`signatures`** list of cryptographic sign-offs *over* that `content_hash`. A **`signature`** (§12.4) records the `signer`, the `content_hash` it covers, the `algo` (**`ssh`** | **`gpg`** | **`sigstore`**), the backend-specific `signature` material, and optional `role`/`disposition` (what the party is attesting) and an RFC-3161 trusted **`timestamp`** (a TSA-attested "existed by *t*", not a machine-clock claim). Because `signatures` is excluded from `content_hash`, multiple parties **co-sign the same content** with whatever backend they trust; verification yields a uniform verdict (**`valid` | `untrusted` | `invalid` | `tampered`**). All additive: a trace may carry neither field, so existing 1.4-1.10 traces remain valid and unchanged. Also additive in 1.11: an **`acceptance_item`** (§18.1) MAY carry a composable **`formula`** — the goal *property language* (`and` / `or` / `not` / `⇒` and `forall` / `exists` over component selectors, with per-atom `met` / `governed` roles). A single-criterion item is the atomic case and resolves exactly as before; grammar and status-lattice semantics are in `GOAL_CONTRACT_v0_2` §9.
+
+> **Changes in 1.10 (additive, backward-compatible).** Adds **trace composition** - the sound combination of two traces across a merge (§15.3). A `merge` operation combines a `base`, an *ours*, and a *theirs* trace into a merged trace recording a two-parent **`merge_event`** provenance; for every carried-over reasoning result it emits either a **`CarriedForward`** artifact (the result is *provably unaffected* - its dependency closure is disjoint from the merge's change set, or every touched dependency was assumed `uninterpreted`) or a **`NeedsRereasoning`** residual (its closure or an assumed contract was disturbed), under a **totality** invariant: every prior result lands in exactly one bucket. A **`CoverageRegression`** residual records a goal whose scope gained an unproven member. Adds a **`component_id`** field (§7.1): a durable identity for a code component, stable across rename/move, so evidence-to-code binding (rooting, freshness, and the merge change-set) survives a rename. All additive: a trace without these carries none of them; `NeedsRereasoning` / `CoverageRegression` / `CarriedForward` / `component_id` are optional, so existing 1.4-1.9 traces remain valid and unchanged.
 
 > **Changes in 1.9 (additive, backward-compatible).** Makes **evidence freshness sound**, for *every* formal-reasoning result (§18.3). Any reasoning result — `VerificationResult`, `StateSpaceAnalysisResult`, `ConformanceResult`, `CoSimulationResult` — may now carry a **`reasoning_fingerprint`** (§10.4a): a checksum (and optional structural *shape*) of the **task it was computed over** (the target symbol **plus its dependency closure in the model**, not just the target's own text), together with the `engine` and `engine_version` that produced it. Freshness becomes a **derived** verdict — `Fresh | Stale | Detached` (§18.3) — obtained by recomputing the current fingerprint and comparing: an exact checksum match is `Fresh`; a mismatch (or an advanced engine version) is `Stale`; a result whose target no longer exists in the current model is `Detached` (orphaned work — kept for audit and recovery, never counted as evidence). This replaces the 1.7 heuristic ("the target symbol was edited at a later action"), which both **missed** staleness (a result invalidated by a change to a *dependency* rather than the target itself read as fresh) and **over-reported** it (a comment/format edit that left the task unchanged read as stale). The fingerprint is **optional** on every result kind: a result without one falls back to the 1.7 action-ordering heuristic, so existing 1.5–1.8 traces remain valid and unchanged.
 
@@ -210,8 +214,12 @@ type trace =
   ; trace_lineage : trace_lineage option
   ; files_modified : string list
   ; metrics : metrics option
+  ; content_hash : string option       (* sha256 over the canonical trace, excluding HASH_EXCLUDE — §12.4; CLI_SYNC_MODEL §5.3 *)
+  ; signatures : signature list        (* cryptographic sign-offs over content_hash — §12.4 *)
   }
 ```
+
+`content_hash` is the trace's **content digest** and `signatures` its **cryptographic sign-offs** (§12.4). Both are additive: a trace that has not been hashed or signed carries `content_hash = None` and `signatures = []`. Transport/binding fields (`repo`, `branch`, `commit_sha`) may also appear at the top level; like `content_hash` and `signatures` they are **excluded from the content hash** (the `HASH_EXCLUDE` set, §12.4) and their semantics belong to the sync layer (`CLI_SYNC_MODEL_v0_1.md`).
 
 `residuals` is the legacy carrier for the **residual surface** — a trace's declared negative space (§13). As of 1.8 a residual is a first-class **artifact** (`artifact_type` `Residual`); this field is retained only so pre-1.8 traces stay readable and canonicalizes to the empty list.
 
@@ -288,6 +296,9 @@ type artifact_common =
   ; supersedes : string option
   ; content_ref : string option
   ; summary : string option
+  ; component_id : string option  (* durable identity of the code component this artifact is about,
+                                     stable across rename/move (§15.3); distinct from artifact_id
+                                     (which identifies the RECORD, not the code element) *)
   ; metadata : artifact_metadata option
   }
 ```
@@ -333,6 +344,7 @@ type artifact =
   | UserApprovalArtifact of artifact_common
   | CommitArtifact of artifact_common
   | ReproductionBundleArtifact of artifact_common * reproduction_bundle_payload
+  | CarriedForwardArtifact of artifact_common * carried_forward_payload  (* §15.3 *)
 ```
 
 ## 7.2 Why strict artifacts
@@ -1031,6 +1043,83 @@ type execution_environment =
 
 Consequential reasoning outcomes should either be reproducible directly or linked to a reproducible downstream validation step.
 
+## 12.4 Integrity, content hash, and signatures
+
+Reproducibility answers *can this trace be re-derived?* Integrity answers two further questions an auditor asks: *has this trace been altered since it was produced?* and *who stands behind it?* The trace layer answers both with a content hash and cryptographic signatures over it. (The end-to-end audit ethos is `AUDIT_READINESS_v0_1.md`; the sync/binding verbs that compute and move the hash are `CLI_SYNC_MODEL_v0_1.md` §5.3.)
+
+### Content hash
+
+`content_hash` is `sha256` over a canonical serialization of the trace with a fixed set of fields excluded — the **`HASH_EXCLUDE`** set: `timestamp`, `content_hash` itself, the binding metadata `repo` / `branch` / `commit_sha`, and `signatures`. These are excluded because they are *transport/binding* metadata, not reasoning content: the hash must be stable under binding to a commit and, crucially, under **appending a signature** — so that signing the content does not invalidate the very hash the signature is over.
+
+```ocaml
+(* HASH_EXCLUDE = { timestamp; content_hash; repo; branch; commit_sha; signatures } *)
+content_hash = sha256 (canonical { trace without HASH_EXCLUDE fields })
+```
+
+### Signatures
+
+A **signature** is a sign-off by a party over the trace's `content_hash`. Because the signature is over the content digest, any later edit to reasoning content breaks it (**tamper-evidence**); because it is made with the signer's private key or identity, it names **who** signed (**non-repudiation**). Signatures live in the `signatures` list, which is in `HASH_EXCLUDE`, so several parties — the producer, a reviewer, an independent auditor — **co-sign the same content**, each with whatever backend they trust.
+
+```ocaml
+type signature =
+  { signer : string                     (* human-facing identity: ssh comment / gpg uid / sigstore OIDC identity *)
+  ; content_hash : string               (* the sha256 digest this signature was made over *)
+  ; algo : string                       (* "ssh" | "gpg" | "sigstore" — verification dispatches on this *)
+  ; signed_at : string                  (* ISO-8601 wall-clock time the signer asserts *)
+  ; signature : string                  (* backend material: armored ssh sig / armored gpg detached sig / sigstore bundle JSON *)
+  ; key_type : string option            (* e.g. "ssh-ed25519" | "gpg" | "sigstore" *)
+  ; key_id : string option              (* ssh key fingerprint / gpg fingerprint / None for sigstore *)
+  ; public_key : string option          (* ssh public-key line / inlined gpg public key / absent for sigstore *)
+  ; namespace : string option           (* ssh only: the ssh-keygen signing namespace *)
+  ; bundle : string option              (* sigstore only: the verification bundle JSON *)
+  ; oidc_issuer : string option         (* sigstore only: the expected OIDC issuer *)
+  ; transparency_log : string option    (* sigstore only: "rekor" *)
+  ; role : string option                (* the signer's role, e.g. "auditor", "reviewer" *)
+  ; disposition : string option         (* the sign-off, e.g. "approved", "rejected" *)
+  ; timestamp : rfc3161_timestamp option (* RFC-3161 trusted timestamp over `signature` *)
+  }
+
+type rfc3161_timestamp =
+  { standard : string                   (* "rfc3161" *)
+  ; tsa : string                        (* the Time-Stamping Authority URL *)
+  ; hash_alg : string                   (* "sha256" *)
+  ; message_imprint : string            (* sha256 of the signature bytes *)
+  ; token : string                      (* base64 DER TSA response token *)
+  ; time : string option                (* the TSA-attested time, parsed from the token *)
+  }
+```
+
+**Backends.** The `algo` selects one of three interchangeable backends, each with its own trust model, sharing one verification interface:
+
+- **`ssh`** — OpenSSH signatures (`ssh-keygen -Y sign|verify`). No new dependencies, reuses existing keys, verifies fully **offline**. Trust: the key is in an **allowed-signers roster** (git's model).
+- **`gpg`** — GnuPG detached signatures. The signer's `public_key` is inlined on the record so verification is **offline** against an ephemeral keyring. Trust: the key fingerprint (`key_id`) is in a **gpg fingerprint roster**.
+- **`sigstore`** — keyless, identity-bound signing. A short-lived Fulcio certificate binds the signature to an **OIDC identity** (`signer` + `oidc_issuer`) and the proof is recorded in the **Rekor** public transparency log (`transparency_log = "rekor"`). Trust: the certificate identity matches the expected `--identity` / `--oidc-issuer`; there is no long-lived key to manage or leak.
+
+**Sign-off semantics.** `role` and `disposition` make a signature an *attestation*, not merely a countersignature: they record **what** the party is claiming (e.g. `role = "auditor"`, `disposition = "approved"`), connecting a signature to the review verdict (§14.3). Where `content_hash` fixes *what* was signed and the key fixes *who*, the optional RFC-3161 `timestamp` fixes *when*: a Time-Stamping Authority countersigns the `signature`, giving a TSA-attested "existed by *t*" rather than a machine-clock assertion (`signed_at`).
+
+**Verification.** For each signature, verification dispatches on `algo` and yields a uniform status. A separate check confirms the trace's current `content_hash` still matches the digest the signature covers.
+
+```ocaml
+type signature_status =
+  | Valid        (* good signature from a signer trusted under the backend's model *)
+  | Untrusted    (* cryptographically good, but the signer is not in the roster / expected identity *)
+  | Invalid      (* the cryptographic check failed *)
+  | Tampered     (* the trace's content_hash no longer matches the digest the signature covers *)
+
+type signature_verdict =
+  { signer : string
+  ; key_id : string option
+  ; algo : string
+  ; role : string option
+  ; disposition : string option
+  ; status : signature_status
+  ; detail : string
+  ; timestamp : timestamp_verdict option  (* Valid | Untrusted | Invalid | Unknown over the RFC-3161 token *)
+  }
+```
+
+A verifier may **gate on failure** (treat anything other than `Valid` as a hard error), which is how an autonomous pipeline enforces "no unsigned or untrusted trace advances." A signature is the cryptographic complement of a review sign-off (§14.3): where a review item records a disposition *inside* the trace, a signature binds a role-bearing disposition to the exact content it vouches for and to an attestable time, verifiable by a party other than the one that produced the trace.
+
 ---
 
 # 13. Residual Surface
@@ -1058,6 +1147,11 @@ type residual_kind =
   | OpenQuestion     (* a decision deferred to a reviewer or human *)
   | Defeater         (* counter-evidence AGAINST a claim (not a gap): a reason to believe a stated
                         result is wrong. Carries a `defeater_kind`; anchors to the claim it contests. *)
+  | NeedsRereasoning   (* an established result whose evidence a trace MERGE disturbed - a dependency in
+                          its closure changed, or an assumed contract was invalidated: re-establish it
+                          against the merged code (§15.3) *)
+  | CoverageRegression (* a goal whose scope gained an unproven member after a merge - the obligation is
+                          no longer fully covered even though no existing result changed (§15.3) *)
 
 (* What a Defeater attacks (Pollock / SEI Eliminative Argumentation taxonomy). *)
 type defeater_kind =
@@ -1355,6 +1449,65 @@ type trace_lineage =
 
 Traces are immutable; iteration is represented by linked successor traces.
 
+## 15.3 Trace composition (merge)
+
+A **merge** combines two lines of reasoning - the everyday case being a `git merge`/`pull` that brings
+another branch's code, the general case being two independently-produced traces (a hub, multi-agent, or
+multi-domain setting). A merge is the point at which two **individually-valid** results can become
+**jointly invalid**: a result proved against one branch may depend, transitively, on a definition the
+other branch changed, with no textual conflict and no rule broken. Composition is therefore defined to
+**carry forward only the provably-unaffected** and flag the rest for re-establishment - it never asserts a
+carried result is still valid without a warrant.
+
+### Canonical model
+
+```ocaml
+type merge_event =
+  { parents : string list   (* the source trace ids being combined (ours, theirs) *)
+  ; base    : string option (* the common-ancestor trace id, for a three-way combine *)
+  ; kind    : string        (* "merge" | "rebase" | "cherry-pick" | "squash" *)
+  }
+(* Recorded on the merged trace as `merge : merge_event`. The two-parent link is provenance kept OFF the
+   artifact lineage DAG, so §7.3 revisioning and lineage acyclicity (a `derived_from` points only at an
+   EARLIER artifact) are preserved. *)
+
+type carried_forward_basis =
+  | ClosureDisjoint     (* the result's dependency closure did not intersect the merge's change set *)
+  | UninterpretedOpaque (* every changed dependency it touched was assumed `uninterpreted` - the result
+                           holds for ALL values of that dependency, so a change to it cannot invalidate it *)
+
+type carried_forward_payload =
+  { result_id       : string       (* the carried-over reasoning result *)
+  ; basis           : carried_forward_basis
+  ; closure         : string list  (* the component ids checked - the falsifiable witness *)
+  ; via_assumptions : string list  (* for UninterpretedOpaque: the assumptions relied upon *)
+  }
+```
+
+A `CarriedForward` is the **positive dual of a residual**: where a residual (§13) records negative space,
+a `CarriedForward` records a claim that was *deliberately not re-checked because it is provably safe* -
+independently re-verifiable by recomputing the closure/change-set intersection. So a merged trace's
+account of each prior result is one of three: **carried forward** (`CarriedForward`), **must re-reason**
+(`NeedsRereasoning`, §13), or already re-reasoned during the merge.
+
+### Affected set
+
+Whether a result is carried or re-reasoned is decided by its **dependency closure** (§10.4a) intersected
+with the merge's **change set** - the components that differ, matched by `component_id` (§7.1) so a rename
+is recognized as one component, not a delete plus an add. A result is carried forward when the
+intersection is empty (`ClosureDisjoint`), or when every intersecting dependency was assumed
+`uninterpreted` (`UninterpretedOpaque`); otherwise it is flagged `NeedsRereasoning`. A goal whose scope
+gains an unproven component yields a `CoverageRegression`. The soundness obligation is **closure
+completeness**: a skip is only as sound as the closure is complete, so an omitted or ambiguously-matched
+dependency is conservatively treated as changed (re-reasoned), never silently carried.
+
+### Totality
+
+For every reasoning result carried from a parent trace, the merged trace contains **exactly one** of: a
+`CarriedForward` artifact, a `NeedsRereasoning` residual, or a freshly re-established result. This is a
+checkable invariant - it makes "we only re-reasoned the parts the merge affected" auditable rather than
+assumed, and lets a policy (§13.5) refuse a merged trace that silently drops a prior result.
+
 ---
 
 # 16. Interchange Projection Notes
@@ -1521,6 +1674,13 @@ type acceptance_item =
   ; label : string                        (* what this criterion means, in plain language *)
   ; binding : acceptance_binding option    (* how it resolves; if absent, `status` is manual *)
   ; status : acceptance_status option      (* authored fallback when unbound or unresolved *)
+  ; formula : json option                  (* composable acceptance (v1.11, additive): a formula tree over
+                                              atomic criteria — and / or / not / implies / forall / exists,
+                                              with per-atom `met` | `governed` roles and component selectors
+                                              (glob / module / scope / tag). When present it drives
+                                              resolution and `binding` / `status` are the atomic fallback;
+                                              absent ⇒ today's single-criterion item, unchanged. Grammar and
+                                              status-lattice semantics: GOAL_CONTRACT_v0_2 §9. *)
   }
 
 type goal_status =

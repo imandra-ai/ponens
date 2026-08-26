@@ -14,7 +14,7 @@ upon as evidence."* A roadmap and a scoping discipline, not a compliance claim.
 
 Most "AI governance" tooling produces **attestation** — checklists and self-reported claims. A ponens
 trace is **evidence**: an immutable, lineage-linked record where every "done" resolves to a specific
-artifact ([`TRACE_SPEC_v1_9.md`](TRACE_SPEC_v1_9.md) §18) and every verdict comes from a formal engine
+artifact ([`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md) §18) and every verdict comes from a formal engine
 an auditor can **re-run** (§12). That is the difference between *"we assert we did X"* and *"here is X,
 here is the proof, re-check it yourself."* Everything below follows from holding that line: the trace's
 value is that it is checkable, not that it is signed off.
@@ -98,7 +98,7 @@ qualification, is the bar) rather than safety-certification credit.
 ## 5. References
 
 - Integrity / bind: [`CLI_SYNC_MODEL_v0_1.md`](CLI_SYNC_MODEL_v0_1.md)
-- Grounded resolution, freshness, defeaters: [`TRACE_SPEC_v1_9.md`](TRACE_SPEC_v1_9.md) §12, §13, §18
+- Grounded resolution, freshness, defeaters: [`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md) §12, §13, §18
 - Policy / governance: [`POLICY_SPEC_v0_2.md`](POLICY_SPEC_v0_2.md), [`POLICY_SOURCES_v0_1.md`](POLICY_SOURCES_v0_1.md), the `*_PACK.md` files
 - Review / certification: [`REVIEW_CASE_SPEC_v0_2.md`](REVIEW_CASE_SPEC_v0_2.md), [`GOAL_FAITHFULNESS_v0_1.md`](GOAL_FAITHFULNESS_v0_1.md)
 - Interoperability: [`PROV_INTERCHANGE_v0_1.md`](PROV_INTERCHANGE_v0_1.md)

@@ -14,6 +14,7 @@ and formal proofs.
 
 import json
 import os
+import re
 import sys
 import uuid
 from collections import Counter
@@ -179,11 +180,12 @@ def _synthesize_artifacts(actions):
     since the last commit) and produce a TestResult / Commit. Wires action inputs/outputs
     so every consumed artifact has a strictly-earlier producer (data_flow_integrity holds)."""
     artifacts = []
+    residuals = []     # derived counter-evidence (e.g. a failing test run → an open defeater)
     file_art = {}     # file path -> latest artifact id (its current version)
     working = {}       # file path -> artifact id, edited since the last commit
     n = 0
 
-    def _new(atype, name, producer, derived=None, summary=None):
+    def _new(atype, name, producer, derived=None, summary=None, status=None, payload=None):
         nonlocal n
         n += 1
         art = {"artifact_id": f"art{n}", "artifact_type": atype, "name": name,
@@ -192,6 +194,10 @@ def _synthesize_artifacts(actions):
             art["derived_from"] = list(dict.fromkeys(derived))
         if summary:
             art["summary"] = summary
+        if status:
+            art["status"] = status
+        if payload:
+            art["payload"] = payload
         artifacts.append(art)
         return art["artifact_id"]
 
@@ -210,11 +216,25 @@ def _synthesize_artifacts(actions):
                 a["outputs"] = list(dict.fromkeys(a.get("outputs", []) + outs))
         elif t == "RunTests":
             ins = list(working.values())
+            v = a.get("test_verdict") or {}
+            counts = {k: v[k] for k in ("passed", "failed") if v.get(k) is not None}
             aid = _new("TestResult", _short(a.get("label", "tests"), 50), a["id"], ins or None,
-                       _short(a.get("result_summary"), 200) if a.get("result_summary") else None)
+                       _short(a.get("result_summary"), 200) if a.get("result_summary") else None,
+                       status=v.get("status"), payload=counts or None)
             if ins:
                 a["inputs"] = list(dict.fromkeys(a.get("inputs", []) + ins))
             a["outputs"] = list(dict.fromkeys(a.get("outputs", []) + [aid]))
+            # A failing run is live counter-evidence: an OPEN defeater on the TestResult so a
+            # `tested(component)` obligation blocks (§18.2), rather than resolving on mere existence.
+            if v.get("status") == "failed":
+                residuals.append({
+                    "residual_id": f"test-fail-{aid}", "kind": "defeater",
+                    "severity": "high", "status": "open",
+                    "statement": "Tests failed: " + (_short(a.get("result_summary"), 160) or _short(a.get("label", "tests"), 80)),
+                    "suggested_check": "Fix the failing tests and re-run.",
+                    "target": {"target_type": "artifact", "target_id": aid},
+                    "derived": True,
+                })
         elif t == "GitCommit":
             ins = list(working.values())
             aid = _new("Commit", _short(a.get("label", "commit"), 50), a["id"], ins or None)
@@ -222,7 +242,23 @@ def _synthesize_artifacts(actions):
                 a["inputs"] = list(dict.fromkeys(a.get("inputs", []) + ins))
             a["outputs"] = list(dict.fromkeys(a.get("outputs", []) + [aid]))
             working.clear()
-    return artifacts
+    return artifacts, residuals
+
+
+_TEST_FAILED_RE = re.compile(r"(\d+)\s+fail", re.I)   # "2 failed", "1 failure"
+_TEST_PASSED_RE = re.compile(r"(\d+)\s+pass", re.I)   # "148 passed"
+
+
+def _test_verdict(output, errored):
+    """Best-effort pass/fail from a test runner's output. Trusts an explicit failure count and the
+    tool's error flag; deliberately conservative (no fuzzy keyword matching) so a test *named* `error`
+    or a stray 'fail' in a log line can't manufacture a false failure."""
+    text = str(output or "")
+    fm, pm = _TEST_FAILED_RE.search(text), _TEST_PASSED_RE.search(text)
+    failed = int(fm.group(1)) if fm else None
+    passed = int(pm.group(1)) if pm else None
+    status = "failed" if (errored or (failed or 0) > 0) else "passed"
+    return {"status": status, "passed": passed, "failed": failed}
 
 
 def _build_action(ev, aid, cur_dir, active_task):
@@ -266,6 +302,10 @@ def _build_action(ev, aid, cur_dir, active_task):
             action["reproducibility"]["expected_output"] = {"result_summary": result_summary}
     if result_summary:
         action["result_summary"] = result_summary
+    # A test run carries a structured verdict (parsed from the FULL result, before truncation) so the
+    # synthesized TestResult means "passed / failed", not merely "ran".
+    if ev.get("type") == "RunTests":
+        action["test_verdict"] = _test_verdict(result, ev.get("error"))
     return action
 
 
@@ -318,7 +358,7 @@ def build_trace(parsed, title=None, summarize=False):
             a.pop(k, None)
 
     # derive the lineage DAG, and attribute each produced artifact to its meta-action
-    artifacts = _synthesize_artifacts(actions)
+    artifacts, synth_residuals = _synthesize_artifacts(actions)
     a_by_id = {a["id"]: a for a in actions}
     m_by_id = {m["id"]: m for m in meta_actions}
     for art in artifacts:
@@ -341,7 +381,7 @@ def build_trace(parsed, title=None, summarize=False):
         "artifacts": artifacts,
         "policies": [],
         "policy_evaluations": [],
-        "residuals": [],
+        "residuals": synth_residuals,
         "files_modified": sorted(set(files_modified)),
         "reproducibility": {
             "status": "partially_reproducible",

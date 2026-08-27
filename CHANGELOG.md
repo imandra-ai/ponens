@@ -7,6 +7,78 @@ This file is the single source for release news: `make release` turns the matchi
 GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.11.0] — 2026-08-26
+
+The package jumps `1.9.1` → `1.11.0` to track the trace spec, which advanced two minor versions
+(**1.10** trace composition, **1.11** signatures + composable acceptance) — there was no `1.10.0`
+package release. `TRACE_SPEC_v1_9.md` is now `TRACE_SPEC_v1_11.md`; every change below is additive,
+so existing 1.4–1.9 traces stay valid and unchanged.
+
+### Added
+- **Composable acceptance — the goal property language (`GOAL_CONTRACT_v0_2` §9, Trace Spec 1.11
+  §18.1).** An `acceptance_item` MAY now carry a `formula` instead of a single criterion: `and` / `or` /
+  `not` / `implies` over atoms, plus **`forall`** / **`exists`** quantified over *component selectors*
+  (glob, module, scope, tag) — so "every handler in `payments/` is proved, and at least one has a
+  conformance check" is one criterion, not a hand-maintained list. Each atom carries its own **`met`** /
+  **`governed`** role, and resolution runs over a **4-valued status lattice** rather than a boolean. A
+  legacy single-criterion goal is exactly the atomic case and desugars unchanged.
+- **Trace composition — `ponens trace merge` (Trace Spec 1.10 §15.3).** Combines an *ours* and a
+  *theirs* trace (optionally against a `--base` ancestor) and sorts every standing reasoning result into
+  exactly one bucket, under a **totality** invariant: a **`CarriedForward`** artifact when the result is
+  *provably unaffected* — its dependency closure is disjoint from the merge's change set, or every
+  touched dependency was assumed `uninterpreted` — or a **`NeedsRereasoning`** residual when its closure
+  or an assumed contract was disturbed. A **`CoverageRegression`** residual records a goal whose scope
+  gained an unproven member. The merged trace records two-parent `merge_event` provenance; `--combine`
+  emits that trace, the default emits a report projection and mutates neither input. The implementation
+  is the sound-but-conservative realization of the proved IML model in `formal/` — anything not provably
+  safe collapses onto re-reasoning, so a stale result is never reported fresh.
+- **Durable component identity — `component_id` (Trace Spec 1.10 §7.1).** A code component keeps its
+  identity across a rename or a move, so evidence-to-code binding — rooting, freshness, and the merge
+  change set — survives refactoring instead of silently detaching. The resolver is tiered
+  (producer-declared lineage → unique exact fingerprint → confident unique similarity) and **never
+  guesses**: an ambiguous or weak signal mints a new id, because conflating two distinct components is
+  the unsound error.
+- **Oracles — `ponens oracle list` / `ponens oracle show` (`ORACLE_SPEC_v0_1`).** Generalizes *reasoner*
+  to **oracle**: anything that produces evidence about a target and returns it as trace artifacts — a
+  formal reasoner, a test runner, a static analyzer, an LLM-judge, or a human attestor. Two orthogonal
+  classifiers travel with the evidence: `oracle_type` (the *mechanism* — reasoner | tester | analyzer |
+  judge | attestor) and `evidence_strength` (the *guarantee* — proof > sat > tests > static_analysis >
+  attested), so a reviewer can see **which oracle produced a claim and how strong that makes it**. A
+  *reasoner* is now simply the formal, proof-producing subtype.
+- **`ponens.sdk` — instrument an agent instead of reconstructing it (`SDK_SPEC_v0_1`).** A thin runtime
+  SDK for agents that speak ponens natively: open a `Session`, record actions and artifacts as the work
+  happens, invoke oracles for evidence, and on exit get a validated trace that passes `ponens trace
+  check` — no transcript reconstruction step. It builds the same JSON-native trace the rest of the
+  toolchain uses, so there is exactly one trace model and one code path for artifacts and lineage.
+- **Integrity fields are now specified in the trace spec (1.11 §12.4, §5).** `content_hash` and
+  `signatures` — shipped in 1.9.0 and previously defined only in `CLI_SYNC_MODEL` / `AUDIT_READINESS` —
+  are now normative in the core spec, including the `HASH_EXCLUDE` set, the per-signature `role` /
+  `disposition` / RFC-3161 `timestamp` fields, and the uniform `valid` | `untrusted` | `invalid` |
+  `tampered` verdict.
+
+### Changed
+- **The package version jumps `1.9.1` → `1.11.0`** to track the trace spec, which advanced two minor
+  versions in one go — **1.10** (trace composition) and **1.11** (signatures + composable acceptance).
+  There is no `1.10.0` package release; everything from both spec versions ships here.
+  `TRACE_SPEC_v1_9.md` is now `TRACE_SPEC_v1_11.md`.
+- **`GOAL_CONTRACT` is now v0.2** (`GOAL_CONTRACT_v0_1.md` → `GOAL_CONTRACT_v0_2.md`), and
+  `GOAL_FAITHFULNESS_v0_1` re-points at it. **If you link to the spec, update the URL** — the v0.1 path
+  no longer resolves.
+- **The IML / ImandraX formal models moved** from `spec/iml-model/` to **`formal/`** — the framework's
+  invariant models plus the layered trace+policy model in `formal/trace-policy-model/`. The merge and
+  component-identity models there are the conformance spec the Python implementations realize.
+
+### Fixed
+- **`verified_claims_are_fidelity_checked` no longer fires on spec-first sessions.** The formula is now
+  guarded — `(F SourceCode) → G(Verify → F(ConformanceResult(passed)))` — so it applies only when there
+  *is* source code to conform to. An authored-IML session, where the model is the artifact rather than a
+  translation of something, passes vacuously instead of being flagged for a missing fidelity check.
+- **Trace viewer:** the Steps / Actions pills now count within the **active scope**, so the numbers match
+  the cards actually on screen, and each scope option's count is the actions it will really show. A
+  detail panel can be closed (returning the flow to full width), a live same-session refresh keeps your
+  zoom, pan, and manual DAG drags instead of resetting the layout, and the noise-only `completed` result
+  line is no longer rendered on every action.
+
 ## [1.9.1] — 2026-08-09
 
 ### Fixed

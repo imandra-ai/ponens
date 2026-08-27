@@ -1,0 +1,1141 @@
+(* ===================================================================
+   MODEL:    Trace state machine — the trace IS the state
+   PROVES:   the structural invariants I1 (append-only), I2 (lineage-ordered /
+             acyclic), I3 (evidence-grounded) are PRESERVED by every transition;
+             freshness I4 as a derived query (fresh-is-sound, no-false-fresh); and
+             reuse I5 as a state-reading decision + safe transition (never-reuse-stale,
+             conditional growth); and the goal "met" axis as a query (met=all-done,
+             at_risk-never-demotes); the policy governed axis (LTLf G/F, governed _|_ met);
+             and merge (classify soundness + two-parent combine preserves wf) — the
+             whole evidence logic over one state
+   SPEC:     technical paper §2 (state), §4 (freshness), §5 (goals), §6 (policies), §7 (composition), §8
+   CONFORMS: the ponens trace (store + lineage + grounding), unified
+   RECHECK:  imandrax-cli check formal/machine/trace_machine.iml
+   Spec-first: author the model in IML and conform the implementation to it,
+   do not translate the code. Self-application: Ponens verifying its own logic.
+
+   This is the consolidation of store/supersession (I1), trace/well_founded (I2),
+   and trace/grounding (I3) into ONE state-transition machine. The state is a
+   `trace` (a list of typed artifacts); the transitions are `extend` (append a new
+   artifact) and `supersede` (retire the current revision of a target). The
+   well-formedness predicate `wf` is the conjunction of the structural invariants,
+   and the top theorems say `wf` is an INDUCTIVE INVARIANT: it holds of the initial
+   (empty) state and is preserved by every transition. Freshness (I4) is folded in as
+   a derived QUERY over this same state (recomputed against the current model), and
+   reuse (I5) is folded in as a state-reading decision plus a safe transition, and the
+   goal "met" axis as a query, the policy "governed" axis over the action timeline
+   (with governed _|_ met), and merge as a two-parent `combine` transition that
+   preserves the invariant. The whole evidence logic now lives over one state.
+
+   EVENTS ARE FIRST-CLASS (see the STATE section at the end): the full state is
+   `state = { actions; artifacts }` --- the ordered action log AND the artifact DAG ---
+   with every artifact grounded in a recorded producer action; `wf_state` lifts `wf`
+   to the pair, and `extend_state`/`supersede_state`/`combine_state` preserve it.
+   =================================================================== *)
+
+type kind = Source | ModelArtifact | VResult | Residual | GoalArtifact
+
+type artifact = {
+  id : int;                 (* producer order: strictly increasing along the trace *)
+  derived_from : int list;  (* lineage edges — ids of earlier artifacts *)
+  target : int;             (* the code component this is about (for supersession) *)
+  superseded : bool;        (* retired by a later revision of the same target *)
+  akind : kind;
+  engine_backed : bool;     (* a VResult must be produced by an engine (I3) *)
+  frozen : int;             (* the task fingerprint captured when produced (for I4) *)
+  producer_action : int;    (* the aid of the ACTION that produced this artifact *)
+}
+
+type trace = artifact list  (* THE STATE — newest artifact appended at the end *)
+
+(* ---------- id / lineage helpers ---------- *)
+
+let rec has_id (x : int) (t : trace) : bool =
+  match t with [] -> false | a :: r -> a.id = x || has_id x r
+
+let rec max_id (t : trace) : int =
+  match t with
+  | [] -> 0
+  | a :: r -> let m = max_id r in if a.id > m then a.id else m
+
+let rec mem_id (x : int) (ids : int list) : bool =
+  match ids with [] -> false | i :: r -> i = x || mem_id x r
+
+let rec all_earlier (self : int) (ids : int list) : bool =
+  match ids with [] -> true | i :: r -> i < self && all_earlier self r
+
+let rec length (t : trace) : int =
+  match t with [] -> 0 | _ :: r -> 1 + length r
+
+(* ---------- the well-formedness predicate = I2 & I3 (I1 is about the transition) ---------- *)
+
+(* I2 : every artifact's every parent has a STRICTLY SMALLER id — an edge points at
+   an earlier producer. This ordering condition alone forbids cycles (no node can
+   reach itself), the well-foundedness the "trace is a context" argument needs. *)
+let rec lineage_ordered (t : trace) : bool =
+  match t with
+  | [] -> true
+  | a :: r -> all_earlier a.id a.derived_from && lineage_ordered r
+
+(* I3 : prose is inert — a verification result only counts if an engine backs it. *)
+let rec grounded (t : trace) : bool =
+  match t with
+  | [] -> true
+  | a :: r -> (a.akind = VResult ==> a.engine_backed) && grounded r
+
+let wf (t : trace) : bool = lineage_ordered t && grounded t
+
+(* ---------- the transitions ---------- *)
+
+(* A candidate artifact is admissible in state [t] iff its parents are all earlier
+   than it (I2 at the boundary) and — if it is a verification result — it is
+   engine-backed (I3 at the boundary). A caller mints the id as max_id t + 1, which
+   makes every existing id (<= max_id t) strictly earlier (see fresh_id_is_new). *)
+let admissible (t : trace) (a : artifact) : bool =
+  all_earlier a.id a.derived_from
+  && (a.akind = VResult ==> a.engine_backed)
+
+(* EXTEND — the append transition (record a new artifact). Append-only: the prior
+   state is a prefix, unchanged. *)
+let extend (t : trace) (a : artifact) : trace = t @ [a]
+
+(* SUPERSEDE — retire the current revision(s) of a target: flip flags only, never
+   remove or reorder history (this is the append-only supersession of I1). *)
+let rec supersede (t : trace) (tgt : int) : trace =
+  match t with
+  | [] -> []
+  | a :: r ->
+    if a.target = tgt && not a.superseded
+    then { a with superseded = true } :: supersede r tgt
+    else a :: supersede r tgt
+
+(* ================= I1 : append-only (the state only grows / flags flip) ================= *)
+
+theorem length_append_one (t : trace) (a : artifact) =
+  length (extend t a) = length t + 1
+[@@by induct ()]
+
+theorem supersede_preserves_length (t : trace) (tgt : int) =
+  length (supersede t tgt) = length t
+[@@by induct ()]
+
+(* ================= the predicates distribute over the append / flag-flip ================= *)
+
+theorem lineage_ordered_append (t : trace) (a : artifact) =
+  lineage_ordered (extend t a)
+  = (lineage_ordered t && all_earlier a.id a.derived_from)
+[@@by induct ()] [@@rw]
+
+theorem grounded_append (t : trace) (a : artifact) =
+  grounded (extend t a)
+  = (grounded t && (a.akind = VResult ==> a.engine_backed))
+[@@by induct ()] [@@rw]
+
+(* supersede changes no id / derived_from / akind / engine_backed — only the
+   [superseded] flag — so the ordering and grounding predicates are invariant. *)
+theorem supersede_preserves_ordered (t : trace) (tgt : int) =
+  lineage_ordered t ==> lineage_ordered (supersede t tgt)
+[@@by induct ()]
+
+theorem supersede_preserves_grounded (t : trace) (tgt : int) =
+  grounded t ==> grounded (supersede t tgt)
+[@@by induct ()]
+
+(* ================= THE INVARIANCE THEOREMS (safety of the machine) ================= *)
+
+(* Initial state: the empty trace is well-formed. *)
+theorem wf_empty = wf []
+[@@by auto]
+
+(* EXTEND preserves wf: appending an admissible artifact keeps I2 (its parents are
+   earlier) and I3 (it is grounded); the prefix is untouched. *)
+theorem extend_preserves_wf (t : trace) (a : artifact) =
+  wf t && admissible t a ==> wf (extend t a)
+[@@by [%use lineage_ordered_append t a] @> [%use grounded_append t a] @> auto]
+
+(* SUPERSEDE preserves wf: flipping retirement flags changes no id / edge / kind /
+   engine flag, so neither ordering nor grounding can break. *)
+theorem supersede_preserves_wf (t : trace) (tgt : int) =
+  wf t ==> wf (supersede t tgt)
+[@@by [%use supersede_preserves_ordered t tgt]
+   @> [%use supersede_preserves_grounded t tgt]
+   @> auto]
+
+(* ================= I2 sharpened: the ordering discipline is sound ================= *)
+
+(* A minted id max_id t + 1 is strictly greater than every id already present, so an
+   edge into the existing trace is automatically "earlier": the id-minting discipline
+   discharges admissibility's all_earlier requirement. *)
+theorem max_id_is_bound (t : trace) (x : int) =
+  has_id x t ==> x <= max_id t
+[@@by induct ()]
+
+(* Ordering forbids self-reference (no length-1 cycle): a node's id is never among
+   its own parents. Whole-trace form via a recursive predicate. *)
+let rec no_self_ref (t : trace) : bool =
+  match t with
+  | [] -> true
+  | a :: r -> not (mem_id a.id a.derived_from) && no_self_ref r
+
+theorem all_earlier_not_self (self : int) (ids : int list) =
+  all_earlier self ids ==> not (mem_id self ids)
+[@@by induct ()] [@@fc]
+
+theorem ordered_implies_no_self_ref (t : trace) =
+  lineage_ordered t ==> no_self_ref t
+[@@by induct () @> auto]
+
+(* ================= I4 : Freshness — a derived QUERY over the state ================= *)
+
+(* Freshness is never stored; it is RECOMPUTED against the current model, which we
+   supply at query time as two functions: [present tgt] says the target still exists,
+   and [cur tgt] is its current task fingerprint (a hash of the target plus its
+   dependency closure). Each result stored its fingerprint as [frozen] when produced.
+   Because the verdict is a function of the CURRENT model, the state can never
+   silently disagree with reality — the whole point of I4. *)
+
+type fresh_verdict = Fresh | Stale | Detached
+
+let freshness_of (a : artifact) (present : int -> bool) (cur : int -> int) : fresh_verdict =
+  if not (present a.target) then Detached
+  else if a.frozen = cur a.target then Fresh
+  else Stale
+
+(* I4a fresh_is_sound: a result never reads Fresh unless its target exists AND the
+   current content matches what was reasoned about. No false Fresh at the atom. *)
+theorem fresh_is_sound (a : artifact) (present : int -> bool) (cur : int -> int) =
+  freshness_of a present cur = Fresh
+  ==> present a.target && a.frozen = cur a.target
+[@@by auto]
+
+(* I4b revert-refreshens: freshness is a pure function of content, not history; if the
+   current content equals what was reasoned about, the verdict is Fresh. *)
+theorem revert_refreshens (a : artifact) (present : int -> bool) (cur : int -> int) =
+  present a.target && cur a.target = a.frozen
+  ==> freshness_of a present cur = Fresh
+[@@by auto]
+
+(* I4c a result is Detached exactly when its target is gone (orphaned work). *)
+theorem detached_iff_absent (a : artifact) (present : int -> bool) (cur : int -> int) =
+  (freshness_of a present cur = Detached) = (not (present a.target))
+[@@by auto]
+
+(* ---- aggregate over the state: the live evidence is fresh ---- *)
+
+(* a live result is a current (non-superseded) verification result *)
+let is_live_result (a : artifact) : bool =
+  (a.akind = VResult) && not a.superseded
+
+let rec evidence_fresh (t : trace) (present : int -> bool) (cur : int -> int) : bool =
+  match t with
+  | [] -> true
+  | a :: r ->
+    (is_live_result a ==> freshness_of a present cur = Fresh)
+    && evidence_fresh r present cur
+
+let rec mem_art (a : artifact) (t : trace) : bool =
+  match t with [] -> false | x :: r -> x = a || mem_art a r
+
+(* I4d no-false-fresh (aggregate): if the trace's evidence is fresh, then EVERY live
+   result really does match the current model — no drifted or vanished contributor
+   hides behind a green aggregate. This is the property goal resolution (§5) and the
+   merge affected-set (§7.1) inherit. *)
+theorem no_false_fresh (t : trace) (present : int -> bool) (cur : int -> int) (a : artifact) =
+  evidence_fresh t present cur && mem_art a t && is_live_result a
+  ==> present a.target && a.frozen = cur a.target
+[@@by [%use fresh_is_sound a present cur] @> induct ()]
+
+(* ================= I5 : Reuse — a decision that reads the state, a transition that grows it ================= *)
+
+(* The reuse decision (formalization-cache `planFormalization`) reads the STATE: is
+   there already a live (current, non-superseded) verification result for the target
+   that is FRESH against the current model? If so, REUSE it (a cache hit); otherwise,
+   if the target is in scope, FORMALIZE (a miss); otherwise SKIP. This composes the
+   freshness query (I4) above with the append transition (I1). *)
+
+type reuse_action = Reuse | Formalize | Skip
+
+(* is there a live, fresh verification result for [tgt] in the state? *)
+let rec has_fresh_result (t : trace) (tgt : int) (present : int -> bool) (cur : int -> int) : bool =
+  match t with
+  | [] -> false
+  | a :: r ->
+    (is_live_result a && a.target = tgt && freshness_of a present cur = Fresh)
+    || has_fresh_result r tgt present cur
+
+let plan_reuse (t : trace) (tgt : int) (in_scope : bool)
+               (present : int -> bool) (cur : int -> int) : reuse_action =
+  if not in_scope then Skip
+  else if has_fresh_result t tgt present cur then Reuse
+  else Formalize
+
+(* applying the plan: a miss appends the freshly-produced result; a hit / skip leave
+   the state untouched. [a_new] is the artifact a Formalize would produce. *)
+let apply_reuse (t : trace) (a_new : artifact) (act : reuse_action) : trace =
+  match act with
+  | Formalize -> extend t a_new
+  | Reuse -> t
+  | Skip -> t
+
+(* I5a never-reuse-stale: the plan says Reuse only when a live FRESH result exists —
+   drifted evidence is never trusted. *)
+theorem never_reuse_stale (t : trace) (tgt : int) (in_scope : bool)
+                          (present : int -> bool) (cur : int -> int) =
+  plan_reuse t tgt in_scope present cur = Reuse
+  ==> has_fresh_result t tgt present cur
+[@@by auto]
+
+(* I5b conditional growth: applying the plan grows the trace by AT MOST ONE. *)
+theorem conditional_growth (t : trace) (a_new : artifact) (act : reuse_action) =
+  length (apply_reuse t a_new act) = length t
+  || length (apply_reuse t a_new act) = length t + 1
+[@@by [%use length_append_one t a_new] @> auto]
+
+(* I5c only a miss appends: the trace grows IFF the decision was Formalize; Reuse and
+   Skip are exact no-ops on the state. *)
+theorem only_miss_appends (t : trace) (a_new : artifact) (act : reuse_action) =
+  (length (apply_reuse t a_new act) = length t + 1) = (act = Formalize)
+[@@by [%use length_append_one t a_new] @> auto]
+
+(* I5d the reuse transition is SAFE: it preserves the machine invariant. A miss
+   appends an admissible artifact (extend preserves wf); a hit / skip change nothing. *)
+theorem apply_reuse_preserves_wf (t : trace) (a_new : artifact) (act : reuse_action) =
+  wf t && (act = Formalize ==> admissible t a_new) ==> wf (apply_reuse t a_new act)
+[@@by [%use extend_preserves_wf t a_new] @> auto]
+
+(* I5e composition with freshness (revert-reuses): if a live result for [tgt] is fresh
+   against the current model (e.g. an edit was reverted, so the fingerprint matches
+   again), the in-scope plan is Reuse — and Reuse does not grow the trace. Free work. *)
+theorem revert_reuses (t : trace) (tgt : int) (present : int -> bool) (cur : int -> int) =
+  has_fresh_result t tgt present cur
+  ==> plan_reuse t tgt true present cur = Reuse
+      && length (apply_reuse t (List.hd t) Reuse) = length t
+[@@by auto]
+
+(* ================= GOALS : the "met" axis — a query over the state ================= *)
+
+(* An acceptance item targets a code component; its resolved status is a QUERY over the
+   trace's evidence. Done = a live (current) verification result roots in the component;
+   the honesty overlay flags a Done item whose evidence has drifted (no longer fresh)
+   as at_risk WITHOUT demoting its status. `met` = every item Done (all-done). This is
+   the "met" axis of the evidence logic, built directly on the freshness query (I4). *)
+
+type gstatus = GTodo | GDoing | GDone | GBlocked
+
+type gitem = { comp : int }
+
+let rec mem_gitem (it : gitem) (g : gitem list) : bool =
+  match g with [] -> false | x :: r -> x = it || mem_gitem it r
+
+(* is there a live (current) verification result for this component? (evidence exists) *)
+let rec has_live_result_for (t : trace) (comp : int) : bool =
+  match t with
+  | [] -> false
+  | a :: r -> (is_live_result a && a.target = comp) || has_live_result_for r comp
+
+(* resolve an item against the state: Done iff a live result roots in its component *)
+let resolve_item (t : trace) (it : gitem) : gstatus =
+  if has_live_result_for t it.comp then GDone else GTodo
+
+(* the honesty overlay: a Done item whose live evidence is no longer FRESH is flagged
+   at_risk — it composes the resolved status with the freshness query (I4). *)
+let item_at_risk (t : trace) (it : gitem) (present : int -> bool) (cur : int -> int) : bool =
+  resolve_item t it = GDone
+  && not (has_fresh_result t it.comp present cur)
+
+let rec goal_met (t : trace) (g : gitem list) : bool =
+  match g with
+  | [] -> true
+  | it :: rest -> (resolve_item t it = GDone) && goal_met t rest
+
+(* G1 met is all-done: a met goal has every item resolved Done. *)
+theorem met_all_done (t : trace) (g : gitem list) (it : gitem) =
+  goal_met t g && mem_gitem it g ==> resolve_item t it = GDone
+[@@by induct ()]
+
+(* G2 Done is evidence-grounded: an item resolves Done only when a live result really
+   roots in its component — never from prose (this is I3 at the goal layer). *)
+theorem done_needs_evidence (t : trace) (it : gitem) =
+  resolve_item t it = GDone ==> has_live_result_for t it.comp
+[@@by auto]
+
+(* G3 at_risk never demotes: an at-risk item is still Done. The overlay only sets a
+   flag; it does not change the resolved status (goals.py enrich only writes at_risk). *)
+theorem at_risk_never_demotes (t : trace) (it : gitem) (present : int -> bool) (cur : int -> int) =
+  item_at_risk t it present cur ==> resolve_item t it = GDone
+[@@by auto]
+
+(* G4 honesty (composition with freshness): a Done item that is NOT at_risk genuinely
+   has FRESH evidence — "green and not-at-risk" can never hide stale evidence. This is
+   no-false-fresh lifted to the met axis. *)
+theorem done_not_at_risk_is_fresh (t : trace) (it : gitem) (present : int -> bool) (cur : int -> int) =
+  resolve_item t it = GDone && not (item_at_risk t it present cur)
+  ==> has_fresh_result t it.comp present cur
+[@@by auto]
+
+(* ================= POLICY : the "governed" axis — a query over the action timeline ================= *)
+
+(* The met axis (goals) ranges over the ARTIFACT sort — what was established. The
+   governed axis (policies) ranges over the ACTION sort — the finite timeline of what
+   the agent DID. A policy is an LTLf formula evaluated over that timeline. Because the
+   two axes read DISJOINT projections of the state (artifacts vs timeline), they are
+   orthogonal: how the work was done cannot change what was established, and vice versa. *)
+
+type act = Edit | Test | Commit | Verify | Approve | Research
+type timeline = act list
+
+(* G p : p holds at every position (globally). F p : p holds at some position (finally). *)
+let rec g_all (p : act -> bool) (tl : timeline) : bool =
+  match tl with [] -> true | a :: r -> p a && g_all p r
+
+let rec f_some (p : act -> bool) (tl : timeline) : bool =
+  match tl with [] -> false | a :: r -> p a || f_some p r
+
+(* the response pattern G(trigger -> F response): at every position where [trig] holds,
+   [resp] holds somewhere in the suffix from that position (finally). *)
+let rec responds (trig : act -> bool) (resp : act -> bool) (tl : timeline) : bool =
+  match tl with
+  | [] -> true
+  | a :: r -> (trig a ==> f_some resp (a :: r)) && responds trig resp r
+
+(* P1 temporal semantics — worked example (mirrors policy/temporal's G(refuted->F proved)):
+   "every Verify is eventually followed by an Approve" FAILS with no later Approve ... *)
+theorem policy_example_fails =
+  not (responds (fun a -> a = Verify) (fun a -> a = Approve) [Verify; Edit])
+[@@by auto]
+
+(* ... and PASSES when the Approve is present in the suffix. *)
+theorem policy_example_passes =
+  responds (fun a -> a = Verify) (fun a -> a = Approve) [Verify; Approve]
+[@@by auto]
+
+(* P2 G is conjunctive over the timeline: globally-p on a cons is p-here and globally-p
+   on the tail (the LTLf unfolding of G). *)
+theorem g_all_unfold (p : act -> bool) (a : act) (r : timeline) =
+  g_all p (a :: r) = (p a && g_all p r)
+[@@by auto]
+
+(* ---- the full state is (artifacts, timeline); the two axes project disjoint parts ---- *)
+
+type gstate = { arts : trace; tl : timeline }
+
+let met_of (s : gstate) (g : gitem list) : bool = goal_met s.arts g
+
+let governed_of (s : gstate) (trig : act -> bool) (resp : act -> bool) : bool =
+  responds trig resp s.tl
+
+(* P3 governed ⊥ met (orthogonality), half 1: the met verdict is invariant under ANY
+   change to the action timeline — how the work was sequenced cannot change what was
+   established. *)
+theorem met_ignores_timeline (s : gstate) (g : gitem list) (new_tl : timeline) =
+  met_of s g = met_of { s with tl = new_tl } g
+[@@by auto]
+
+(* P4 governed ⊥ met, half 2: the governed verdict is invariant under ANY change to the
+   artifacts — the process constraint reads only the timeline. Together with P3 this is
+   the machine-checked "governed is orthogonal to met" the evidence logic claims. *)
+theorem governed_ignores_arts (s : gstate) (trig : act -> bool) (resp : act -> bool) (new_arts : trace) =
+  governed_of s trig resp = governed_of { s with arts = new_arts } trig resp
+[@@by auto]
+
+(* ================= MERGE : composition across traces — the two-parent transition ================= *)
+
+(* The capstone. A merge combines two traces; the sharp question is which carried-over
+   results survive. The change set [delta] is the set of components the incoming branch
+   changed. A result is CARRIED FORWARD iff its dependency closure is disjoint from
+   delta, or every touched dependency is a discharged (uninterpreted) contract;
+   otherwise it must be RE-REASONED. This is the affected-set classifier of §7.1, and
+   its no-false-fresh property is exactly the freshness soundness (I4) evaluated at a
+   two-parent point. The combine transition then folds the incoming artifacts into the
+   state via the SAME append transition, so composition preserves the machine invariant. *)
+
+type merge_class = CarriedForward | NeedsRereasoning
+
+let rec intersect (xs : int list) (ys : int list) : int list =
+  match xs with
+  | [] -> []
+  | x :: r -> if mem_id x ys then x :: intersect r ys else intersect r ys
+
+let rec all_uninterp (u : int -> bool) (ids : int list) : bool =
+  match ids with [] -> true | i :: r -> u i && all_uninterp u r
+
+(* the touched dependencies: the result's closure edges that the merge changed *)
+let touched (a : artifact) (delta : int list) : int list = intersect a.derived_from delta
+
+let classify (a : artifact) (delta : int list) (u : int -> bool) : merge_class =
+  if touched a delta = [] then CarriedForward
+  else if all_uninterp u (touched a delta) then CarriedForward
+  else NeedsRereasoning
+
+(* M1 totality: every carried-over result lands in exactly one bucket. *)
+theorem merge_totality (a : artifact) (delta : int list) (u : int -> bool) =
+  classify a delta u = CarriedForward || classify a delta u = NeedsRereasoning
+[@@by auto]
+
+(* M2 no-false-fresh at the merge: a CarriedForward result is PROVABLY unaffected —
+   its closure is disjoint from the change set, or every touched dependency is a
+   discharged contract. A genuinely-affected result is never silently carried. *)
+theorem merge_no_false_fresh (a : artifact) (delta : int list) (u : int -> bool) =
+  classify a delta u = CarriedForward
+  ==> touched a delta = [] || all_uninterp u (touched a delta)
+[@@by auto]
+
+(* M3 never-guess: if any touched dependency is not a discharged contract, the result
+   is flagged for re-reasoning (the merge does not guess it safe). *)
+theorem merge_never_guess (a : artifact) (delta : int list) (u : int -> bool) =
+  touched a delta <> [] && not (all_uninterp u (touched a delta))
+  ==> classify a delta u = NeedsRereasoning
+[@@by auto]
+
+(* ---- the two-parent combine transition ---- *)
+
+(* combine merges the two branches' traces into one. Because both structural
+   invariants are per-node self-contained — I2 (lineage_ordered) checks each node's
+   parents against its OWN id, and I3 (grounded) checks each node alone — they
+   distribute over concatenation, so the combined trace is well-formed exactly when
+   both parents are. This is the key to composition. *)
+let combine (ours : trace) (theirs : trace) : trace = ours @ theirs
+
+theorem lineage_ordered_concat (xs : trace) (ys : trace) =
+  lineage_ordered (xs @ ys) = (lineage_ordered xs && lineage_ordered ys)
+[@@by induct ()] [@@rw]
+
+theorem grounded_concat (xs : trace) (ys : trace) =
+  grounded (xs @ ys) = (grounded xs && grounded ys)
+[@@by induct ()] [@@rw]
+
+(* M4 composition preserves the invariant: combining two well-formed traces yields a
+   well-formed trace. This is "the machine composes across traces" — the paper's
+   central claim, machine-checked. (Re-reasoning the affected results, classify above,
+   restores freshness; wf itself is preserved by the merge structurally.) *)
+theorem combine_preserves_wf (ours : trace) (theirs : trace) =
+  wf ours && wf theirs ==> wf (combine ours theirs)
+[@@by auto]
+
+(* ================= GOALS, cont.: progress is a real ratio in [0,1] ================= *)
+
+(* progress = resolved / total, a bona-fide real fraction (goals.py progress_of). Migrated
+   from the retired goals/resolution model — the flagship "progress in [0,1]" result,
+   discharged via RCF by abstracting the quotient (integer a*100/b would not go through). *)
+
+let rec g_resolved (t : trace) (g : gitem list) : int =
+  match g with
+  | [] -> 0
+  | it :: rest -> (if resolve_item t it = GDone then 1 else 0) + g_resolved t rest
+
+let rec g_total (g : gitem list) : int =
+  match g with [] -> 0 | _ :: rest -> 1 + g_total rest
+
+let g_progress (t : trace) (g : gitem list) : real =
+  if g_total g = 0 then 0.
+  else Real.( of_int (g_resolved t g) / of_int (g_total g) )
+
+theorem g_resolved_nonneg (t : trace) (g : gitem list) = 0 <= g_resolved t g
+[@@by induct ()]
+theorem g_total_nonneg (g : gitem list) = 0 <= g_total g
+[@@by induct ()]
+theorem g_resolved_le_total (t : trace) (g : gitem list) = g_resolved t g <= g_total g
+[@@by induct ()]
+
+theorem div_recip (x : real) (y : real) =
+  Real.( y <> 0. ) ==> Real.( y * (x / y) = x )
+[@@by auto]
+theorem ratio_from_prod (x : real) (y : real) (q : real) =
+  Real.( 0. <= x && x <= y && y > 0. && y * q = x ) ==> Real.( 0. <= q && q <= 1. )
+[@@by auto]
+theorem real_ratio_bounded (x : real) (y : real) =
+  Real.( 0. <= x && x <= y && y > 0. ) ==> Real.( 0. <= x / y && x / y <= 1. )
+[@@by [%use div_recip x y] @> [%use ratio_from_prod x y Real.(x / y)] @> auto]
+theorem of_int_nonneg (a : int) = 0 <= a ==> Real.( of_int a >= 0. )
+[@@by auto]
+theorem of_int_mono (a : int) (b : int) = a <= b ==> Real.( of_int a <= of_int b )
+[@@by auto]
+theorem of_int_pos (b : int) = 0 < b ==> Real.( of_int b > 0. )
+[@@by auto]
+
+(* progress lands in [0.,1.] on a non-empty goal — the faithful real bound. *)
+theorem g_progress_bounded (t : trace) (g : gitem list) =
+  g_total g > 0 ==> Real.( 0. <= g_progress t g && g_progress t g <= 1. )
+[@@by [%use g_resolved_nonneg t g] @> [%use g_resolved_le_total t g]
+   @> [%use of_int_nonneg (g_resolved t g)]
+   @> [%use of_int_mono (g_resolved t g) (g_total g)]
+   @> [%use of_int_pos (g_total g)]
+   @> [%use real_ratio_bounded (Real.of_int (g_resolved t g)) (Real.of_int (g_total g))]
+   @> auto]
+
+theorem g_progress_wf (t : trace) (g : gitem list) =
+  g_total g = 0 ==> Real.( g_progress t g = 0. )
+[@@by auto]
+
+(* ================= COMPONENT IDENTITY : the durable-id resolver (never-conflate) =================
+   Migrated from the retired component/identity model. The resolver stamps a durable component id at
+   record time; the unsound error is CONFLATION, so the safe fallback is MintNew. Plus the
+   append-only alias equivalence over the correction log. *)
+type id_decision = ReuseId of int | MintNew
+
+let sim_min    = 80
+let sim_margin = 15
+
+(* The confident-similarity predicate (ambiguity.iml's floor + margin): the best
+   candidate clears the minimum AND beats the runner-up by the margin. *)
+let confident_sim (best : int) (second : int) : bool =
+  best >= sim_min && best - second >= sim_margin
+
+(* --- The resolver, 4 tiers in order -------------------------------------------------
+   lineage_id : a producer-declared same-model-line link (Some id) if present.
+   exact_count: # priors with an identical fingerprint.
+   exact_id   : the sole exact match's id (meaningful only when exact_count = 1).
+   best,second: top-two similarity percentages (0..100).
+   sim_id     : the best similarity candidate's id.
+   Returns MintNew when unsure - the CALLER allocates the fresh id. *)
+let resolve_component (lineage_id : int option) (exact_count : int) (exact_id : int)
+            (best : int) (second : int) (sim_id : int) : id_decision =
+  match lineage_id with
+  | Some k -> ReuseId k                                      (* Tier 1: lineage wins *)
+  | None ->
+    if exact_count = 1 then ReuseId exact_id                 (* Tier 2: unique exact *)
+    else if confident_sim best second then ReuseId sim_id    (* Tier 3: confident sim *)
+    else MintNew                                              (* Tier 4: mint new *)
+
+(* ================= Soundness invariants (never conflate) ================= *)
+
+(* THE soundness prop. A reuse NEVER happens without a confident, UNIQUE signal:
+   the reused id is the lineage id, OR the sole exact match, OR the clear
+   similarity winner. Conflation-by-guessing is impossible. *)
+theorem reuse_is_justified (lin : int option) (ec : int) (eid : int)
+                           (b : int) (s : int) (sid : int) (id : int) =
+  resolve_component lin ec eid b s sid = ReuseId id ==>
+    (lin = Some id)
+    || (lin = None && ec = 1 && id = eid)
+    || (lin = None && ec <> 1 && confident_sim b s && id = sid)
+
+(* Multiple identical fingerprints, no lineage, no confident similarity: don't guess
+   WHICH prior it is -> mint, never conflate. *)
+theorem ambiguous_exact_mints (ec : int) (eid : int) (b : int) (s : int) (sid : int) =
+  ec > 1 && not (confident_sim b s)
+  ==> resolve_component None ec eid b s sid = MintNew
+
+(* Weak or ambiguous similarity, no lineage, no unique-exact: not reused via
+   similarity (=> MintNew). *)
+theorem weak_similarity_mints (ec : int) (eid : int) (b : int) (s : int) (sid : int) =
+  ec <> 1 && not (confident_sim b s)
+  ==> resolve_component None ec eid b s sid = MintNew
+
+(* A producer-declared same-model-line link is the highest-confidence signal and
+   always takes precedence. *)
+theorem lineage_wins (k : int) (ec : int) (eid : int) (b : int) (s : int) (sid : int) =
+  resolve_component (Some k) ec eid b s sid = ReuseId k
+
+(* ================= MintNew freshness (no accidental collision) ================= *)
+
+(* The caller allocates a fresh id on MintNew. We model freshness abstractly: `fresh_id`
+   is chosen distinct from every candidate id. This predicate says a MintNew with such a
+   fresh_id collides with no candidate. It is trivially provable because `resolve_component`'s
+   MintNew carries no id - the freshness lives entirely in the caller's choice - so we
+   state it over the caller's contract: if fresh_id differs from all candidate ids,
+   then the newly-stamped id differs from all candidate ids. *)
+let mint_stamp (fresh_id : int) : int = fresh_id
+
+theorem mint_fresh (fresh_id : int) (eid : int) (sid : int) (lin_id : int)
+                   (ec : int) (b : int) (s : int) (sid2 : int) =
+  resolve_component None ec eid b s sid2 = MintNew
+  && fresh_id <> eid && fresh_id <> sid && fresh_id <> lin_id
+  ==> mint_stamp fresh_id <> eid
+      && mint_stamp fresh_id <> sid
+      && mint_stamp fresh_id <> lin_id
+
+(* ================= Concrete example theorems (examples as tests) ================= *)
+
+(* 1. Lineage present -> ReuseId that id, even when similarity is weak. *)
+theorem ex1_lineage_beats_weak =
+  resolve_component (Some 7) 0 0 70 10 99 = ReuseId 7
+
+(* 2. Unique exact fingerprint, no lineage -> ReuseId exact_id. *)
+theorem ex2_unique_exact =
+  resolve_component None 1 42 0 0 99 = ReuseId 42
+
+(* 3. Two exact matches, no lineage -> MintNew (never conflate). *)
+theorem ex3_two_exact_mints =
+  resolve_component None 2 42 0 0 99 = MintNew
+
+(* 4. Confident rename (best=90, second=40), no lineage/exact -> ReuseId sim_id. *)
+theorem ex4_confident_rename =
+  resolve_component None 0 0 90 40 55 = ReuseId 55
+
+(* 5. Weak similarity (best=70) -> MintNew. *)
+theorem ex5_weak_sim_mints =
+  resolve_component None 0 0 70 10 55 = MintNew
+
+(* 6. Close runner-up (best=85, second=75, margin 10 < 15) -> MintNew (ambiguous). *)
+theorem ex6_close_runnerup_mints =
+  resolve_component None 0 0 85 75 55 = MintNew
+
+(* 7. Nothing matches -> MintNew. *)
+theorem ex7_nothing_mints =
+  resolve_component None 0 0 0 0 0 = MintNew
+
+(* Edge: best exactly at the floor and margin exactly met -> ReuseId. *)
+theorem ex_edge_exactly_at_floor =
+  resolve_component None 0 0 80 65 55 = ReuseId 55
+
+(* Edge: best at floor but margin one short (14) -> MintNew. *)
+theorem ex_edge_margin_one_short =
+  resolve_component None 0 0 80 66 55 = MintNew
+
+(* Edge: exact_count = 0 with confident similarity -> similarity fires. *)
+theorem ex_edge_zero_exact_confident_sim =
+  resolve_component None 0 0 95 20 33 = ReuseId 33
+
+(* Edge: many exacts but a confident similarity - similarity still fires (Tier 3
+   only requires exact_count <> 1, and a confident unique similarity is trusted). *)
+theorem ex_edge_many_exact_confident_sim =
+  resolve_component None 3 0 95 20 33 = ReuseId 33
+
+(* ================= Append-only alias equivalence ================= *)
+
+(* Append-only corrections link two component ids that denote the SAME component.
+   `same_component a b aliases` is the reflexive-symmetric closure over the alias
+   list, PLUS explicit one-step transitivity via a shared neighbour. We keep the
+   relation bounded/relational so ImandraX reasons about it directly. *)
+type alias = (int * int)
+
+(* Direct link in either direction (symmetric membership). *)
+let rec linked (a : int) (b : int) (aliases : alias list) : bool =
+  match aliases with
+  | [] -> false
+  | (x, y) :: rest ->
+    (x = a && y = b) || (x = b && y = a) || linked a b rest
+
+(* The list of every id mentioned in the alias log (both endpoints of each pair).
+   These are the candidate shared neighbours for a transitive step. *)
+let rec endpoints (aliases : alias list) : int list =
+  match aliases with
+  | [] -> []
+  | (x, y) :: rest -> x :: y :: endpoints rest
+
+(* Is there a shared neighbour n (drawn from `ns`) linking a to b in the full log?
+   For each candidate id n: a linked-or-equal to n AND n linked-or-equal to b. This
+   provides the one-step transitive closure over the append-only log. Scanning a flat
+   id list (not pairs) keeps this a single, clean recursion. *)
+let rec via_neighbour (a : int) (b : int) (ns : int list) (aliases : alias list) : bool =
+  match ns with
+  | [] -> false
+  | n :: rest ->
+    ((linked a n aliases || a = n) && (linked n b aliases || n = b))
+    || via_neighbour a b rest aliases
+
+(* Reflexive-symmetric closure, plus one shared-neighbour transitive step. *)
+let same_component (a : int) (b : int) (aliases : alias list) : bool =
+  a = b
+  || linked a b aliases
+  || via_neighbour a b (endpoints aliases) aliases
+
+(* --- Alias equivalence properties --- *)
+
+(* Reflexive: every component is the same component as itself, under any alias log. *)
+theorem alias_reflexive (a : int) (aliases : alias list) =
+  same_component a a aliases
+
+(* `linked` is symmetric by construction. *)
+theorem linked_symmetric (a : int) (b : int) (aliases : alias list) =
+  linked a b aliases = linked b a aliases
+[@@by induct ()]
+
+(* Symmetric (direct case): a direct alias link is symmetric, so same_component
+   ignores argument order for the linked disjunct (equality and linked are both
+   symmetric). This is the append-only content of symmetry. *)
+theorem same_component_symmetric_direct (a : int) (b : int) (aliases : alias list) =
+  linked a b aliases ==> same_component b a aliases
+[@@by [%use linked_symmetric a b aliases] @> auto]
+
+(* If b is directly linked to something (here: to c), then b is one of the endpoints
+   mentioned in the log - so it is a candidate shared neighbour. *)
+theorem linked_left_is_endpoint (b : int) (c : int) (aliases : alias list) =
+  linked b c aliases ==> mem_id b (endpoints aliases)
+[@@by induct ()]
+
+(* via_neighbour discovers ANY candidate n in its scan list that satisfies the
+   link-or-equal conditions on both sides. Induct on the candidate list `ns`. *)
+theorem via_neighbour_finds (a : int) (n : int) (b : int)
+                            (ns : int list) (aliases : alias list) =
+  mem_id n ns
+  && (linked a n aliases || a = n)
+  && (linked n b aliases || n = b)
+  ==> via_neighbour a b ns aliases
+[@@by induct ()]
+
+(* One-step transitivity (GENERAL): a direct link a-b and a direct link b-c give
+   same_component a c, for an arbitrary append-only alias log. b is the shared
+   neighbour: it is an endpoint (linked_left_is_endpoint) and via_neighbour_finds
+   discovers it. *)
+theorem alias_one_step_transitive (a : int) (b : int) (c : int) (aliases : alias list) =
+  linked a b aliases && linked b c aliases ==> same_component a c aliases
+[@@by [%use linked_left_is_endpoint b c aliases]
+   @> [%use via_neighbour_finds a b c (endpoints aliases) aliases]
+   @> auto]
+
+(* --- Concrete alias examples (example 8) --- *)
+
+let al2 : alias list = [(1, 2); (2, 3)]
+
+(* Reflexive on a small list. *)
+theorem ex8_alias_reflexive = same_component 5 5 al2
+
+(* Direct membership. *)
+theorem ex8_alias_direct = same_component 1 2 al2
+
+(* Symmetric on the small list. *)
+theorem ex8_alias_symmetric = same_component 2 1 al2
+
+(* One-step transitive: 1-2 and 2-3 => 1 same_component 3 (via shared neighbour 2).
+   Ground unrolling over the concrete log; the default step bound is a touch low so
+   we raise it. *)
+theorem ex8_alias_transitive = same_component 1 3 al2
+[@@by unroll 40]
+
+(* Unrelated ids are NOT conflated. *)
+theorem ex8_alias_unrelated = not (same_component 1 9 al2)
+[@@by unroll 40]
+
+(* ================= VERIFY ESCALATION LADDER =================
+   Migrated from the retired escalation/ladder model. The ordered verify ladder: the
+   verdict of the first rung that decides; always decides; a decided verdict has a
+   witness; first-decider-wins. (Rung outcomes E-prefixed to avoid clashing with the
+   residual verdict statuses below.) *)
+type rung_out = EProved | ERefuted | EFailed
+
+(* The ladder's final verdict (mirrors verify-graph's terminal verdict statuses). *)
+type verdict = VProved | VRefuted | VUnknown
+
+(* --- walk : the bounded ORDERED walk of the ladder ---
+   Return the verdict of the FIRST rung that decided (EProved/ERefuted). If the ladder is
+   empty, or every rung EFailed, return VUnknown (the honest exhausted-unknown that
+   verifyRoute records once `tacticIdx + 1 = tactics.length`). A structural fold over the
+   finite rung list: ImandraX's termination checker discharges its termination PO, so the
+   walk always terminates and always returns a verdict. *)
+let rec walk (rungs : rung_out list) : verdict =
+  match rungs with
+  | [] -> VUnknown
+  | EProved  :: _    -> VProved
+  | ERefuted :: _    -> VRefuted
+  | EFailed  :: rest -> walk rest
+
+(* Did any rung decide (i.e. is some rung EProved or ERefuted)? *)
+let rec some_decider (rungs : rung_out list) : bool =
+  match rungs with
+  | [] -> false
+  | EProved  :: _    -> true
+  | ERefuted :: _    -> true
+  | EFailed  :: rest -> some_decider rest
+
+(* Membership of a specific outcome in the ladder (used for the witness invariants). *)
+let rec has_out (x : rung_out) (rungs : rung_out list) : bool =
+  match rungs with
+  | [] -> false
+  | r :: rest -> r = x || has_out x rest
+
+(* ================= Invariants (the properties a silent bug would break) ================= *)
+
+(* I1 - always_decides: the walk is TOTAL - `walk rungs` is ALWAYS one of the three
+   verdicts, never stuck. With a finite rung list `walk` terminates (termination PO) and
+   this totality theorem shows the result is always a definite verdict. *)
+theorem always_decides (rungs : rung_out list) =
+  walk rungs = VProved || walk rungs = VRefuted || walk rungs = VUnknown
+[@@by induct ()]
+
+(* I2 - unknown_iff_no_decider: the ladder ends VUnknown IFF nothing decided (empty, or
+   every rung EFailed). Unknown is NEVER returned when a rung actually decided, and is
+   ALWAYS returned when none did - the honest exhausted-unknown, no fabrication either way. *)
+theorem unknown_iff_no_decider (rungs : rung_out list) =
+  (walk rungs = VUnknown) = (not (some_decider rungs))
+[@@by induct ()]
+
+(* I3a - decided_has_witness (proved): a positive verdict is GROUNDED in a real deciding
+   rung - VProved is returned only when some rung is genuinely EProved (never fabricated). *)
+theorem proved_has_witness (rungs : rung_out list) =
+  walk rungs = VProved ==> has_out EProved rungs
+[@@by induct ()]
+
+(* I3b - decided_has_witness (refuted): symmetrically, VRefuted is grounded in a real
+   ERefuted rung. *)
+theorem refuted_has_witness (rungs : rung_out list) =
+  walk rungs = VRefuted ==> has_out ERefuted rungs
+[@@by induct ()]
+
+(* --- first_decider_wins: the ladder is a MONOTONE ordered ladder - earlier rungs take
+   precedence. A clean provable form: a EFailed prefix is transparent (dropping leading
+   EFailed rungs does not change the verdict), so the verdict is exactly that of the first
+   non-EFailed rung. *)
+
+(* I4a - a leading EFailed rung is transparent: escalation past an inconclusive rung
+   preserves the eventual verdict (this is the recursive step of the walk, stated as a law). *)
+theorem failed_prefix_transparent (rest : rung_out list) =
+  walk (EFailed :: rest) = walk rest
+
+(* I4b - first_decider_wins: if the FIRST rung already decides, the ladder returns exactly
+   that rung's verdict - the earliest decider wins, later rungs are never consulted. *)
+theorem first_decider_wins (r : rung_out) (rest : rung_out list) =
+  (r = EProved  ==> walk (r :: rest) = VProved)
+  && (r = ERefuted ==> walk (r :: rest) = VRefuted)
+[@@by auto]
+
+(* ================= RENAME AMBIGUITY : rename recovery, never guess =================
+   Migrated from the retired rename/ambiguity model. findRenameTarget: take a rename only
+   on a unique exact match or a clear similarity win; refuse (NoMatch) when ambiguous.
+   Reuses sim_min/sim_margin from the component-identity section above. *)
+type result = Match | NoMatch
+
+(* --- Tier 1: EXACT (findRenameTarget, exact[] handling) ---
+   A rename is taken only when there is exactly ONE byte-identical candidate.
+   0 matches = nothing to recover; >1 = copies exist, so refuse to guess. *)
+let exact_tier (exact_count : int) : result =
+  if exact_count = 1 then Match else NoMatch
+
+(* --- Tier 2: SIMILARITY (findRenameTarget, best/second handling) ---
+   Accept the single best candidate only if it clears the minimum AND beats the
+   runner-up by the margin; a near-tie (small margin) is ambiguous and rejected. *)
+let similarity_tier (best : int) (second : int) : result =
+  if best >= sim_min && best - second >= sim_margin then Match else NoMatch
+
+(* --- The combined decision: exact tier first; fall to similarity only if it did not fire. *)
+let find_rename (exact_count : int) (best : int) (second : int) : result =
+  match exact_tier exact_count with
+  | Match -> Match
+  | NoMatch -> similarity_tier best second
+
+(* ================= Invariants (the "don't guess" safety property) ================= *)
+
+(* T1 - Ambiguous exact copies are never guessed: more than one byte-identical
+   candidate ⇒ the exact tier refuses. *)
+theorem no_guess_on_ambiguous_exact (exact_count : int) =
+  exact_count > 1 ==> exact_tier exact_count = NoMatch
+
+(* T2 - Below the similarity floor there is no rename. *)
+theorem no_guess_below_threshold (best : int) (second : int) =
+  best < sim_min ==> similarity_tier best second = NoMatch
+
+(* T3 - A near-tie is ambiguous: too small a lead over the runner-up ⇒ refuse. *)
+theorem no_guess_on_close_runnerup (best : int) (second : int) =
+  best - second < sim_margin ==> similarity_tier best second = NoMatch
+
+(* T4 - Converse: any similarity Match is ALWAYS unambiguous (clears floor AND margin). *)
+theorem similarity_accepts_only_clear (best : int) (second : int) =
+  similarity_tier best second = Match ==> best >= sim_min && best - second >= sim_margin
+
+(* T5 - A byte-identical single move is taken regardless of similarity scores. *)
+theorem exact_wins (exact_count : int) (best : int) (second : int) =
+  exact_count = 1 ==> find_rename exact_count best second = Match
+
+(* T6 - Soundness of the whole decision: any accepted rename is either an exact single
+   match or a clear similarity win - never a guess. *)
+theorem find_match_is_justified (ec : int) (b : int) (s : int) =
+  find_rename ec b s = Match ==> (ec = 1) || (b >= sim_min && b - s >= sim_margin)
+
+(* ================= VERDICT TOTALITY : every terminal state lands somewhere =================
+   Migrated from the retired residual/verdict_totality model. emitVerdict maps every rich
+   verdict status to a landing (result and/or residual); totality = no terminal state maps
+   to nothing, and every defect is carried in the residual surface. *)
+type status =
+  | Proved
+  | Refuted
+  | Unknown
+  | Instance
+  | NoInstance
+  | Bounded
+
+(* --- What emitVerdict actually lands on the trace for a status ---
+   `has_result`   : a VerificationResult artifact is ALWAYS pushed (every status).
+   `has_residual` : an OPEN residual is ALSO pushed for the defect/limitation
+                    branches (unknown / refuted / bounded).
+   Modelling BOTH bools captures the code's "result + residual" cases (bounded is
+   a proof that ALSO carries a `limitation` residual - GAP-7). *)
+type landing = {
+  has_result   : bool;
+  has_residual : bool;
+}
+
+(* --- WIRE_VERDICT (export.ts): rich internal verdict -> ponens-valid wire verdict.
+   Only {proved, refuted, unknown} are wire-valid; the richer statuses collapse. *)
+type wire = WProved | WRefuted | WUnknown
+
+let wire_verdict (s : status) : wire =
+  match s with
+  | Proved     -> WProved
+  | Bounded    -> WProved   (* a proof, just bounded to a depth *)
+  | Instance   -> WProved   (* definite, non-refuting engine result *)
+  | NoInstance -> WProved
+  | Refuted    -> WRefuted
+  | Unknown    -> WUnknown
+
+(* --- emit : status -> landing.  Faithful to emitVerdict:
+     * a VerificationResult is pushed for EVERY status         => has_result = true
+     * a residual is pushed in exactly three branches:
+         status = Unknown  -> `unverified`   residual   (engine-checked genuine gap)
+         status = Refuted  -> `open_question` residual   (a confirmed defect)
+         status = Bounded  -> `limitation`   residual   (holds only up to a bound)
+       Proved / Instance / NoInstance produce NO residual (a positive verdict is
+       carried as evidence, not a gap). *)
+let emit (s : status) : landing =
+  match s with
+  | Proved     -> { has_result = true; has_residual = false }
+  | Instance   -> { has_result = true; has_residual = false }
+  | NoInstance -> { has_result = true; has_residual = false }
+  | Unknown    -> { has_result = true; has_residual = true  }
+  | Refuted    -> { has_result = true; has_residual = true  }
+  | Bounded    -> { has_result = true; has_residual = true  }
+
+(* "Lands somewhere" = at least one of the two surfaces carries the verdict. *)
+let lands_somewhere (l : landing) : bool =
+  l.has_result || l.has_residual
+
+(* A "positive" verdict: the engine gave a definite, non-defect outcome. These are
+   exactly the WProved wire verdicts (proved / bounded / instance / no-instance).
+   NB: `bounded` is positive (a proof) yet ALSO carries a limitation residual. *)
+let is_positive (s : status) : bool =
+  wire_verdict s = WProved
+
+(* A "defect/gap" verdict: NOT a clean universal proof. Its gap must be carried in
+   the residual surface (the honesty property). This is every branch of emitVerdict
+   that pushes a residual: Refuted / Unknown / Bounded. *)
+let is_defect (s : status) : bool =
+  match s with
+  | Refuted | Unknown | Bounded -> true
+  | Proved | Instance | NoInstance -> false
+
+(* ================= Invariants (spec ch-11: every terminal state lands somewhere) ================= *)
+
+(* T1 - TOTALITY (the ch-11 no-dead-end claim): for EVERY status, `emit` produces at
+   least one landing. No terminal state maps to "nothing". Because `status` is a finite
+   enum this is a coverage theorem over all constructors. *)
+theorem totality (s : status) =
+  lands_somewhere (emit s)
+
+(* T1b - the stronger form actually true of the code: every status yields a RESULT
+   (a VerificationResult is unconditionally pushed by emitVerdict). *)
+theorem always_has_result (s : status) =
+  (emit s).has_result
+
+(* T2 - PROVED_IS_RESULT: a positive verdict lands as evidence (a Result), not merely
+   as a gap. Covers proved / bounded / instance / no-instance. *)
+theorem proved_is_result (s : status) =
+  is_positive s ==> (emit s).has_result
+
+(* T3 - DEFECT_HAS_RESIDUAL (the honesty property): every NON-positive/limitation
+   status carries an OPEN residual in the negative space - a gap is never dropped. *)
+theorem defect_has_residual (s : status) =
+  is_defect s ==> (emit s).has_residual
+
+(* T3b - the contrapositive/completeness partner: a clean positive verdict that is
+   NOT a defect carries NO residual (proved / instance / no-instance are pure
+   evidence). This pins down that the residual surface is exactly the defect set. *)
+theorem clean_positive_no_residual (s : status) =
+  (is_positive s && not (is_defect s)) ==> not (emit s).has_residual
+
+(* T4 - EXHAUSTIVE_COVER: the residual surface EQUALS the defect set. A status carries
+   a residual iff it is a defect - nothing over- or under-carried. Combined with
+   ImandraX's exhaustiveness check on the `emit` match, this certifies full coverage
+   of the finite enum. *)
+theorem residual_iff_defect (s : status) =
+  (emit s).has_residual = is_defect s
+
+(* ================= STATE : actions + artifacts (events first-class) =================
+   The trace state of the paper's §2 has TWO parts: the ordered ACTION log (ground
+   truth — one entry per tool call) and the ARTIFACT lineage DAG (the evidence). The
+   invariants above are proved over the artifact DAG and the policies over the action
+   timeline; here we make the pairing explicit. The state is (actions, artifacts); every
+   artifact is PRODUCED BY an action recorded in the log (no orphan evidence — evidence
+   enters the trace only via a recorded action); and the transitions grow both together,
+   preserving that link. *)
+
+type action = { aid : int; atype : act; produces : int list }
+
+type state = { actions : action list; artifacts : trace }
+
+let rec has_action (x : int) (acts : action list) : bool =
+  match acts with [] -> false | a :: r -> a.aid = x || has_action x r
+
+(* every artifact is grounded in an action present in the log *)
+let rec artifacts_have_producers (arts : trace) (acts : action list) : bool =
+  match arts with
+  | [] -> true
+  | a :: r -> has_action a.producer_action acts && artifacts_have_producers r acts
+
+(* full-state well-formedness: the artifact DAG is wf AND every artifact has a producer *)
+let wf_state (s : state) : bool =
+  wf s.artifacts && artifacts_have_producers s.artifacts s.actions
+
+let empty_state : state = { actions = []; artifacts = [] }
+
+(* --- transitions on the full state (grow actions and artifacts together) --- *)
+let extend_state (s : state) (act0 : action) (a : artifact) : state =
+  { actions = s.actions @ [act0]; artifacts = extend s.artifacts a }
+
+let admissible_state (s : state) (act0 : action) (a : artifact) : bool =
+  admissible s.artifacts a
+  && a.producer_action = act0.aid           (* the artifact points at THIS action ... *)
+  && mem_id a.id act0.produces              (* ... and the action declares it as output *)
+
+let supersede_state (s : state) (tgt : int) : state =
+  { s with artifacts = supersede s.artifacts tgt }
+
+let combine_state (ours : state) (theirs : state) : state =
+  { actions = ours.actions @ theirs.actions;
+    artifacts = combine ours.artifacts theirs.artifacts }
+
+(* --- the producer link distributes over the appends --- *)
+theorem has_action_left (xs : action list) (ys : action list) (x : int) =
+  has_action x xs ==> has_action x (xs @ ys)
+[@@by induct ()] [@@fc]
+
+theorem has_action_right (xs : action list) (ys : action list) (x : int) =
+  has_action x ys ==> has_action x (xs @ ys)
+[@@by induct ()] [@@fc]
+
+theorem has_action_self_append (acts : action list) (act0 : action) =
+  has_action act0.aid (acts @ [act0])
+[@@by induct ()]
+
+theorem producers_artifact_append (arts : trace) (acts : action list) (a : artifact) =
+  artifacts_have_producers (extend arts a) acts
+  = (artifacts_have_producers arts acts && has_action a.producer_action acts)
+[@@by induct ()] [@@rw]
+
+theorem producers_concat (xs : trace) (ys : trace) (acts : action list) =
+  artifacts_have_producers (xs @ ys) acts
+  = (artifacts_have_producers xs acts && artifacts_have_producers ys acts)
+[@@by induct ()] [@@rw]
+
+theorem producers_grow_left (arts : trace) (xs : action list) (ys : action list) =
+  artifacts_have_producers arts xs ==> artifacts_have_producers arts (xs @ ys)
+[@@by induct ()]
+
+theorem producers_grow_right (arts : trace) (xs : action list) (ys : action list) =
+  artifacts_have_producers arts ys ==> artifacts_have_producers arts (xs @ ys)
+[@@by induct ()]
+
+(* ================= state-level safety: every transition preserves wf_state ================= *)
+
+theorem wf_state_empty = wf_state empty_state
+[@@by auto]
+
+(* EXTEND_STATE: recording an action and the admissible artifact it produces keeps the
+   artifact DAG well-formed AND the new artifact is grounded in the just-recorded action. *)
+theorem extend_state_preserves_wf (s : state) (act0 : action) (a : artifact) =
+  wf_state s && admissible_state s act0 a ==> wf_state (extend_state s act0 a)
+[@@by [%use extend_preserves_wf s.artifacts a]
+   @> [%use producers_grow_left s.artifacts s.actions [act0]]
+   @> [%use has_action_self_append s.actions act0]
+   @> auto]
+
+theorem supersede_state_preserves_wf (s : state) (tgt : int) =
+  wf_state s ==> wf_state (supersede_state s tgt)
+[@@by [%use supersede_preserves_wf s.artifacts tgt] @> auto]
+
+(* COMBINE_STATE: merging two states merges both logs and both DAGs; every artifact of
+   each parent is still grounded in the merged log, and the merged DAG is well-formed. *)
+theorem combine_state_preserves_wf (ours : state) (theirs : state) =
+  wf_state ours && wf_state theirs ==> wf_state (combine_state ours theirs)
+[@@by [%use combine_preserves_wf ours.artifacts theirs.artifacts]
+   @> [%use producers_grow_left ours.artifacts ours.actions theirs.actions]
+   @> [%use producers_grow_right theirs.artifacts ours.actions theirs.actions]
+   @> auto]

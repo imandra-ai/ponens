@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate the INTERNAL goal-contract gallery: a curated set of small, valid traces that each exercise
-one facet of the Goal Contract (GOAL_CONTRACT_v0_1) — the three axes (met / governed / certified),
+one facet of the Goal Contract (GOAL_CONTRACT_v0_2) — the three axes (met / governed / certified),
 every evidence-artifact type, goal-scoped governance (block / disable), and faithfulness (coverage,
 self-review). The website's /internal page and `ponens trace view` both read these.
 

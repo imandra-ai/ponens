@@ -28,6 +28,9 @@ viewer/vscode-plugin/media/demo-traces/
 # Local registry cache
 .ponens/
 
+# Local IML scratch written by the Imandra tooling when it translates a source file
+.imandra/
+
 # Visualizer asset copied into the CLI package at build time (source: viewer/vscode-plugin/media/)
 cli/ponens/visualizer.html
 

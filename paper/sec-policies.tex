@@ -1,0 +1,406 @@
+\section{Policies}\label{sec:policies}
+
+Section~\ref{sec:goals} developed the \emph{met} axis: a goal is an outcome
+property over the \emph{artifact} sort, resolved against the evidence in \trace{}.
+This section deepens the second axis. A goal asks \emph{what was established}; a
+policy asks \emph{how it was established}. Because both are formulas in the one
+two-sorted evidence logic (\S\ref{sec:evidence-logic}), a policy shares the
+connectives and quantifiers of a goal but ranges over the \emph{action} sort ---
+the finite timeline of what the agent did --- and over the trace's structural
+surfaces (lineage, residuals). The verdict it yields is \code{governed}, distinct
+from \code{met} and, as we show in \S\ref{sec:pol-met-vs-governed}, orthogonal to
+it. This is the \emph{governance surface} of \S\ref{sec:context} made precise:
+governance you \emph{run} over the trace, not a checklist or a sign-off.
+
+\subsection{The policy object}\label{sec:pol-object}
+
+A policy is a machine-checkable rule over a trace, carrying its meaning as a
+\emph{formula} rather than prose. The canonical object (POLICY\_SPEC\_v0\_2
+\S6.1) is shown in Figure~\ref{fig:pol-object}.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\id{policy} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{policy\_id}            & \id{String},\\
+\id{name}                  & \id{String},\\
+\id{severity}              & \id{Policy\_severity},\\
+\id{scope}                 & \id{Policy\_scope},\\
+\id{kind}                  & \id{Policy\_kind},\\
+\id{applies\_when}         & \opt{\id{Policy\_selector}},\\
+\id{formula}               & \id{Policy\_formula},\\
+\id{reference\_artifact\_id} & \opt{\id{String}}
+\end{array}
+\;\Big)
+\]
+\caption{The canonical \code{policy} record (POLICY\_SPEC\_v0\_2 \S6.1), whose \code{formula} field carries the rule's authoritative machine-checkable meaning. \code{severity} is \id{Info}$\mid$\id{Warning}$\mid$\id{ErrorSeverity}; \code{scope} is \id{Trace}$\mid$\id{Action}$\mid$\id{Artifact}$\mid$\id{Module}; \code{kind} is \id{TraceInvariant}$\mid$\id{ReasoningRequirement}$\mid$\id{LineageRequirement}$\mid\cdots$}
+\label{fig:pol-object}
+\end{figure}
+
+\noindent The \code{formula} field is authoritative: if the human
+\code{description} and the \code{formula} disagree, the formula wins.
+\code{severity} records the consequence of failure and induces the ordering
+\(\code{Info} < \code{Warning} < \code{Error}\); an \code{Error}-severity
+failure is a \emph{hard} governance failure, a \code{Warning} a flagged gap.
+\code{scope} fixes the level at which the rule is interpreted (whole trace, an
+action, an artifact, or a module), and \code{applies\_when} is an optional
+selector (by action type, artifact type/role, category, or path pattern) that
+narrows the trigger. A policy may additionally name a required \code{reasoner}
+from the reasoner registry, demanding not just \emph{that} a claim was verified
+but \emph{by what} engine --- the difference between a claim \emph{established}
+and one merely asserted.
+
+A policy \emph{attaches} to a trace in two ways. It may be materialized from a
+\emph{pack} or \emph{source} (\S\ref{sec:pol-sources}), or it may be declared
+\emph{inline on a goal} --- the \code{policies} passed alongside
+\code{declare\_goal}, evaluated over that goal's relevance cone. Inline policies
+are the natural place to demand that a goal's evidence be \emph{good}, not merely
+present (e.g.\ ``a refuted result must eventually be re-proved,''
+\S\ref{sec:pol-worked}), while packs carry the shared standards a whole codebase
+is held to.
+
+\subsection{The formula language}\label{sec:pol-language}
+
+The policy language (POLICY\_LANGUAGE\_v0\_2) is \textbf{LTLf} --- linear
+temporal logic over \emph{finite} traces~\cite{ltl} --- extended with
+\emph{scoped-past} operators and \emph{first-order structural predicates} over
+the typed artifact graph. A trace is read as a finite sequence of actions
+\(\tau = a_0, a_1, \ldots, a_n\) over a lineage DAG, and a formula is evaluated at
+a position \(i\).
+
+\paragraph{Grammar.}
+The canonical abstract syntax (POLICY\_SPEC \S10) is the grammar of
+Figure~\ref{fig:pol-grammar}, written in the unicode surface
+(\(\to\), \(\land\), \(\lor\), \(\lnot\)) the gallery uses throughout.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{r@{\;\;}c@{\;\;}l}
+\varphi & ::= & \top \mid \bot \mid p \mid \lnot\varphi \mid \varphi \land \varphi \mid \varphi \lor \varphi \mid \varphi \rightarrow \varphi \mid \varphi \leftrightarrow \varphi \\
+        & \mid & t \bowtie t \mid o_1\,\varphi \mid \varphi \mathbin{o_2} \varphi \mid Q\,x \in e.\;\varphi \\[3pt]
+o_1 & ::= & \mathsf{G} \mid \mathsf{F} \mid \mathsf{X} \mid \mathsf{P} \mid \mathsf{H} \mid \mathsf{P}_{\mathsf{target}} \mid \mathsf{P}_{\mathsf{chain}} \mid \mathsf{H}_{\mathsf{target}} \mid \mathsf{H}_{\mathsf{chain}} \\
+o_2 & ::= & \mathsf{U} \mid \mathsf{S} \mid \mathsf{S}_{\mathsf{last}} \\
+Q & ::= & \forall \mid \exists \mid \exists! \\
+{\bowtie} & ::= & {=} \mid {\neq} \mid {<} \mid {\leq} \mid {>} \mid {\geq} \mid {\in} \\
+t & ::= & x \mid v \mid t.f \mid \mathrm{inputs}(t) \mid \mathrm{outputs}(t) \mid \mathrm{target}(t) \mid \mathrm{ancestors}(t) \mid \lvert e\rvert \\
+e & ::= & \{\, t_1,\ldots,t_n \,\} \mid \{\, t : x \in \mathit{src},\ \varphi \,\}
+\end{array}
+\]
+\vspace{-2pt}
+\begin{minipage}{\linewidth}
+{\footnotesize $p$: an atomic predicate on an action, artifact, status, or path. $\mathsf{G},\mathsf{F},\mathsf{X},\mathsf{P},\mathsf{H}$: globally, finally, next, previous, historically; the \textsf{target}/\textsf{chain} subscripts scope a past operator to a target or its lineage chain. $\mathsf{U},\mathsf{S}$: until, since ($\mathsf{S}_{\mathsf{last}}$: since the most recent occurrence). $t.f$: field access (e.g.\ $r.\mathrm{severity}$); $\lvert e\rvert$: cardinality; $e$ is a set literal or a lineage comprehension over the artifact graph.\par}
+\end{minipage}
+\caption{The abstract syntax of the \textrm{LTL}$_f$-based policy formula language (POLICY\_SPEC \S10): temporal operators, first-order quantifiers, field-access terms, and set comprehensions over the typed artifact graph. This is the unicode surface used throughout the gallery.}
+\label{fig:pol-grammar}
+\end{figure}
+
+\paragraph{Temporal operators.}
+The language supports \emph{both} future- and past-time operators over the
+finite timeline, plus scoped variants:
+\begin{itemize}
+\item \textbf{Future.} \code{G}\,\(\varphi\) (globally --- \(\varphi\) holds at
+every position); \code{F}\,\(\varphi\) (finally/eventually --- \(\varphi\) holds
+at some later position); \code{X}\,\(\varphi\) (next); and the binary
+\(\varphi\)\,\code{U}\,\(\psi\) (until --- \(\varphi\) holds at every position
+until \(\psi\) does).
+\item \textbf{Past.} \code{P}\,\(\varphi\) (previously --- held at some earlier
+position); \code{H}\,\(\varphi\) (historically --- held at every earlier
+position); \(\varphi\)\,\code{S}\,\(\psi\) (since --- \(\varphi\) has held at
+every position since \(\psi\) last held); and \(\varphi\)\,\code{S\_last}\,\(\psi\)
+(since-last). Past operators are natural here because most trace rules look
+\emph{backwards} from a triggering event, and they admit \emph{incremental}
+runtime evaluation (blocking an action \emph{before} it violates a policy).
+\item \textbf{Scoped past.} \code{P\_target}/\code{H\_target} restrict the
+witnessing earlier position to those sharing the current action's \emph{target}
+(same file/module/artifact); \code{P\_chain}/\code{H\_chain} restrict it to
+positions lying in the current action's \code{derived\_from} \emph{lineage}. This
+is what distinguishes ``any prior work'' from ``\emph{relevant} prior work'':
+\code{research\_before\_edit} uses \code{P\_target}, while
+\code{reasoning\_required\_for\_high\_stakes} uses \code{P\_chain}.
+\end{itemize}
+
+\noindent The formal interpretation is standard finite-trace LTL:
+\((\tau, i) \models \code{G}\,\varphi\) iff \((\tau, j) \models \varphi\) for all
+\(j \ge i\); \((\tau, i) \models \code{F}\,\varphi\) iff \((\tau, j) \models
+\varphi\) for some \(j \ge i\); \((\tau, i) \models \code{P}\,\varphi\) iff for
+some \(j < i\); \((\tau, i) \models \code{H}\,\varphi\) iff for all \(j < i\); and
+\((\tau, i) \models \varphi\,\code{S}\,\psi\) iff there is \(j < i\) with
+\((\tau, j) \models \psi\) and \((\tau, k) \models \varphi\) for all
+\(j < k < i\). The scoped operators are the same, with the witness \(j\)
+restricted to the target- or lineage-matching positions.
+
+\paragraph{Atoms, fields, and structure.}
+At each position the atoms range over action types (\code{EditFile},
+\code{GitCommit}, \code{Verify}, \code{DefineVG}, \code{Formalize},
+\code{Decompose}, \ldots), action categories (\code{gateway}, \code{reasoning},
+\code{activity}), status predicates (\code{completed}, \code{failed}), field
+predicates (\code{rationale}\,\(\neq \emptyset\)), and path predicates
+(\code{high\_stakes\_path}). Structural predicates read the typed graph:
+artifact types (\code{VerificationResult}, \code{IMLModel},
+\code{Decomposition}, \ldots), result status (\code{proved}, \code{refuted},
+\code{sat}, \code{unknown}), lineage (\code{ancestors(derived\_from)}), and set
+operations (\code{inputs}, \code{outputs}, \code{target}). Field access
+(\code{Field}) with comparisons (\code{cmp\_op}) is what lets a policy talk about
+the \emph{residual surface}: severity is \emph{totally ordered}
+(\code{Info} < \code{Low} < \code{Medium} < \code{High} < \code{Critical}), so
+\(r.\code{severity} \ge \code{High}\) is meaningful, while \code{kind} and
+\code{status} are unordered enums compared by equality, and \(\emptyset\) denotes
+a missing value.
+
+Each policy declares its \code{language\_level} --- \code{pure\_temporal} (future/
+past operators over atomic propositions), \code{scoped\_temporal} (adds the
+scoped-past operators), or \code{structural} (adds quantifiers, comprehensions,
+and lineage predicates) --- so the evaluator and the reviewer know how much
+machinery a check requires.
+
+\paragraph{A gallery sampler.}
+The published gallery (\S\ref{sec:pol-sources}) is the best intuition for the
+language: over two hundred real policies, from CI hygiene to avionics and market
+governance, all in the one surface. Figure~\ref{fig:pol-gallery} shows a
+representative handful --- each a live gallery entry, glossed by its own
+\code{description} --- spanning the operator range: past-response (\code{P}),
+liveness (\code{F}), the since-last binary (\code{S\_last}), the two scoped-past
+forms (\code{P\_target} on the same target, \code{P\_chain} along lineage), and
+negation over the connectives.
+
+\begin{figure}[H]
+\begin{lstlisting}[language=Policy]
+# tests_before_commit: every commit follows a passing test run
+G(GitCommit -> P(RunTests /\ completed))
+
+# no_secrets_committed: a commit must never introduce a secret-bearing file
+G(GitCommit -> ~P(CreateFile /\ secret_pattern))
+
+# research_before_edit: every edit follows research on the SAME target
+G(EditFile -> P_target(ReadFile \/ ReadDocumentation \/ SearchCode \/ AnalyzeCode))
+
+# reasoning_required_for_high_stakes: high-stakes edits need proof in their lineage
+G(EditFile /\ high_stakes_path -> P_chain(VerificationResult(proved \/ sat) \/ Decomposition))
+
+# tests_pass_before_commit: the most recent test run before each commit passed
+G(GitCommit -> (RunTests /\ completed) S_last GitCommit)
+
+# refuted_results_must_be_reproved: a refutation must eventually be re-proved
+G(VerificationResult(refuted) -> F(VerificationResult(proved \/ sat)))
+
+# no_release_without_authenticated_approval: release only after a scoped approval
+G(Release \/ Deploy -> P(UserApproval /\ authenticated /\ approval_scope_covers))
+\end{lstlisting}
+\caption{A sampler of live gallery policies (each line commented with its policy id
+and \code{description}), rendered in the unicode surface of
+Figure~\ref{fig:pol-grammar}. Operators are purple, action/artifact types blue,
+status predicates green, and the connectives ($\rightarrow \land \lor \lnot$)
+grey; lowercase atoms (\code{secret\_pattern}, \code{high\_stakes\_path},
+\code{authenticated}) are the flags a trace carries.}
+\label{fig:pol-gallery}
+\end{figure}
+
+\subsection{Evaluation semantics}\label{sec:pol-eval}
+
+Evaluating a policy \(\varphi\) against a trace \(\tau\) computes the satisfaction
+relation \(\tau \models \varphi\) and records a \code{policy\_evaluation} with one
+of three (materially) statuses:
+\begin{itemize}
+\item \code{Passed} --- the formula holds over the trace;
+\item \code{Failed} --- it is violated, and the evaluator reports the
+\emph{witnessing} \code{violating\_action\_ids}\slash\allowbreak\code{violating\_artifact\_ids};
+\item \code{NotApplicable} --- the policy's trigger never occurs (e.g.\ a commit
+policy on a trace with no commit). \code{NotApplicable} results are \emph{excluded}
+when a grade renormalizes compliance --- a policy that does not apply neither
+passes nor fails a trace. (A fourth status, \code{UnknownEvaluation}, records the
+rare case where the checker cannot decide.)
+\end{itemize}
+
+\paragraph{Over-empty semantics.}
+Because collections can be empty and the quantifiers are the ordinary
+finite-domain ones, the \emph{vacuous} cases are load-bearing and follow the
+standard reading. A universal over an empty collection is \emph{passed}
+(\(\forall x \in \emptyset.\,\varphi\) is vacuously true); an existential over an
+empty collection is \emph{failed} (\(\exists x \in \emptyset.\,\varphi\) has no
+witness). The temporal analogue is the same: \code{G}\,\(\varphi\) over a timeline
+with no triggering position is vacuously satisfied --- which is exactly the
+``vacuous case'' of the response pattern in \S\ref{sec:pol-worked}. This is why a
+trigger that never fires yields \code{NotApplicable} rather than a spurious pass:
+the evaluator distinguishes ``held everywhere it could'' from ``never had the
+chance to fail.''
+
+\paragraph{Fold-back onto \trace{} and the \code{governed} verdict.}
+The \code{policy\_evaluation} records are \code{query} results
+(\S\ref{sec:state}): they read \trace{} and do not mutate the evidence DAG --- a
+policy \emph{constrains} history, it does not \emph{define} it. The evaluations
+are folded back as a derived \emph{governance verdict} (cached, never evidence),
+distinct from the \code{met} verdict of \S\ref{sec:goals}. A goal resolves
+\code{met} from its acceptance obligations over the artifact sort; it resolves
+\code{governed} from the policies over its cone: the inline goal policies
+evaluated over the goal's relevance cone, plus the active pack's policies. An
+\code{Error}-severity failure makes the goal \emph{not governed} even when it is
+\code{met}; a \code{Warning} leaves it governed-with-a-flagged-gap. Severity thus
+composes with the verdict rather than the formula.
+
+\subsection{Policy sources and packs}\label{sec:pol-sources}
+
+Policies come from more than one place, and where a policy \emph{lives} is a
+distribution-and-trust concern, not a semantic one: a policy's identity and
+meaning are unchanged by its source. A \textbf{source}
+(POLICY\_SOURCES\_v0\_1) is a named, typed origin --- a \code{gallery} (a
+published, hash-verified static catalog over HTTP), a \code{local} directory of
+policy JSON committed in-repo, or a (future) authenticated \code{hub}. Sources
+are layered like \code{.gitconfig}/\code{.npmrc} (user-global then project), the
+order is the precedence for resolving unqualified references, and there is
+\emph{no silent shadowing}: an ambiguous unqualified id across sources is an
+error listing the qualified options, not a coin flip.
+
+A \textbf{pack} is a named set of policies distributed by a source and
+materialized together into a trace. The formal-methods pack
+\code{apply-formal-methods} has two halves: a \emph{coverage} group (high-stakes
+code --- money math, state machines, access control, bounds --- must be backed by
+a proof or a decomposition in its lineage before it ships) and a \emph{rigor}
+group (once the pipeline runs it must run properly: formalize before verify,
+refuted goals get re-proved, decompositions produce tests). Which surface counts
+as ``high-stakes'' is data-driven from the trace's \code{high\_stakes\_paths}
+rather than hard-coded. Compliance packs (e.g.\ DO-178C, MISRA, NIST AI RMF,
+ESMA/MiFID) are structurally identical --- sets of the same LTLf formulas.
+
+When a policy is materialized, the CLI stamps its \emph{provenance} onto the
+trace: \code{\{ source, id, version, hash \}}. A governed trace therefore records
+exactly which policies, from which sources, at which content hashes, it was
+checked against --- closing the loop \emph{source \(\to\) policy \(\to\) trace
+\(\to\) sign-off} that a compliance reviewer needs. This is the \emph{governance
+boundary} in operation: \code{ponens} \emph{evaluates} the policies over the
+trace, while the producing reasoner only \emph{emits evidence}. The party that
+did the work does not grade the work; the certificate travels with the claim and
+is re-checkable by another party (\S\ref{sec:context}).
+
+\subsection{Worked examples}\label{sec:pol-worked}
+
+\paragraph{A response (temporal) policy.}
+The gallery policy \code{refuted\_results\_must\_be\_reproved} is a pure-temporal
+\emph{response} pattern (Figure~\ref{fig:pol-reproved}).
+\begin{figure}[H]
+\centering
+\small
+\[ \id{refuted\_results\_must\_be\_reproved}:\quad
+\mathsf{G}\big(\id{VerificationResult}(\id{refuted}) \rightarrow \mathsf{F}(\id{VerificationResult}(\id{proved} \lor \id{sat}))\big) \]
+\caption{The \code{refuted\_results\_must\_be\_reproved} policy: globally, whenever a refuted verification result appears, a proved-or-sat result must eventually follow.}
+\label{fig:pol-reproved}
+\end{figure}
+Read: \emph{globally}, whenever a refuted verification result appears, then
+\emph{eventually} a proved-or-sat result appears. Walking the semantics over the
+finite timeline:
+\begin{itemize}
+\item \(\code{Verify}(\mathit{refuted}) \to \code{EditFile} \to
+\code{Verify}(\mathit{proved})\): \textbf{passed}. At the position where the
+refuted result appears, the \code{F} obligation is discharged by the later
+\code{proved}.
+\item \(\code{Verify}(\mathit{refuted})\) with no later proved/sat result in
+scope: \textbf{failed}. The \code{G} triggers, the \code{F} obligation is never
+met on the finite trace, and the evaluator reports the refuted result's action as
+the witness. Note that on a finite trace \code{F} is not deferred to an infinite
+future --- an obligation still open at the last position is a violation, which is
+what makes ``fix by editing around it'' insufficient: only a re-established proof
+closes the obligation.
+\item A trace with \emph{no} refutation at all: \textbf{passed vacuously}. The
+\code{G} antecedent never fires, so every position satisfies the implication.
+(Depending on scope, the evaluator may instead mark this \code{NotApplicable}
+when the policy's trigger genuinely never occurs; both agree that no violation
+exists.)
+\end{itemize}
+This is the ``quality-of-evidence'' check behind the governed axis: a criterion
+is \code{met} the moment a \code{VerificationResult} exists for its component, but
+the result must actually \emph{establish} the property to count as \code{governed}.
+
+\paragraph{A gallery reasoning policy.}
+\code{async\_state\_transitions\_verified} governs async UI state machines
+(Figure~\ref{fig:pol-async}).
+\begin{figure}[H]
+\centering
+\small
+\[ \id{async\_state\_transitions\_verified}:\quad
+\mathsf{G}\big(\id{Formalize} \land \id{async\_state\_machine} \rightarrow \mathsf{F}(\id{Verify} \land (\id{proved} \lor \id{sat}))\big) \]
+\caption{The \code{async\_state\_transitions\_verified} policy: a response pattern with a structural conjunct requiring every formalized async state machine to be eventually verified.}
+\label{fig:pol-async}
+\end{figure}
+Whenever an async state machine (idle \(\to\) loading \(\to\) success/error) is
+formalized, its transition logic --- especially error, timeout, and retry paths
+--- must eventually be verified. It \emph{passes} when a \code{Formalize} of a
+fetch machine is followed by a \code{Verify} showing all paths reach a terminal
+state; it \emph{fails} for a machine where a retry-after-timeout can loop forever
+(a liveness violation left unverified). This is the same response shape as above,
+now with a structural conjunct in the antecedent.
+
+\paragraph{A quantifier over the residual surface.}
+Structural policies quantify over the trace's declared negative space. The
+approval-gate policy \code{no\_open\_critical\_residuals} is shown in
+Figure~\ref{fig:pol-critical}.
+\begin{figure}[H]
+\centering
+\small
+\[ \id{no\_open\_critical\_residuals}:\quad
+\lnot\,\big(\exists\, r \in \id{residuals}.\; r.\id{severity} = \id{Critical} \land r.\id{status} = \id{Open}\big) \]
+\caption{The \code{no\_open\_critical\_residuals} approval-gate policy: an existential over the residual surface asserting that no residual is both \code{Critical} and \code{Open}.}
+\label{fig:pol-critical}
+\end{figure}
+It \emph{fails} exactly when some residual is both \code{Critical} and
+\code{Open}; it \emph{passes} when the only residuals are lower-severity, or when
+the critical one is \code{Addressed}/\code{Waived}. The empty-collection
+semantics matter here: a trace with \emph{no} residuals passes --- \(\exists\)
+over the empty surface has no witness, so its negation is true --- which is the
+correct reading of ``nothing critical is open.'' The dual universal form is shown
+in Figure~\ref{fig:pol-universal}.
+\begin{figure}[H]
+\centering
+\small
+\[ \id{unverified\_residuals\_have\_suggested\_check}:\quad
+\forall\, r \in \id{residuals}.\; r.\id{kind} = \id{Unverified} \rightarrow r.\id{suggested\_check} \neq \emptyset \]
+\caption{The dual universal form (\code{unverified\_residuals\_have\_suggested\_check}): every unverified residual must carry a suggested check, turning the negative space into a work-list.}
+\label{fig:pol-universal}
+\end{figure}
+This form (\code{unverified\_residuals\_have\_suggested\_check}) is likewise vacuously
+\emph{passed} on a residual-free trace, and turns the negative space into a
+work-list on any trace that declares unverified gaps. These forms compose freely
+under the temporal operators, e.g.\ the commit gate
+\(\code{G}(\code{GitCommit} \to \forall r \in \code{residuals}.\,
+r.\code{severity} \ge \code{High} \to r.\code{status} \neq \code{Open})\).
+
+\subsection{Met versus governed}\label{sec:pol-met-vs-governed}
+
+The two verdicts are \textbf{orthogonal by construction} --- how the work was
+done cannot change what was established --- because they range over different
+sorts of the one logic: \code{met} over the artifact sort (outcome), \code{governed}
+over the action sort (process). A goal can be:
+\begin{itemize}
+\item \emph{met and governed} --- the evidence exists and was produced compliantly;
+\item \emph{met but not governed} --- the required \code{VerificationResult}
+exists (so the criterion is \code{met}), but a mandatory step was skipped or the
+result was reached improperly: it was verified before being formalized, or a
+refutation was edited around rather than re-proved. Rigor is a \emph{policy
+decision}, not baked into recording: a verified model with no tests and no
+conformance is a complete, valid artifact that resolves \code{met} by proof
+alone; ``you must test/conform here'' is a pack toggle over
+\code{high\_stakes\_paths};
+\item \emph{governed but not met} --- every applicable process constraint holds,
+but a required outcome obligation is still open.
+\end{itemize}
+This orthogonality is machine-checked: Table~\ref{tab:proofs} discharges
+\emph{governed \(\perp\) met} alongside the goal-resolution properties (\emph{met
+\(\Leftrightarrow\) all-done}, \emph{at\_risk never demotes}). And as with goals,
+composition (\S\ref{sec:merge}) re-runs the policies over the \emph{merged}
+timeline: a merge does not only ask ``which proofs survived,'' but ``was the
+definition of done still reached in a governed way.''
+
+\paragraph{The temporal evaluator is machine-checked.}
+The soundness of this axis is not assumed. The pure decision core of the temporal
+evaluator is modelled specification-first in IML and proved in ImandraX: the
+\emph{policy (temporal)} model in Table~\ref{tab:proofs} discharges the
+\code{G}/\code{F} semantics and \textbf{response-pattern soundness} --- the very
+pattern \(\code{G}(\varphi \to \code{F}\,\psi)\) that
+\code{refuted\_results\_must\_be\_reproved} instantiates --- across 78 proof
+obligations, with the \emph{verdict \(\to\) residual} totality model ensuring
+every terminal evaluation state lands somewhere. So when the evaluator reports a
+finite-trace response policy as passed, failed, or vacuously satisfied, that
+judgement conforms to a proved specification: the governance surface is itself
+verified by the system it governs.

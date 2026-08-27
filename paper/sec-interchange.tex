@@ -1,0 +1,315 @@
+\section{Interchange, audit, and review}\label{sec:interchange}
+
+The preceding sections built the trace as an internal object: a defeasible, proof-carrying context
+(\S\ref{sec:context}) over which an evidence logic resolves goals and policies (\S\ref{sec:evidence-logic}),
+composed at merges (\S\ref{sec:merge}) and machine-checked on itself (\S\ref{sec:impl}). A reasoning state
+that no one else can consume, however, is only half of the argument. This section is about the outward face:
+how the trace \emph{leaves} the system --- projected into a standard provenance vocabulary for interchange,
+graded against a mechanical audit floor, handed between reviewing parties over its residual surface, and bound
+to the code it explains so the warrant travels with a commit. The unifying claim is that the same
+certificate-carrying state that makes reasoning compose \emph{internally} is exactly what makes it
+\emph{verifiable across parties} --- an auditor, a reviewing agent, or a regulator --- without any of them
+having to trust the producer.
+
+\subsection{Interchange: projecting to W3C PROV}\label{sec:interchange-prov}
+
+An agent's provenance ought to be legible to tools that were not built for our format. We therefore project
+\trace{} onto \textbf{W3C PROV}~\cite{prov}, the standard vocabulary for provenance
+(\code{ponens trace export --to prov}, emitting PROV-JSON). The mapping is close to structural: a typed
+artifact becomes a \code{prov:Entity}, an action a \code{prov:Activity}, the assistant (with its model) a
+\code{prov:Agent}, and the trace itself a \code{prov:Bundle}. The lineage edges carry over one-to-one ---
+\code{producer\_action\_id} to \code{wasGeneratedBy}, an action's inputs to \code{used},
+\code{derived\_from} to \code{wasDerivedFrom}, and \code{supersedes} to a \code{wasDerivedFrom} of type
+\code{prov:Revision} (i.e.\ \code{wasRevisionOf}). Every artifact and action is \code{wasAttributedTo} /
+\code{wasAssociatedWith} the agent. Edges whose endpoints are not present in the trace (a dangling
+\code{derived\_from}) are dropped rather than emitted, so the result is a well-formed PROV instance.
+
+The essential point --- and the reason this belongs beside \S\ref{sec:context} rather than in place of it ---
+is that \emph{PROV is an interchange view, not a reasoning state}. PROV models \emph{what was derived from
+what, by whom}; it has no vocabulary for the evidence-logic certificate that makes the trace a context in the
+first place. Concretely, the projection is \textbf{faithful for lineage and attribution} and \textbf{lossy for
+judgement}:
+
+\begin{itemize}
+\item \textbf{Freshness} (I4) is \emph{derived} by \code{ponens} from a dependency-closure fingerprint; PROV's
+\code{wasInvalidatedBy} records an invalidation \emph{event someone asserts}, not a \emph{computed} staleness,
+so it is not emitted.
+\item \textbf{Residuals and defeaters} --- the negative space and the contested-ness of a claim --- have no
+PROV relation. A \code{Residual} is exported as a \code{prov:Entity} with its \code{kind}, \code{severity},
+and \code{status} riding as \code{ponens:} attributes, but PROV assigns them \emph{no meaning}; the blocking of
+a contested claim by counter-evidence stays a \code{ponens}-side computation.
+\item \textbf{Verification verdicts} (proved / refuted / unknown) ride as an opaque \code{ponens:verdict}
+attribute on the entity.
+\item \textbf{Policies} --- the temporal-logic governance axis --- have no analogue; PROV-CONSTRAINTS is a
+fixed consistency checker, not a policy language.
+\end{itemize}
+
+The rule of thumb is \emph{lineage and attribution round-trip; judgement does not}. Export is deliberately
+one-way: a consumer that needs the certificate --- freshness, contested-ness, the residual surface, the
+policy verdict --- reads the \code{ponens} trace, and the standard vocabulary is offered so that provenance
+tooling can at least consume chain-of-custody and derivation without learning our format. This is the same
+distinction the paper draws throughout: a log records \emph{what happened}; a context carries \emph{the
+warrant}. PROV is the log projection of a state that is more than a log.
+
+\subsection{Audit readiness: a mechanical floor}\label{sec:interchange-audit}
+
+Most ``AI governance'' tooling produces \textbf{attestation} --- checklists and self-reported claims. The
+substrate takes the opposite line: a trace is \textbf{evidence}, an immutable, lineage-linked record where
+every ``done'' resolves to a specific artifact (I3) and every verdict comes from an engine an auditor can
+\emph{re-run}. The difference is between \emph{``we assert we did $X$''} and \emph{``here is $X$, here is the
+proof, re-check it yourself.''} Everything in an audit-readiness assessment follows from holding that line:
+the trace's value is that it is checkable, not that it is signed off.
+
+Audit readiness is therefore not a subjective grade but a \textbf{mechanical floor} that \code{ponens grade} /
+\code{ponens trace check} enforce over the same evidence-logic predicates used for goals. An auditor probes a
+fixed set of dimensions, each of which the state answers structurally:
+
+\begin{itemize}
+\item \textbf{Structure / integrity.} Is the record unaltered? A canonical \code{content\_hash} (sha256), 1:1
+bound to a git commit (\S\ref{sec:interchange-sync}), answers \emph{unaltered}; cryptographic signatures over
+that hash (SSH, GPG, or keyless sigstore) add \emph{by whom}, with an optional RFC-3161 trusted timestamp for
+a TSA-attested \emph{when}.
+\item \textbf{Rationale coverage / grounded ``done.''} Is ``done'' real or self-reported? Acceptance resolves
+\emph{deterministically from evidence} --- a typed artifact in the component's lineage --- never from prose
+(I3).
+\item \textbf{Negative space.} Are the gaps disclosed? The residual surface (assumptions, unverified,
+out-of-scope, limitations, open questions) is first-class, and counter-evidence is a first-class
+\code{Defeater} that \emph{blocks} a contested claim.
+\item \textbf{Reproducibility / verification evidence.} Can a third party re-check it? Entrypoints,
+environments, and re-runnable formal verdicts (\code{ponens trace reproduce}) mean the evidence is not merely
+displayed but re-derivable.
+\item \textbf{Lineage / freshness.} Is the evidence current? Derived freshness (\code{Fresh} / \code{Stale} /
+\code{Detached}) from a dependency-closure fingerprint (I4); a goal never resolves \code{done} over stale or
+detached evidence.
+\end{itemize}
+
+Two disciplines give the floor its teeth. The first is an ethos: \textbf{a trace with no residuals is
+suspicious.} An empty negative space is not evidence of completeness; a reviewer (\S\ref{sec:interchange-review})
+must treat the \emph{absence} of declared gaps as itself reviewable, because real work leaves residue. The
+second is a scoping discipline that the reporting layer must never collapse: the trace separates
+\code{proved} (an engine verdict), \code{conforms} / fidelity-checked (model $\leftrightarrow$ code), and
+\code{certified} (a non-doer confirmed the criteria were right). More sharply, the state distinguishes what
+was \textbf{ESTABLISHED} (backed by a checkable artifact in lineage) from what was merely \textbf{ASSERTED}
+(prose, a summary, an unbacked ``I tested this''). A claim of ``verified'' with no backing artifact is treated
+as \code{Unverified}. Because these are separable in the model and checked mechanically, audit readiness is a
+\emph{floor a tool computes}, not a story a producer tells --- and ``proved'' can never be allowed to read as
+``the system is correct.''
+
+\subsection{Signatures and non-repudiation}\label{sec:interchange-sign}
+
+A verdict is only useful to a third party if they can trust that the trace was not altered and can see who
+stands behind it. A signer signs the trace's \code{content\_hash} with a private key or identity; anyone
+verifies with the public one. This does two things at once: because the signature is over the content
+digest, any later edit breaks it (\textbf{tamper-evidence}), and it identifies \textbf{who} signed
+(\textbf{non-repudiation}). Signatures live in \code{trace["signatures"]}, which is \emph{excluded} from the
+\code{content\_hash}, so several parties can co-sign the \emph{same} content --- the producer, a reviewer, an
+independent auditor --- each with whatever backend they trust.
+
+Three pluggable backends share one verification interface. \code{ssh} uses OpenSSH signatures
+(\code{ssh-keygen -Y}), adds no dependencies, verifies fully \emph{offline}, and trusts a key only if it is
+in a git-style \emph{allowed-signers} roster. \code{gpg} uses detached signatures with the signer's public
+key inlined on the record (offline verification against an ephemeral keyring; trust is a fingerprint
+roster). \code{sigstore} is keyless and identity-bound: a short-lived Fulcio certificate binds the
+signature to an OIDC identity (email $+$ issuer) and the proof is recorded in the public \emph{Rekor}
+transparency log, so trust is ``the certificate identity matches the expected issuer/subject'' with no
+long-lived key to manage or leak. Across all three the verdict is uniform --- \emph{tampered} (the
+content hash changed), \emph{invalid} (the cryptography failed), \emph{untrusted} (a good signature from a
+signer not in the roster), or \emph{valid and trusted} --- and verification can be made to gate on failure
+(\code{--require-trusted}).
+
+A sign-off is not merely a signature: it carries the reviewer's \code{role} and \code{disposition} (e.g.\
+\code{--role auditor --disposition approved}), so the attestation records \emph{what} the party is claiming,
+not just that they signed. And where integrity fixes \emph{what} was signed and the key fixes \emph{who},
+an optional RFC-3161 trusted timestamp (\code{--tsa}) fixes \emph{when}: a Time-Stamping Authority
+countersigns the signature, giving a TSA-attested ``existed by $t$'' rather than a machine-clock assertion.
+Together these are the concrete realization of the \code{certified} axis (\S\ref{sec:goals}): a role-bearing
+sign-off by a named party, bound to the exact content it vouches for and to an attestable time.
+
+\subsection{Review and handoff}\label{sec:interchange-review}
+
+The consumer of a trace is increasingly not a human but a second agent: a coding agent produces the trace, a
+reviewing agent consumes it, and they share neither session, vendor, nor memory. Between them sits the diff,
+which is a \emph{lossy} interface --- it shows what changed, not what the producer tried, ruled out, verified,
+assumed, or left undone. The organizing move of the review model is therefore \textbf{read the trace, not the
+diff}: the trace's residual surface (\S\ref{sec:interchange-audit}) becomes the spine of the review protocol,
+and review becomes \emph{targeted and evidence-grounded} rather than a blind re-derivation.
+
+\paragraph{The handoff contract.} The producer declares its gaps; the consumer verifies the claims and hunts
+the undeclared ones. Concretely, the reviewer sorts the trace's content by \emph{checkability}: independently
+checkable artifacts (verification results, command/test results, decompositions, conformance results) are
+evidence --- but only after the consequential ones are \emph{re-checked}, because a proof travels and
+re-verifies; asserted prose (rationale, summaries) is \emph{attention routing only}, never established fact;
+and the residual surface is the \emph{work-list}, triaged in descending severity. The trust principle is
+\emph{targeted verification, not trust}: the trace tells the reviewer \emph{where to look} and \emph{what was
+claimed}; the reviewer establishes \emph{what is true}. The reviewer's distinctive job --- the reason
+independent review exists --- is Step~4: anything the change touches that is neither verified nor declared is
+an \emph{undeclared} residual that the reviewer must raise. The declared surface does not replace this hunt;
+it makes it \emph{tractable} by shrinking the space to discover from scratch.
+
+\paragraph{Review items and verdicts.} The reviewer writes back into the collaboration surface as
+\code{review\_item}s (each carrying its \code{target} and a \code{blocking} flag), comments, and residual
+status updates (\code{ResidualAcknowledged} for accepted gaps, \code{ResidualWaived} for explicit, auditable
+acceptance). The overall disposition is one of \code{approve}, \code{request-changes}, or
+\code{escalate-to-human}. The disposition rule is exacting: \emph{approve only when no open residual is
+blocking, every consequential checkable claim has been re-verified, and the undeclared-gap hunt surfaced no
+high-severity gap}. Open questions are routed to a human by construction --- they are decisions, not checks,
+and an agent must not auto-approve over one. Above individual traces sits the \emph{review case}: a
+problem-centered workflow container that accumulates verdicts across a chain of traces and carries the
+governing invariant that all current work should retrace to the original problem statement while every step
+stays within policy.
+
+\paragraph{Immutability closes gaps forward.} A reviewer never mutates a trace to ``fix'' a gap. Traces are
+append-only (I1), so a gap is closed in a \emph{successor trace} that \code{supersedes} the original: the
+reviewer emits a successor-trace request naming the \code{residual\_id}s that must close, and the fix produces
+a new, immutable record. The supersedes chain is thus the audit trail of the review itself --- what was
+contested, what was requested, and where it was discharged --- rather than a mutable document whose history is
+lost.
+
+\subsection{Sync and binding}\label{sec:interchange-sync}
+
+For the warrant to be \emph{useful} to a downstream party, it must travel with the code it explains. Three
+facts live in three places and no single layer owns all three: the \textbf{local trace file} is canonical for
+\emph{content} (immutable, content-hashed); the \textbf{git commit} is canonical for \emph{version} (which
+code state the reasoning is about); and a \textbf{hub} is canonical for \emph{decisions} (status, comments,
+review items, snapshots, policy runs). The CLI's job is to bind them and keep them from silently diverging ---
+in one line, it makes the hub a git remote for reasoning.
+
+\code{ponens bind} is the load-bearing verb. It stamps the trace with \code{repo} / \code{branch} /
+\code{commit\_sha} from git, and writes the trace identity \emph{back} onto the commit --- as a
+\code{Trace-Id} trailer or, by default, a \code{git} note (\code{refs/notes/ponens}, non-mutating). This makes
+the relationship resolvable in both directions, $\code{commit\_sha} \Leftrightarrow \code{trace\_id}$, so the
+reasoning is discoverable from the commit (e.g.\ in a pull-request view) and vice versa. The binding is
+\textbf{1:1}: a trace is bound to exactly one commit, and iteration produces a \emph{new} commit and a
+\emph{successor} trace rather than overwriting the old one --- the same immutability discipline as
+\S\ref{sec:interchange-review}, now mirrored one-to-one with git history. \code{push} / \code{pull} move the
+trace and the hub's decision state (\code{push} is idempotent and creates a successor on a content change;
+\code{pull} is read-only with respect to the working tree), and \code{status} names the one steady state
+(\code{synced}) against the divergences (\code{stale}, \code{dirty}, \code{behind}) that each map to a concrete
+next command.
+
+The design decision is \textbf{binding-only}: git carries the trace and the link, and \emph{only} those. This
+is what lets the warrant travel with the code \emph{without} committing the churny raw trace state or
+reinventing review inside git --- git notes do not merge cleanly and committed review files conflict on every
+parallel comment (this is the local regime the merge composition of \S\ref{sec:merge} operates within: git
+merges the code and the binding; \code{ponens} re-derives the evidence). Human review of the \emph{diff} stays
+on the git platform; computable governance and the frozen, signed \emph{snapshot} (the portable audit artifact
+with no platform equivalent) stay on the hub; the commit is the shared anchor connecting them. Let the
+platform own diff review, let the hub own governance over the reasoning, and connect them through the commit
+--- do not reimplement either inside the other.
+
+\subsection{The audit process}\label{sec:interchange-process}
+
+The pieces above compose into an audit that is \emph{re-performed}, not merely read. Given a commit bound to
+a trace (\S\ref{sec:interchange-sync} --- a Trace-Id and a git note anchoring the frozen snapshot), an
+auditor proceeds:
+
+\begin{enumerate}
+\item \textbf{Verify signatures} (\S\ref{sec:interchange-sign}): confirm the snapshot is untampered (the
+  signature is over the \code{content\_hash}) and that each sign-off comes from an identity in the trusted
+  roster. This establishes \emph{what} is being audited and \emph{who} stands behind it before any claim is
+  examined.
+\item \textbf{Re-derive the evidence.} Because every verdict is engine-grounded and every result carries a
+  dependency-closure fingerprint (\S\ref{sec:format}), the auditor re-runs the proofs and re-computes
+  freshness rather than taking the recorded verdicts on faith --- the claims are reproducible, not asserted.
+  Carried-forward skips introduced by a merge (\S\ref{sec:merge}) are re-checked by recomputing the
+  closure/change-set disjointness witness, so even the work a merge deliberately did \emph{not} re-run is
+  independently verifiable.
+\item \textbf{Re-resolve goals and re-evaluate policies} (\S\ref{sec:goals}, \S\ref{sec:policies}): the
+  \code{met} and \code{governed} verdicts are recomputed against the trace, so ``done'' and ``done in a
+  compliant way'' are checked, not trusted.
+\item \textbf{Work the residual surface.} The declared negative space --- assumptions, limitations,
+  defeaters, open questions --- is where an auditor's attention goes first; its \emph{emptiness} is itself a
+  warning sign (\S\ref{sec:interchange-audit}), since honest reasoning about a real system almost always
+  leaves something open.
+\item \textbf{Issue a verdict} (\S\ref{sec:interchange-review}): approve, request changes, or escalate,
+  recorded as a review case. Because the trace is immutable, remediation does not overwrite the record ---
+  it lands in a successor trace, and the auditor can re-sign the content they approved.
+\end{enumerate}
+
+The defining property is that authority derives from \emph{reproducible proof, not reputation}. An auditor
+need not trust the producer --- or the model that produced the work --- because the warrant travels with each
+claim and can be re-checked, while the signature fixes accountability. This is precisely what makes the
+substrate suitable for a verification role that is \emph{independent} of the party that did the work: the
+audit is a re-computation over a signed, immutable object, not a reading of someone's report about it.
+
+\subsection{Compliance packs: one substrate, many regimes}\label{sec:interchange-packs}
+
+The final outward face is regulatory. The claim is not that we built a bespoke checker per standard; it is that
+the \emph{same} evidence logic and governance surface --- goals over the artifact sort, policies over the
+action sort (\S\ref{sec:evidence-logic}) --- expresses obligations drawn from very different external frameworks
+as \emph{policies over the same trace}. A compliance pack is a versioned set of policies mapping a named regime
+onto the substrate; the object being governed is always the trace, an obligation is always a policy (a temporal
+or lineage formula), and the verdict is always the shared Red / Amber / Green (\code{error} /
+\code{warning} / clean). Table~\ref{tab:packs} lists the packs.
+
+\begin{table}[h]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}llX@{}}
+\toprule
+Pack & External framework & What it checks (as policies) \\
+\midrule
+\code{NIST\_AI\_RMF}        & NIST AI RMF 1.0                       & lifecycle risk mgmt: govern / map / measure / respond \\
+\code{NIST\_SSDF}           & NIST SSDF (SP 800-218)                & secure-dev: release integrity, provenance, response \\
+\code{IOSCO\_SUPERVISORY}   & IOSCO Supervisory Toolkit (AI)        & decision logging, model versioning, oversight evidence \\
+\code{ESMA\_MIFID\_AI}      & ESMA statement on AI (retail)         & MiFID conduct: disclosure, suitability, testing, records \\
+\code{MISRA\_COMPLIANCE}    & MISRA Compliance:2020                 & the compliance \emph{process}: deviations, GEP/GRP/GCS \\
+\code{DO\_178C}             & RTCA DO-178C / EUROCAE ED-12C         & bidirectional traceability + process objectives (by DAL) \\
+\code{JSF\_AV\_CPP}         & JSF Air Vehicle C++ standards         & deviation approval + safety-critical obligations \\
+\code{CERT\_SECURE\_CODING} & SEI CERT C / C++                      & risk-prioritized remediation; L1 fixed before release \\
+\code{CMS\_AI\_GUIDANCE}    & CMS TRA AI guidance                   & healthcare AI: oversight, data residency, provenance \\
+\code{AGENTIC\_GOVERNANCE}  & FIX AI WG runtime governance          & traffic-light runtime gating: identity, intent, telemetry \\
+\code{AGENTIC\_EXEC\_PROV}  & FIX AI WG six-points                  & decision-path reconstructability; reasoning provenance \\
+\code{APPLY\_FORMAL\_METHODS}& Imandra CodeLogician / SpecLogician  & high-stakes code proved/decomposed; formalize-first \\
+\bottomrule
+\end{tabularx}
+\caption{Compliance packs: the same evidence logic and governance surface instantiated against external
+frameworks. Each obligation is a policy over the trace; verdicts are the shared Red / Amber / Green.}
+\label{tab:packs}
+\end{table}
+
+Two features of the table are the point. First, the frameworks are genuinely heterogeneous --- airborne-software
+certification (DO-178C), coding-standard process (MISRA, JSF++, CERT), AI risk management (NIST AI RMF, CMS),
+capital-markets supervision (IOSCO, ESMA MiFID), and agentic runtime governance (the FIX AI packs) --- yet each
+reduces to the two shapes the evidence logic already provides: \emph{lineage} obligations over the artifact DAG
+and \emph{ordering / presence} obligations over the action timeline. Second, the packs govern the \emph{process
+around} a check, not the check itself: MISRA's 143+ coding rules are found by a static analyzer, and the pack
+verifies the agent followed the deviation-and-summary process the analyzer's output requires --- turning
+advisory analyzer output into an \emph{auditable} record. The substrate does not re-implement each standard's
+domain checker; it supplies the one governance surface on which all of them are expressed.
+
+\paragraph{Worked example: DO-178C traceability as a lineage policy.} DO-178C's defining requirement is
+bidirectional traceability from system requirements through high-level and low-level requirements to source
+code and tests. This is native to the evidence logic: the \code{P\_chain} lineage operator walks the artifact
+\code{derived\_from} DAG, so a core objective becomes a one-line policy (Figure~\ref{fig:ix-do178c}).
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{@{}l@{\;:\;}l@{\quad}l@{}}
+\id{trace\_code\_to\_llr}      & \mathsf{G}\big(\id{SourceCode} \rightarrow \mathsf{P}_{\mathsf{chain}}(\id{LLR})\big) & \text{\footnotesize\itshape A-5; \textcolor{red!70!black}{Red} if no LLR ancestor}\\[3pt]
+\id{plan\_before\_dev}         & \mathsf{G}\big(\id{SourceCode} \rightarrow \mathsf{P}(\id{plans\_approved})\big) & \text{\footnotesize\itshape A-1; plan before dev}\\[3pt]
+\id{review\_with\_independence} & \mathsf{G}\big(\id{reviewed} \rightarrow \id{independent\_review}\big) & \text{\footnotesize\itshape \textcolor{orange!85!black}{Amber}\,$\to$\,escalation}
+\end{array}
+\]
+\caption{DO-178C objectives as lineage and temporal policies over the trace: source-to-LLR traceability as a
+\code{P\_chain} lineage obligation, plan-before-development as a past-time ordering constraint, and
+review-with-independence as an escalating (Amber) rather than hard-failing check.}
+\label{fig:ix-do178c}
+\end{figure}
+
+\noindent
+The pattern generalizes: \code{IOSCO\_SUPERVISORY} phrases ``every AI decision is logged and its model version
+recorded'' as a lineage obligation of the same shape; \code{APPLY\_FORMAL\_METHODS} phrases ``high-stakes code
+is backed by a proof or decomposition before release, and counterexamples trigger a fix'' as a mix of a lineage
+predicate (\code{proved} / \code{decomposed} in the component's closure) and a temporal one
+(\code{formalize-before-verify}). One evidence logic, one governance surface, many regimes --- and every verdict
+resolves against the trace of \S\ref{sec:state} rather than against a self-report.
+
+\medskip\noindent
+Taken together, these four faces --- a lossy PROV interchange view, a mechanical audit floor, a
+residual-driven review handoff, and a git-bound sync model, all instantiated as compliance packs --- are the
+sense in which the trace is not merely recorded but \emph{verifiable by a party other than the one that
+produced it}. That is the same warrant-travels-with-the-claim property that made composition sound
+(\S\ref{sec:merge}); here it is turned outward.

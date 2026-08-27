@@ -1,0 +1,822 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{float}                     % [H] placement: pin code-listing figures where written
+\usepackage{tabularx}                  % auto-wrapping table columns (compliance-packs table)
+\usepackage{microtype}                 % better justification; reduces overflow into the margin
+\setlength{\emergencystretch}{4em}     % last-resort stretch so long code tokens don't run off the page
+
+% --- IML syntax highlighting (mirrors desktop/src/iml/iml-lang.ts: IML = a pure subset of
+%     OCaml, plus the five verification directives and the ==> / <==> logical operators) ---
+\definecolor{imlkw}{rgb}{0.13,0.29,0.53}      % OCaml keywords (let/rec/match/type/...)
+\definecolor{imldir}{rgb}{0.55,0.11,0.47}     % IML directives (theorem/lemma/verify/instance/axiom)
+\definecolor{imltype}{rgb}{0.10,0.44,0.37}    % built-in types + capitalized constructors
+\definecolor{imlcomment}{rgb}{0.45,0.45,0.45} % (* ... *)
+\definecolor{imlstr}{rgb}{0.00,0.40,0.15}     % "strings"
+\definecolor{imlop}{rgb}{0.66,0.14,0.14}      % logical operators ==> <==>
+\definecolor{imlattr}{rgb}{0.60,0.40,0.10}    % Imandra attributes [@@by ...] [@@@import ...]
+
+\lstset{
+  basicstyle=\small\ttfamily,
+  columns=fullflexible,
+  keepspaces=true,
+  breaklines=true,
+  frame=single,
+  framesep=5pt,
+  xleftmargin=6pt,
+  aboveskip=8pt, belowskip=8pt,
+  keywordstyle=[1]\color{imlkw}\bfseries,
+  keywordstyle=[2]\color{imldir}\bfseries,
+  keywordstyle=[3]\color{imltype},
+  commentstyle=\color{imlcomment}\itshape,
+  stringstyle=\color{imlstr},
+}
+
+\lstdefinelanguage{IML}{
+  alsoletter={_},
+  sensitive=true,
+  morekeywords=[1]{and,as,assert,asr,begin,class,constraint,do,done,downto,else,end,%
+    exception,external,for,fun,function,functor,if,in,include,inherit,initializer,land,%
+    lazy,let,lor,lsl,lsr,lxor,match,method,mod,module,mutable,new,object,of,open,or,%
+    private,rec,sig,struct,then,to,try,type,val,virtual,when,while,with},
+  morekeywords=[2]{verify,instance,theorem,lemma,axiom},
+  morekeywords=[3]{bool,int,int32,int64,float,char,string,unit,list,array,option,result,%
+    ref,exn,bytes,nativeint,Some,None,VResult,ReuseId,MintNew,CarriedForward,%
+    Fresh,Stale,Gone,Unknown,Detached},
+  morecomment=[s]{(*}{*)},
+  morestring=[b]",
+  % Imandra attributes: [@ ...], [@@by ...], [@@@import ...] (all begin with "[@")
+  moredelim=[s][\color{imlattr}]{[@}{]},
+  literate={<==>}{{{\color{imlop}<==>}}}4 {==>}{{{\color{imlop}==>}}}3,
+}
+
+% The offline ponens CLI transcripts: highlight the command word and shell-style comments.
+\lstdefinelanguage{PonensCLI}{
+  alsoletter={_},
+  sensitive=true,
+  morekeywords=[1]{ponens},
+  morecomment=[l]{\#},
+}
+
+% --- Pseudocode: control keywords in bold, classification outcomes in the type colour,
+%     "<-" rendered as the assignment arrow; comments use the shared grey style. ---
+\lstdefinelanguage{Pseudo}{
+  alsoletter={_},
+  sensitive=true,
+  morekeywords=[1]{for,each,in,if,else,return,every,is,empty,and,or,not,intersect},
+  morekeywords=[2]{CarriedForward,NeedsRereasoning},
+  keywordstyle=[1]\bfseries,
+  keywordstyle=[2]\color{imltype}\bfseries,
+  morecomment=[l]{\#},
+  literate={<-}{{$\leftarrow$}}2 {|}{{$\mid$}}1,
+}
+
+% --- The ponens policy grammar (mirrors website/src/lib/formula-fmt.mjs classifyWord/SYM_TIP):
+%     temporal/lineage operators, verification statuses, CamelCase action types, and the logical
+%     connectives, which the ASCII surface (-> /\ \/) renders as their canonical symbols. ---
+\definecolor{polop}{rgb}{0.42,0.27,0.75}   % temporal / lineage operators (t-op)
+\definecolor{poltype}{rgb}{0.20,0.40,0.75} % action types, CamelCase atoms (t-type)
+\definecolor{polkw}{rgb}{0.18,0.55,0.28}   % verification statuses (t-kw)
+\definecolor{polsym}{rgb}{0.42,0.45,0.50}  % logical / relational symbols (t-sym)
+\lstdefinelanguage{Policy}{
+  alsoletter={_},
+  sensitive=true,
+  morekeywords=[1]{G,F,X,P,H,U,S,S_last,P_target,P_chain,H_target,H_chain,count},
+  morekeywords=[2]{completed,failed,proved,refuted,sat,unknown},
+  morekeywords=[3]{EditFile,CreateFile,DeleteFile,ReadFile,SearchCode,AnalyzeCode,%
+    ReadDocumentation,GitCommit,GitPush,Verify,Formalize,Decompose,GenerateTests,DefineVG,%
+    Deploy,StaticAnalysis,CoverageAnalysis,Lint,TypeCheck,Decision,Output,Recommendation,%
+    Plan,Draft,UserApproval,Change,Incident,Release,ToolCall,Retrieve,Compute,RunTests,%
+    RunCommand,VerificationResult,Decomposition,RegionDecomposition,IMLModel,%
+    CertificationCase,HLR,LLR,SourceCode,SystemRequirement},
+  keywordstyle=[1]\color{polop}\bfseries,
+  keywordstyle=[2]\color{polkw},
+  keywordstyle=[3]\color{poltype},
+  morecomment=[l]{\#},
+  % ASCII surface -> canonical symbols (t-sym gray): implication, conjunction, disjunction, negation
+  literate={->}{{\color{polsym}$\rightarrow$}}1 {/\\}{{\color{polsym}$\wedge$}}1
+    {\\/}{{\color{polsym}$\vee$}}1 {~}{{\color{polsym}$\neg$}}1,
+}
+
+\newcommand{\trace}{\ensuremath{\sigma}}
+% \code renders inline monospace and permits line breaks at natural identifier
+% seams (underscores), so long snake_case tokens wrap instead of running into the margin.
+\newcommand{\codeus}{\textunderscore\penalty100\relax}
+\newcommand{\code}[1]{\texttt{\let\_\codeus #1}}
+% --- math notation for types/records/formulas/rules (the formal-object figures) ---
+\newcommand{\id}[1]{\ensuremath{\mathsf{#1}}}   % identifier: type / field / constructor / predicate / literal (works in text or math)
+\newcommand{\opt}[1]{{#1}^{?}}            % optional field type
+\newcommand{\many}[1]{{#1}^{*}}           % list / repeated field type
+
+\title{Ponens: An Open-Source Framework for Verifiable, Auditable, and Composable Agent Reasoning\\[3pt]
+\large The Reasoning Trace as a Defeasible, Proof-Carrying, Composable Context}
+\author{Denis Ignatovich\,\textsuperscript{1} \qquad Grant Passmore\,\textsuperscript{1,2}\\[3pt]
+\normalsize \texttt{denis@imandra.ai} \qquad \texttt{grant@imandra.ai}}
+\date{}
+
+\begin{document}
+\maketitle
+\footnotetext[1]{Imandra, Inc.}
+\footnotetext[2]{University of Cambridge}
+\setcounter{footnote}{2}
+
+\begin{abstract}
+Agentic AI produces reasoning at scale, but that reasoning is ephemeral, non-reproducible, and --- most
+consequentially --- \emph{not composable}: there is no account of what a reasoning result depends on, so no
+principled way to say what a later change invalidates. Audit logs record \emph{what happened}; they are not
+reasoning \emph{states}. We present \textbf{Ponens}, an open-source framework that makes an agent's reasoning
+trace a first-class logical object: a \textbf{defeasible, proof-carrying context} $\Gamma$ in which every
+claim carries a certificate --- which oracle produced it, under what assumptions, whether it is \emph{fresh},
+and whether it is \emph{contested}.
+The trace is an append-only \emph{state} with well-formedness invariants, simultaneously \emph{memory}, a
+\emph{governance surface}, and a \emph{logical context}. Over it an
+\emph{evidence logic} judges an agent's work on two axes --- \textbf{goals} (the definition of done, as
+outcome properties of what was established) and \textbf{policies} (temporal constraints on how it was
+established, run by an \textrm{LTL}-style model checker over the action timeline) --- both resolved against
+the trace rather than self-reported. Because the trace is content-addressed, its verdicts are re-checkable by
+any party and any edit is tamper-evident; cryptographic sign-offs over the content hash (SSH, GPG, or keyless
+sigstore), each bearing the signer's \emph{role} and \emph{disposition}, turn it into a non-repudiable
+\textbf{audit trail} in which the party that did the work does not grade it. An
+important technical contribution is \textbf{composition over traces}: a merge is the composition operator of
+the evidence logic, and we show how to decide \emph{soundly} what a merge invalidates versus what it
+provably preserves --- the moment at which two individually-valid results can become jointly invalid. We
+give a durable notion of component identity that lets evidence bind to code across renames and moves. The
+\emph{entire framework} is given a formal model --- a single state-transition machine in which the trace is
+the state --- and machine-checked in
+ImandraX\footnote{ImandraX is Imandra's automated reasoning engine: \url{https://www.imandrax.dev}.}: every
+invariant, both evidence-logic axes, and the merge composition are discharged over that one state, the system
+verifying its own logic. The implementation is reasoner-agnostic at its core, with a concrete instantiation
+over IML/ImandraX and a \code{git} post-merge trigger that reports, on a real merge, exactly which
+established results the merge put at risk. Finally we argue the same construction underpins \emph{multi-reasoner} composition: a cross-branch
+dependency and a cross-reasoner dependency are the same object --- an explicit, tracked assumption.
+\end{abstract}
+
+{\setcounter{tocdepth}{2}\tableofcontents}
+
+\part{The reasoning trace}
+
+\section{Introduction}
+
+An agent that writes code, proves a property, generates tests, or discharges a compliance obligation
+produces \emph{reasoning}. Today that reasoning is treated as exhaust: it scrolls past in a transcript, or
+is flattened into an audit log, and is gone. Two problems follow. First, it is not \emph{reproducible} ---
+a reader cannot re-derive the result. Second, and more fundamentally, it is not \emph{composable}: nothing
+records what a result depended on, so when the code changes --- an edit, a pull, a branch merge --- there is
+no principled way to determine which prior conclusions still hold. Testing and review sample the space; they
+cannot certify that a change left a body of reasoning intact, and they are structurally blind to the case
+where two \emph{individually valid} changes are \emph{jointly} invalid. This paper presents the foundations
+of \emph{Ponens}, an open-source framework\footnote{\code{ponens} is open source: \url{https://www.ponens.dev}
+(documentation and the full trace, goal, and policy specifications) and
+\url{https://github.com/imandra-ai/ponens} (source).} in which an agent's reasoning is not exhaust but a
+first-class, composable, verifiable record.
+
+Our thesis is that the right object is not a log but a \textbf{state}: the reasoning trace should be a
+first-class logical context that the system computes \emph{over}, in which every recorded claim carries the
+warrant that makes it usable as a premise. We make this precise and show it is not merely an accounting
+convenience: it is what makes reasoning \emph{compose}.
+
+\subsection{Motivating examples}\label{sec:intro-examples}
+
+Five failures, all but invisible to testing and review as practiced today, motivate the construction. Each is
+a case where individually-reasonable work yields a silently-wrong conclusion because nothing recorded what
+that conclusion \emph{depended on}.
+
+\paragraph{1. The merge that silently breaks a proof.} On one branch an agent proves that \code{charge} never
+double-charges on a retry. On another, a colleague refactors \code{apply\_discount} --- a helper in that
+proof's dependency closure --- to change rounding. Both branches pass their own tests and reviews; each result
+is valid in isolation. The merge yields code in which the proof no longer holds, yet CI stays green because no
+test exercises the retry-and-discount interaction. The reasoning was \emph{individually valid but jointly
+invalid}, and nothing raised a signal at the merge. Deciding \emph{soundly} which established results a merge
+preserves and which it puts at risk is composition over traces (\S\ref{sec:merge}).
+
+\paragraph{2. Stale evidence that still reads as green.} A verification result from last week sits in the
+record with a green checkmark. Since then a function in its dependency closure changed, but nothing
+re-examined the proof --- so the dashboard still shows it passing: evidence that is stale yet presented as
+current. Freshness must be a \emph{derived} verdict recomputed from the current code, never a stored flag
+(\S\ref{sec:state}, \S\ref{sec:format}); a claim resting on stale evidence is not ``done.''
+
+\paragraph{3. ``Done'' that was never established.} An agent writes ``I verified the balance invariant holds''
+in its summary. There is no proof, no test --- only prose --- and a reviewer reading a plausible transcript
+takes it at face value. The gap between what was \emph{asserted} and what was \emph{established} is where most
+agent-work failures hide. A goal resolves only against a checkable artifact in the component's lineage, never
+from prose (\S\ref{sec:goals}); an unbacked ``verified'' is recorded as \code{Unverified}.
+
+\paragraph{4. A rename that orphans the evidence.} A refactor renames \code{charge} to \code{charge\_customer}.
+Every proof, test, and decomposition about it is now attached to a name that no longer exists; naively, the
+evidence is lost and the ``new'' function looks entirely unverified. Durable component identity
+(\S\ref{sec:identity}) binds evidence to a code element across renames and moves, so a rename is one component,
+not a delete plus an add.
+
+\paragraph{5. Compliant only in hindsight.} A change ships correct but was produced in a way that violates a
+required process --- committed before the tests ran, or merged without the independent review a regulated
+codebase demands. The artifact is right; \emph{how} it was produced is not, and a flat log of what happened
+cannot answer a temporal question about ordering. Policies (\S\ref{sec:policies}) are temporal constraints on
+the action timeline, evaluated against the trace, so ``done'' and ``done in a compliant way'' are separate,
+checkable verdicts.
+
+None of these is exotic; together they are the ordinary texture of multi-agent, multi-branch development. What
+they share is a single missing ingredient --- a record of \emph{what each conclusion depended on}, kept in a
+form the system can compute over. That record is the reasoning trace.
+
+\paragraph{Contributions.}
+\begin{itemize}
+\item A formal model of the reasoning trace as state (\S\ref{sec:state}, \S\ref{sec:format}) and the
+argument that it is a \emph{defeasible, proof-carrying context}, with three properties --- non-monotonic,
+query-carrying, and well-founded --- that make it a \emph{good} context (\S\ref{sec:context}).
+\item \textbf{An evidence logic in two axes}: \emph{goals}
+(\S\ref{sec:goals}) --- a property language of typed, lineage-resolved acceptance criteria over code
+components --- and \emph{policies} (\S\ref{sec:policies}) --- a first-order temporal language ($G$/$F$/$U$/$S$)
+over the action timeline; both resolved against the trace, with worked examples.
+\item \textbf{Composition over traces} (\S\ref{sec:merge}): a merge as the composition operator of the
+evidence logic, with a sound \emph{affected-set} decision (carry forward the provably-unaffected, flag the
+rest) and a checkable \emph{totality} invariant.
+\item \textbf{Durable component identity} (\S\ref{sec:identity}): binding evidence to code across
+rename/move so composition survives refactoring, with a never-conflate resolver.
+\item \textbf{A formal model and its verification} (\S\ref{sec:proved}): the framework modelled as a single
+state-transition machine (the trace as state), its entire invariant set proved by the system on itself with
+ImandraX --- 195 proof obligations over one state, 0 failures.
+\item An implementation (\S\ref{sec:impl}), its interchange / audit / review / compliance surfaces
+(\S\ref{sec:interchange}), and the \emph{multi-reasoner} generalization (\S\ref{sec:multireasoner}).
+\end{itemize}
+
+\subsection{Overview: an evidence logic over the trace}\label{sec:evidence-logic}
+
+An agent's work is judged over the trace by an \emph{evidence logic} with two axes. \textbf{Goals} state
+\emph{what} had to be established --- outcome properties, resolved against the evidence recorded in the trace
+(\S\ref{sec:goals}); \textbf{policies} state \emph{how} the work had to be produced --- temporal constraints
+over the timeline of actions (\S\ref{sec:policies}). These are one \emph{two-sorted} logic: the same
+connectives and quantifiers range over an \emph{artifact} sort (for goals) or an \emph{action} sort (for
+policies). Their verdicts --- \code{met} and \code{governed} --- are \emph{orthogonal by construction} (how
+the work was done cannot change what was established), a property we machine-check (\S\ref{sec:proved}). A
+third axis, \code{certified} --- a sign-off by a party \emph{other than} the producer --- rides the same
+structure, which is what lets the trace be verified across parties. Because every claim carries its warrant,
+all three axes are decided by \emph{re-checking the trace}, never by trusting a report; and at a merge,
+composition (\S\ref{sec:merge}) re-evaluates them all.
+
+\section{The reasoning trace as state and context}\label{sec:state}
+
+\subsection{State, operations, and invariants}
+
+The state \trace{} is an \textbf{append-only} record with five parts: an ordered log of \emph{actions}; a
+lineage DAG of typed \emph{artifacts} (the evidence --- models, proofs, decompositions, tests, edits), each
+produced by an action and linked to its inputs by \code{derived\_from}; a \emph{goal} lens (the definition
+of done); a \emph{residual surface} (the negative space --- assumptions, gaps, counter-evidence); and a
+\emph{derived} freshness verdict over each result. Two kinds of operation act on \trace{}:
+\[
+\text{\code{extend}}(\trace, op) \to \trace' \sqsupseteq \trace
+\qquad
+\text{\code{query}}(\trace, op) \to \text{answer} \quad (\trace \text{ unchanged}).
+\]
+\code{extend} appends established evidence, declares a residual, or sets the goal; \code{query} resolves a
+goal, checks a policy, or renders a view. Freshness is never stored --- it is recomputed from the current
+code, so the state cannot silently disagree with reality.
+
+\paragraph{Two logics.} The trace separates the \emph{object logic} --- where a domain's behaviour is
+analysed and results are produced (in our instantiation, IML discharged by the ImandraX
+engine~\cite{imandra}) --- from the \emph{evidence logic}: properties \emph{of the trace itself}
+(``there exists a fresh, uncontested proof, rooting in this component, that the property holds''). A goal is
+a formula in the evidence logic; its atoms (\code{proved($c$)}, \code{fresh($e$)}, \code{conforms($S$)},
+\ldots) quantify over artifacts, lineage, and freshness. This separation is what lets one substrate host
+many object-level reasoners (\S\ref{sec:multireasoner}).
+
+\paragraph{Invariants.} The state maintains five invariants, on which everything downstream rests:
+\begin{description}
+\item[I1 Append-only.] Evidence is immutable; re-analysis \emph{supersedes} (a new revision), never mutates.
+\item[I2 Lineage-closed.] Every \code{derived\_from} edge points at a strictly \emph{earlier} result ---
+the acyclicity condition that forbids circular premises.
+\item[I3 Evidence-grounded.] Resolution reads only from evidence in lineage, never from prose.
+\item[I4 Freshness-sound.] A result is \code{fresh} iff its target's dependency-closure content is
+unchanged.
+\item[I5 Conditional growth.] Re-establishing a fresh result is a no-op; only new work appends.
+\end{description}
+These are not asserted informally: \S\ref{sec:proved} discharges them as machine-checked theorems.
+
+\subsection{A context is more than a log}\label{sec:context}
+
+An audit log is written \emph{after} the fact and read by humans. A reasoning context is computed
+\emph{over}. The difference is that every recorded claim in \trace{} carries a \textbf{certificate}: which
+oracle produced it (a sound engine versus a heuristic model), under what \emph{assumptions}, whether it is
+\emph{fresh}, and whether it is \emph{contested} by an open defeater. Reading \trace{} is therefore reading
+a body of evidence with its warrant attached --- exactly the metadata a downstream step needs to decide
+whether a prior result is an admissible premise. The trace serves as a context in two senses: an
+\emph{evidence-logic} context (the model that goal resolution and policy checking evaluate against), and an
+\emph{object-logic} context (an artifact can be \emph{projected} into a downstream reasoner's logic as a
+premise, carrying its validity conditions as guards).
+
+Three properties make it a \emph{good} context, and each is one of the invariants of \S\ref{sec:state}:
+\begin{itemize}
+\item \textbf{Non-monotonic} (I4). Freshness decays and defeaters retract, so \emph{adding} evidence can
+\emph{withdraw} a prior conclusion. A proof that was sound goes \code{at\_risk} when its source drifts. This
+is the correct model of a living codebase --- and it matches the semantics of the non-monotonic reasoners
+(defeasible logic, answer-set programming, the event calculus) one might plug in at the object level.
+\item \textbf{Carries the query side.} Residuals are \emph{open goals}: the negative space (what is not yet
+established) is first-class alongside the positive. A context that carries its own open questions is directly
+usable by goal-directed and abductive reasoners.
+\item \textbf{Well-founded by construction} (I2). Lineage acyclicity means no claim can rest, transitively,
+on itself: the context can always be evaluated bottom-up.
+\end{itemize}
+So one append-only structure is at once \textbf{memory} (what was done), a \textbf{governance surface} (what
+policy checks), and a \textbf{logical context} (what may be assumed, and under what warrant). The rest of
+the paper is what this buys: composability.
+
+\input{sec-format}
+
+\input{sec-freshness}
+
+\part{Evidence logic and composition}
+
+\input{sec-goals}
+\input{sec-policies}
+
+\section{Composition}\label{sec:composition}
+
+Goals and policies judge a \emph{single} trace; \emph{composition} is what happens when traces are combined
+--- at a \code{git} merge, across agents, or across reasoners. It is the sharpest test of the whole
+construction, and an important technical contribution of the paper.
+
+\subsection{Composition over traces}\label{sec:merge}
+
+The sharpest test of ``the trace is a context'' is whether contexts \emph{compose}. The everyday instance
+is a \code{git} merge; the general instance is combining two independently-produced traces (from a hub, or
+from different agents or domains). A merge is the point at which two \textbf{individually-valid} results can
+become \textbf{jointly invalid}: branch $A$ proves $f$ (which calls a helper $g$); branch $B$ changes $g$;
+the two merge with \emph{no textual conflict and no rule broken}, yet $A$'s proof of $f$ is now stale even
+though nothing in $A$'s diff changed. This cross-cutting invalidation is exactly what testing and review
+miss, and it is the reason composition must be defined, not assumed.
+
+\paragraph{Principle: merge the contract, re-derive the evidence.} The \emph{goal} (the definition of done)
+is stable and mergeable; the \emph{evidence} is perishable and must be recomputed against the merged code.
+Naively merging two evidence traces would \emph{launder stale-green} --- carry a proof forward as valid when
+the combination invalidated it. So evidence is never merged; it is re-established, and the merge's job is to
+decide, soundly, which results need re-establishing.
+
+\paragraph{The merge operator and the affected set.}
+
+We add \code{merge}$(\Gamma_{\text{base}}, \Gamma_{\text{ours}}, \Gamma_{\text{theirs}})$ as a first-class
+trace operation --- the composition operator of the evidence logic. It records a two-parent
+\code{merge\_event} (kept off the artifact DAG, so I2 acyclicity is preserved) and, for each carried-over
+result $R$, computes
+\[
+\text{touched}(R) \;=\; \text{closure}(R) \,\cap\, \Delta,
+\]
+where $\Delta$ is the merge's component-wise change set and $\text{closure}(R)$ is $R$'s dependency closure
+(the sound freshness signal of I4, evaluated at a two-parent point rather than against the current source).
+The decision is three-way (Figure~\ref{fig:core-merge-classify}).
+\begin{figure}[H]
+\centering
+\[
+\id{classify}(R,\Delta) \;=\;
+\begin{cases}
+\id{CarriedForward} & \text{if } \id{touched}(R,\Delta) = \emptyset \quad\text{(closure-disjoint)}\\[2pt]
+\id{CarriedForward} & \text{if } \forall d \in \id{touched}(R,\Delta).\ \id{uninterpreted}(d) \quad\text{(contract)}\\[2pt]
+\id{NeedsRereasoning} & \text{otherwise}
+\end{cases}
+\]
+where\; $\id{touched}(R,\Delta) = \id{closure}(R) \cap \Delta$.
+\caption{The three-way merge classification of a carried-over result $R$ against a change set $\Delta$: carried forward when its dependency closure is disjoint from the change set, carried forward when every touched dependency was abstracted uninterpreted (a contract), and otherwise flagged for re-reasoning.}
+\label{fig:core-merge-classify}
+\end{figure}
+The whole operator wraps this decision in a single pass over the carried-over results
+(Figure~\ref{fig:merge-pseudocode}): compute the change set once, then classify each prior result and emit
+its outcome, so that when the pass finishes every prior result carries exactly one verdict.
+\begin{figure}[H]
+\begin{lstlisting}[language=Pseudo]
+merge(base, ours, theirs):
+  D      <- changeset(base, ours, theirs)  # per-component changes, both sides
+  merged <- combine(ours, theirs)          # union of both parents' DAGs + logs
+  record two-parent merge_event(base, ours, theirs) into merged
+  for each carried-over result R in merged:
+    touched <- closure(R) intersect D      # I4 freshness closure at merge point
+    if touched is empty:                   # closure-disjoint
+      emit CarriedForward(R, witness = closure(R))
+    else if every d in touched is uninterpreted:  # opaque contract
+      emit CarriedForward(R, witness = touched)
+    else:
+      emit NeedsRereasoning(R, affected = touched)
+  for each goal g with an unproven in-scope component:  # coverage layer
+    regress g's obligation
+  return merged   # totality: each prior result is exactly one of
+                  #   CarriedForward | NeedsRereasoning | Re-reasoned
+\end{lstlisting}
+\caption{The \code{merge} operator in pseudocode: the change set $\Delta$ (\code{D}) is computed once, then
+each carried-over result is classified (Figure~\ref{fig:core-merge-classify}) and its outcome emitted with a
+witness; the coverage layer regresses a goal whose in-scope component is left unproven. On return, every
+prior result is exactly one of \code{CarriedForward}, \code{NeedsRereasoning}, or (after re-establishment)
+re-reasoned --- the \textbf{totality} invariant machine-checked in \S\ref{sec:proved}.}
+\label{fig:merge-pseudocode}
+\end{figure}
+The load-bearing property is \textbf{no-false-fresh}: a carry-forward never hides a genuinely-affected
+dependency. This is the freshness closure generalized, and its soundness is the \emph{same} property proved
+for freshness (a fresh aggregate has no drifted contributor), so re-reasoning is bounded to the true
+intersection rather than the whole trace. There are two layers: the \emph{artifact} layer (a proof's
+closure drifted) and the \emph{coverage} layer (a merge adds an in-scope but unproven component --- a goal's
+obligation regresses even though no existing proof changed).
+
+\paragraph{Carried-forward as a positive claim.} Where a residual records negative space, a
+\code{CarriedForward} artifact records a claim that was \emph{deliberately not re-checked because it is
+provably safe}: it carries the closure it checked and a disjointness witness, so an auditor can
+\emph{re-verify the skip} by recomputing the intersection. The merged trace's account of each prior result
+is thus one of three, under a \textbf{totality} invariant --- \emph{carried forward}, \emph{needs
+re-reasoning}, or \emph{re-reasoned}: exactly one, checkably, for every prior result. This is what makes
+``we only re-reasoned the parts the merge affected'' auditable rather than a claim to be trusted.
+
+\paragraph{Opaque contracts.} A dependency the proof \emph{abstracted} is handled by its recorded abstraction
+kind. If $R$ assumed $g$ \emph{uninterpreted} --- proved its property for \emph{all} values of $g$ --- then a
+merge change to $g$ cannot invalidate $R$, and $R$ carries forward (the \emph{contract} basis above). A
+\emph{pinned} dependency, or a discharged contract whose callee changed, re-reasons. The abstraction
+boundary is already part of the certificate (\S\ref{sec:context}); composition just reads it.
+
+\subsection{Durable component identity}\label{sec:identity}
+
+Composition is precise only if the change set $\Delta$ and the closures are computed over \emph{components},
+not text. Binding evidence to code by name breaks under a rename: a proof of \code{clamp} stops rooting a
+goal once \code{clamp} becomes \code{clamp\_int}. We give each code component a durable
+\code{component\_id}, an identity layer over the descriptors an artifact already carries (per-function
+hashes, target symbols, contributing sources). It sits beside the record identity \code{artifact\_id} as
+\emph{which code element} versus \emph{which record}; ``the component'' is the derived group over
+\code{component\_id}, and corrections are append-only aliases.
+
+Assignment resolves, most-confident-first: shared lineage $\to$ a unique content-fingerprint match $\to$ a
+confident similarity match $\to$ else \emph{mint a fresh id}. The dangerous error is \emph{conflation}
+(reusing an id for a different element), so the safe fallback is to mint --- the mirror of never-guessing a
+rename. With this, a goal criterion roots \emph{across} a rename, freshness \emph{follows} a rename, and the
+merge change set matches a rename as one component rather than a delete plus an add.
+
+\subsection{Generalization: multi-reasoner composition}\label{sec:multireasoner}
+
+The evidence logic composes \emph{claims, not logics}. Each object-level reasoner emits an artifact carrying
+a verdict and an explicit assumption boundary, mapped onto a shared verdict lattice
+(\code{proved}/\code{refuted}/\code{unknown}/\code{bounded}/\code{instance}); \code{ponens} conjoins results
+by lineage and connectives. This makes the object-logic slot pluggable: functional correctness to ImandraX,
+protocols and state machines to temporal logic and model checking, arithmetic to SMT, time-and-events to the
+event calculus. No unified super-logic is required --- the intractable path --- because composition happens
+in the evidence logic over certified claims.
+
+The key observation is that this is \emph{the same construction} as \S\ref{sec:merge}. A cross-branch
+dependency (``$A$'s proof used $g$, which $B$ changed'') and a cross-reasoner dependency (``the arithmetic
+result used a fact the temporal reasoner established'') are the same object: an \emph{explicit tracked
+assumption} that must be discharged, imported, or re-checked. The soundness discipline is identical ---
+every such dependency is a recorded assumption, so no implicit assumption leakage can make a conjunction
+unsound --- and the trace's certificate metadata (oracle, assumptions, freshness, contested) is exactly what
+makes the handoff between reasoners admissible. Composition over merges and composition over logics are one
+mechanism; that is the deepest reason the trace-as-context coheres.
+
+\part{Implementation}
+
+\section{Formal model and verification}\label{sec:proved}
+
+The invariants above are not informal. We modelled the framework \emph{specification-first} in IML and
+proved it with ImandraX --- the system verifying its own logic; the proofs are the conformance specification
+the implementation is written against. Crucially the model is not a bag of separate lemmas: it is a single
+\textbf{state-transition system whose state is the trace} --- the machine-checked form of the trace-as-state
+of \S\ref{sec:state}.
+
+\paragraph{The machine.} The model is a transition system $M = (\Sigma,\ \sigma_0,\ {\rightarrow},\ Q)$. The
+\textbf{state} $\Sigma$ is the trace of \S\ref{sec:state} in both its parts --- an ordered \emph{action} log
+and an \emph{artifact} lineage DAG, $\sigma = (\mathit{actions}, \mathit{artifacts})$, with every artifact
+produced by a recorded action (events are first-class, not a detached side-list); the \textbf{initial state}
+$\sigma_0$ is empty; the \textbf{transitions} ${\rightarrow}$ are \code{extend} (record an action and the
+artifact it produces), \code{supersede} (retire a target's current revision), and the two-parent
+\code{combine} (a merge); and the \textbf{queries} $Q$ read the state without changing it --- freshness, goal
+resolution (the \code{met} axis), policy evaluation (the \code{governed} axis), the merge affected-set
+classifier, and component-identity resolution. Well-formedness $\code{wf\_state}$ --- the artifact DAG is
+$\code{wf} = \mathrm{I1} \wedge \mathrm{I2} \wedge \mathrm{I3}$ (append-only, lineage-ordered/acyclic,
+evidence-grounded) \emph{and} every artifact is grounded in a recorded action --- is proved an
+\textbf{inductive invariant}: it holds initially and is preserved by every transition,
+\[
+  \code{wf\_state}(\sigma_0)
+  \qquad\text{and}\qquad
+  \code{wf\_state}(\sigma)\ \wedge\ \sigma \rightarrow \sigma' \ \Longrightarrow\ \code{wf\_state}(\sigma'),
+\]
+so \emph{every reachable state is well-formed}. The rest of the invariants are properties of the queries
+over reachable states --- freshness is \emph{no-false-fresh}, the two axes are orthogonal
+($\code{governed} \perp \code{met}$), and merge's carry-forward is sound --- and of the two remaining
+transitions (\code{supersede} and \code{combine} also preserve \code{wf\_state}). Everything is discharged over
+that one state (Table~\ref{tab:proofs}), not as a scattering of separate results.
+
+\begin{figure}[H]
+\begin{lstlisting}[language=IML]
+type artifact =                                   (* a typed evidence node ... *)
+  { id : int; derived_from : int list; target : int; superseded : bool;
+    akind : kind; engine_backed : bool; frozen : int;
+    producer_action : int }                       (* ... produced by this action *)
+type action = { aid : int; atype : act; produces : int list }
+type state  = { actions : action list; artifacts : artifact list }  (* THE STATE *)
+
+let rec lineage_ordered (t : artifact list) : bool =  (* I2: edges point at earlier ids *)
+  match t with [] -> true
+  | a :: r -> all_earlier a.id a.derived_from && lineage_ordered r
+let rec grounded (t : artifact list) : bool =         (* I3: a VResult is engine-backed *)
+  match t with [] -> true
+  | a :: r -> (a.akind = VResult ==> a.engine_backed) && grounded r
+let wf (t : artifact list) : bool = lineage_ordered t && grounded t
+(* the full-state invariant: DAG well-formed AND every artifact has a producer action *)
+let wf_state (s : state) : bool =
+  wf s.artifacts && artifacts_have_producers s.artifacts s.actions
+
+(* transitions grow actions and artifacts together *)
+let extend_state (s : state) (act0 : action) (a : artifact) : state =
+  { actions = s.actions @ [act0]; artifacts = s.artifacts @ [a] }
+let combine_state (x : state) (y : state) : state =
+  { actions = x.actions @ y.actions; artifacts = x.artifacts @ y.artifacts }
+(* supersede_state retires a target's current revision (flags only; log untouched) *)
+\end{lstlisting}
+\caption{The state and its transitions, from \code{machine/trace\_machine.iml}: the state is
+\code{(actions, artifacts)} --- events are first-class, every artifact carries its \code{producer\_action};
+\code{wf\_state} is the invariant; \code{extend\_state}/\code{supersede\_state}/\code{combine\_state} are the
+transitions. Freshness, goals, policies, merge-classify and component identity are queries/decisions
+over this same state.}
+\label{fig:machine-state}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}l p{9cm}@{}}
+\toprule
+Concern & Property proved (all over the one \code{(actions, artifacts)} state) \\
+\midrule
+state (events)         & \code{wf\_state}: every artifact grounded in a recorded action; preserved by \code{extend\_state}/\code{supersede\_state}/\code{combine\_state} \\
+I1 append-only         & \code{wf} preserved: \code{extend} grows, \code{supersede} flag-flips \\
+I2 lineage / acyclic   & \code{lineage\_ordered} preserved; no self-reference \\
+I3 grounded            & prose is inert; \code{grounded} preserved \\
+I4 freshness           & \code{freshness\_of} recomputed vs the current model; \textbf{no-false-fresh} \\
+I5 reuse               & never-reuse-stale; conditional growth; preserves \code{wf} \\
+goals (met)            & met $\Leftrightarrow$ all-done; at\_risk never demotes; progress $\in[0,1]$ \\
+policies (governed)    & LTLf $G$/$F$; \textbf{governed $\perp$ met} \\
+merge (composition)    & classify totality / no-false-fresh; \textbf{\code{combine} preserves \code{wf}} \\
+component identity      & \textbf{never conflate}; append-only alias equivalence \\
+verify escalation      & always decides; a verdict has a witness; first-decider-wins \\
+rename ambiguity       & never guess when ambiguous \\
+verdict totality       & every terminal verdict lands somewhere (defect $\Rightarrow$ residual) \\
+\bottomrule
+\end{tabular}
+\caption{The whole framework proved as \emph{one} state-transition machine (the trace as state): every
+invariant discharged over a single state --- \textbf{195 proof obligations, 0 failures} (ImandraX).
+Composition (\S\ref{sec:merge}) and component identity (\S\ref{sec:identity}) are proved before the
+implementation, so the code conforms to a proved specification.}
+\label{tab:proofs}
+\end{table}
+
+The properties are proved as ImandraX \emph{verification goals} over the definitions above; a representative
+selection is shown in Figure~\ref{fig:machine-goals}.
+
+\begin{figure}[H]
+\begin{lstlisting}[language=IML]
+(* safety: wf_state holds initially and is preserved by every transition *)
+theorem wf_state_empty = wf_state empty_state
+theorem extend_state_preserves_wf (s : state) (act0 : action) (a : artifact) =
+  wf_state s && admissible_state s act0 a ==> wf_state (extend_state s act0 a)
+theorem combine_state_preserves_wf (ours : state) (theirs : state) =
+  wf_state ours && wf_state theirs ==> wf_state (combine_state ours theirs)
+
+(* I4 no-false-fresh: a fresh aggregate hides no drifted / vanished contributor *)
+theorem no_false_fresh (t : trace) (present : int -> bool) (cur : int -> int) (a : artifact) =
+  evidence_fresh t present cur && mem_art a t && is_live_result a
+  ==> present a.target && a.frozen = cur a.target
+
+(* governed _|_ met: the two axes read disjoint projections of the state *)
+theorem met_ignores_timeline (s : gstate) (g : gitem list) (tl' : timeline) =
+  met_of s g = met_of { s with tl = tl' } g
+theorem governed_ignores_arts (s : gstate) (trig resp : act -> bool) (arts' : trace) =
+  governed_of s trig resp = governed_of { s with arts = arts' } trig resp
+
+(* merge carry-forward is sound; a component reuse is never a guess *)
+theorem merge_no_false_fresh (a : artifact) (delta : int list) (u : int -> bool) =
+  classify a delta u = CarriedForward
+  ==> touched a delta = [] || all_uninterp u (touched a delta)
+theorem reuse_is_justified (lin : int option) (ec eid b s sid id : int) =
+  resolve_component lin ec eid b s sid = ReuseId id ==>
+    lin = Some id || (lin = None && ec = 1 && id = eid)
+                  || (lin = None && ec <> 1 && confident_sim b s && id = sid)
+\end{lstlisting}
+\caption{A representative selection of the verification goals \emph{proved} over the machine (all discharged
+by ImandraX, 0 failures). \code{wf\_empty}/\allowbreak\code{extend\_preserves\_wf}/\allowbreak\code{combine\_preserves\_wf} are the
+safety (inductive-invariant) goals; \code{no\_false\_fresh}, \code{governed $\perp$ met}
+(\code{met\_ignores\_timeline} $+$ \code{governed\_ignores\_arts}), \code{merge\_no\_false\_fresh}, and
+\code{reuse\_is\_justified} (never-conflate) are the flagship soundness goals.}
+\label{fig:machine-goals}
+\end{figure}
+
+Three properties are worth isolating. \emph{no-false-fresh} (the merge affected-set) is the soundness of
+composition: a carry-forward provably does not hide an affected dependency. \emph{never-conflate} (component
+identity) is the soundness of the rebinding that makes composition rename-robust. And \emph{governed $\perp$
+met} --- the two axes read disjoint projections of the state, so how the work was done cannot change what
+was established --- is proved directly on the machine. That the system can express and discharge these about
+\emph{itself}, over one state, is evidence that the trace-as-context is a real logical object, not a
+metaphor.
+
+\section{The Ponens system}\label{sec:impl}
+
+The substrate is \code{ponens}, a reasoner-agnostic trace format and toolchain: an append-only typed trace,
+a residual surface, a goal/policy layer, and derived freshness, with a CLI (\code{trace enrich},
+\code{trace check}, and \code{trace merge}). Merge is realized as described in \S\ref{sec:merge}: a report
+mode and a \code{--combine} mode that emits a materialized merged trace which the validator, enricher, and
+policy checker accept. The affected-set classifier reuses the closure-checksum machinery that already
+computes freshness, so composition is freshness ``evaluated at a two-parent point.'' The format spec is
+versioned and additive; the composition additions (the two residual kinds, the carried-forward artifact, the
+\code{component\_id} field, and the merge section) were added as a backward-compatible version bump.
+
+The concrete instantiation is a coding agent whose object logic is IML/ImandraX. Here composition is
+triggered on real developer workflow: a \code{git} post-merge hook recognizes a merge (distinct from an
+ordinary edit), and after the freshness recompute surfaces exactly which verified results the merge put at
+risk --- ``this merge put $N$ verified results at risk; re-verify to restore the guarantee.'' The default is
+to re-enrich and flag; re-verification is an explicit, bounded follow-up over the at-risk set. The whole
+addition is additive: a trace without composition metadata behaves exactly as before.
+
+\subsection{The CLI in practice}\label{sec:impl-cli}
+
+Every construct in this paper is exercised through one command-line tool, \code{ponens}, operating on a local
+trace file; the same verbs run inside an agent's harness and in a reviewer's terminal. A representative
+lifecycle begins by deriving a trace from an agent session, then declaring the definition of done, earning
+its resolution against the recorded evidence, and governing \emph{how} the work was produced
+(Figure~\ref{fig:core-cli-lifecycle}).
+
+\begin{figure}[H]
+\begin{lstlisting}[language=PonensCLI]
+# Derive a trace from the latest agent session transcript (or `ponens trace init`)
+ponens emit -o trace.json --summarize
+
+# Enrich: resolve acceptance, derive the residual surface and relevance cones,
+# and recompute per-result freshness (Fresh | Stale | Detached)
+ponens trace enrich trace.json
+
+# Goals: state intent + definition of done, bind an acceptance item to a symbol
+ponens trace goal set    trace.json --intent "no double-charge on retry" --scope pricing.py
+ponens trace goal accept trace.json --kind property --label "idempotent charge" --symbol charge
+
+# Resolve the goal against the evidence (earned, not self-reported) ...
+ponens trace resolve trace.json
+# ... and record a non-doer's sign-off that the definition of done is RIGHT
+ponens trace goal certify trace.json --by reviewer --verdict approved
+
+# Govern: load best-practice policies and run the gate (fully offline)
+ponens registry update
+ponens policies add tests_before_commit --into trace.json
+ponens trace check trace.json               # Passed / Failed / NotApplicable, per policy
+ponens trace report trace.json              # Markdown grade + open gaps for a PR comment
+\end{lstlisting}
+\caption{A representative \code{ponens} lifecycle on a local trace file: deriving a trace from an agent session, enriching it, declaring the goal and definition of done, resolving it against the recorded evidence, and governing how the work was produced with best-practice policies.}
+\label{fig:core-cli-lifecycle}
+\end{figure}
+
+The interchange and non-repudiation verbs (\S\ref{sec:interchange}) sign the frozen content, bind it 1:1 to
+the commit under review, and project the lineage to a standard provenance vocabulary (Figure~\ref{fig:core-cli-interchange}).
+
+\begin{figure}[H]
+\begin{lstlisting}[language=PonensCLI]
+# Sign the content_hash with a role-bearing disposition; verify against a roster
+ponens trace sign   trace.json --role auditor --disposition approved   # ssh | gpg | sigstore
+ponens trace verify trace.json --allowed-signers roster
+
+# Bind to the git commit (a Trace-Id git note) and publish for review
+ponens bind && ponens push
+
+# Project the typed-artifact lineage to W3C PROV-JSON for an external auditor
+ponens trace export trace.json --to prov -o trace.prov.json
+\end{lstlisting}
+\caption{The interchange and non-repudiation verbs: signing the frozen \code{content\_hash} with a role-bearing disposition and verifying it against a roster, binding the trace to the git commit under review, and exporting the typed-artifact lineage to W3C PROV-JSON for an external auditor.}
+\label{fig:core-cli-interchange}
+\end{figure}
+
+Composition (\S\ref{sec:merge}) is a single verb. In report mode it names the verified results a merge put
+at risk; \code{--combine} materializes the merged trace, which the enricher, checker, and validator accept
+unchanged (Figure~\ref{fig:core-cli-merge}).
+
+\begin{figure}[H]
+\begin{lstlisting}[language=PonensCLI]
+# Merge two branch traces: carry forward the provably-unaffected, flag the rest
+ponens trace merge ours.json theirs.json --base base.json --combine -o merged.json
+ponens trace enrich merged.json             # re-derive freshness at the two-parent point
+\end{lstlisting}
+\caption{Composition as a single verb: \code{ponens trace merge} carries forward the provably-unaffected results and flags the rest, and \code{--combine} materializes a merged trace whose freshness is then re-derived at the two-parent point.}
+\label{fig:core-cli-merge}
+\end{figure}
+
+\subsection{The LTL policy checker}\label{sec:impl-ltl}
+
+The governed axis of \S\ref{sec:policies} is enforced by a concrete checker built into \code{ponens}. A
+policy formula --- written in the unicode surface of \S\ref{sec:policies} or an equivalent ASCII surface ---
+is tokenized and parsed by a recursive-descent parser into an abstract syntax tree over the operators of the
+language: the future-time \code{G}/\code{F}/\code{X} and the binary \code{U}; the past-time
+\code{P}/\code{H}/\code{S}/\code{S\_last}; the scoped-past \code{P\_target}/\code{P\_chain}/\code{H\_target}/%
+\code{H\_chain}; the first-order quantifiers $\forall$/$\exists$/$\exists!$ over the typed artifact graph;
+field access and comparison; set comprehensions; and the \code{count} aggregate. The evaluator interprets
+that AST over the finite trace --- the ordered action timeline --- and returns a three-valued verdict per
+policy: \code{Passed}, \code{Failed}, or \code{NotApplicable} (the trigger never fired), together with
+\emph{witnesses}: the action and artifact ids that support a pass or break a fail
+(Figure~\ref{fig:ltl-checker}). \code{ponens trace check} runs every attached policy this way and aggregates
+the verdicts into the audit grade (or, for the FIX pack of \S\ref{sec:examples-fix}, the Green/Amber/Red
+\code{GovernanceState}).
+
+\begin{figure}[H]
+\begin{lstlisting}[language=Policy]
+# a policy formula ...            parse -> AST -> evaluate over the action timeline
+G( Release -> P(UserApproval /\ authenticated) )
+\end{lstlisting}
+\vspace{-6pt}
+\begin{lstlisting}[language=PonensCLI]
+$ ponens trace check trace.json
+  no_release_without_authenticated_approval  FAIL  (Release@a17: no prior auth UserApproval)
+  tests_before_commit                        PASS
+  review_with_independence                    N/A  (trigger never fired)
+  grade: AMBER
+\end{lstlisting}
+\caption{The LTL checker (schematic): a formula is parsed to an AST and evaluated over the action timeline,
+yielding \code{Passed}/\code{Failed}/\code{NotApplicable} per policy with witnessing ids, which
+\code{ponens trace check} aggregates into a grade.}
+\label{fig:ltl-checker}
+\end{figure}
+
+Two things anchor the checker's trustworthiness. First, the check is \textbf{deterministic and fully
+offline} --- no model in the loop --- which is exactly the property a \emph{binding} governance control must
+have (\S\ref{sec:policies}; the FIX proposal's ``deterministic function over the governed state'' of
+\S\ref{sec:examples-fix}). Second, the language has \emph{two evaluators kept in lockstep} --- the Python CLI
+evaluator and a JavaScript evaluator (the browser playground and trace viewer) --- checked against each
+other by a cross-evaluator parity harness, so a policy yields the same verdict wherever it runs. And the very
+same formulas \emph{compile to IML} (over a policy-combinator library), so a policy can be handed to
+ImandraX; the governed axis itself is machine-checked in the state machine of \S\ref{sec:proved} (the
+\textrm{LTL}$_f$ \code{G}/\code{F} semantics and \code{governed} $\perp$ \code{met}). The runtime checker and
+the formal model are two readings of one language.
+
+\input{sec-interchange}
+
+\part{Demonstration and discussion}
+
+\input{sec-examples}
+
+\section{Related work}
+
+\emph{Provenance.} W3C PROV~\cite{prov} standardizes \emph{how} an artifact came to be, for interchange; it
+is a lossy view of, not a substitute for, a reasoning state --- it carries neither the evidence-logic
+certificate (freshness, contested-ness) nor a notion of composition. \emph{Non-monotonic and defeasible
+reasoning.} The trace is a defeasible context in Pollock's sense~\cite{pollock}: defeaters record
+counter-evidence and retract conclusions; the query-carrying property connects it to answer-set
+programming~\cite{asp} and the event calculus~\cite{ec}. \emph{Proof-carrying code}~\cite{pcc}: claims travel
+with certificates checkable by the consumer; we extend the idea from a single artifact to a composable
+context. \emph{Truth-maintenance systems}~\cite{atms}: dependency-directed retraction is the local analogue
+of our non-monotonic, well-founded context --- the trace can be seen as a proof-carrying, append-only TMS
+over a codebase, with merges as the composition operation TMSs do not define. \emph{Version control.} Git
+infers renames heuristically at diff time and merges text without any notion of semantic invalidation;
+\S\ref{sec:identity} gives the durable identity git omits, and \S\ref{sec:merge} the semantic merge it does
+not attempt.
+
+\emph{Runtime governance for agentic AI.} A parallel line in financial Model Risk Management, developed
+independently of this work, arrives at strikingly similar premises: agentic risk is a property of
+\emph{execution trajectories} rather than of an input--output mapping, and binding governance must be a
+\emph{deterministic function over the governed state}, executed independently of the language
+model~\cite{szpruch,fixgov}. That is the object and the discipline we arrive at here as well --- their
+governed trajectory is our trace, and their governance function is a \code{ponens} policy
+(\S\ref{sec:policies}) that \code{ponens trace check} evaluates --- and we read the convergence as mutual
+corroboration rather than either deriving from the other. Ponens itself was driven by industrial applications
+in capital markets --- certifying counterparty connectivity against venue FIX specifications, and governing
+agentic trading workflows --- rather than by a governance theory; the convergence is therefore between field
+practice and an independently-derived MRM programme, which we take as the stronger evidence that treating the
+execution trajectory as the governed object is the right move. The agreement runs deeper on two points that
+our construction independently makes concrete. Both hold that verification must be \emph{decomposed by claim
+structure} --- logical, numeric, retrieval, consistency --- rather than delegated to one semantic judge,
+which here is multi-reasoner composition (\S\ref{sec:multireasoner}); and both hold that an LLM-as-judge
+conflates \emph{plausibility} with \emph{correctness}, which here is the \textsc{established}-versus-%
+\textsc{asserted} discipline (\S\ref{sec:interchange-audit}). The two frameworks are complementary in scope:
+theirs is a capability-catalogue MRM \emph{programme} for a bank; ours contributes a concrete trace format, a
+policy language and its formal semantics, the goal axis, \emph{composition over traces at a merge} --- a
+notion their setting, concerned with single-run orchestration and change control, does not address --- and
+machine-checked foundations that make the governance function checkable and its warrant portable across
+parties.
+
+\section{Conclusion}
+
+Treating the reasoning trace as a state --- a defeasible, proof-carrying context rather than a log --- is not
+bookkeeping; it is what makes agent reasoning \emph{compose}. The same append-only structure serves as
+memory, governance surface, and logical context, and the certificate every claim carries is exactly what a
+merge (or a second reasoner) needs to decide, soundly, what a change preserves and what it invalidates. We
+gave the model, its composition operator, and a durable identity for binding evidence to code across change;
+we proved the load-bearing invariants by the system on itself; and we showed the construction generalizes
+from merges to multiple logics. The result is a substrate on which an agent's work is not merely recorded but
+\emph{verifiable} --- and, because the warrant travels with the claim, verifiable by a party other than the
+one that produced it.
+
+\paragraph{Availability.} \code{ponens} is open source. The toolchain and the full trace, goal, and policy
+specifications are at \url{https://www.ponens.dev}; the source is at
+\url{https://github.com/imandra-ai/ponens}.
+
+\begin{thebibliography}{9}
+\bibitem{imandra} Passmore, G.\ et al.\ \emph{The Imandra Automated Reasoning System.} IJCAR, 2020.
+\bibitem{prov} Moreau, L., Missier, P.\ (eds.).\ \emph{PROV-DM: The PROV Data Model.} W3C Recommendation, 2013.
+\bibitem{pollock} Pollock, J.\ \emph{Defeasible Reasoning.} Cognitive Science 11(4), 1987.
+\bibitem{asp} Gelfond, M., Lifschitz, V.\ \emph{The Stable Model Semantics for Logic Programming.} ICLP, 1988.
+\bibitem{ec} Kowalski, R., Sergot, M.\ \emph{A Logic-Based Calculus of Events.} New Generation Computing 4, 1986.
+\bibitem{ltl} Pnueli, A.\ \emph{The Temporal Logic of Programs.} FOCS, 1977.
+\bibitem{pcc} Necula, G.\ \emph{Proof-Carrying Code.} POPL, 1997.
+\bibitem{atms} de Kleer, J.\ \emph{An Assumption-Based TMS.} Artificial Intelligence 28(2), 1986.
+\bibitem{fixgov} FIX Trading Community, AI Working Group.\ \emph{Proposal on Agentic AI Runtime Governance under FIX Protocol Extensions.} R.\ Healey \& K.\ Houston, 12 Jun 2026.
+\bibitem{szpruch} Szpruch, L., Sudjianto, A., Bhatti, T., Ang, G.\ \emph{Scalable Runtime Governance for Agentic AI in Financial Services.} SSRN 6567199, 2026.
+\bibitem{ponensfix} FIX Community.\ \emph{Agentic AI Runtime Governance --- \code{ponens} policy pack.} \url{https://www.ponens.dev/organizations/fix-community}.
+\end{thebibliography}
+
+\end{document}

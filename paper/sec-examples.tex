@@ -1,0 +1,120 @@
+\section{Worked examples}\label{sec:examples}
+
+The construction is easiest to see end-to-end. We walk two scenarios --- one from software development, one
+from agentic trading --- each exercising the full machinery: a goal, its resolution against evidence,
+governance by policy, and (for the first) composition across a merge. The two differ only in their
+\emph{object logic} and \emph{policy vocabulary}; the evidence logic over the trace is identical. The trading
+example runs the FIX Trading Community's runtime-governance pack~\cite{ponensfix} verbatim.
+
+\subsection{A verified pricing change through a merge}\label{sec:examples-coding}
+
+An agent is asked to make a payment function \code{charge} idempotent under retries: a retried request must
+never double-charge. This pays off motivating example~1 (\S\ref{sec:intro-examples}) concretely.
+
+\begin{enumerate}
+\item \textbf{Declare the goal.} The definition of done is stated and bound to the component it constrains
+(\S\ref{sec:goals}):
+\begin{quote}
+\code{ponens trace goal set trace.json --intent "charge is idempotent under retry" --scope pricing.py}\\
+\code{ponens trace goal accept trace.json --kind property --label "no double-charge on retry" --symbol charge}
+\end{quote}
+The goal is now a first-class field of \trace{}; its acceptance item names the property and the component
+\code{charge}, not a line of prose.
+
+\item \textbf{Establish the evidence.} The agent formalizes \code{charge} in IML, defines a verification goal,
+and ImandraX discharges it. A \code{VerificationResultArtifact} \code{vr1} with status \code{proved} enters the
+lineage, carrying a \code{reasoning\_fingerprint} over \code{charge} \emph{and its dependency closure} --- which
+includes the helper \code{apply\_discount} (\S\ref{sec:format}).
+
+\item \textbf{Resolve and govern.} \code{ponens trace resolve} walks the lineage: an artifact of the required
+type roots in \code{charge}, is \code{Fresh}, and is uncontested, so the acceptance item resolves \code{met}
+and the goal is met --- earned from evidence, not self-reported (\S\ref{sec:goals}). \code{ponens trace check}
+runs the governance pack (e.g.\ tests-before-commit) and returns Green (\S\ref{sec:policies}); \code{ponens
+trace sign} and \code{ponens bind} freeze and attribute the record (\S\ref{sec:interchange-sign}).
+
+\item \textbf{A change arrives on another branch.} A colleague, on a separate branch, refactors
+\code{apply\_discount} --- a function in \code{vr1}'s dependency closure --- to change rounding. Their branch's
+own trace is internally consistent and never mentions \code{charge}; in isolation, each side is valid.
+
+\item \textbf{The merge, decided soundly.} A \code{git} merge fires the post-merge hook, which runs
+\code{ponens trace merge ours.json theirs.json --base base.json --combine} (Figure~\ref{fig:core-cli-merge}).
+The classifier intersects \code{vr1}'s dependency closure with the merge's change set: \code{apply\_discount}
+is touched and was not abstracted \code{uninterpreted}, so \code{vr1} is \emph{not} carried forward --- it
+becomes a \code{NeedsRereasoning} residual and the goal's verdict drops to \code{at\_risk} (\S\ref{sec:merge}).
+The report reads: ``this merge put 1 verified result at risk; re-verify to restore the guarantee.'' By the
+\emph{no-false-fresh} property (proved, \S\ref{sec:proved}), the proof is never silently kept.
+
+\item \textbf{Close the loop.} Re-running the proof over the at-risk set either restores \code{proved} (the goal
+returns to \code{met}, freshness \code{Fresh}) or produces a counterexample --- a \code{Defeater} that
+\code{Rebuts} \code{vr1}, making the claim contested and resolving the acceptance item \code{AcceptBlocked}
+(\S\ref{sec:goals}). Either way the result is a checkable verdict, not a silent regression: the
+individually-valid proof and the individually-valid refactor were \emph{jointly} invalid, and the trace made
+that decidable.
+\end{enumerate}
+
+\subsection{Governing an agentic trading workflow (FIX)}\label{sec:examples-fix}
+
+An execution agent works an order in secondary markets. Its run is recorded as a trace whose actions use the
+agentic vocabulary the FIX AI Working Group's runtime-governance proposal~\cite{fixgov} assumes ---
+\code{Retrieve} (market data), \code{Compute} (order size), \code{Draft} (the order), \code{Release} (send to
+venue) --- each carrying the governance predicates the runtime emits per action (identity resolved, vLEI
+present, intent resolved, tool allowlisted, provenance and recency checked, deterministic recompute,
+authenticated approval). We govern this trace with the FIX Trading Community's \emph{Agentic AI Runtime
+Governance} pack~\cite{ponensfix}, which maps the proposal's traffic-light (Green / Amber / Red) scheme onto
+\code{ponens} policies (Figure~\ref{fig:ex-fix-pack}); the underlying capability model and four-tier risk
+scheme are from Szpruch et al.~\cite{szpruch}. The same shape appears in their independently-developed
+credit-memo example --- a labelled transition system with a guard on every transition (retrieval recency,
+deterministic recomputation, an authenticated-approval gate before release). Read in our terms, that
+trajectory is a trace and those guards are policies of the form in Figure~\ref{fig:ex-fix-pack}, which
+\code{ponens trace check} evaluates as the deterministic governance function both lines of work call for.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{no\_release\_without\_authenticated\_approval} & \text{\footnotesize\itshape \textcolor{red!70!black}{Red}; approval \& release gating}\\
+\multicolumn{2}{@{}l@{}}{\quad \mathsf{G}\big(\id{Release} \rightarrow \mathsf{P}(\id{UserApproval} \land \id{authenticated} \land \id{approval\_scope\_covers})\big)}\\[4pt]
+\id{dual\_approval\_critical} & \text{\footnotesize\itshape \textcolor{red!70!black}{Red}; Tier 4, two approvers}\\
+\multicolumn{2}{@{}l@{}}{\quad \mathsf{G}\big(\id{Release} \rightarrow \mathsf{P}(\id{UserApproval} \land \id{approver\_1}) \land \mathsf{P}(\id{UserApproval} \land \id{approver\_2})\big)}\\[4pt]
+\id{retrieved\_data\_attributed} & \text{\footnotesize\itshape \textcolor{red!70!black}{Red}; Szpruch C1 (retrieval)}\\
+\multicolumn{2}{@{}l@{}}{\quad \mathsf{G}\big(\id{Retrieve} \rightarrow \id{provenance\_checked} \land \id{recency\_checked}\big)}\\[4pt]
+\id{numeric\_recomputed\_deterministically} & \text{\footnotesize\itshape \textcolor{red!70!black}{Red}; Szpruch C2 (numerics)}\\
+\multicolumn{2}{@{}l@{}}{\quad \mathsf{G}\big(\id{Compute} \rightarrow \id{deterministic\_recompute}\big)}\\[4pt]
+\id{credential\_not\_expiring} & \text{\footnotesize\itshape \textcolor{orange!85!black}{Amber}; identity \& auth}\\
+\multicolumn{2}{@{}l@{}}{\quad \mathsf{G}\big(\id{action} \rightarrow \lnot\,\id{credential\_expiring}\big)}
+\end{array}
+\]
+\caption{A slice of the FIX Trading Community runtime-governance pack~\cite{ponensfix,fixgov}: traffic-light
+conditions expressed as temporal-logic policies over the trading agent's execution trace. \code{ponens trace
+check} aggregates the per-policy verdicts into a single Green / Amber / Red \code{GovernanceState}.}
+\label{fig:ex-fix-pack}
+\end{figure}
+
+\begin{enumerate}
+\item \textbf{Attach and check.} \code{ponens trace check trace.json} evaluates each traffic-light condition as
+a policy over the trace and aggregates the verdicts: all-pass is Green, a warning-severity failure is Amber, an
+error-severity failure is Red (\S\ref{sec:policies}).
+
+\item \textbf{A red flag.} Suppose the agent issued a \code{Release} with no prior authenticated,
+scope-covering approval. \code{no\_release\_without\_authenticated\_approval} (Figure~\ref{fig:ex-fix-pack})
+fails at \code{error} severity, so the aggregate is \textbf{RED}: \code{ponens trace check} exits non-zero and
+names the failed policy --- the \code{GovernanceFlags} the proposal wants carried in a new FIX field. In
+parallel a credential nearing expiry trips \code{credential\_not\_expiring} at \code{warning} severity
+(\textbf{Amber}), which is reported but never collapsed into the Red.
+
+\item \textbf{Deterministic, model-independent enforcement.} The verdict is a deterministic function over the
+trace, executing independently of the language model --- exactly the property the proposal requires of any
+\emph{binding} (as opposed to advisory) control~\cite[\S10.3]{fixgov}: ``a governance decision that cannot be
+expressed as a deterministic function over the governed state \ldots\ is advisory guidance, not binding
+enforcement.'' A \code{ponens} policy \emph{is} that function.
+
+\item \textbf{Remediate and re-gate.} A Tier-4 (Critical Autonomous) deployment additionally requires
+\code{dual\_approval\_critical}. Once the agent obtains authenticated dual approval before \code{Release},
+\code{ponens trace check} returns Green; the signed, bound trace (\S\ref{sec:interchange}) is the auditable
+\code{GovernanceState} record --- verifiable by the venue or a regulator without trusting the agent's operator.
+\end{enumerate}
+
+In both examples the same object --- a proof-carrying trace queried by the evidence logic --- carries the
+verdict; only the object logic (IML/ImandraX proofs versus governance predicates over a trading trajectory)
+and the policy vocabulary differ. That is the multi-reasoner thesis of \S\ref{sec:multireasoner} in miniature.

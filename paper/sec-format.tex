@@ -1,0 +1,321 @@
+\section{The trace format}\label{sec:format}
+
+Section~\ref{sec:state} gave the trace as an abstract state \trace{}: an append-only log, a
+lineage DAG of typed artifacts, a goal lens, a residual surface, and a derived freshness verdict.
+This section makes that model concrete. The format is the load-bearing artifact of the whole
+construction: the invariants of \S\ref{sec:state}, the certificate of \S\ref{sec:context}, and the
+composition of \S\ref{sec:merge} are all statements \emph{about the typed objects defined here}. We
+present the canonical types faithfully but distilled, and close with a worked interchange trace that
+exhibits every discriminator the rest of the paper relies on.
+
+\subsection{Canonical model and interchange projection}\label{sec:format-canonical}
+
+The specification is layered. The \textbf{canonical model} is the semantic source of truth: strongly
+typed, algebraic where a set of cases is closed, and the model against which invariants and semantics
+are defined. The \textbf{interchange model} is a JSON projection of it, for persistence, transport,
+and cross-language interoperability. The design rule is one-directional --- \emph{specify the
+strongest semantic model first; derive the wire format from it, not the reverse} --- so the JSON is
+never authoritative. This matters for verifiability: the invariants of \S\ref{sec:proved} are proved
+over the canonical types, and the wire format inherits them only because it is a projection.
+
+The canonical trace is a typed record whose fields are exactly the five parts of \S\ref{sec:state}
+plus reproducibility and governance surfaces: an ordered \code{actions} list, a \code{meta\_actions}
+overlay, an \code{artifacts} lineage DAG, \code{policies}/\code{policy\_evaluations},
+\code{execution\_environments}, \code{goals}, and inter-trace \code{trace\_links}. Every algebraic
+variant projects to JSON under an \textbf{explicit discriminator}: artifacts carry
+\code{artifact\_type}, actions carry \code{category} and \code{type}, and verification-result variants
+carry tags such as \code{proved}/\code{refuted}/\code{sat}/\code{unknown}. Decoding must reconstruct
+the strict model and \emph{reject} an invalid discriminator/payload combination --- the wire boundary
+is where ill-typed traces are caught, not admitted.
+
+\subsection{Actions: the ground-truth log}\label{sec:format-actions}
+
+Actions are the ordered, atomic steps --- one entry per tool call --- and they do not exchange
+free-form names; they exchange \emph{artifact identities} via \code{inputs} and \code{outputs}. Every
+action shares a common record (Figure~\ref{fig:fmt-action-common}).
+
+\begin{figure}[H]
+\centering
+\[
+\id{action\_common} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{id}              & \id{Int},\\
+\id{label}           & \id{String},\\
+\id{rationale}       & \id{String},\\
+\id{detail}          & \opt{\id{String}},\\
+\id{inputs}          & \many{\id{ArtifactId}},\\
+\id{outputs}         & \many{\id{ArtifactId}},\\
+\id{evidence}        & \many{\id{Evidence}},\\
+\id{observations}    & \many{\id{Observation}},\\
+\id{execution}       & \opt{\id{ExecutionMetadata}},\\
+\id{reproducibility} & \opt{\id{ActionReproducibility}},\\
+\id{meta\_action\_id} & \opt{\id{String}}
+\end{array}
+\;\Big)
+\]
+\caption{The common record shared by every action: identity, labels, the \code{inputs}/\code{outputs} artifact-id edges, evidence and observations, and optional execution and reproducibility metadata.}
+\label{fig:fmt-action-common}
+\end{figure}
+
+The strict action type partitions steps into four \textbf{categories}, each with its own closed set
+of types: \emph{activity} (\code{ReadFile}, \code{EditFile}, \code{RunTests}, \code{GitCommit},
+\code{FormulatePlan}, \ldots), \emph{gateway} (decisions, splits, loops --- carrying the options and
+the reason each was chosen or rejected), \emph{reasoning} (\code{Formalize},
+\code{DefineVerificationGoal}, \code{Verify}, \code{StateSpaceAnalysis}, \code{ConformanceCheck},
+\code{CoSimulate}, \code{GenerateTests}), and \emph{governance} (\code{EvaluatePolicy},
+\code{RequestApproval}, \code{RecordAudit}, \code{LinkTrace}, \ldots). The category/type split is the
+semantic layer; the concrete engine is recorded separately in \code{execution\_metadata}
+(\code{tool = "imandrax"}, \code{method\_ = "region\_decomposition"}, a \code{determinism} tag), which
+keeps the format \emph{reasoner-agnostic} --- the same \code{StateSpaceAnalysis} action denotes the
+same reasoning operation whether ImandraX or another engine realized it.
+
+Over this atomic log sits an optional \textbf{meta-action} overlay: an ordered, non-overlapping
+grouping of actions into units of \emph{intent} (a goal-to-steps hierarchy via \code{parent\_id}),
+carrying a \code{title}, \code{intent}, \code{outcome}, and a \code{source} on a fidelity ladder
+(\code{PlanDeclared} $>$ \code{TurnSegmented} $>$ \code{IntentInferred}). This is the \emph{curated
+narrative} of a session: the atomic actions remain the evidence, and the overlay is a producer's
+claim about how they group --- reviewable as a unit before drilling in.
+
+\subsection{Artifacts and lineage}\label{sec:format-artifacts}
+
+Artifacts are the evidence. Every artifact carries a common record (Figure~\ref{fig:fmt-artifact-common}) and then, for the structured
+kinds, a typed payload aligned with its constructor.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\id{artifact\_common} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{artifact\_id}       & \id{String},\\
+\id{artifact\_role}     & \opt{\id{ArtifactRole}},\\
+\id{name}               & \opt{\id{String}},\\
+\id{format}             & \opt{\id{String}},\\
+\id{revision}           & \opt{\id{Int}},\\
+\id{producer\_action\_id} & \opt{\id{Int}},\\
+\id{derived\_from}      & \many{\id{ArtifactId}},\\
+\id{supersedes}         & \opt{\id{String}},\\
+\id{content\_ref}       & \opt{\id{String}},\\
+\id{summary}            & \opt{\id{String}},\\
+\id{component\_id}      & \opt{\id{String}},\\
+\id{metadata}           & \opt{\id{ArtifactMetadata}}
+\end{array}
+\;\Big)
+\]
+\caption{The common record shared by every artifact: the record identity \code{artifact\_id}, semantic role, the \code{derived\_from} lineage edges, the \code{supersedes} revision link, and the rename-stable \code{component\_id}.}
+\label{fig:fmt-artifact-common}
+\end{figure}
+
+\begin{sloppypar}
+The artifact type is a \textbf{strict union} so that payload presence is aligned with kind and
+impossible combinations are unrepresentable: source code, plans, diffs, and commits carry only the
+common record; the reasoning kinds --- \code{FormalizationArtifact}, \code{FormalModelArtifact},
+\code{VerificationGoalArtifact}, \code{VerificationResultArtifact},
+\code{StateSpaceAnalysisResultArtifact}, \code{ConformanceResultArtifact},
+\code{CoSimulationResultArtifact}, \code{GeneratedTestsArtifact} --- pair the common record with a
+typed payload. Two members are newer additions the rest of the paper leans on: the residual surface
+is folded in as a \code{Residual} artifact (\S\ref{sec:format-residual}), and \textbf{1.10 adds}
+\code{CarriedForwardArtifact} --- the positive record of a merge skip (\S\ref{sec:format-carried}).
+\end{sloppypar}
+
+\code{derived\_from} \emph{is} the lineage DAG: each edge names an immediate input, so an artifact's
+\textbf{dependency closure} is the transitive back-walk. This is what invariant I2 of
+\S\ref{sec:state} constrains --- an edge points only at a strictly earlier artifact, forbidding
+circular premises --- and what goal resolution and freshness walk. \textbf{Revisioning} is
+append-only (I1): an artifact is immutable once produced, so re-analysis \emph{supersedes} (a new
+\code{revision}, linked back by \code{supersedes}) rather than mutating in place. ``The latest
+result'' is thus a derived query over the supersession chain, never an overwrite --- which is exactly
+what lets an auditor see the whole history and what lets freshness be recomputed against any point.
+
+\subsection{Formal results}\label{sec:format-results}
+
+The reasoning payloads carry the object-logic verdicts. A \code{VerificationGoal} states what is to
+be established (\code{kind} in verify/instance/theorem/lemma/axiom, a \code{target\_symbol}, a
+list of \code{property\_item}s); a \code{VerificationResult} carries the outcome as a tagged variant
+--- \code{ProvedResult} (with the pretty-printed proof), \code{RefutedResult} (with a
+counterexample), \code{SatResult}, or \code{UnknownResult}. The state-space, conformance, and
+co-simulation payloads are structurally analogous verdicts over their own object logics. Each result may
+additionally carry a \code{reasoning\_fingerprint}, the anchor for freshness treated in its own right in
+\S\ref{sec:freshness}.
+
+\subsection{The residual surface: the negative space}\label{sec:format-residual}
+
+A trace records what was established --- the positive space --- but review and agent-to-agent handoff
+need the \emph{negative} space: what was \emph{not} established. The residual surface is the uniform,
+typed, queryable record of it, and \textbf{a residual is an artifact}
+(\code{artifact\_type = "Residual"}): it carries its fields in \code{payload} and \emph{anchors into
+the lineage DAG} through \code{derived\_from}, so a gap hangs off exactly the artifact it qualifies.
+Positive and negative space share one addressable model.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{@{}l@{}}
+\id{residual\_kind} \;::=\; \id{Assumption} \mid \id{Unverified} \mid \id{OutOfScope} \mid \id{Limitation} \mid \id{OpenQuestion} \mid{}\\
+\hphantom{\id{residual\_kind} \;::=\;{}}\id{Defeater} \mid \id{NeedsRereasoning} \mid \id{CoverageRegression}
+\end{array}
+\]
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+$\id{Assumption}$         & \text{\footnotesize\itshape a premise relied on but not established}\\
+$\id{Unverified}$         & \text{\footnotesize\itshape something done but not checked or proved}\\
+$\id{OutOfScope}$         & \text{\footnotesize\itshape deliberately not addressed}\\
+$\id{Limitation}$         & \text{\footnotesize\itshape a constraint under which the results hold}\\
+$\id{OpenQuestion}$       & \text{\footnotesize\itshape a decision deferred to review}\\
+$\id{Defeater}$           & \text{\footnotesize\itshape counter-evidence against a claim (not a gap); carries a $\id{defeater\_kind}$}\\
+$\id{NeedsRereasoning}$   & \text{\footnotesize\itshape a result a merge disturbed; re-establish against the merged code}\\
+$\id{CoverageRegression}$ & \text{\footnotesize\itshape a goal whose scope gained an unproven member after a merge}
+\end{tabular}
+\end{center}
+\[
+\id{defeater\_kind} \;::=\; \id{Rebuts} \mid \id{Undermines} \mid \id{Undercuts}
+\]
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+$\id{Rebuts}$     & \text{\footnotesize\itshape the claim may be false --- e.g.\ a counterexample to a proved property}\\
+$\id{Undermines}$ & \text{\footnotesize\itshape the evidence is invalid --- e.g.\ the model does not match the code}\\
+$\id{Undercuts}$  & \text{\footnotesize\itshape the inference is deficient --- e.g.\ ``passing tests do not establish this''}
+\end{tabular}
+\end{center}
+\caption{The residual taxonomy (Pollock / SEI eliminative-argumentation): \code{residual\_kind} enumerates the gap and counter-evidence kinds (including the merge-specific \code{NeedsRereasoning} and \code{CoverageRegression}), and \code{defeater\_kind} classifies a defeater as a rebut, undermine, or undercut.}
+\label{fig:fmt-residual-kind}
+\end{figure}
+
+The first five kinds record \emph{missing positive space} --- something not established. A
+\code{Defeater} is different in kind: it records \emph{negative evidence}, a concrete reason to
+believe a stated result is \emph{wrong}, and it anchors (via \code{derived\_from}/\code{target}) to
+the claim it contests while citing the counter-evidence in \code{related\_artifact\_ids}. An
+\emph{open} defeater makes its target \textbf{contested} --- a \code{Property} acceptance item over a
+contested proof resolves \code{AcceptBlocked}, not \code{AcceptDone} (this is the non-monotonic
+retraction of \S\ref{sec:context}, made first-class and reviewer-raisable). \textbf{1.10 adds} two
+merge-specific kinds: \code{NeedsRereasoning} (an established result whose evidence a merge disturbed)
+and \code{CoverageRegression} (a goal whose scope gained an unproven member) --- the negative half of
+the composition account of \S\ref{sec:merge}. Each residual also carries a \code{severity}
+(impact-if-wrong, not probability), a \code{source} on a trust ladder (\code{AgentDeclared},
+\code{PolicyDerived}, \code{ToolInferred}, \code{ReviewerAdded}), a \code{status}
+(\code{Open}/\code{Acknowledged}/\code{Addressed}/\code{Waived}), and an optional
+\code{suggested\_check} that turns a warning into a work-item. Because it is an ordinary artifact,
+every severity/status/source field and every policy applies to a defeater unchanged.
+
+\subsection{Carried-forward: the positive dual}\label{sec:format-carried}
+
+Composition (\S\ref{sec:merge}) needs a symmetric record on the positive side. \textbf{1.10 adds} the
+\code{CarriedForwardArtifact}: where a residual records a gap, a \code{CarriedForward} records a claim
+that was \emph{deliberately not re-checked because it is provably safe}. It carries a falsifiable
+witness so an auditor can re-verify the skip (Figure~\ref{fig:fmt-carried-forward}).
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\id{carried\_forward\_basis} \;::=\; \id{ClosureDisjoint} \mid \id{UninterpretedOpaque}
+\]
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+$\id{ClosureDisjoint}$     & \text{\footnotesize\itshape the result's dependency closure did not intersect the merge's change set}\\
+$\id{UninterpretedOpaque}$ & \text{\footnotesize\itshape every touched dependency was assumed uninterpreted}
+\end{tabular}
+\end{center}
+\[
+\id{carried\_forward\_payload} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{result\_id}       & \id{String},\\
+\id{basis}            & \id{carried\_forward\_basis},\\
+\id{closure}          & \many{\id{ComponentId}},\\
+\id{via\_assumptions} & \many{\id{String}}
+\end{array}
+\;\Big)
+\]
+\caption{The \code{CarriedForward} record documenting a provably safe merge skip: the \code{basis} (disjoint closure or uninterpreted dependency) and the \code{closure} of component ids that serves as the auditor's falsifiable witness.}
+\label{fig:fmt-carried-forward}
+\end{figure}
+
+The merged trace's account of every prior result is thus exactly one of three under the
+\textbf{totality} invariant of \S\ref{sec:merge}: \code{CarriedForward}, \code{NeedsRereasoning}, or
+freshly re-established. The two-parent \code{merge\_event} that occasions this is recorded on the
+merged trace as provenance kept \emph{off} the artifact DAG --- so I2 acyclicity (a \code{derived\_from}
+edge points only at an earlier artifact) survives composition. The change set is matched by
+\code{component\_id}, so a rename is one component rather than a delete-plus-add; detail is deferred to
+\S\ref{sec:merge}.
+
+\subsection{Reproducibility and execution environments}\label{sec:format-repro}
+
+Reproducibility is recorded at two granularities. At the \textbf{trace} level, a
+\code{trace\_reproducibility} record states a \code{status}
+(\code{NotReproducible}/\code{Partially}/\code{Reproducible}), entrypoints, and the required artifacts
+and environments. At the \textbf{action} level, each consequential action may carry a
+\code{reproduction\_kind} (deterministic replay, tool re-execution, procedural or manual replay), a
+concrete \code{procedure} (command, working directory, arguments, or steps), and an
+\code{expected\_output}. Both refer to named \code{execution\_environment}s --- a toolchain,
+container, service, or external system with its versioned components --- so a reader can reconstruct
+\emph{where} a result was produced, not merely that it was. The discipline is that a consequential
+reasoning outcome is either directly reproducible or linked to a reproducible downstream validation.
+
+\subsection{A worked trace}\label{sec:format-example}
+
+Figure~\ref{fig:fmt-worked-trace} shows the interchange projection of a minimal but complete slice: one reasoning
+action, the \code{VerificationGoal} it consumed and the \code{VerificationResult} it produced (with a
+\code{reasoning\_fingerprint}), and one \code{Residual} contesting that result. It exhibits the
+\code{category}/\code{artifact\_type} discriminators and the \code{derived\_from} lineage that
+carries the whole construction.
+
+\begin{figure}[H]
+\begin{lstlisting}[language=,basicstyle=\footnotesize\ttfamily]
+{
+  "actions": [
+    { "id": 4, "category": "reasoning", "type": "Verify",
+      "label": "Verify amount_inv on the payment model",
+      "rationale": "capture must never exceed the authorized amount",
+      "inputs": ["a2", "g1"], "outputs": ["vr1"],
+      "execution": { "tool": "imandrax", "version": "2026.04",
+                     "method": "model_check", "determinism": "deterministic" } }
+  ],
+  "artifacts": [
+    { "artifact_id": "g1", "artifact_type": "VerificationGoal",
+      "producer_action_id": 3, "derived_from": ["a2"],
+      "component_id": "cmp:amount_inv",
+      "payload": { "goal_id": 1, "kind": "VerifyGoal",
+                   "description": "amount_captured <= amount",
+                   "target_artifact_id": "a2", "target_symbol": "amount_inv",
+                   "properties": [ { "name": "amount_inv", "status": "Pending",
+                                     "src": "amount_captured <= amount" } ] } },
+
+    { "artifact_id": "vr1", "artifact_type": "VerificationResult",
+      "artifact_role": "proof", "producer_action_id": 4,
+      "derived_from": ["g1", "a2"], "component_id": "cmp:amount_inv",
+      "summary": "amount_inv proved",
+      "payload": { "goal_id": 1, "goal_artifact_id": "g1", "status": "proved",
+                   "engine": "imandrax",
+                   "result": { "proved": { "proof_pp": "...", "properties": [] } },
+                   "fingerprint": {
+                     "task_checksum": "sha256:7f3c...e1",   /* target + closure */
+                     "task_shape": "sha256:0a9b...",
+                     "target_symbol": "amount_inv",
+                     "engine": "imandrax", "engine_version": "2026.04",
+                     "model_artifact_id": "a2", "model_revision": 1 } } },
+
+    { "artifact_id": "r1", "artifact_type": "Residual",
+      "derived_from": ["vr1", "a13"],           /* anchors to the claim it contests */
+      "summary": "amount_inv refuted under interleaved capture",
+      "payload": { "kind": "defeater", "defeater_kind": "rebuts",
+                   "statement": "capture can exceed amount under concurrent capture/refund",
+                   "severity": "critical",
+                   "target": { "target_type": "artifact", "target_id": "vr1" },
+                   "related_artifact_ids": ["a13"],   /* the counterexample */
+                   "source": "reviewer_added", "status": "open" } }
+  ]
+}
+\end{lstlisting}
+\caption{A worked interchange trace: a \code{Verify} reasoning action, the \code{VerificationGoal} \code{g1} and proved \code{VerificationResult} \code{vr1} (with its \code{reasoning\_fingerprint}), and an open \code{Residual} defeater \code{r1} that rebuts \code{vr1} --- exhibiting the discriminators and \code{derived\_from} lineage the rest of the paper relies on.}
+\label{fig:fmt-worked-trace}
+\end{figure}
+
+Reading it as a context: \code{vr1} is a \emph{proved} result, and its fingerprint lets a consumer
+recompute whether it is still \code{Fresh} against the current model. But \code{r1} is an
+\emph{open} \code{Defeater} that \code{Rebuts} it (anchored by \code{derived\_from} and \code{target}),
+so the claim is \emph{contested}: a \code{Property} obligation over \code{vr1} resolves
+\code{AcceptBlocked}, not \code{AcceptDone}. The certificate travels with the claim --- which oracle
+(\code{imandrax}), under what task (the fingerprinted closure), whether fresh, whether contested ---
+which is precisely what the freshness of \S\ref{sec:proved} and the composition of \S\ref{sec:merge}
+compute over.

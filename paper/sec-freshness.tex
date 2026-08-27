@@ -1,0 +1,128 @@
+\section{Freshness}\label{sec:freshness}
+
+Freshness --- invariant I4 --- is the soundness signal the rest of the paper leans on. It is what lets
+``the definition of done is met'' or ``this proof still holds'' be \emph{recomputed} against the current
+code rather than trusted from when the work was done: a result is evidence only while the thing it was
+computed over has not changed underneath it. This section makes that precise --- the fingerprint a result
+carries, the derived verdict computed from it, and the formal model of that decision, proved in ImandraX.
+
+\subsection{The fingerprint}\label{sec:freshness-fingerprint}
+
+The anchor is one shared, result-kind-agnostic field. \textbf{Every} formal-reasoning result ---
+verification, state-space, conformance, co-simulation --- may carry a \code{reasoning\_fingerprint}
+(Figure~\ref{fig:fmt-fingerprint}).
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\id{reasoning\_fingerprint} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{task\_checksum}    & \id{String} \quad\text{\footnotesize\itshape hash of the target $+$ its dependency closure}\\
+\id{task\_shape}       & \opt{\id{String}} \quad\text{\footnotesize\itshape weaker structural hash}\\
+\id{target\_symbol}    & \opt{\id{String}}\\
+\id{engine}            & \opt{\id{String}}\\
+\id{engine\_version}   & \opt{\id{String}}\\
+\id{model\_artifact\_id} & \opt{\id{String}}\\
+\id{model\_revision}   & \opt{\id{Int}}
+\end{array}
+\;\Big)
+\]
+\caption{The \code{reasoning\_fingerprint} anchors freshness (I4) in two parts: a strong \code{task\_checksum} over the target \emph{and its dependency closure} (plus a weaker \code{task\_shape}), and the \code{engine}/version and \code{model} revision that produced the result. Freshness is then a \emph{derived} verdict, obtained by recomputing this against the current model (Figure~\ref{fig:fmt-freshness}).}
+\label{fig:fmt-fingerprint}
+\end{figure}
+
+The critical design point is that the fingerprint hashes the \emph{task} --- the target's dependency
+closure --- and not the target's own source text. Hashing source alone is unsound in \emph{both}
+directions: it \emph{misses} staleness when a result is invalidated by a change to a dependency the
+target's text does not reflect, and it \emph{over-reports} staleness on comment or formatting edits
+that leave the task unchanged. Closure-hashing makes a result go stale exactly when the logic it rests
+on changes.
+
+\subsection{The derived verdict}\label{sec:freshness-verdict}
+
+Freshness is a \textbf{derived verdict}, never an authored field, recomputed by comparing the
+stored fingerprint against the fingerprint of the \emph{current} model (Figure~\ref{fig:fmt-freshness}).
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\id{freshness} \;::=\; \id{Fresh} \mid \id{Stale} \mid \id{Detached}
+\]
+\[
+\id{freshness}(\varphi) \;=\;
+\begin{cases}
+\id{Detached} & \text{if } \id{target}(\varphi) \notin M\\[2pt]
+\id{Fresh}    & \text{if } \id{target}(\varphi) \in M \;\land\; \varphi.\id{task\_checksum} = \varphi'.\id{task\_checksum}\\
+              & \quad\;\land\; \varphi.\id{engine\_version} = \varphi'.\id{engine\_version}\\[2pt]
+\id{Stale}    & \text{otherwise \quad(checksum mismatch, or engine advanced)}
+\end{cases}
+\]
+\vspace{-2pt}
+\begin{minipage}{\linewidth}
+{\footnotesize where $\varphi$ is the stored fingerprint and $\varphi'$ the fingerprint recomputed against the current model $M$. A \id{Detached} result is orphaned work: kept for audit, never counted as evidence.\par}
+\end{minipage}
+\caption{The derived \code{freshness} verdict, computed by recomputing the fingerprint against the current model and comparing: \code{Fresh} when the task checksum matches (and the engine has not advanced), \code{Stale} on a changed task or advanced engine version, and \code{Detached} when the target symbol no longer exists.}
+\label{fig:fmt-freshness}
+\end{figure}
+
+A result without a fingerprint falls back to the earlier action-ordering heuristic (stale iff the
+target was edited at a later action). This verdict is what makes a goal's \code{Property} acceptance
+item resolve \code{AcceptDone} only when its latest result is \emph{proved, \code{Fresh}, and
+uncontested} (\S\ref{sec:proved}): a proved-but-\code{Stale} or \code{Detached} result silently reopens
+as a derived gap rather than continuing to read green. It is also, evaluated at a two-parent point rather
+than against the working tree, the exact signal the merge operator uses to compute affected sets
+(\S\ref{sec:merge}).
+
+\subsection{The formal model}\label{sec:freshness-model}
+
+Freshness is not merely described; its decision core is a \emph{specification-first} model in IML, proved
+by ImandraX --- one of the machine-checked models of \S\ref{sec:proved}. We author the model directly in
+IML and conform the implementation to it, rather than translating the code. The core is a pure function
+from a fingerprint comparison to a verdict, with a worst-wins aggregate over the (possibly several)
+sources a result depends on (Figure~\ref{fig:fresh-iml}).
+
+\begin{figure}[H]
+\begin{lstlisting}[language=IML]
+type verdict = Fresh | Stale | Gone | Unknown   (* Gone = the paper's Detached *)
+
+(* the per-source decision: is the file present, does the content match what was
+   reasoned about, or did a logic-preserving "rescue" (e.g. a format-only edit) fire *)
+let file_verdict (exists : bool) (frozen : 'h) (current : 'h) (rescue : bool) : verdict =
+  if not exists       then Gone
+  else if current = frozen then Fresh
+  else if rescue      then Fresh
+  else                     Stale
+
+(* worst-wins over all contributing sources: gone > stale > fresh > unknown *)
+let worse (a : verdict) (b : verdict) : verdict = (* ... *)
+let rec combine (vs : verdict list) : verdict =
+  match vs with [] -> Unknown | v :: rest -> worse v (combine rest)
+
+(* --- invariants a silent bug would break, all proved by ImandraX --- *)
+
+(* fresh is sound: never Fresh unless the file exists and the content matches
+   (or a logic-preserving rescue justified it) *)
+theorem fresh_is_sound (exists) (frozen current : 'h) (rescue) =
+  file_verdict exists frozen current rescue = Fresh
+    ==> exists && (current = frozen || rescue)
+
+(* no false fresh: a Fresh aggregate hides no drifted and no missing contributor *)
+theorem combine_fresh_clean (vs : verdict list) =
+  combine vs = Fresh ==> not (mem Gone vs) && not (mem Stale vs)
+[@@by induct ()]
+\end{lstlisting}
+\caption{The freshness decision core, authored specification-first in IML and proved by ImandraX (the
+\emph{freshness lattice} model of \S\ref{sec:proved}, Table~\ref{tab:proofs}). \code{fresh\_is\_sound}
+forbids a spurious \code{Fresh}; \code{combine\_fresh\_clean} is \emph{no-false-fresh} --- the exact
+property the merge affected-set decision (\S\ref{sec:merge}) inherits. A third theorem,
+\emph{revert-refreshens}, proves an edit-then-exact-revert returns to \code{Fresh}, since the verdict is
+a pure function of content, not of edit history.}
+\label{fig:fresh-iml}
+\end{figure}
+
+The payoff of proving \emph{this} core, rather than testing it, is that freshness is load-bearing
+everywhere downstream: a single false \code{Fresh} would let a stale proof read as current evidence, and
+every goal resolution (\S\ref{sec:goals}) and merge classification (\S\ref{sec:merge}) would inherit the
+error. \emph{No-false-fresh} is the one property those depend on, and it is discharged once, here.

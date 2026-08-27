@@ -1,0 +1,31 @@
+# Single source of truth for the ponens formal-model collection.
+#
+# `check.sh` reads this to run `imandrax-cli check` over each model and tally proof
+# obligations; the top-level README and the paper's "Formal model and verification"
+# section are kept in sync with it.
+#
+# The whole framework is now ONE state-transition machine (the trace as state) that
+# proves the entire evidence logic, plus a reference model of the trace/policy vocabulary.
+#
+# Fields: path, title, proves, paper (§ of the technical paper), conforms, pos (0 failures).
+
+version = 3
+total_pos = 195
+
+# ---- The unifying state machine: the trace IS the state (the whole evidence logic) ----
+[[model]]
+path = "machine/trace_machine.iml"
+title = "Trace state machine (the whole framework, one state)"
+proves = "state = {actions; artifacts} (events first-class), wf_state preserved by extend_state/supersede_state/combine_state (every artifact grounded in a recorded action); wf = I1 append-only & I2 lineage-ordered/acyclic & I3 grounded, an inductive invariant preserved by extend/supersede/combine; I4 freshness (no-false-fresh); I5 reuse (preserves wf); goals met axis (met=all-done, at_risk-never-demotes, progress in [0,1]); policy governed axis (LTLf G/F, governed _|_ met); merge (classify totality/no-false-fresh, two-parent combine preserves wf); component identity (never-conflate, alias equivalence); verify escalation ladder; rename ambiguity (never guess); verdict totality (every terminal state lands somewhere)"
+paper = "§2 (state), §4 (freshness), §5 (goals), §6 (policies), §7 (composition), §8"
+conforms = "the ponens trace: ordered action log + artifact DAG — the full evidence logic, unified"
+pos = 195
+
+# ---- Reference model: the trace + policy vocabulary (not a single-property model) ----
+# A layered, executable IML model of the trace/policy types + evaluator (read 01 -> 09);
+# the vocabulary the specs project to a wire format. Excluded from the PO tally above.
+[[reference_model]]
+path = "trace-policy-model/"
+title = "Trace + policy reference model"
+paper = "§3 (trace format), §6 (policies)"
+conforms = "TRACE_SPEC + POLICY_SPEC (spec/)"

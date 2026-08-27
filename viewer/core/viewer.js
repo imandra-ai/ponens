@@ -365,11 +365,19 @@ function loadTrace(data) {
     alert(err);
     return;
   }
+  // A same-session refresh (the agent working) only GROWS the artifact set. Reset the per-trace DAG layout
+  // + view ONLY for a genuinely fresh trace — the first load, or one whose graph shrank (a different/reset
+  // trace) — so a brand-new trace still auto-fits, but live updates keep the user's zoom/pan and manual drags.
+  const _prevArtCount = (traceData && Array.isArray(traceData.artifacts)) ? traceData.artifacts.length : -1;
   normalizeTrace(data);
   traceData = data;
-  _dagNodeOverrides = {};      // reset per-trace DAG layout (manual drags + grouping)
-  _dagGroupResiduals = false;
-  _dagResidualGroupExpanded = false;
+  const _artCount = Array.isArray(traceData.artifacts) ? traceData.artifacts.length : 0;
+  if (_prevArtCount < 0 || _artCount < _prevArtCount) {
+    _dagNodeOverrides = {};      // reset per-trace DAG layout (manual drags + grouping)
+    _dagGroupResiduals = false;
+    _dagResidualGroupExpanded = false;
+    _dagUserView = null;         // fresh trace → next DAG render fits to screen
+  }
 
   // Header with optional version badge
   document.getElementById('traceMeta').innerHTML =
@@ -514,23 +522,34 @@ function activityIcon(type) {
 // Flow rendering
 // ============================================================
 function zoomToolbar(trace) {
-  const nMeta = (trace.meta_actions || []).length, nAct = (trace.actions || []).length;
-  if (!nMeta) return '';
+  // Count within the ACTIVE scope so the pills match what renderMetaLevel/renderActionLevel actually
+  // render — an unscoped "Steps · 7" sitting over a 3-card scoped view reads as a bug.
+  const _metasAll = trace.meta_actions || [], _actsAll = trace.actions || [];
+  if (!_metasAll.length) return '';
+  const _scope = _scopeActionIds(trace);
+  const nMeta = _scope ? _metasAll.filter((m) => (m.action_ids || []).some((id) => _scope.has(id))).length : _metasAll.length;
+  const nAct = _scope ? _actsAll.filter((a) => _scope.has(a.id)).length : _actsAll.length;
   const z = window._flowZoom;
   let tb = `<div class="zoom-toolbar"><span class="zoom-label">Zoom</span>
     <button class="zoom-btn ${z === 'meta' ? 'active' : ''}" onclick="setFlowZoom('meta')">Steps · ${nMeta}</button>
     <button class="zoom-btn ${z === 'actions' ? 'active' : ''}" onclick="setFlowZoom('actions')">Actions · ${nAct}</button>`;
   // Scope: restrict to a goal's relevance cone (from `ponens trace enrich`). Off-goal work belongs to
   // the General goal, so there is no separate "exploration" bucket.
+  // EMBEDDED (desktop): the host pane owns scope (its picker pre-filters the trace to the current goal),
+  // so this second, independent dropdown is redundant + confusing — show it only in the standalone viewer.
   const goals = (trace.goals || []).filter((g) => Array.isArray(g.cone) && g.cone.length);
-  if (goals.length) {
+  if (goals.length && !window.__ponensEmbedded) {
     const cur = window._flowScope || 'all';
     const clip = (s) => { s = String(s || ''); return s.length > 30 ? s.slice(0, 29) + '…' : s; };
     const opt = (v, l) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
+    // Each option's count is the number of actions that option will actually SHOW, so the dropdown number
+    // and the resulting "Actions · N" pill always agree. "All steps" is the unscoped total; a goal is the
+    // count of its cone's actions that are present (not the raw cone length, which may cite absent ids).
+    const coneCount = (ids) => { const set = new Set(ids); return _actsAll.filter((a) => set.has(a.id)).length; };
     tb += `<span class="zoom-label" style="margin-left:14px;">Scope</span>`
       + `<select class="scope-sel" onchange="setFlowScope(this.value)">`
-      + opt('all', `All steps · ${nAct}`)
-      + goals.map((g) => opt(g.id, `Goal: ${clip(g.intent || g.id)} · ${g.cone.length}`)).join('')
+      + opt('all', `All steps · ${_actsAll.length}`)
+      + goals.map((g) => opt(g.id, `Goal: ${clip(g.intent || g.id)} · ${coneCount(g.cone)}`)).join('')
       + `</select>`;
   }
   return tb + `</div>`;
@@ -609,7 +628,7 @@ function renderFlow(trace) {
     const firstInputs = group.actions[0].inputs || [];
     const shared = prevOutputs.filter(o => firstInputs.includes(o));
     if (shared.length) {
-      html += `<div class="data-connector"><span class="arrow">\u2193</span>${shared.map(s => `<span class="data-tag">${esc(s)}</span>`).join('')}</div>`;
+      html += `<div class="data-connector"><span class="arrow">\u2193</span>${shared.map(s => `<span class="data-tag" title="${esc(s)}">${esc(dagShortName(s))}</span>`).join('')}</div>`;
     } else if (gi > 0) {
       html += `<div class="data-connector"><span class="arrow">\u2193</span></div>`;
     }
@@ -758,7 +777,8 @@ function actionCardHTML(a, vgByAction) {
     html += `<span class="card-status-badge transparent">${nTests} test${nTests !== 1 ? 's' : ''} generated</span>`;
   }
 
-  if (a.result_summary) {
+  // Show a result line only when it SAYS something — "completed" is on every action and is pure noise.
+  if (a.result_summary && a.result_summary !== 'completed') {
     html += `<div class="card-result-summary">${esc(a.result_summary)}</div>`;
   }
 
@@ -1257,7 +1277,16 @@ function selectAction(actionId) {
     html += `</div>`;
   }
 
-  dp.innerHTML = `<h2>${icon} Action #${d.id}</h2>` + html;
+  dp.innerHTML = `<button class="dp-close" onclick="closeDetail()" aria-label="Close details" title="Close">×</button><h2>${icon} Action #${d.id}</h2>` + html;
+  // Collapse-when-empty: opening a detail reveals the panel (hidden by default so the flow gets full width).
+  document.getElementById('view-flow')?.classList.add('detail-open');
+}
+
+// Close the detail panel and clear the selection — returns the flow to full width.
+function closeDetail() {
+  _selectedActionId = null;
+  document.querySelectorAll('.action-card.selected').forEach((c) => c.classList.remove('selected'));
+  document.getElementById('view-flow')?.classList.remove('detail-open');
 }
 
 // ============================================================
@@ -2332,14 +2361,25 @@ function renderDAGView() {
   const topbar = `<div class="dag-topbar">${catBar}<div class="dag-toprow">${_dagModeToggle()}${_dagGraphToolbar()}</div></div>`;
   el.innerHTML = topbar + html;
 
-  // Initialize pan/zoom
+  // Initialize pan/zoom. If the user has an active zoom/pan (set via a gesture), RESTORE it so a live
+  // re-render — the trace refreshes continuously while the agent works — doesn't snap the canvas back to
+  // fit. Only auto-fit when there's no remembered view (a fresh trace, or an explicit reset cleared it).
   _dagState = { scale: 1, panX: 0, panY: 0, dragging: false, startX: 0, startY: 0, graphW, graphH };
-  dagFit();
+  if (_dagUserView) {
+    _dagState.scale = _dagUserView.scale;
+    _dagState.panX = _dagUserView.panX;
+    _dagState.panY = _dagUserView.panY;
+    dagApplyTransform();
+  } else {
+    dagFit();
+  }
   initDAGPanZoom();
   initDAGNodeDrag();
 }
 
 let _dagState = null;
+// The user's remembered zoom/pan (see dagRememberView). null → the next DAG render fits to screen.
+let _dagUserView = null;
 // Node-layout state: user drag overrides (id → {x,y}), the "group residuals" toggle, and the live
 // edge/position tables a drag needs to redraw edges without re-running the layout.
 const RESIDUAL_GROUP_ID = '__residual_group__';
@@ -2422,6 +2462,7 @@ function dagNodeClick(id) {
 
 function dagResetLayout() {
   _dagNodeOverrides = {};
+  _dagUserView = null;   // Reset layout also restores the fitted zoom/pan
   renderDAGView();
 }
 
@@ -2487,6 +2528,13 @@ function dagApplyTransform() {
   inner.style.transform = `translate(${_dagState.panX}px, ${_dagState.panY}px) scale(${_dagState.scale})`;
 }
 
+// Remember the current view as a DELIBERATE user choice (called from the pan/zoom gestures, never from the
+// automatic dagFit) so it survives the next re-render — a trace refresh while the agent works must not yank
+// the canvas back to fit.
+function dagRememberView() {
+  if (_dagState) _dagUserView = { scale: _dagState.scale, panX: _dagState.panX, panY: _dagState.panY };
+}
+
 function dagZoom(factor) {
   if (!_dagState) return;
   const wrap = document.getElementById('dagWrap');
@@ -2500,6 +2548,7 @@ function dagZoom(factor) {
   _dagState.panY = cy - ratio * (cy - _dagState.panY);
   _dagState.scale = newScale;
   dagApplyTransform();
+  dagRememberView();
 }
 
 function dagFit() {
@@ -2536,6 +2585,7 @@ function initDAGPanZoom() {
     _dagState.panX = e.clientX - _dagState.startX;
     _dagState.panY = e.clientY - _dagState.startY;
     dagApplyTransform();
+    dagRememberView();
   });
 
   window.addEventListener('mouseup', () => {
@@ -2558,6 +2608,7 @@ function initDAGPanZoom() {
     _dagState.panY = my - ratio * (my - _dagState.panY);
     _dagState.scale = newScale;
     dagApplyTransform();
+    dagRememberView();
   }, { passive: false });
 }
 

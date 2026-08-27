@@ -303,6 +303,7 @@
 
   /* ---- Resize handle ---- */
   .resize-handle {
+    display: none;   /* shown only alongside the detail panel (see .main-area.detail-open) */
     width: 5px;
     cursor: col-resize;
     background: var(--border);
@@ -311,6 +312,7 @@
     position: relative;
     z-index: 2;
   }
+  .main-area.detail-open .resize-handle { display: block; }
   .resize-handle:hover, .resize-handle.dragging {
     background: #818cf8;
   }
@@ -499,11 +501,21 @@
   .card-arrow { display: flex; align-items: center; color: var(--border); font-size: 16px; flex-shrink: 0; padding: 0 2px; }
 
   /* ---- Detail panel (right) ---- */
+  /* Collapse-when-empty: the detail panel (and its resize handle) is hidden until a node is selected, so
+     the flow/graph gets the full width by default instead of a permanent empty "Details" column. */
   .detail-panel {
+    display: none; position: relative;
     width: 420px; min-width: 280px; max-width: 70vw;
     background: var(--bg-surface);
     overflow-y: auto; padding: 20px; flex-shrink: 0;
   }
+  .main-area.detail-open .detail-panel { display: block; }
+  .dp-close {
+    position: absolute; top: 12px; right: 12px; z-index: 3;
+    background: none; border: none; color: var(--text-dim);
+    font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+  }
+  .dp-close:hover { color: var(--text-bright); background: var(--bg-inset, rgba(255,255,255,.06)); }
   .detail-panel h2 {
     font-size: 12px; font-weight: 600; color: var(--text-dim);
     text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px;

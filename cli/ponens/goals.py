@@ -702,7 +702,78 @@ def stale_evidence(trace):
             "target": {"target_type": "artifact", "target_id": vid},
             "derived": True,
         })
+    out.extend(generic_evidence_freshness(trace)["residuals"])
     return out
+
+
+# ── Freshness of ANY oracle's evidence (ORACLE_SPEC v0.2 §4, TRACE_SPEC 1.12 §18.3) ──────────────
+# The reasoner path above decides freshness by recomputing the task closure from the model source. Any
+# OTHER evidence with a generic fingerprint (`subject_checksum`) — an Observation from a database, a
+# test run, an analysis, a sign-off — is decided by the §4 rule: probe the producing oracle for the
+# subject's CURRENT fingerprint when it is registered, else fall back to `valid_until`, else Unknown.
+
+_REASONER_RESULT_TYPES = ("VerificationResult", "StateSpaceAnalysisResult", "ConformanceResult",
+                          "CoSimulationResult")
+
+
+def generic_evidence_freshness(trace, now=None):
+    """Return {"verdicts": {artifact_id: fresh|stale|detached|unknown}, "residuals": [...]} for every
+    artifact carrying a generic evidence fingerprint that the reasoner path does not cover. Only the
+    LATEST artifact per subject_ref is live evidence (a re-observation heals the guard)."""
+    from . import oracles as _oracles
+    arts = trace.get("artifacts", []) or []
+    latest = {}  # subject_ref (or artifact id) -> (step, art)
+    for a in arts:
+        if a.get("artifact_type") in _REASONER_RESULT_TYPES or lineage.is_residual(a):
+            continue
+        fp = _oracles.fingerprint_of(_payload(a))
+        if not fp:
+            continue
+        key = fp.get("subject_ref") or a.get("artifact_id")
+        step = a.get("producer_action_id") or 0
+        if key not in latest or step > latest[key][0]:
+            latest[key] = (step, a)
+    verdicts, residuals = {}, []
+    for _key, (at, a) in latest.items():
+        payload = _payload(a)
+        aid = a.get("artifact_id")
+        fp = _oracles.fingerprint_of(payload)
+        current = _oracles.probe_evidence(payload)
+        verdict = _oracles.freshness_of(payload, current=current, now=now)
+        verdicts[aid] = verdict
+        label = a.get("name") or a.get("artifact_type") or aid
+        subject = fp.get("subject_ref") or "its subject"
+        if verdict == _oracles.STALE:
+            residuals.append({
+                "residual_id": f"stale-{aid}",
+                "kind": "stale_evidence",
+                "severity": "medium",
+                "status": "open",
+                "statement": (f"{label} is stale: {subject} changed (or its validity expired) since it was "
+                              f"observed at step #{at}."),
+                "suggested_check": f"Re-invoke {fp.get('oracle_id') or 'the oracle'} for {subject}.",
+                "target": {"target_type": "artifact", "target_id": aid},
+                "derived": True,
+            })
+        elif verdict == _oracles.DETACHED:
+            residuals.append({
+                "residual_id": f"detached-{aid}",
+                "kind": "detached_evidence",
+                "severity": "high",
+                "status": "open",
+                "statement": f"{label} is detached: {subject} no longer resolves at its source.",
+                "suggested_check": "Confirm the source change was intended, or restore the subject and re-observe.",
+                "target": {"target_type": "artifact", "target_id": aid},
+                "derived": True,
+            })
+    return {"verdicts": verdicts, "residuals": residuals}
+
+
+def evidence_strength_of(artifact_id, trace):
+    """The honest strength of an evidence artifact (its attribution block, or derived from `engine`)."""
+    from . import oracles as _oracles
+    a = next((x for x in trace.get("artifacts", []) or [] if x.get("artifact_id") == artifact_id), None)
+    return _oracles.strength_of(_payload(a)) if a else None
 
 
 # ================================================================
@@ -994,6 +1065,10 @@ def enrich(trace):
         if tgt.get("target_type") == "artifact" and tgt.get("target_id"):
             stale_by_vr[tgt["target_id"]] = r
     freshness = t.get("artifact_freshness") or {}
+    # Generic (any-oracle) freshness verdicts, incl. `unknown` for evidence whose subject cannot be
+    # re-read (ORACLE_SPEC v0.2 §4) — reported on the item, never silently fresh.
+    generic_fresh = generic_evidence_freshness(t)["verdicts"]
+    from . import oracles as _oracles
 
     def _freshness_for(aid):
         if not aid or not freshness:
@@ -1058,9 +1133,26 @@ def enrich(trace):
                         it["at_risk_reason"] = ("The source was removed since this was verified."
                                                 if fr == "gone"
                                                 else "The code changed since this was verified — re-check to restore the guarantee.")
+            # Graded evidence (ORACLE_SPEC v0.2 §6): the honest strength of what resolved this item, and
+            # its freshness verdict when one is derivable — so "met" is never read without its grade.
+            if r.get("evidence"):
+                st = evidence_strength_of(r["evidence"], t)
+                if st:
+                    it["evidence_strength"] = st
+                if r["evidence"] in stale_by_vr:
+                    it["freshness"] = "detached" if stale_by_vr[r["evidence"]].get("kind") == "detached_evidence" else "stale"
+                elif r["evidence"] in generic_fresh:
+                    it["freshness"] = generic_fresh[r["evidence"]]
+                    if generic_fresh[r["evidence"]] == _oracles.UNKNOWN and r["status"] == "done":
+                        it["freshness_note"] = "The subject of this evidence cannot currently be re-read; treat as unverified-fresh."
             resolved.append(it)
         g["acceptance"] = resolved
         g["progress"] = progress_of(resolved)
+        # Weakest link: the minimum strength over REQUIRED items that resolved done (unranked ignored).
+        ranked = [it["evidence_strength"] for it in resolved
+                  if it.get("status") == "done" and it.get("required", True) and it.get("evidence_strength")]
+        if ranked:
+            g["min_strength"] = max(ranked, key=_oracles.strength_rank)
         # Count of criteria that are met-but-stale, so a card can read "met, N at risk" at a glance.
         g["at_risk"] = sum(1 for it in resolved if it.get("at_risk"))
         g["cone"] = sorted(goal_relevant_actions(g, t))

@@ -316,6 +316,7 @@ def merge(ours, theirs, base=None):
         return _symbol_descriptor(ref_src, t)["fingerprint"] != _symbol_descriptor(their_src, t)["fingerprint"]
 
     carried, rereason = [], []
+    theirs_standing = {(r["kind"], r["symbol"]): r for r in _standing_results(theirs)}
     for r in standing:
         rid, sym = r["result_id"], r["symbol"]
         closure = _symbol_closure(sym, defs)  # includes sym itself when defined
@@ -325,13 +326,13 @@ def merge(ours, theirs, base=None):
             closure = {sym}
         touched = sorted(closure & delta_syms)
         if not touched:
-            carried.append({
+            carried.append(_graded({
                 "result_id": rid,
                 "symbol": sym,
                 "kind": r["kind"],
                 "closure": sorted(closure),
                 "basis": "closure-disjoint",
-            })
+            }, ours, theirs, theirs_standing.get((r["kind"], sym))))
             continue
 
         # SkipContract (sound slice): every touched component that genuinely CHANGED its own body is an
@@ -345,14 +346,14 @@ def merge(ours, theirs, base=None):
         # (soundly) NOT skipped here (future work: reproof needs the formula).
         changed_touched = [t for t in touched if _own_body_changed(t)]
         if changed_touched and all(assumptions_idx.get(t) == "uninterpreted" for t in changed_touched):
-            carried.append({
+            carried.append(_graded({
                 "result_id": rid,
                 "symbol": sym,
                 "kind": r["kind"],
                 "closure": sorted(closure),
                 "basis": "uninterpreted-opaque",
                 "via_assumptions": changed_touched,
-            })
+            }, ours, theirs, theirs_standing.get((r["kind"], sym))))
         else:
             assumptions = _assumptions_in_question(rid, ours)
             cause = "closure-changed"
@@ -409,6 +410,37 @@ def merge(ours, theirs, base=None):
 
 
 import copy as _copy
+
+
+def _artifact_by_id(trace, aid):
+    return next((a for a in trace.get("artifacts", []) or [] if a.get("artifact_id") == aid), None)
+
+
+def _graded(entry, ours, theirs, theirs_result):
+    """Stamp graded-evidence fields on a carried-forward entry (ORACLE_SPEC v0.2 §6): the strength of
+    OURS's result and, when THEIRS also carries a standing result for the same (kind, symbol), which side
+    is preferred - the stronger `evidence_strength`; at equal strength, the later result. Purely
+    additive: without strengths on either side the entry is unchanged except for `strength: None`."""
+    from . import oracles as _oracles
+    ours_art = _artifact_by_id(ours, entry["result_id"])
+    ours_strength = _oracles.strength_of(_payload(ours_art)) if ours_art else None
+    entry["strength"] = ours_strength
+    if not theirs_result:
+        return entry
+    their_art = _artifact_by_id(theirs, theirs_result["result_id"])
+    their_strength = _oracles.strength_of(_payload(their_art)) if their_art else None
+    entry["theirs_result_id"] = theirs_result["result_id"]
+    entry["theirs_strength"] = their_strength
+    ro, rt = _oracles.strength_rank(ours_strength), _oracles.strength_rank(their_strength)
+    if rt < ro:
+        entry["preferred"] = "theirs"
+    elif ro < rt:
+        entry["preferred"] = "ours"
+    else:
+        ours_step = (ours_art or {}).get("producer_action_id") or 0
+        their_step = (their_art or {}).get("producer_action_id") or 0
+        entry["preferred"] = "theirs" if their_step > ours_step else "ours"
+    return entry
 
 
 def combine(ours, theirs, base=None):
@@ -480,19 +512,36 @@ def combine(ours, theirs, base=None):
         "rationale": "combine ours + theirs",
     })
 
-    # 3a. CarriedForward artifacts — one per carried result.
+    # 3a. CarriedForward artifacts — one per carried result. When THEIRS carries a STRONGER standing
+    #     result for the same subject (ORACLE_SPEC v0.2 §6), its artifact rides along in the merged trace
+    #     (deduped by id) and the CarriedForward names it as `preferred_result_id`.
+    by_id_now = {a.get("artifact_id"): i for i, a in enumerate(arts)}
     for c in report["carried_forward"]:
         rid = c["result_id"]
+        payload = {
+            "basis": c.get("basis"),
+            "symbol": c.get("symbol"),
+            "closure": c.get("closure"),
+        }
+        if c.get("strength"):
+            payload["strength"] = c["strength"]
+        derived = [rid]
+        if c.get("preferred") == "theirs" and c.get("theirs_result_id"):
+            trid = c["theirs_result_id"]
+            payload["preferred_result_id"] = trid
+            payload["theirs_strength"] = c.get("theirs_strength")
+            if trid not in by_id_now:
+                their_art = _artifact_by_id(theirs, trid)
+                if their_art:
+                    arts.append(_copy.deepcopy(their_art))
+                    by_id_now[trid] = len(arts) - 1
+            derived.append(trid)
         arts.append({
             "artifact_id": f"carried-{rid}",
             "artifact_type": "CarriedForward",
             "producer_action_id": merge_action_id,
-            "derived_from": [rid],
-            "payload": {
-                "basis": c.get("basis"),
-                "symbol": c.get("symbol"),
-                "closure": c.get("closure"),
-            },
+            "derived_from": derived,
+            "payload": payload,
         })
 
     # 3b/3c. Residuals — needs_rereasoning (per re-reasoned result) and coverage_regression.

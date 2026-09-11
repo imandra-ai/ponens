@@ -37,6 +37,7 @@ class Session:
                  intent=None, trigger=None):
         self.trace = trace_mod.create_empty_trace(model=model, assistant=assistant)
         self.path = path
+        self._oracles = {}   # oracle id -> instance used in this session (probe without global registry)
         if trigger or intent:
             self.trace["trigger"] = {"type": "TaskReceived", "text": trigger or intent}
         if intent:
@@ -120,10 +121,14 @@ class Session:
         oc = oracle if isinstance(oracle, oracles_mod.Oracle) else oracles_mod.get_oracle(oracle)
         if oc is None:
             raise ValueError(f"unknown oracle: {oracle!r} (see `ponens oracle list`)")
+        self._oracles[oc.id] = oc   # session-local: an instance passed here can be probed later
+        # The action is typed by the oracle's mechanism (ORACLE_SPEC v0.2 §2): Verify for a reasoner,
+        # Observe for a monitor, Test / Analyze / Judge / Attest for the rest.
+        act_type = oc.action_type()
         aid = self.action(
-            "Verify", category="reasoning",
-            label=label or f"verify with {oc.name}",
-            rationale=rationale or f"produce {oc.evidence_strength}-strength evidence via {oc.name}",
+            act_type, category="reasoning",
+            label=label or f"{act_type.lower()} with {oc.name}",
+            rationale=rationale or f"produce up to {oc.evidence_strength}-strength evidence via {oc.name}",
             inputs=_as_list(derived_from),
         )
         new_ids = []
@@ -141,6 +146,31 @@ class Session:
             )
             new_ids.append(aid_art)
         return new_ids
+
+    # Readable aliases for the non-reasoner mechanisms; all four are `verify` with a typed action.
+    observe = verify   # a monitor: a database / reference-data store, a feed
+    test = verify      # a tester
+    judge = verify     # a judge
+    attest = verify    # an attestor
+
+    def probe(self, artifact_id, context=None):
+        """Re-read the CURRENT fingerprint of the subject an evidence artifact is about, via the
+        registered oracle that produced it (ORACLE_SPEC v0.2 §2, §4). Returns the fingerprint,
+        `{"detached": True}`, or None when the oracle is unknown or cannot probe. Records nothing."""
+        art = next((a for a in self.trace.get("artifacts", []) if a.get("artifact_id") == artifact_id), None)
+        if art is None:
+            raise ValueError(f"unknown artifact: {artifact_id!r}")
+        return oracles_mod.probe_evidence(art.get("payload") or {}, context, extra=self._oracles)
+
+    def freshness(self, artifact_id, context=None):
+        """The derived freshness verdict (fresh | stale | detached | unknown) of an evidence artifact,
+        by probing its oracle (ORACLE_SPEC v0.2 §4)."""
+        art = next((a for a in self.trace.get("artifacts", []) if a.get("artifact_id") == artifact_id), None)
+        if art is None:
+            raise ValueError(f"unknown artifact: {artifact_id!r}")
+        payload = art.get("payload") or {}
+        current = oracles_mod.probe_evidence(payload, context, extra=self._oracles)
+        return oracles_mod.freshness_of(payload, current=current)
 
     def outcome(self, type="ProcessCompleted", summary=None):
         self.trace["outcome"] = {"type": type}

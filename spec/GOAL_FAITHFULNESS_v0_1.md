@@ -1,6 +1,6 @@
 # Goal Faithfulness — the definition of done, done right (v0.1)
 
-**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_11.md) — additive,
+**Status:** design spec. Refines [Trace Spec §18 (Goals & Acceptance)](TRACE_SPEC_v1_12.md) — additive,
 backward-compatible. Driven by the concrete goal use case in CodeLogician Desktop (the
 `declare_goal` tool → per-session active goal → `ponens trace enrich` resolution loop).
 

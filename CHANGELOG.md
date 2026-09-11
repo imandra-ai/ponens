@@ -3,9 +3,62 @@
 All notable changes to the `ponens` CLI. The format is based on
 [Keep a Changelog](https://keepachangelog.com/); the project uses semantic versioning.
 
-This file is the single source for release news: `make release` turns the matching section into the
-GitHub release notes, and the website's **/whats-new** page renders this file directly. Keep a
+This file is the single source for release news: the matching section becomes the GitHub release
+notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
+
+## [1.12.0] — 2026-09-11
+
+The package moves `1.11.0` → `1.12.0` to track the trace spec, which advances to **1.12**; the oracle
+spec advances to **0.2** (`TRACE_SPEC_v1_11.md` is now `TRACE_SPEC_v1_12.md`; `ORACLE_SPEC_v0_1.md` is
+now `ORACLE_SPEC_v0_2.md`). Every change is additive: 1.4–1.11 traces stay valid and unchanged. The
+reference implementation implements both specs — `ORACLE_SPEC_v0_2.md` §11 is the conformance table.
+
+### Added
+- **Oracles are a generic type (`ORACLE_SPEC_v0_2`, Trace Spec 1.12).** An oracle is fixed by its
+  contract, not its mechanism: a formal reasoner, a test runner, a static analyzer, **a database or
+  reference-data store**, an LLM judge and a human sign-off are all oracles on equal footing. The
+  `oracle_type` set is declared **open** (standard names are a classification; consumers warn on, never
+  reject, an unknown name) and `monitor` joins the standard set. Every evidence payload MAY carry an
+  **attribution block** `payload.oracle` (id, type, version, and the honest strength of *this* result).
+  The reasoner-only `reasoning_fingerprint` is generalized to an **evidence fingerprint**
+  (`subject_checksum` / `subject_ref` / `valid_until`), so derived freshness is defined for any
+  oracle's evidence and gains an **`Unknown`** outcome; an optional **`probe`** operation re-reads a
+  subject's fingerprint without re-running the oracle. A new **`Observation`** artifact (§10.11) is the
+  typed landing place for a monitor's evidence. Policies gain `strength_at_least` / `oracle_type` /
+  `produced_by`; goal resolution reports the weakest-link strength; merge prefers the stronger result.
+- **Reference oracles across the spectrum.** `ReferenceDataOracle` — **a database as an oracle**: a
+  mapping or a SQLite store (`from_sqlite`; `PONENS_REFERENCE_DB` registers one as `reference-data`)
+  answering a query with an `Observation`, graded `attested`, fingerprinted on (source, query, value,
+  as-of) and probe-able so it goes stale when the source republishes and detached when the subject is
+  gone. Plus `SubprocessTesterOracle` (exit status is the verdict → `tests`), `CallableJudgeOracle`
+  (`attested`) and `AttestorOracle` (a `UserApproval`). `ponens oracle list --type`, `ponens oracle probe`.
+- **Graded, fresh-or-not resolution.** `ponens trace enrich` stamps each resolved item with its
+  `evidence_strength` and `freshness` (`fresh` | `stale` | `detached` | `unknown`) and each goal with
+  `min_strength` (the weakest link); any-oracle evidence with a fingerprint is checked by probing its
+  oracle or by `valid_until`, and surfaces the same derived stale-/detached-evidence residuals a proof
+  does. `ponens trace validate` warns on a non-standard `oracle_type`, errors on an invalid strength
+  or an `Observation` graded above `attested`, and flags a strength on an unestablished result.
+- **SDK.** `Session.verify` records the action by the oracle's mechanism (`Verify` / `Observe` / `Test`
+  / `Analyze` / `Judge` / `Attest`), with `observe` / `test` / `judge` / `attest` aliases; `Session.probe`
+  and `Session.freshness` re-read an artifact's subject via the oracle that produced it.
+
+### Changed
+- **The policy `reasoner` / `oracle` field is now enforced.** Previously declarative (nothing read it
+  at check time), it desugars into the checked formula: `G(atom -> (produced_by(X) || oracle_type(X)))`
+  over every evidence-bearing atom the formula mentions (the formal-reasoning result types when it
+  mentions none). A policy declaring `reasoner: codelogician` therefore **fails** on a trace whose
+  proofs came from another engine or carry no attribution — a verdict that was `passed` before. To keep
+  the old behaviour, remove the field; to name the engine precisely, write `produced_by(...)` in the
+  formula. `produced_by` matches the oracle id or the engine it drives (the catalog's
+  `codelogician.engine = imandrax`), so the gallery's `codelogician` / `imandrax` policies both match a
+  CodeLogician-over-ImandraX trace, including pre-1.12 payloads that carry only `engine`.
+- **`ponens trace validate` checks oracle attribution.** An invalid `evidence_strength`, or an
+  `Observation` graded above `attested`, is an error; a non-standard `oracle_type` (without
+  `specializes`) and a strength stamped on an unestablished (`unknown` / `error`) result are warnings.
+  Traces without attribution blocks are unaffected.
+- Policy formulas: an identifier may now contain `-` when followed by an identifier character
+  (`produced_by(calendar-db)`); `->` is still the arrow.
 
 ## [1.11.0] — 2026-08-26
 

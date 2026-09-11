@@ -10,7 +10,7 @@
     "prebuild": "npm run prepare-site",
     "build": "astro build",
     "preview": "astro preview",
-    "test": "node test/ltl.test.mjs"
+    "test": "node test/ltl.test.mjs && node test/changelog.test.mjs"
   },
   "dependencies": {
     "astro": "^5.0.0"

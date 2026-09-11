@@ -16,15 +16,24 @@ try {
     orgs: (cat.organizations || []).length,
   };
 } catch {}
+import { latestHighlight } from "../lib/changelog.mjs";
+// The "New" banner is derived from the latest CHANGELOG.md release (first bold-led Added bullet), so a
+// release updates it automatically; a changelog that does not fit the shape hides the banner.
+let highlight = null;
+try {
+  highlight = latestHighlight(readFileSync(new URL("../../../CHANGELOG.md", import.meta.url), "utf8"));
+} catch { highlight = null; }
 ---
 
 <Layout>
   <section class="hero">
-    <a class="hero-new" href="/whats-new">
-      <span class="hn-badge">New</span>
-      <span><em>Cryptographic sign-off</em> — prove who approved a trace, and when.</span>
-      <span class="hn-arrow">What's new →</span>
-    </a>
+    {highlight && (
+      <a class="hero-new" href="/whats-new" title={`ponens ${highlight.version} — what's new`}>
+        <span class="hn-badge">New</span>
+        <span><em>{highlight.headline}</em>{highlight.tail ? ` — ${highlight.tail}.` : ""}</span>
+        <span class="hn-arrow">What's new →</span>
+      </a>
+    )}
     <h1>Keep up with your AI-generated code.</h1>
     <p class="lead">
       The old code-review model is out. Agents generate too much code, too quickly, for

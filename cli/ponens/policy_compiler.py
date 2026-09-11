@@ -237,6 +237,9 @@ ACTION_TYPES = {
     'Formalize', 'DefineVG', 'DefineVerificationGoal', 'Verify',
     'Decompose', 'StateSpaceAnalysis', 'ConformanceCheck', 'CoSimulate',
     'GenerateTests',
+    # Oracle invocations typed by mechanism (Trace Spec 1.12 §8.1 / ORACLE_SPEC v0.2 §2): `Test` is
+    # above; a monitor records `Observe`, an analyzer `Analyze`, a judge `Judge`, an attestor `Attest`.
+    'Observe', 'Analyze', 'Judge', 'Attest',
 }
 
 ARTIFACT_TYPES = {
@@ -251,6 +254,8 @@ ARTIFACT_TYPES = {
     # A residual — the trace's negative space (§13) — is a first-class artifact (v1.8), so policies
     # can quantify over it by type; its kind/severity/status live in `payload`.
     'Residual',
+    # A monitor's evidence (Trace Spec 1.12 §10.11): a database / reference-data store, a feed, telemetry.
+    'Observation',
 }
 
 TEMPORAL_OPS = {'G', 'F', 'X', 'P', 'H', 'U', 'S'}
@@ -267,6 +272,9 @@ FIELDS = {
     'inputs', 'outputs', 'target', 'ancestors', 'derived_from',
     'ref_model',
 }
+# Evidence predicates over the attribution block of an action's output artifacts (ORACLE_SPEC v0.2 §6):
+#   strength_at_least(proof)  oracle_type(monitor)  produced_by(calendar-db)
+EVIDENCE_PREDICATES = {'strength_at_least', 'oracle_type', 'produced_by'}
 
 # Unicode to ASCII mapping for tokenizer
 UNICODE_MAP = {
@@ -407,10 +415,13 @@ def tokenize(formula: str) -> list[Token]:
             tokens.append(Token('NUMBER', formula[start:i], start))
             continue
 
-        # Identifiers and keywords
+        # Identifiers and keywords. A '-' followed by an identifier character continues the word
+        # (hyphenated oracle ids such as `calendar-db` in `produced_by(...)`); '->' is still an arrow.
         if c.isalpha() or c == '_':
             start = i
-            while i < n and (formula[i].isalnum() or formula[i] == '_'):
+            while i < n and (formula[i].isalnum() or formula[i] == '_'
+                             or (formula[i] == '-' and i + 1 < n
+                                 and (formula[i + 1].isalnum() or formula[i + 1] == '_'))):
                 i += 1
             word = formula[start:i]
             tokens.append(Token('IDENT', word, start))
@@ -671,6 +682,16 @@ class Parser:
             arg = self.advance()
             self.expect('RPAREN')
             return FuncApp(name, arg.value)
+
+        # evidence predicate: strength_at_least(proof) / oracle_type(monitor) / produced_by(some-id).
+        # The argument runs to the closing paren (an oracle id may contain '-' or '.').
+        if self.at('LPAREN') and name in EVIDENCE_PREDICATES:
+            self.advance()
+            parts = []
+            while not self.at('RPAREN') and not self.at('EOF'):
+                parts.append(self.advance().value)
+            self.expect('RPAREN')
+            return FuncApp(name, ''.join(parts))
 
         # Atom with args: VerificationResult(proved || sat)
         if self.at('LPAREN') and (name in ARTIFACT_TYPES or name in ACTION_TYPES):
@@ -977,7 +998,7 @@ class CheckWarning:
     path: str
 
 
-VALID_ATOMS = ACTION_TYPES | ARTIFACT_TYPES | PREDICATES | FIELDS | {
+VALID_ATOMS = ACTION_TYPES | ARTIFACT_TYPES | PREDICATES | FIELDS | EVIDENCE_PREDICATES | {
     'action', 'gateway', 'reasoning', 'activity',
     'start_event', 'end_event', 'high_stakes_path',
     'completed', 'failed', 'proved', 'refuted', 'sat', 'unknown',
@@ -1230,13 +1251,75 @@ def check_all_policies(policies: list[dict]) -> bool:
 
 
 # ================================================================
+# The `oracle` / `reasoner` policy field — ENFORCED by desugaring (ORACLE_SPEC v0.2 §6)
+# ================================================================
+#
+# A policy that names an oracle ("reasoner": "codelogician", or "oracle": "imandrax" / "monitor") means
+# "the evidence this policy ranges over was produced by that oracle". Rather than leaving the field
+# declarative (a rule that looks enforced but isn't), it is compiled INTO the formula: for every
+# evidence-bearing atom the formula mentions — a reasoning/oracle action (Verify, Decompose, …, Observe)
+# or a result artifact type — a conjunct `G(atom -> (produced_by(X) || oracle_type(X)))` is added. A
+# formula that names no evidence atom is scoped to the formal-reasoning result types. `produced_by`
+# matches the attribution block's id OR the payload's `engine` (so `codelogician` and `imandrax` both
+# match a CodeLogician trace, as the catalog entry `codelogician.engine = imandrax` says); `oracle_type`
+# lets the field name a mechanism instead of an id.
+
+# Atoms whose outputs are ORACLE evidence (an invocation), by action type and by result artifact type.
+EVIDENCE_ACTION_ATOMS = {
+    'Verify', 'Decompose', 'StateSpaceAnalysis', 'ConformanceCheck', 'CoSimulate',
+    'Test', 'Analyze', 'Observe', 'Judge', 'Attest',
+}
+EVIDENCE_RESULT_ATOMS = {
+    'VerificationResult', 'Decomposition', 'StateSpaceAnalysisResult', 'ConformanceResult',
+    'CoSimulationResult', 'Observation', 'CommandResult', 'TestResult',
+}
+_DEFAULT_ORACLE_SCOPE = ('VerificationResult', 'StateSpaceAnalysisResult', 'ConformanceResult', 'CoSimulationResult')
+
+
+def required_oracle(policy: dict):
+    """The oracle a policy requires: `oracle` (0.2 name) or `reasoner` (legacy alias), or None."""
+    x = policy.get('oracle') or policy.get('reasoner')
+    return x.strip() if isinstance(x, str) and x.strip() else None
+
+
+def _mentioned_evidence_atoms(formula_str: str) -> list[str]:
+    seen, out = set(), []
+    for tok in tokenize(formula_str):
+        if tok.kind == 'IDENT' and tok.value not in seen and \
+                (tok.value in EVIDENCE_ACTION_ATOMS or tok.value in EVIDENCE_RESULT_ATOMS):
+            seen.add(tok.value)
+            out.append(tok.value)
+    return out
+
+
+def oracle_conjunct(policy: dict) -> str | None:
+    """The formula fragment the policy's `oracle` / `reasoner` field desugars to, or None."""
+    x = required_oracle(policy)
+    formula_str = policy.get('formula', '') or ''
+    if not x or not formula_str or policy.get('name') in STRUCTURAL_POLICIES:
+        return None
+    atoms = _mentioned_evidence_atoms(formula_str) or list(_DEFAULT_ORACLE_SCOPE)
+    guard = f"(produced_by({x}) || oracle_type({x}))"
+    return ' && '.join(f"G({a} -> {guard})" for a in atoms)
+
+
+def effective_formula(policy: dict) -> str:
+    """The formula actually compiled and checked: the authored formula, conjoined with the oracle
+    requirement its `oracle` / `reasoner` field desugars to (identity when the field is absent)."""
+    formula_str = policy.get('formula', '') or ''
+    extra = oracle_conjunct(policy)
+    return f"({formula_str}) && {extra}" if extra else formula_str
+
+
+# ================================================================
 # Full pipeline
 # ================================================================
 
 def compile_policy(policy: dict) -> tuple[str, Formula, str]:
-    """Parse and compile one policy. Returns (name, ast, iml_code)."""
+    """Parse and compile one policy. Returns (name, ast, iml_code). The `oracle` / `reasoner` field is
+    desugared into the formula (see `effective_formula`)."""
     name = policy['name']
-    formula_str = policy.get('formula', '')
+    formula_str = effective_formula(policy)
 
     if not formula_str:
         return name, None, f"(* {name}: no formula defined *)"

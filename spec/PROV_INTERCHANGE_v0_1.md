@@ -5,7 +5,7 @@
 **Version:** 0.1
 **Status:** Draft
 **Purpose:** Define how a ponens trace projects onto **W3C PROV** so it interoperates with the
-provenance-tooling ecosystem. This is a lossy *interchange* view — the trace ([`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md))
+provenance-tooling ecosystem. This is a lossy *interchange* view — the trace ([`TRACE_SPEC_v1_12.md`](TRACE_SPEC_v1_12.md))
 remains the semantic source of truth; PROV is an export target. Implemented by `ponens trace export
 --to prov` (PROV-JSON) and `ponens/prov.py`.
 
@@ -80,7 +80,7 @@ PROV models *what was derived from what, by whom*. It has **no** vocabulary for:
   a claim (§18.2) is a ponens-side computation, invisible to PROV.
 - **Verification verdicts** — proved / refuted / sat / unknown ride as `ponens:verdict` on the
   `VerificationResult` entity; to PROV it's an opaque entity.
-- **Freshness** — `Fresh`/`Stale`/`Detached` (TRACE §18.3) is derived by ponens; PROV's
+- **Freshness** — `Fresh`/`Stale`/`Detached`/`Unknown` (TRACE §18.3, for any oracle's evidence) is derived by ponens; PROV's
   `wasInvalidatedBy` records an invalidation *event* someone asserts, not a computed staleness, so we
   do not emit it.
 - **Policies / temporal-logic invariants** — PROV-CONSTRAINTS is a fixed consistency checker, not a

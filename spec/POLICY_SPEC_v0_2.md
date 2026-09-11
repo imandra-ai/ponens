@@ -24,11 +24,17 @@ traces, e.g. DECLARE) — applied to the reasoning traces of AI agents.
 Policies do **not** define execution history.  
 They constrain, require, forbid, or validate properties of that history.
 
-A policy may also **require a reasoner** — an automated-reasoning tool (e.g. CodeLogician,
-ImandraX, a model checker, an SMT solver) that produces the verification artifacts a policy depends
-on. The optional `reasoner` field names one from the **reasoner registry** (`gallery/reasoners`),
-so a policy can demand not just *that* a claim was verified, but *by what* — the engine through
-which a claim becomes *established* rather than merely asserted.
+A policy may also **require an oracle** — the evidence producer a policy depends on: an
+automated-reasoning tool (CodeLogician, ImandraX, a model checker, an SMT solver), but equally a test
+runner, a static analyzer, a reference-data store, a judge or an attestor (`ORACLE_SPEC_v0_2.md`).
+The optional `reasoner` field (alias `oracle`) names one from the registry (`gallery/reasoners`), or a
+mechanism (`oracle_type`), so a policy can demand not just *that* a claim was verified, but *by what*.
+The field is **enforced**: it is desugared into the checked formula as `G(atom → (produced_by(X) ∨
+oracle_type(X)))` over every evidence-bearing atom the formula mentions (or the formal-reasoning result
+types when it mentions none), so the policy fails when the evidence it ranges over was produced by
+another oracle or by nothing attributable (`ORACLE_SPEC_v0_2.md` §6). The same predicates —
+`produced_by(id)`, `oracle_type(t)`, `strength_at_least(s)` (§15) — can be written in the formula
+directly when finer control is needed.
 
 This specification defines:
 
@@ -644,6 +650,7 @@ Preferred predicates include:
 - `ancestor_of(x, y)`
 - `derived_from(x, y)`
 - `upstream_of(x, y)`
+- `strength_at_least(s)`, `oracle_type(t)`, `produced_by(id)` — graded evidence (ORACLE_SPEC v0.2 §6): require a guarantee, a mechanism, or a specific oracle without naming a tool in the formula's structure
 
 Avoid:
 - `x.type = IMLModel`

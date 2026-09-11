@@ -17,7 +17,7 @@ ponens maintains a **tree/DAG of typed artifacts** (source, formal model, verifi
 diff, region-decomposition) linked by derivation edges, plus first-class **residuals** (open
 obligations/assumptions with a lifecycle), **goals & acceptance** resolved from evidence, **policies**
 (temporal-logic invariants over the trace), and **freshness** (an artifact goes stale when the code it
-depends on changes). See [`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md) §7 (artifacts/lineage), §13
+depends on changes). See [`TRACE_SPEC_v1_12.md`](TRACE_SPEC_v1_12.md) §7 (artifacts/lineage), §13
 (residual surface), §18 (goals & acceptance), and [`POLICY_SPEC_v0_2.md`](POLICY_SPEC_v0_2.md).
 
 That combination doesn't exist off-the-shelf. But each *part* of it has strong prior art, and this

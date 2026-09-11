@@ -14,7 +14,7 @@ upon as evidence."* A roadmap and a scoping discipline, not a compliance claim.
 
 Most "AI governance" tooling produces **attestation** — checklists and self-reported claims. A ponens
 trace is **evidence**: an immutable, lineage-linked record where every "done" resolves to a specific
-artifact ([`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md) §18) and every verdict comes from a formal engine
+artifact ([`TRACE_SPEC_v1_12.md`](TRACE_SPEC_v1_12.md) §18) and every verdict comes from a formal engine
 an auditor can **re-run** (§12). That is the difference between *"we assert we did X"* and *"here is X,
 here is the proof, re-check it yourself."* Everything below follows from holding that line: the trace's
 value is that it is checkable, not that it is signed off.
@@ -30,7 +30,8 @@ value is that it is checkable, not that it is signed off.
 | Is "done" **real or self-reported**? | Acceptance resolves *deterministically from evidence* (typed artifact in the component's lineage), never from prose | TRACE §18.2–18.3 |
 | Are the **gaps disclosed**? | The residual surface — assumptions, unverified, out-of-scope, limitations, open questions | TRACE §13 |
 | Is there **counter-evidence**? | First-class `Defeater` residuals (rebuts / undermines / undercuts) that *block* a contested claim | TRACE §13, §18.2 |
-| Is the evidence **current**? | Derived freshness (`Fresh`/`Stale`/`Detached`) from a dependency-closure fingerprint; a goal never resolves done over stale/detached evidence | TRACE §18.3 |
+| Is the evidence **current**? | Derived freshness (`Fresh`/`Stale`/`Detached`, or `Unknown` when the subject cannot be re-read) from an evidence fingerprint — a dependency-closure checksum for a proof, the source + query + value + as-of for an observation, re-read by `probe`; a goal never resolves done over stale/detached evidence | TRACE §18.3; ORACLE_SPEC v0.2 §4 |
+| **Who** produced each claim, and **how strong** is it? | Every result carries an attribution block: the oracle's id, mechanism (`oracle_type`) and version, and the honest `evidence_strength` of *this* result (proof > sat > tests > static_analysis > attested); a goal reports its weakest link | ORACLE_SPEC v0.2 §3, §6; TRACE §10.12 |
 | Can a third party **re-check** it? | Reproducibility (entrypoints, environments, replay) + re-runnable formal verdicts | TRACE §12; `ponens trace reproduce` |
 | Does it speak a **standard vocabulary**? | Export to W3C PROV (Entity/Activity/Agent + derivation) | `PROV_INTERCHANGE_v0_1.md` |
 | Does it map to a **named regime**? | Policy packs encoding DO-178C / MISRA / NIST AI RMF / MiFID / IOSCO / … as machine-checkable rules | `POLICY_SPEC_v0_2.md`, the `*_PACK.md` files |
@@ -98,7 +99,7 @@ qualification, is the bar) rather than safety-certification credit.
 ## 5. References
 
 - Integrity / bind: [`CLI_SYNC_MODEL_v0_1.md`](CLI_SYNC_MODEL_v0_1.md)
-- Grounded resolution, freshness, defeaters: [`TRACE_SPEC_v1_11.md`](TRACE_SPEC_v1_11.md) §12, §13, §18
+- Grounded resolution, freshness, defeaters: [`TRACE_SPEC_v1_12.md`](TRACE_SPEC_v1_12.md) §12, §13, §18
 - Policy / governance: [`POLICY_SPEC_v0_2.md`](POLICY_SPEC_v0_2.md), [`POLICY_SOURCES_v0_1.md`](POLICY_SOURCES_v0_1.md), the `*_PACK.md` files
 - Review / certification: [`REVIEW_CASE_SPEC_v0_2.md`](REVIEW_CASE_SPEC_v0_2.md), [`GOAL_FAITHFULNESS_v0_1.md`](GOAL_FAITHFULNESS_v0_1.md)
 - Interoperability: [`PROV_INTERCHANGE_v0_1.md`](PROV_INTERCHANGE_v0_1.md)

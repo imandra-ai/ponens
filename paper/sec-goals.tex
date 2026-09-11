@@ -1,0 +1,308 @@
+\section{Goals}\label{sec:goals}
+
+\S\ref{sec:evidence-logic} introduced the two axes on which the evidence logic judges an agent's
+work --- \emph{goals} (properties of what was established) and \emph{policies} (constraints on how it
+was established) --- and gave the goal half in outline: a goal is a formula over \trace{} whose atoms
+range over artifacts, lineage, and freshness, resolved against the evidence rather than self-reported.
+This section deepens that half. We give the goal's construction, the three orthogonal verdicts it
+carries, the typed acceptance criterion and the fuller property language it is a fragment of, the
+lineage-based resolution rule and its non-monotonic honesty overlay, and an honest account of what is
+authorable today versus what remains to be built.
+
+\subsection{Constructing a goal}\label{sec:goals-construction}
+
+A goal is the \emph{definition of done}, declared once, up front, and thereafter a passive lens. It is
+declared through a single operation --- \code{declare\_goal} --- that records five things:
+the \code{intent} (the user's words, restated), the \code{scope} (the files and symbols the goal
+touches), optional \code{intent\_clauses} (the intent split into individually checkable propositions),
+the \code{acceptance} items (the criteria that constitute ``done''), and optional inline
+\code{policies} (the governance bar; see \S\ref{sec:policies}). The declared goal is embedded directly
+into \trace{} as a first-class field (\code{goals}, canonicalizing to the empty list when no intent is
+declared), so that ``definition of done'' and ``progress'' are computed by the same shared resolver
+the rest of the substrate uses --- not by a private, per-tool notion. The declared goal's shape is
+shown in Figure~\ref{fig:goal-goal-type}.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\id{goal} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{goal\_id}        & \id{String},\\
+\id{intent}          & \id{String} \quad\text{\footnotesize\itshape (the change and why, in plain language)},\\
+\id{intent\_author}  & \opt{\id{Authorship}} \quad\text{\footnotesize\itshape (who stated the intent, usually Human)},\\
+\id{intent\_clauses} & \many{\id{String}} \quad\text{\footnotesize\itshape (intent split into checkable clauses)},\\
+\id{scope}           & \many{\id{String}} \quad\text{\footnotesize\itshape (files / symbols the goal touches)},\\
+\id{acceptance}      & \many{\id{AcceptanceItem}} \quad\text{\footnotesize\itshape (the end node: what ``done'' means)},\\
+\id{policies}        & \opt{\id{GoalPolicies}} \quad\text{\footnotesize\itshape (the governance bar, \S\ref{sec:policies})},\\
+\id{criteria\_review} & \opt{\id{CriteriaReview}} \quad\text{\footnotesize\itshape (the ``is it right?'' sign-off)},\\
+\id{status}          & \opt{\id{GoalStatus}},\\
+\id{meta\_action\_id} & \opt{\id{String}} \quad\text{\footnotesize\itshape (the meta-action pursuing this goal)}
+\end{array}
+\;\Big)
+\]
+\caption{The \code{goal} type recorded by \code{declare\_goal} and embedded in \trace{} as a first-class field, capturing intent, scope, acceptance criteria, policies, and the criteria-review sign-off.}
+\label{fig:goal-goal-type}
+\end{figure}
+
+Two construction properties matter downstream, both consequences of the goal being decoupled from the
+reasoning that satisfies it. First, re-declaring is \emph{idempotent}: re-stating a goal carries over
+any already-resolved criterion rather than wiping a partly-proved one. Second, because the goal is a
+formula over \trace{}'s evidence and \emph{not} the evidence itself, it can be attached after the fact
+and is therefore \emph{portable} --- a team's definition of done is a small, versioned, human-authored
+artifact that, once imported, re-resolves against \emph{your} trace with no evidence transferred. What
+must line up is only the referenced components: a glob scope travels cleanly, while an exact symbol
+reference needs that symbol present (or the durable identity of \S\ref{sec:identity} to rebind it
+across a rename).
+
+\subsection{Three orthogonal axes}\label{sec:goals-axes}
+
+Where \S\ref{sec:evidence-logic} named \code{met}, \code{governed}, and \code{certified} as the
+verdicts, here we make them precise. Trustworthy done is the conjunction of all three, and each is
+independent and separately reported.
+
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}llll@{}}
+\toprule
+Axis & Question & Mechanism & Principal \\
+\midrule
+\code{met}       & Does the required \emph{artifact} exist?        & criterion $\leftrightarrow$ artifact by type + lineage & the doer's evidence \\
+\code{governed}  & Was it produced compliantly?                    & the goal's policies over its cone      & org / context (a pack) \\
+\code{certified} & Is the definition of done itself \emph{right}?  & criteria review by a non-doer          & a party $\neq$ the doer \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The axes are orthogonal \emph{by construction}, and the separation is deliberate. \code{met} asks only
+whether the evidence \emph{exists}; it says nothing about quality. A refuted \code{VerificationResult}
+still exists, so a criterion demanding a verification artifact for a component is met by it --- whether
+that result had to be \emph{proved} rather than left refuted is a \code{governed} question, decided by
+a policy over lineage, not a criterion field. This is why a goal can be \emph{met but not governed}:
+the required artifact is present, but it was too weak (or produced non-compliantly) for the goal's bar
+--- a state that today reads silently as ``done'' and here becomes first-class and surfaced. The
+\code{certified} axis is orthogonal in a different direction: it asks not whether the formula holds but
+whether it is the \emph{right} formula, and its normative rule is that the party who \emph{meets} a
+goal must not be the sole party who \emph{decides its definition of done} --- so certification is a
+sign-off by a principal other than the doer. Because how the work was done cannot change what was
+established, \code{met} $\perp$ \code{governed} is a theorem we machine-check
+(Table~\ref{tab:proofs}, \emph{governed $\perp$ met}).
+
+\subsection{The acceptance criterion and the property language}\label{sec:goals-criterion}
+
+An acceptance criterion, in the shipping encoding, is a typed record pairing a \emph{code component}
+with the \emph{evidence artifact} that serves as its warrant (Figure~\ref{fig:goal-acceptance-criterion}).
+That is all it encodes --- it does not say whether the artifact is good enough.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\id{evidence\_req} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{artifact} & \id{String} \quad\text{\footnotesize\itshape (the artifact \textsc{type} required in the component's lineage:}\\
+              & \text{\footnotesize\itshape \quad $\id{VerificationResult} \mid \id{Decomp} \mid \id{Tests} \mid \id{Diff} \mid \id{Documentation} \mid \ldots$)}
+\end{array}
+\;\Big)
+\]
+\[
+\id{acceptance\_criterion} \;::=\; \Big(\;
+\begin{array}{@{}l@{\;:\;}l@{}}
+\id{id}        & \id{String},\\
+\id{statement} & \id{String} \quad\text{\footnotesize\itshape (human ``what must be true'')},\\
+\id{component} & \big(\id{function\_} : \id{String},\; \id{file} : \opt{\id{String}}\big),\\
+\id{evidence}  & \id{evidence\_req},\\
+\id{required}  & \id{Bool},\\
+\id{covers}    & \many{\id{String}} \quad\text{\footnotesize\itshape (intent clauses it addresses)}
+\end{array}
+\;\Big)
+\]
+\caption{The shipping acceptance-criterion encoding: a typed record binding a code component to the evidence-artifact type required as its warrant, together with the intent clauses it covers.}
+\label{fig:goal-acceptance-criterion}
+\end{figure}
+
+This fixed struct is a \emph{concrete encoding of a fragment} of a fuller \textbf{property language} ---
+the evidence logic proper --- and every legacy form desugars into it, so no existing trace breaks. The
+property language expresses a goal's ``done'' as a conjunction of \emph{obligations}, each a predicate
+over \trace{} tagged with the verdict axis it feeds. The atoms are exactly the resolver predicates the
+implementation already computes, listed in Figure~\ref{fig:goal-atoms}.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{@{}l@{\qquad}l@{}}
+\id{has}(c,T)      & \text{an artifact of type $T$ roots in component $c$ (latest wins)}\\
+\id{proved}(c)     & \id{has}(c,\id{VerificationResult}) \land \id{status} \in \{\id{proved},\id{sat}\}\\
+\id{refuted}(c)    & \id{has}(c,\id{VerificationResult}) \land \id{status} = \id{refuted}\\
+\id{conforms}(S)   & \text{a $\id{ConformanceResult}$, complete, $\id{diverged}=0$, over sources $S$}\\
+\id{decomposed}(c) & \text{a decomposition roots in $c$}\\
+\id{tested}(c)     & \text{a region-complete / coverage-rooted suite roots in $c$}\\
+\id{no\_open\_gap}(c) & \text{no open residual touches $c$}\\
+\id{fresh}(e)      & \text{evidence $e$ is closure-fresh (\S\ref{sec:state}, I4)}\\
+\id{uncontested}(e)& \text{$e$ is not contested by an open defeater}
+\end{array}
+\]
+\caption{The atoms of the property language --- the resolver predicates the implementation already computes over \trace{}, from artifact existence and verdict checks to freshness and contestation.}
+\label{fig:goal-atoms}
+\end{figure}
+
+\noindent\textbf{Selectors} turn coverage into a quantifier rather than one row per symbol:
+\code{component(f)}, \code{symbol(s)}, \code{module(p)}, \code{glob("payments/**")}, \code{tag(l)},
+\code{scope}, and \code{high\_stakes} (the configured high-stakes glob set). An obligation is then
+\code{[role]\ formula}, where \code{formula} combines atoms with \code{and}, \code{or}, \code{not},
+\code{=>} and the quantifiers \code{forall $x$ in $sel$} / \code{exists $x$ in $sel$}, and
+\code{role} \(\in\) \code{\{[met], [governed]\}} (default \code{[met]}). The role is not
+``deliverable versus standard'': a \code{[met]} obligation is an \emph{outcome} property over the
+resulting artifacts (\code{proved($c$)}, \code{conforms($S$)}, \code{no\_open\_gap($c$)}), while a
+\code{[governed]} obligation is a \emph{process} constraint over how those artifacts were produced
+(\code{formalize before verify}, \code{eventually reproved}). The connectives and quantifiers are
+shared; the \emph{sort ranged over} --- the artifact sort versus the action sort --- \emph{is} the
+goal-versus-policy distinction of \S\ref{sec:evidence-logic}. Freshness is a \emph{modality}, not a
+truth condition: an obligation that holds but whose witness fails \code{fresh} is
+\emph{true-but-\code{at\_risk}}, not false --- the honesty layer, made first-class in the language.
+
+The desugaring makes one subtlety explicit. A typed \code{\{component, evidence\}} criterion is
+\code{has($c$, T)} --- \emph{existence}, so a refuted result still satisfies it --- whereas the legacy
+\code{property} kind is \code{proved($c$)}, which checks the verdict and so resolves a refuted result to
+\code{blocked}. In the language one simply picks the atom that means what is intended, as the
+desugarings in Figure~\ref{fig:goal-desugaring} show.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{@{}l@{\;\rightsquigarrow\;}l@{}}
+\big(\id{component}{:}\{\id{function\_}{:}f\},\; \id{evidence}{:}\{\id{artifact}{:}T\}\big) & [\id{met}]\; \id{has}(f, T)\\[2pt]
+\id{kind}{:}\,\id{property}\ \{\id{symbol}\}      & [\id{met}]\; \id{proved}(\id{symbol})\\[2pt]
+\id{kind}{:}\,\id{obligation}\ \{\id{policy\_id}\} & [\id{governed}]\; \id{holds}(\id{policy\_id})\\[2pt]
+\id{kind}{:}\,\id{gap}\ \{\id{residual\_id}\}      & [\id{met}]\; \id{no\_open\_gap}(\id{target\text{-}of}\ \id{residual\_id})\\[2pt]
+\id{kind}{:}\,\id{change}\ \{\id{symbol}\}         & [\id{met}]\; \id{has}(\id{symbol},\; \id{Diff} \lor \id{IMLModel})
+\end{array}
+\]
+\caption{How each legacy criterion kind desugars into a role-tagged atom of the property language, so no existing trace breaks and one picks the atom that means what is intended.}
+\label{fig:goal-desugaring}
+\end{figure}
+
+\subsection{Resolution by lineage}\label{sec:goals-resolution}
+
+Resolution \emph{evaluates} the formula against the trace; nothing is authored as done. A criterion
+\code{has($c$, T)} (and its verdict-checking cousins) resolves \code{met} when \trace{} holds an
+artifact of type \code{T} whose lineage \textbf{roots in} the component $c$ --- read from structured
+provenance (\code{target\_symbol}, \code{derived\_from}, the model's symbol list), never from a
+description string. This is the fix for the ``goal never ticks'' defect: binding by a substring of the
+goal's prose silently misses when the proved symbol's name and the description's wording diverge, so the
+rooting is computed over lineage instead. When several artifacts match, the latest by producer action is
+the evidence pointer. Concretely the resolver binds as shown in Figure~\ref{fig:goal-match}.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{@{}l@{}}
+\id{match}(o) \;=\; \operatorname*{argmax}_{a \in \mathcal{C}}\; \id{producer\_action\_id}(a), \quad\text{where}\\[4pt]
+\mathcal{C} \;=\; \{\, a \;\mid\; \id{artifact}(a) \land \id{type}(a) = T \land \id{roots\_in\_component}(a, c) \land \lnot\,\id{contested\_by\_open\_defeater}(a) \,\}
+\end{array}
+\]
+\caption{The resolver's binding rule: among artifacts of the required type whose lineage roots in the component and that are not contested by an open defeater, the latest by producer action becomes the evidence pointer.}
+\label{fig:goal-match}
+\end{figure}
+
+\noindent then writes onto the \emph{enriched copy} (never back onto the authored goal) a \code{status}
+(\code{done} on a match, \code{blocked} on a matched-but-refuted-or-contested result, \code{todo} on no
+match), the matched artifact's id as \code{evidence\_ref}, and the \code{at\_risk} flag with a reason
+when the witness is stale or detached.
+
+\textbf{Component precision.} \code{roots\_in\_component} is \emph{target-precise}: an artifact that
+declares its own \code{target\_symbol} (a verification goal, a decomposition, a targeted diff) is about
+\emph{that} component, not every symbol the shared model happens to formalize. Only when nothing in the
+lineage names a target does resolution fall back to the model's symbol list. Without this, a
+decomposition of one function would spuriously appear to root in every symbol of the enclosing model.
+Because the match is by component-plus-type over lineage rather than by a stored pointer, one artifact
+can satisfy the same obligation across \emph{several} goals --- goals are lenses over one shared evidence
+stream, not containers owning separate traces --- and a rename is followed
+(\code{roots\_in\_component} accepts the source name \emph{or} the IML symbol; \S\ref{sec:identity}).
+
+\textbf{Progress and the atom-to-helper mapping.} Progress is the fraction of required items resolved:
+\(\text{progress} = |\{\text{resolved}\}| / |\{\text{total}\}| \in [0,1]\) (with an in-progress item
+counting as a half), and a goal is \code{met} exactly when \emph{all} required items resolve. Each atom
+delegates to a shipping resolver helper --- \code{proved}/\code{has} to the typed-lineage resolver over
+\code{roots\_in\_component}, \code{no\_open\_gap} to the residual scan, \code{fresh}/\code{uncontested}
+to the freshness verdict and the open-defeater check. These facts are machine-checked
+(Table~\ref{tab:proofs}, \emph{goal resolution}): \emph{progress} \(\in [0,1]\),
+\emph{met $\Leftrightarrow$ all-done}, and \emph{at\_risk never demotes}.
+
+\textbf{The \code{at\_risk} honesty overlay (non-monotonic).} Because the trace is a non-monotonic
+context (\S\ref{sec:context}, I4), a met obligation can drift. When the evidence a met item rests on
+goes stale --- its target's dependency-closure content changed --- the item \emph{stays met} but is
+flagged \code{at\_risk}, with a reason and a pointer to the derived stale-evidence residual. It never
+silently demotes to unmet, and it never silently passes as clean: the two are distinguished, and a
+re-established, fresh result clears the flag. A resolved obligation captures the closure checksum its
+witness was verified against, so an edit trips exactly the same freshness authority that governs the
+rest of the substrate. Figure~\ref{fig:goal-at-risk} traces a met obligation through a source edit and
+a superseding re-proof.
+
+\begin{figure}[H]
+\centering
+\small
+\noindent\textit{Example (met but \id{at\_risk}).} The obligation $[\id{met}]\;\id{proved}(\id{refund})\;[\id{fresh}]$ is
+resolved at three checkpoints:
+\[
+\begin{array}{@{}l@{\;\rightarrow\;}l@{}}
+\text{A: \id{refund} proved fresh} & \id{done},\; \id{evidence\_ref} = \id{VR\#7},\; \id{at\_risk} = \id{false}\\[3pt]
+\text{B: source of \id{refund} edited, no re-proof} & \id{done},\; \id{evidence\_ref} = \id{VR\#7},\; \id{at\_risk} = \id{true}\\
+ & \quad\text{\footnotesize\itshape (``re-verify: source drifted''; still met, never silently demotes)}\\[3pt]
+\text{C: superseding fresh proof appends} & \id{done},\; \id{evidence\_ref} = \id{VR\#12},\; \id{at\_risk} = \id{false}
+\end{array}
+\]
+\caption{The non-monotonic \code{at\_risk} overlay: an obligation stays met when its witness goes stale after a source edit but is flagged for re-verification, and a superseding fresh proof clears the flag --- honesty without silent demotion.}
+\label{fig:goal-at-risk}
+\end{figure}
+
+\subsection{Faithfulness --- the certified axis}\label{sec:goals-certified}
+
+\code{met} and \code{governed} both sit \emph{downstream} of an unguarded seam: in the real workflow
+the same agent that authors the definition of done then meets it, a textbook specification-gaming
+setup. An agent can be perfectly honest at resolution --- never fabricate an artifact --- and still
+``succeed'' by choosing a weak or incomplete definition of done (the ``wrong spec / vacuous proof''
+problem). Faithfulness cannot be decided mechanically --- whether a formal acceptance faithfully
+captures an informal intent is the formalization gap, and intent lives in a human's head --- so the
+certified axis does not \emph{verify} faithfulness; it makes the seam visible, reviewed by a different
+principal, coverage-checked, and hard to retrofit. Two mechanisms carry it. \textbf{Coverage:} each
+obligation's \code{covers} field names the intent clauses it addresses, so an \code{intent\_clauses}
+entry with no covering obligation surfaces as an uncovered-clause residual --- completeness becomes a
+checkable projection rather than a judgement call. \textbf{Criteria review:} a \code{criteria\_review}
+record signs off the acceptance \emph{set} --- ``this is what done means'' --- and its author
+\emph{must} be a party other than the doer (\code{Human} or \code{Reviewer}, never the working
+\code{Agent}). The certified verdict --- \code{faithfulness\_of} the goal --- is \code{Approved} when a
+non-doer has signed off the definition \emph{and} no intent clause is left uncovered. A criterion that
+\emph{bites} is evidence of faithfulness: a property refuted with a counterexample is stronger evidence
+that the definition captures something real than an all-green suite of trivial edits. Certification also
+sees the governance overrides: a goal certified with a formal-methods pack \emph{disabled} is a visibly
+weaker claim than one certified with it enforced.
+
+\subsection{Authorable today versus open}\label{sec:goals-status}
+
+We are precise about what ships. The \emph{leaf atoms} of the property language already exist --- they
+are the resolver helpers that compute \code{proved}, \code{has}, \code{no\_open\_gap}, freshness, and
+contestation --- and the shipping authorable surface is the fixed \code{component}\,+\,\code{evidence}
+struct, which is exactly the \code{exists}-over-one-component fragment those helpers evaluate. The
+lineage-precise resolution rule of \S\ref{sec:goals-resolution}, the \code{at\_risk} overlay, and the
+legacy-desugaring path are all shipped (in the reference resolver, both the Python and the JavaScript
+implementations, held in parity by a harness). What is \emph{not yet built} is the full property-language
+front-end that makes the language \emph{authorable} in its generality:
+
+\begin{itemize}
+\item a \emph{formula AST plus recursive evaluator} in place of the resolver's fixed \code{kind}-switch,
+so \code{and}/\code{or}/\code{not}/\code{=>} and the role tags compose;
+\item a \emph{component index} so \code{forall $f$ in glob("payments/**")}, \code{module($p$)}, and
+\code{tag($l$)} can \emph{enumerate} their sets --- the one genuinely new piece of machinery, though it
+indexes data (per-file source symbols, the high-stakes glob set) the trace already carries;
+\item \emph{stable ids for \code{properties(S)}}, so a spec's authored verification goals are
+addressable for \code{forall $p$ in properties(S)}.
+\end{itemize}
+
+\noindent Until then, goals are authored in the fixed struct (which desugars faithfully), and quantified
+coverage is expressed through \code{[governed]} policies rather than \code{[met]} selectors. The design
+of record is the two-sorted property language of \S\ref{sec:goals-criterion}; the evaluator for its
+leaves is real; the combinator and enumeration layers are the honest outstanding work.

@@ -2,10 +2,12 @@
 
 ## Version
 
-**Version:** 1.11  
+**Version:** 1.12  
 **Status:** Draft  
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
+
+> **Changes in 1.12 (additive, backward-compatible).** Makes the **oracle a generic type** across the trace model, per `ORACLE_SPEC_v0_2.md`. Adds an **`Observation`** artifact (§7.1, §10.11) - the typed landing place for a *monitor's* evidence: a database or reference-data store queried for a fact, a feed, telemetry - so non-formal evidence is first-class rather than filed under `CommandResult`. Adds an **attribution block** `payload.oracle` (§10.12) on every evidence payload naming the oracle `id`, `oracle_type`, `version` and the honest `evidence_strength` of *this* result; `engine` / `engine_version` remain and are its reasoner profile. Generalizes the 1.9 `reasoning_fingerprint` to an **evidence fingerprint** (§10.4a) with a `subject_checksum` / `subject_ref` / `valid_until`, so the derived freshness verdict (§18.3) is defined for *any* oracle's evidence - a proof goes `Stale` when its dependency closure changes, an observation when its source republishes or its validity expires - and adds an **`Unknown`** freshness outcome for evidence whose subject cannot be re-read. The `oracle_type` vocabulary is **open** (standard names are a classification; consumers warn on, never reject, an unknown name). All additive: a trace may carry none of these, so existing 1.4-1.11 traces remain valid and unchanged.
 
 > **Changes in 1.11 (additive, backward-compatible).** Specifies **integrity and cryptographic signatures** (§12.4) - the fields the sync/sign-off layer writes onto a trace, previously defined only in `CLI_SYNC_MODEL_v0_1.md` and `AUDIT_READINESS_v0_1.md`. Adds two top-level fields (§5): a **`content_hash`** (sha256 over the canonical trace, *excluding* transport/binding metadata and signatures - the `HASH_EXCLUDE` set) and a **`signatures`** list of cryptographic sign-offs *over* that `content_hash`. A **`signature`** (§12.4) records the `signer`, the `content_hash` it covers, the `algo` (**`ssh`** | **`gpg`** | **`sigstore`**), the backend-specific `signature` material, and optional `role`/`disposition` (what the party is attesting) and an RFC-3161 trusted **`timestamp`** (a TSA-attested "existed by *t*", not a machine-clock claim). Because `signatures` is excluded from `content_hash`, multiple parties **co-sign the same content** with whatever backend they trust; verification yields a uniform verdict (**`valid` | `untrusted` | `invalid` | `tampered`**). All additive: a trace may carry neither field, so existing 1.4-1.10 traces remain valid and unchanged. Also additive in 1.11: an **`acceptance_item`** (§18.1) MAY carry a composable **`formula`** — the goal *property language* (`and` / `or` / `not` / `⇒` and `forall` / `exists` over component selectors, with per-atom `met` / `governed` roles). A single-criterion item is the atomic case and resolves exactly as before; grammar and status-lattice semantics are in `GOAL_CONTRACT_v0_2` §9.
 
@@ -345,6 +347,7 @@ type artifact =
   | CommitArtifact of artifact_common
   | ReproductionBundleArtifact of artifact_common * reproduction_bundle_payload
   | CarriedForwardArtifact of artifact_common * carried_forward_payload  (* §15.3 *)
+  | ObservationArtifact of artifact_common * observation_payload          (* §10.11 - a monitor's evidence (1.12) *)
 ```
 
 ## 7.2 Why strict artifacts
@@ -455,6 +458,13 @@ type reasoning_action_type =
   | ConformanceCheck
   | CoSimulate
   | GenerateTests
+  (* 1.12 - an oracle invocation is recorded under the action of its mechanism (ORACLE_SPEC_v0_2 §2):
+     `Verify` for a reasoner, and for the other standard types: *)
+  | Test        (* a tester *)
+  | Analyze     (* an analyzer *)
+  | Observe     (* a monitor - a database / reference-data lookup, a feed, telemetry *)
+  | Judge       (* a judge *)
+  | Attest      (* an attestor *)
 ```
 
 ### Governance actions
@@ -621,6 +631,12 @@ type evidence =
 ```
 
 ## 9.2 Observation
+
+> Not to be confused with the **`Observation` artifact** (§10.11, 1.12). The `observation` record here is a
+> lightweight note an *action* carries (its `observations` list, §8.1): a statement the agent held while
+> working, with a confidence. The `Observation` artifact is typed **evidence** produced by a *monitor*
+> oracle (a database or reference-data lookup, a feed), attributed, fingerprinted and graded `attested`;
+> it lives in `artifacts`, anchors by `derived_from`, and resolves goals and policies.
 
 ```ocaml
 type confidence =
@@ -791,6 +807,34 @@ the *logic it depends on* changes — no sooner, no later.
 with one is checked by fingerprint (the sound path); a result without one falls back to the 1.7
 action-ordering heuristic (§18.3). Producers that can compute a task checksum SHOULD emit it.
 
+### Generalization: the evidence fingerprint (1.12)
+
+The 1.9 fingerprint is reasoner-shaped: its subject is a *task* in a *model*. Every oracle's evidence has
+a subject - the thing that must be unchanged for the result to still apply - and 1.12 names it generically
+(`ORACLE_SPEC_v0_2.md` §4):
+
+```ocaml
+type evidence_fingerprint =
+  { subject_checksum : string           (* strong hash of the SUBJECT the evidence is about *)
+  ; subject_shape : string option       (* weaker structural hash, for fuzzy re-pairing *)
+  ; subject_ref : string option         (* what the subject IS - a symbol, a source+query, a test id, a
+                                           claim id; its disappearance makes the evidence `Detached` *)
+  ; oracle_id : string option
+  ; oracle_version : string option      (* an advanced version obsoletes the result on an exact match *)
+  ; observed_at : string option         (* ISO-8601: when the subject was read *)
+  ; valid_until : string option         (* ISO-8601: time-boxed validity (a fixing, a calendar year) *)
+  }
+```
+
+`reasoning_fingerprint` is the **reasoner profile** of this record: `task_checksum ≡ subject_checksum`,
+`task_shape ≡ subject_shape`, `target_symbol ≡ subject_ref`, `engine` / `engine_version` ≡ `oracle_id` /
+`oracle_version`. A payload's `fingerprint` accepts either form; a consumer reads the generic names and
+falls back to the reasoner names. What each standard oracle type hashes is normative in
+`ORACLE_SPEC_v0_2.md` §4: a reasoner the task closure; a tester the unit closure plus the test source; an
+analyzer the canonical source or schema; a **monitor** the source id, the query, the returned value and
+the as-of; a judge the judged artifact's `content_ref` plus the rubric; an attestor the attested
+artifact's `content_ref`.
+
 ## 10.5 State-space analysis
 
 ```ocaml
@@ -907,6 +951,55 @@ type reproduction_bundle_payload =
 ```
 
 ---
+
+## 10.11 Observation (1.12)
+
+A **monitor's** evidence (`ORACLE_SPEC_v0_2.md` §1.1, §5): *a named source stated this value at this
+time, in answer to this query*. A database or reference-data store queried for a fact, a market-data
+feed, production telemetry, a rulebook or configuration lookup all land here. It is the strict-typed home
+for what earlier versions could only file under `CommandResult` or `AnalysisNote`.
+
+```ocaml
+type observation_payload =
+  { statement : string                  (* the fact, in plain language *)
+  ; source : string                     (* the source id: a database, a feed, a system *)
+  ; query : string option               (* the canonical query / lookup that produced it *)
+  ; value : json option                 (* the returned value / row set, or a content_ref to it *)
+  ; observed_at : string                (* ISO-8601 *)
+  ; valid_until : string option         (* ISO-8601, when the source itself time-boxes the value *)
+  ; confidence : confidence option      (* §9.2 *)
+  ; oracle : oracle_attribution option  (* §10.12 - evidence_strength is `attested` *)
+  ; fingerprint : evidence_fingerprint option  (* §10.4a - subject = source + query + value + as-of *)
+  }
+```
+
+`artifact_role` is `AuditEvidenceRole`. An `Observation` anchors by `derived_from` to what it was checked
+*against* (the model, the configuration, the claim), so the DAG shows which established result rests on
+it. It discharges an `Assumption` residual (§13) by being cited in the residual's `related_artifact_ids`
+as the residual moves to `ResidualAddressed`; it is quantifiable in goals (`has(f, Observation)`, §18)
+and policies like any other artifact; and it is graded **`attested`** - never higher, however
+authoritative the source - because its guarantee is attribution, not derivation.
+
+## 10.12 Oracle attribution (1.12)
+
+Every evidence payload - `VerificationResult`, `StateSpaceAnalysisResult`, `ConformanceResult`,
+`CoSimulationResult`, `GeneratedTests`, `CommandResult`, `Observation`, and an `AnalysisNote` produced by
+a judge - MAY carry an attribution block naming the oracle that produced it (`ORACLE_SPEC_v0_2.md` §3):
+
+```ocaml
+type oracle_attribution =
+  { id : string                         (* the oracle id (registry key) *)
+  ; oracle_type : string                (* reasoner | tester | analyzer | monitor | judge | attestor | a registered name *)
+  ; evidence_strength : string option   (* the strength of THIS result - honesty rule: from the actual
+                                           verdict, absent on unknown / error - ORACLE_SPEC §3 *)
+  ; version : string option
+  }
+```
+
+For a reasoner result the existing `engine` / `engine_version` fields are the profile of `id` / `version`;
+a consumer reading a payload without the block derives `{ id = engine; oracle_type = "reasoner"; version =
+engine_version }`. The `oracle_type` vocabulary is **open**: a consumer MUST accept a name it does not
+recognize (it MAY warn), because the guarantee is carried by `evidence_strength`, whose order is fixed.
 
 # 11. Reference Artifacts
 
@@ -1740,6 +1833,8 @@ type freshness =
   | Detached   (* the result's target_symbol no longer exists in the current model — the task is gone.
                   Orphaned work: kept for audit and recovery (reverting the deletion re-pairs it), but
                   never counted as evidence *)
+  | Unknown    (* 1.12: the evidence carries a fingerprint whose subject cannot currently be re-read and
+                  no `valid_until` - neither fresh nor stale; reported, and refusable by policy *)
 ```
 
 Computation, for a reasoning result `r` (against its target/goal):
@@ -1750,6 +1845,17 @@ Computation, for a reasoning result `r` (against its target/goal):
    - current `task_checksum` **equals** stored → **`Fresh`**;
    - otherwise (checksum differs, whether or not `task_shape` still matches) → **`Stale`**;
    - independently, an **advanced `engine_version`** forces **`Stale`** even on an exact checksum match (a newer reasoner may decide the same task differently).
+
+**Any oracle's evidence (1.12).** The same verdict is defined for evidence carrying a generic
+`evidence_fingerprint` (§10.4a) - an `Observation`, a test result, an analysis. The consumer obtains the
+*current* fingerprint of `subject_ref` (by recomputation when it holds the subject, by the oracle's
+`probe` when it is registered, or not at all) and decides, in order: no current fingerprint and no
+`valid_until` → **`Unknown`** (neither fresh nor stale; reported on the item, refusable by policy; a
+reasoner result without any fingerprint keeps the 1.7 heuristic instead); `subject_ref` no longer
+resolves → **`Detached`**; `now > valid_until` → **`Stale`**; oracle version advanced → **`Stale`**;
+checksum equal → **`Fresh`**, else **`Stale`**. So a proof of `settle` stays `Fresh` over an unchanged
+model while the `Observation` that its calendar table matches the official calendar goes `Stale` on
+republication - the goal that needs both shows which leg moved (`ORACLE_SPEC_v0_2.md` §4, §9).
 
 **Effect on resolution and the residual surface.** A `Property` item resolves from its *latest* `VerificationResult`, and resolves `AcceptDone` only when that result is *proved* **and** `Fresh` (§18.2); the same freshness verdict applies to a `StateSpaceAnalysisResult` backing a decomposition, a `ConformanceResult`, or a `CoSimulationResult`. A `Stale` result surfaces a **derived** stale-evidence residual (a computed `Gap`, §13, `suggested_check` = "re-verify"); a `Detached` result surfaces a **derived** detached-evidence residual (a computed `Gap` whose `suggested_check` asks a human to confirm the deletion was intended, or restore the target). Consequently a goal cannot silently remain reached after the *logic underlying* one of its results changes — not only when the target's own text changes, but when any definition in the task's dependency closure does — and a result whose target was deleted is visibly detached rather than silently dropped. Both reopened gaps appear in the goal's open-gap set. This mirrors the keep / obsolete / detached trichotomy of Why3's session-pairing model (see `PRIOR_ART_ALIGNMENT_v0_1.md`).
 

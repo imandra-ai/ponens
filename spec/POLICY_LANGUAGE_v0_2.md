@@ -136,8 +136,9 @@ Atomic propositions are evaluated at each position (action) in the trace:
 These go beyond propositional LTL — they read the typed artifact graph and
 require a richer evaluation engine.
 
-- **Artifact types** — `VerificationGoal`, `VerificationResult`, `IMLModel`, `Decomposition`, `GeneratedTests`, `UserApproval`
+- **Artifact types** — `VerificationGoal`, `VerificationResult`, `IMLModel`, `Decomposition`, `GeneratedTests`, `UserApproval`, `Observation` (a monitor's evidence, Trace Spec 1.12 §10.11)
 - **Result status** — `proved`, `refuted`, `sat`, `unknown`
+- **Evidence attribution** (ORACLE_SPEC v0.2 §6) — read from the attribution block of the artifacts an action produced: `strength_at_least(s)` (the result's honest `evidence_strength` is at least `s`; false when unranked), `oracle_type(t)` (the producing oracle's mechanism is `t`, or specializes it), `produced_by(id)` (the producing oracle's id). Oracle invocations are also atoms by their typed action: `Verify`, `Test`, `Analyze`, `Observe`, `Judge`, `Attest`.
 - **Lineage** — `ancestors(derived_from)`, the transitive closure of `derived_from` over the artifact DAG
 - **Reference integrity** — `target_artifact_id ∈ {a.id | a.type = T}`
 - **Set operations** — `inputs(a)`, `outputs(b)`, `target(a)`, and set comprehensions `{… | …}`
@@ -258,5 +259,5 @@ log.
 
 See also the [Policy Specification](./POLICY_SPEC_v0_2.md) (the policy object,
 selectors, and evaluation records) and the
-[Trace Specification](./TRACE_SPEC_v1_11.md) (the actions and artifacts these
+[Trace Specification](./TRACE_SPEC_v1_12.md) (the actions and artifacts these
 formulas range over).

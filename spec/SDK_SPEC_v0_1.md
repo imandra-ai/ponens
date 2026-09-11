@@ -1,7 +1,7 @@
 # SDK_SPEC v0.1 — the ponens developer SDK and oracle model
 
 **Status:** draft · design frozen for handoff · **Version:** 0.1
-**Companion specs:** `ORACLE_SPEC_v0_1.md` (graded evidence + oracle contract), `TRACE_SPEC_v1_11.md` (wire format), `POLICY_SPEC_v0_2.md`.
+**Companion specs:** `ORACLE_SPEC_v0_2.md` (graded evidence + oracle contract), `TRACE_SPEC_v1_12.md` (wire format), `POLICY_SPEC_v0_2.md`.
 **Reference implementation:** branch `denis/ponens-sdk-oracle-slice` (`cli/ponens/sdk.py`, `cli/ponens/oracles.py`, tests `test_sdk.py` / `test_oracles.py`).
 
 ---
@@ -67,7 +67,9 @@ Session(model="example-model", assistant="ponens", path=None, intent=None, trigg
 | `artifact(artifact_type, name=, payload=, derived_from=, producer_action_id=, content=, format=, role=)` | `str` (artifact id) | Appends a typed artifact; `content` is content-addressed into the object store as `content_ref`; wires the producing action's `outputs`. |
 | `goal(intent, scope=, acceptance=)` | `str` (goal id) | Declares a goal (intent + optional scope/acceptance). |
 | `residual(kind, statement, severity="medium", status="open", suggested_check=, derived_from=)` | `str` | Declares negative space as a `Residual` artifact. |
-| `verify(target, oracle, derived_from=, label=, rationale=)` | `list[str]` | Invokes an oracle and records a `Verify` action + the evidence artifact(s), wiring lineage. See §3. |
+| `verify(target, oracle, derived_from=, label=, rationale=)` | `list[str]` | Invokes an oracle and records an action typed by its mechanism (`Verify` / `Test` / `Analyze` / `Observe` / `Judge` / `Attest`) + the evidence artifact(s), wiring lineage. See §3. Aliases: `observe`, `test`, `judge`, `attest`. |
+| `probe(artifact_id, context=)` | fingerprint / `{"detached": True}` / `None` | Re-reads the CURRENT fingerprint of an evidence artifact's subject via the oracle that produced it (ORACLE_SPEC v0.2 §4); records nothing. |
+| `freshness(artifact_id, context=)` | `fresh` \| `stale` \| `detached` \| `unknown` | The derived freshness verdict of an evidence artifact, by probing. |
 | `outcome(type="ProcessCompleted", summary=)` | — | Stamps the terminal event. |
 
 ### Lifecycle
@@ -172,8 +174,9 @@ else unknown. Admit failure (`eval_res` not success) → unknown.
 
 ### 5.4 Produced artifact
 `VerificationResult` with payload `{status, engine:"imandrax", result, reasoning_fingerprint,
-evidence_strength?, counterexample?, target_symbol?}`; `artifact_role` = `CounterexampleRole` when
-refuted, else `ProofRole`.
+evidence_strength?, oracle: {id, oracle_type, evidence_strength?, version?}, fingerprint: {subject_checksum,
+subject_ref?, task_checksum, target_symbol?, oracle_id, …}, counterexample?, target_symbol?}` (ORACLE_SPEC
+v0.2 §3-§4); `artifact_role` = `CounterexampleRole` when refuted, else `ProofRole`.
 
 ---
 
@@ -206,7 +209,7 @@ CodeLogician is the dogfood *and* the strongest demo (its oracle is proof-streng
 |---|---|---|
 | **0** | Oracle contract + `evidence_strength` + `oracle_type` (ORACLE_SPEC v0.1); schema bump | **implemented** (spec) |
 | **1** | Thin runtime SDK (`Session`) | **implemented** |
-| **2** | Oracle interface + registry + CodeLogician oracle (proof) | **implemented**; more reference oracles pending |
+| **2** | Oracle interface + registry + CodeLogician oracle (proof); reference oracles across the spectrum (reference-data monitor, tester, judge, attestor); `probe` / freshness (ORACLE_SPEC v0.2) | **implemented** |
 | 3 | `ponens init` scaffolding / codegen (instrumented agent template, `.ponens/`, CI gate) | planned |
 | 4 | Framework adapters — MCP server, LangChain/CrewAI callback | planned |
 | 4.5 | **TypeScript SDK** (bumped up — CodeLogician is TS) | planned |
@@ -216,9 +219,9 @@ CodeLogician is the dogfood *and* the strongest demo (its oracle is proof-streng
 1. `ponens verify` CLI verb (surface `Session.verify`).
 2. **Prove reasoner-agnosticism:** a second *reasoner* oracle (e.g. **Lean**) alongside ImandraX, so
    `verify` / policies can pick the engine and a claim records which one produced it (ORACLE_SPEC §1.3).
-3. **Span the evidence spectrum (oracles ≠ formal-only):** non-formal reference oracles — a `tester`
-   (test runner → `tests`), a `judge` (LLM-as-judge → `attested`), a `monitor` (data-freshness check),
-   an `attestor` (human sign-off) — so the registry visibly covers proof → tests → attested.
+3. ~~Span the evidence spectrum~~ — done in ORACLE_SPEC v0.2: `ReferenceDataOracle` (monitor: a
+   database / reference-data store), `SubprocessTesterOracle`, `CallableJudgeOracle`, `AttestorOracle`.
+   Next: an LLM-backed judge and a catalog (gallery) entry per non-reasoner oracle.
 4. CodeLogician integration via subprocess (the extract-from step).
 5. Full `reasoners → oracles` rename with deprecation aliases (currently additive; both coexist).
 

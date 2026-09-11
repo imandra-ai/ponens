@@ -21,7 +21,7 @@ from .policy_compiler import (
     Atom, AtomWithArgs, FieldNeEmpty, StartEvent, EndEvent,
     ForAll, Exists, ExistsUnique, FieldAccess, Compare, Count,
     RawStructural, FuncApp, SetLiteral, Ancestors,
-    ACTION_TYPES, ARTIFACT_TYPES, PREDICATES,
+    ACTION_TYPES, ARTIFACT_TYPES, PREDICATES, EVIDENCE_PREDICATES, effective_formula,
     STRUCTURAL_POLICIES,
 )
 from . import goals as goalops
@@ -534,6 +534,24 @@ def evaluate_formula(node, trace, ctx=None):
         if not ctx:
             return False
         a = ctx['action']
+        if node.func in EVIDENCE_PREDICATES:
+            # ORACLE_SPEC v0.2 §6: holds when ANY evidence artifact this action produced satisfies the
+            # predicate over its attribution block (derived from `engine` on pre-1.12 payloads).
+            from . import oracles as _oracles
+            for art in _action_output_artifacts(a, trace):
+                att = _oracles.attribution_of(art.get('payload') or {}) or {}
+                if node.func == 'strength_at_least':
+                    if _oracles.strength_at_least(att.get('evidence_strength'), node.arg):
+                        return True
+                elif node.func == 'oracle_type':
+                    if att.get('oracle_type') == node.arg or att.get('specializes') == node.arg:
+                        return True
+                elif node.func == 'produced_by':
+                    # The oracle id, or the engine it drives, or an oracle driving that engine:
+                    # `codelogician` and `imandrax` both name a CodeLogician-over-ImandraX result.
+                    if _oracles.produced_by(art.get('payload') or {}, node.arg):
+                        return True
+            return False
         if node.func == 'ref_model':
             ref_id = node.arg
             req = a.get('request', {})
@@ -548,6 +566,16 @@ def evaluate_formula(node, trace, ctx=None):
         return keyword in text
 
     return True
+
+
+def _action_output_artifacts(a, trace):
+    """The artifacts an action produced: by `outputs` id/name, or by `producer_action_id`."""
+    outs = set(a.get('outputs', []) or [])
+    aid = a.get('id')
+    for art in trace.get('artifacts', []) or []:
+        if art.get('artifact_id') in outs or art.get('name') in outs or \
+                (aid is not None and art.get('producer_action_id') == aid):
+            yield art
 
 
 def evaluate_structural(policy_name, trace):
@@ -747,8 +775,12 @@ def _structural_note(name, w):
 
 def evaluate_policy_full(policy, trace):
     """Like `evaluate_policy`, plus best-effort witnesses: the ids that support the pass or break it.
-    Returns (status, note, ev_actions, vi_actions, ev_artifacts, vi_artifacts)."""
-    formula_str = policy.get('formula', '')
+    Returns (status, note, ev_actions, vi_actions, ev_artifacts, vi_artifacts).
+
+    The policy's `oracle` / `reasoner` field is ENFORCED: it is desugared into the checked formula
+    (`policy_compiler.effective_formula`, ORACLE_SPEC v0.2 §6), so a policy that names an oracle fails
+    when the evidence it ranges over was produced by something else — or by nothing attributable."""
+    formula_str = effective_formula(policy)
     name = policy.get('name', '')
     if not formula_str:
         return 'unknown', 'No formula defined', [], [], [], []
@@ -1056,6 +1088,43 @@ def validate_trace(trace):
             errors.append(f"action {a.get('id')}: meta_action_id '{mref}' does not exist")
         elif claimed.get(a.get('id')) != mref:
             errors.append(f"action {a.get('id')}: meta_action_id '{mref}' disagrees with membership")
+
+    # Oracles (ORACLE_SPEC v0.2 / Trace Spec 1.12 §10.11-§10.12): the attribution block is graded on
+    # the FIXED strength order (an invalid strength is an error), the mechanism name is an OPEN set (a
+    # non-standard name only warns), and the honesty rule (no strength on an unestablished result).
+    from . import oracles as _oracles
+    for art in artifacts:
+        if not isinstance(art, dict):
+            continue
+        aid_ = art.get('artifact_id', '?')
+        payload = art.get('payload') if isinstance(art.get('payload'), dict) else {}
+        block = payload.get('oracle')
+        if block is not None:
+            if not isinstance(block, dict) or not block.get('id'):
+                errors.append(f"artifact {aid_}: payload.oracle must be an object with an 'id'")
+            else:
+                w = _oracles.check_oracle_type(block.get('oracle_type'), block.get('specializes'))
+                if w:
+                    warnings.append(f"artifact {aid_}: {w}")
+                st = block.get('evidence_strength')
+                if st is not None and st not in _oracles.EVIDENCE_STRENGTH:
+                    errors.append(f"artifact {aid_}: invalid evidence_strength '{st}' "
+                                  f"(one of {', '.join(_oracles.EVIDENCE_STRENGTH)})")
+                if st and str(payload.get('status') or '').lower() in ('unknown', 'error'):
+                    warnings.append(f"artifact {aid_}: evidence_strength '{st}' on an unestablished "
+                                    f"({payload.get('status')}) result violates the honesty rule")
+        st_top = payload.get('evidence_strength')
+        if st_top is not None and st_top not in _oracles.EVIDENCE_STRENGTH:
+            errors.append(f"artifact {aid_}: invalid evidence_strength '{st_top}'")
+        if art.get('artifact_type') == 'Observation':
+            for req in ('statement', 'source'):
+                if not payload.get(req):
+                    errors.append(f"artifact {aid_}: Observation payload missing '{req}'")
+            if not payload.get('observed_at'):
+                warnings.append(f"artifact {aid_}: Observation has no 'observed_at'")
+            if block and block.get('evidence_strength') not in (None, 'attested'):
+                errors.append(f"artifact {aid_}: an Observation is graded 'attested', never higher "
+                              f"(got '{block.get('evidence_strength')}')")
 
     return errors, warnings
 

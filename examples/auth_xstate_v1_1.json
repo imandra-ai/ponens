@@ -3,7 +3,7 @@
   "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
-  "timestamp": "2026-04-02T14:30:00Z",
+  "timestamp": "2026-09-04T14:30:00Z",
   "trigger": {
     "type": "TaskReceived",
     "description": "Fix session timeout bug in the authentication flow \u2014 users are not redirected to login after token expiry",

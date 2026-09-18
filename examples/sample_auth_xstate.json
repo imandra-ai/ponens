@@ -3,7 +3,7 @@
   "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
-  "timestamp": "2026-06-14T12:00:00Z",
+  "timestamp": "2026-09-14T12:00:00Z",
   "title": "Migrate auth to an explicit state machine (reachability proved)",
   "trigger": {
     "type": "TaskReceived",

@@ -261,16 +261,14 @@ if (!window._vscodeManaged && !window.__ponensEmbedded && _traceParam) {
 // ============================================================
 // v1.0 / v1.1 normalization layer
 // ============================================================
-function normalizeTrace(data) {
-  // Detect version
-  const version = data.spec_version || (data.artifacts ? '1.1' : '1.0');
-  data._spec_version = version;
-
-  if (version === '1.0') return; // no normalization needed
-
-  /**
+/**
  * The spec this viewer is built against. Only used to tell a reader that a trace predates it - the
  * viewer renders every version from 1.0 onward, so this is never a compatibility check.
+ *
+ * MODULE scope on purpose. An earlier edit anchored this on a comment line that turned out to be
+ * INSIDE `normalizeTrace`, so both names became locals of that function; `renderTrace` then threw a
+ * ReferenceError reaching for them, the header rendered (it runs first) and every view below it did
+ * not. The demo page showed a title, a timestamp, and an empty body.
  */
 const SPEC_VERSION = '1.13';
 
@@ -285,7 +283,14 @@ function cmpSpec(a, b) {
   return 0;
 }
 
-// Residuals are first-class artifacts (§13, v1.8): fold any legacy top-level `residuals` list into
+function normalizeTrace(data) {
+  // Detect version
+  const version = data.spec_version || (data.artifacts ? '1.1' : '1.0');
+  data._spec_version = version;
+
+  if (version === '1.0') return; // no normalization needed
+
+  // Residuals are first-class artifacts (§13, v1.8): fold any legacy top-level `residuals` list into
   // Residual artifacts so the DAG/list render them natively, then expose the residual *surface* back
   // on data.residuals (projected from the artifacts) so the surface/attention/goal views read one shape.
   _migrateResidualsInPlace(data);

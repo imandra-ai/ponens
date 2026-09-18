@@ -110,13 +110,21 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
             seen.add(c)
             cands.append(c)
     art_type = _artifact_type(item.get("evidence") or {})
-    if not cands or not art_type:
+    reference = item.get("reference")
+    # A PROJECT-level criterion (TRACE_SPEC §11.2) names a reference but no component: it is met by any
+    # evidence of the required type judged against that reference, whatever symbols the producer mapped.
+    if not art_type or (not cands and not reference):
         return None
     keep = {"status": item.get("status", "todo"), "from_trace": False, "evidence": None}
     want_type = _canon_art_type(art_type)
     matches = [a for a in trace.get("artifacts", [])
                if _canon_art_type(a.get("artifact_type")) == want_type
-               and any(lineage.roots_in_component(a.get("artifact_id"), c, trace) for c in cands)]
+               and (not cands or any(lineage.roots_in_component(a.get("artifact_id"), c, trace) for c in cands))]
+    # A criterion that names a REFERENCE (TRACE_SPEC §11.2: a binding's catalogue entry) is met only by
+    # evidence judged AGAINST that reference — `payload.reference_artifact_id` must match. A proof of some
+    # other property of the same component is not conformance to the entry.
+    if reference:
+        matches = [a for a in matches if _payload(a).get("reference_artifact_id") == reference]
     if not matches:
         return keep
     a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact
@@ -182,8 +190,9 @@ def _resolve_criterion(item, trace, gate_defeater=True, gate_fresh=False):
     """Resolve ONE leaf criterion (an atom) to {status, from_trace, evidence}. This is the historical
     kind-switch, now parameterized by the two gates the role selects. The defaults
     (gate_defeater=True, gate_fresh=False) are exactly today's behavior."""
-    # Goal Contract typed criterion (component + evidence) → resolve by lineage (§4), not text.
-    if item.get("component") is not None and item.get("evidence") is not None:
+    # Goal Contract typed criterion (component + evidence) → resolve by lineage (§4), not text. A
+    # project-level criterion (§11.2) has a `reference` and no component: typed as well.
+    if item.get("evidence") is not None and (item.get("component") is not None or item.get("reference")):
         typed = _resolve_typed(item, trace, gate_defeater, gate_fresh)
         if typed is not None:
             return typed
@@ -667,7 +676,7 @@ def stale_evidence(trace):
                 "kind": "detached_evidence",
                 "severity": "high",
                 "status": "open",
-                "statement": f"{label} is detached: its target `{sym}` no longer exists in the current model.",
+                "statement": f"{label} is no longer tied to its subject: `{sym}` no longer exists in the current model.",
                 "suggested_check": f"Confirm removing `{sym}` was intended, or restore it and re-run.",
                 "target": {"target_type": "artifact", "target_id": vid},
                 "derived": True,
@@ -679,7 +688,7 @@ def stale_evidence(trace):
                 "kind": "stale_evidence",
                 "severity": "medium",
                 "status": "open",
-                "statement": f"{label} is stale: a definition `{sym}` depends on changed after step #{at}.",
+                "statement": f"{label} is out of date: a definition `{sym}` depends on changed after step #{at}.",
                 "suggested_check": f"Re-run it against the current {sym}.",
                 "target": {"target_type": "artifact", "target_id": vid},
                 "derived": True,
@@ -697,12 +706,65 @@ def stale_evidence(trace):
             "kind": "stale_evidence",
             "severity": "medium",
             "status": "open",
-            "statement": f"{label} is stale: computed at step #{at}, but {sym} changed at step #{changed_at}.",
+            "statement": f"{label} is out of date: computed at step #{at}, but {sym} changed at step #{changed_at}.",
             "suggested_check": f"Re-run it against the current {sym}.",
             "target": {"target_type": "artifact", "target_id": vid},
             "derived": True,
         })
     out.extend(generic_evidence_freshness(trace)["residuals"])
+    out.extend(reference_freshness(trace))
+    return out
+
+
+def reference_freshness(trace):
+    """TRACE_SPEC §11.3: evidence judged against a REFERENCE ARTIFACT records what it saw of the reference
+    (`reference_version` / `reference_checksum`). It is Stale once the trace's reference artifact of that
+    id carries a different version or checksum (the catalogue moved on), and Detached when the reference
+    is no longer in the trace. Keyed on the LATEST result per (reference, target, entry symbol), so a
+    re-run against the new version heals the guard. Derived residuals, tagged `derived: True`."""
+    refs = {r.get("reference_artifact_id"): r
+            for r in (trace.get("reference_artifacts") or []) if isinstance(r, dict)}
+    latest = {}
+    for a in trace.get("artifacts", []) or []:
+        p = _payload(a)
+        rid = p.get("reference_artifact_id")
+        if not rid or (p.get("reference_version") is None and p.get("reference_checksum") is None):
+            continue
+        key = (rid, p.get("target_symbol"), p.get("entry_symbol"))
+        step = a.get("producer_action_id") or 0
+        if key not in latest or step > latest[key][0]:
+            latest[key] = (step, a)
+    out = []
+    for (rid, target, entry_sym), (at, a) in latest.items():
+        p = _payload(a)
+        aid = a.get("artifact_id")
+        label = f"Conformance of `{target}` to {rid}" if target else f"Conformance to {rid}"
+        ref = refs.get(rid)
+        if ref is None:
+            out.append({
+                "residual_id": f"detached-ref-{aid}", "kind": "detached_evidence", "severity": "high",
+                "status": "open", "derived": True, "reference_artifact_id": rid,
+                "statement": f"{label} is no longer tied to its model: the reference {rid} is no longer in the record.",
+                "suggested_check": "Restore the reference artifact (the binding) or retire the evidence.",
+                "target": {"target_type": "artifact", "target_id": aid},
+            })
+            continue
+        now_version = ref.get("version")
+        now_checksum = (ref.get("payload") or {}).get("checksum")
+        moved = []
+        if p.get("reference_version") is not None and now_version is not None and str(p["reference_version"]) != str(now_version):
+            moved.append(f"version {p['reference_version']} → {now_version}")
+        if p.get("reference_checksum") is not None and now_checksum is not None and str(p["reference_checksum"]) != str(now_checksum):
+            moved.append("model content changed")
+        if not moved:
+            continue
+        out.append({
+            "residual_id": f"stale-ref-{aid}", "kind": "stale_evidence", "severity": "medium",
+            "status": "open", "derived": True, "reference_artifact_id": rid,
+            "statement": f"{label} is out of date: the model moved since step #{at} ({'; '.join(moved)}).",
+            "suggested_check": f"Re-establish conformance against {rid} at its current version.",
+            "target": {"target_type": "artifact", "target_id": aid},
+        })
     return out
 
 
@@ -749,7 +811,7 @@ def generic_evidence_freshness(trace, now=None):
                 "kind": "stale_evidence",
                 "severity": "medium",
                 "status": "open",
-                "statement": (f"{label} is stale: {subject} changed (or its validity expired) since it was "
+                "statement": (f"{label} is out of date: {subject} changed (or its validity expired) since it was "
                               f"observed at step #{at}."),
                 "suggested_check": f"Re-invoke {fp.get('oracle_id') or 'the oracle'} for {subject}.",
                 "target": {"target_type": "artifact", "target_id": aid},
@@ -761,7 +823,7 @@ def generic_evidence_freshness(trace, now=None):
                 "kind": "detached_evidence",
                 "severity": "high",
                 "status": "open",
-                "statement": f"{label} is detached: {subject} no longer resolves at its source.",
+                "statement": f"{label} is no longer tied to its subject: {subject} no longer resolves at its source.",
                 "suggested_check": "Confirm the source change was intended, or restore the subject and re-observe.",
                 "target": {"target_type": "artifact", "target_id": aid},
                 "derived": True,
@@ -1198,3 +1260,90 @@ def enrich(trace):
         "criteria_at_risk": sum(g.get("at_risk", 0) for g in goals),
     }
     return t
+
+
+# ── What to do next (TRACE_SPEC §18.3 read as a to-do list) ──────────────────────────────────────
+# The enriched trace already grades every goal item and derives every stale/detached residual; this folds
+# them into ONE ordered list of next steps, so an agent (or a person) can pick up where the record stops:
+#   1. blocked goal items — evidence exists but is contested (a failed conformance, a defeater): fix first;
+#   2. required goal items still todo — nothing established yet;
+#   3. done items whose evidence went stale/detached — re-establish;
+#   4. open residuals with a suggested_check, highest severity first;
+#   5. optional goal items still todo.
+# Pure over the trace; `ponens trace next` prints it.
+
+_SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+_KIND_TAG = {"fix": "FIX", "establish": "ESTABLISH", "refresh": "REFRESH", "gap": "GAP", "optional": "OPTIONAL"}
+
+
+def next_steps(trace, limit=None):
+    """Ordered next steps over an (un-enriched) trace: [{kind, priority, goal_id, item_id, label, why,
+    suggested, evidence_ref}] — see the module comment for the order. `kind` in fix | establish |
+    refresh | gap | optional."""
+    import copy
+    e = enrich(copy.deepcopy(trace))
+    stale = {}
+    for r in lineage.residual_surface(e):
+        if r.get("derived") and r.get("kind") in ("stale_evidence", "detached_evidence") and _lc(r.get("status") or "open") == "open":
+            tgt = (r.get("target") or {}).get("target_id")
+            if tgt:
+                stale[tgt] = r
+    steps = []
+    for goal in e.get("goals") or []:
+        gid = goal.get("id")
+        for it in goal.get("acceptance") or []:
+            st = _lc(it.get("status") or "todo")
+            required = it.get("required", True) is not False
+            base = {"goal_id": gid, "item_id": it.get("id"), "label": it.get("label") or it.get("id"),
+                    "evidence_ref": it.get("evidence_ref")}
+            ref = it.get("reference")
+            comp = it.get("component") or {}
+            what = comp.get("function") or comp.get("symbol") or "the component"
+            art = (it.get("evidence") or {}).get("artifact") or "the required evidence"
+            if st == "blocked":
+                steps.append(dict(base, kind="fix", priority=1,
+                                  why="evidence exists but is contested (a failed check or an open defeater)",
+                                  suggested=("fix the code or the mapping, then re-establish conformance against " + ref) if ref
+                                  else "resolve the defeater, then re-run the evidence"))
+            elif st in ("todo", "doing") and required:
+                steps.append(dict(base, kind="establish", priority=2, why="required, nothing established yet",
+                                  suggested=("establish conformance against " + ref + " (check_conformance / formal_conform)") if ref
+                                  else "produce " + art + " for " + what))
+            elif st == "done" and it.get("evidence_ref") in stale:
+                r = stale[it["evidence_ref"]]
+                steps.append(dict(base, kind="refresh", priority=3, why=r.get("statement") or "the evidence is stale",
+                                  suggested=r.get("suggested_check") or "re-run the evidence against the current code"))
+            elif st in ("todo", "doing") and not required:
+                steps.append(dict(base, kind="optional", priority=5, why="optional, not yet established",
+                                  suggested="establish when convenient"))
+    for r in lineage.residual_surface(e):
+        if _lc(r.get("status") or "open") != "open" or r.get("derived"):
+            continue
+        sc = r.get("suggested_check")
+        if not sc:
+            continue
+        # A standing ASSUMPTION is the boundary the evidence rests on, not a to-do — it becomes a step only
+        # when it is severe enough to demand discharge.
+        if _lc(r.get("kind")) == "assumption" and _lc(r.get("severity") or "medium") not in ("high", "critical"):
+            continue
+        steps.append({"kind": "gap", "priority": 4, "goal_id": None, "item_id": r.get("residual_id"),
+                      "label": r.get("statement") or r.get("residual_id"),
+                      "why": "open " + str(r.get("kind") or "residual") + " (" + str(r.get("severity") or "medium") + ")",
+                      "suggested": sc, "evidence_ref": None, "severity": r.get("severity")})
+    steps.sort(key=lambda x: (x["priority"], _SEV_RANK.get(_lc(x.get("severity") or "medium"), 2),
+                              str(x.get("goal_id") or ""), str(x.get("item_id") or "")))
+    return steps[:limit] if limit else steps
+
+
+def render_next(steps):
+    if not steps:
+        return "Nothing to do: every required goal item is established and no open gap has a suggested check."
+    out = []
+    for i, s in enumerate(steps, 1):
+        head = str(i) + ". [" + _KIND_TAG[s["kind"]] + "] " + str(s["label"])
+        if s.get("goal_id"):
+            head += "  (" + str(s["goal_id"]) + ")"
+        out.append(head)
+        out.append("     why: " + str(s["why"]))
+        out.append("     do:  " + str(s["suggested"]))
+    return "\n".join(out)

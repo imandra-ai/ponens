@@ -275,6 +275,81 @@ trace, while the producing reasoner only \emph{emits evidence}. The party that
 did the work does not grade the work; the certificate travels with the claim and
 is re-checkable by another party (\S\ref{sec:context}).
 
+\subsection{Compliance packs: one substrate, many regimes}\label{sec:interchange-packs}
+
+The sources and packs above have one more face, and it is regulatory. The claim is not that we built a bespoke checker per standard; it is that
+the \emph{same} evidence logic and governance surface --- goals over the artifact sort, policies over the
+action sort (\S\ref{sec:evidence-logic}) --- expresses obligations drawn from very different external frameworks
+as \emph{policies over the same trace}. A compliance pack is a versioned set of policies mapping a named regime
+onto the substrate; the object being governed is always the trace, an obligation is always a policy (a temporal
+or lineage formula), and the verdict is always the shared Red / Amber / Green (\code{error} /
+\code{warning} / clean). Table~\ref{tab:packs} lists the packs.
+
+\begin{table}[h]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}llX@{}}
+\toprule
+Pack & External framework & What it checks (as policies) \\
+\midrule
+\code{NIST\_AI\_RMF}        & NIST AI RMF 1.0                       & lifecycle risk mgmt: govern / map / measure / respond \\
+\code{NIST\_SSDF}           & NIST SSDF (SP 800-218)                & secure-dev: release integrity, provenance, response \\
+\code{IOSCO\_SUPERVISORY}   & IOSCO Supervisory Toolkit (AI)        & decision logging, model versioning, oversight evidence \\
+\code{ESMA\_MIFID\_AI}      & ESMA statement on AI (retail)         & MiFID conduct: disclosure, suitability, testing, records \\
+\code{MISRA\_COMPLIANCE}    & MISRA Compliance:2020                 & the compliance \emph{process}: deviations, GEP/GRP/GCS \\
+\code{DO\_178C}             & RTCA DO-178C / EUROCAE ED-12C         & bidirectional traceability + process objectives (by DAL) \\
+\code{JSF\_AV\_CPP}         & JSF Air Vehicle C++ standards         & deviation approval + safety-critical obligations \\
+\code{CERT\_SECURE\_CODING} & SEI CERT C / C++                      & risk-prioritized remediation; L1 fixed before release \\
+\code{CMS\_AI\_GUIDANCE}    & CMS TRA AI guidance                   & healthcare AI: oversight, data residency, provenance \\
+\code{AGENTIC\_GOVERNANCE}  & FIX AI WG runtime governance          & traffic-light runtime gating: identity, intent, telemetry \\
+\code{AGENTIC\_EXEC\_PROV}  & FIX AI WG six-points                  & decision-path reconstructability; reasoning provenance \\
+\code{APPLY\_FORMAL\_METHODS}& Imandra CodeLogician / SpecLogician  & high-stakes code proved/decomposed; formalize-first \\
+\bottomrule
+\end{tabularx}
+\caption{Compliance packs: the same evidence logic and governance surface instantiated against external
+frameworks. Each obligation is a policy over the trace; verdicts are the shared Red / Amber / Green.}
+\label{tab:packs}
+\end{table}
+
+Two features of the table are the point. First, the frameworks are genuinely heterogeneous --- airborne-software
+certification (DO-178C), coding-standard process (MISRA, JSF++, CERT), AI risk management (NIST AI RMF, CMS),
+capital-markets supervision (IOSCO, ESMA MiFID), and agentic runtime governance (the FIX AI packs) --- yet each
+reduces to the two shapes the evidence logic already provides: \emph{lineage} obligations over the artifact DAG
+and \emph{ordering / presence} obligations over the action timeline. Second, the packs govern the \emph{process
+around} a check, not the check itself: MISRA's 143+ coding rules are found by a static analyzer, and the pack
+verifies the agent followed the deviation-and-summary process the analyzer's output requires --- turning
+advisory analyzer output into an \emph{auditable} record. The substrate does not re-implement each standard's
+domain checker; it supplies the one governance surface on which all of them are expressed.
+
+\paragraph{Worked example: DO-178C traceability as a lineage policy.} DO-178C's defining requirement is
+bidirectional traceability from system requirements through high-level and low-level requirements to source
+code and tests. This is native to the evidence logic: the \code{P\_chain} lineage operator walks the artifact
+\code{derived\_from} DAG, so a core objective becomes a one-line policy (Figure~\ref{fig:ix-do178c}).
+
+\begin{figure}[H]
+\centering
+\small
+\[
+\begin{array}{@{}l@{\;:\;}l@{\quad}l@{}}
+\id{trace\_code\_to\_llr}      & \mathsf{G}\big(\id{SourceCode} \rightarrow \mathsf{P}_{\mathsf{chain}}(\id{LLR})\big) & \text{\footnotesize\itshape A-5; \textcolor{red!70!black}{Red} if no LLR ancestor}\\[3pt]
+\id{plan\_before\_dev}         & \mathsf{G}\big(\id{SourceCode} \rightarrow \mathsf{P}(\id{plans\_approved})\big) & \text{\footnotesize\itshape A-1; plan before dev}\\[3pt]
+\id{review\_with\_independence} & \mathsf{G}\big(\id{reviewed} \rightarrow \id{independent\_review}\big) & \text{\footnotesize\itshape \textcolor{orange!85!black}{Amber}\,$\to$\,escalation}
+\end{array}
+\]
+\caption{DO-178C objectives as lineage and temporal policies over the trace: source-to-LLR traceability as a
+\code{P\_chain} lineage obligation, plan-before-development as a past-time ordering constraint, and
+review-with-independence as an escalating (Amber) rather than hard-failing check.}
+\label{fig:ix-do178c}
+\end{figure}
+
+\noindent
+The pattern generalizes: \code{IOSCO\_SUPERVISORY} phrases ``every AI decision is logged and its model version
+recorded'' as a lineage obligation of the same shape; \code{APPLY\_FORMAL\_METHODS} phrases ``high-stakes code
+is backed by a proof or decomposition before release, and counterexamples trigger a fix'' as a mix of a lineage
+predicate (\code{proved} / \code{decomposed} in the component's closure) and a temporal one
+(\code{formalize-before-verify}). One evidence logic, one governance surface, many regimes --- and every verdict
+resolves against the trace of \S\ref{sec:state} rather than against a self-report.
+
 \subsection{Worked examples}\label{sec:pol-worked}
 
 \paragraph{A response (temporal) policy.}

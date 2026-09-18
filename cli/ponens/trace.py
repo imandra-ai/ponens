@@ -551,6 +551,13 @@ def evaluate_formula(node, trace, ctx=None):
                     # `codelogician` and `imandrax` both name a CodeLogician-over-ImandraX result.
                     if _oracles.produced_by(art.get('payload') or {}, node.arg):
                         return True
+                elif node.func == 'conforms_to':
+                    # TRACE_SPEC §11.2: the artifact is conformance evidence judged against the named
+                    # reference. An unversioned argument (`ref:atlas:<entry>`) matches any version of it.
+                    rid = str((art.get('payload') or {}).get('reference_artifact_id') or '')
+                    arg = node.arg
+                    if rid and (rid == arg or ('@' not in arg and (rid == arg or rid.startswith(arg + '@')))):
+                        return True
             return False
         if node.func == 'ref_model':
             ref_id = node.arg
@@ -1157,7 +1164,10 @@ def soundness_errors(trace, strict=False):
     actions = trace.get('actions', []) or []
     artifacts = trace.get('artifacts', []) or []
     art_by_id = {a.get('artifact_id'): a for a in artifacts if isinstance(a, dict)}
-    ref_ids = {a.get('artifact_id') for a in (trace.get('reference_artifacts', []) or []) if isinstance(a, dict)}
+    # Reference artifacts are keyed by `reference_artifact_id` (§11.1); tolerate the legacy `artifact_id`.
+    ref_ids = {a.get('reference_artifact_id') or a.get('artifact_id')
+               for a in (trace.get('reference_artifacts', []) or []) if isinstance(a, dict)}
+    ref_ids.discard(None)
     known_art = set(art_by_id) | ref_ids
     act_ids = {a.get('id') for a in actions if isinstance(a, dict)}
 
@@ -1208,6 +1218,11 @@ def soundness_errors(trace, strict=False):
         if not isinstance(a, dict):
             continue
         t = a.get('artifact_type')
+        if t == 'ConformanceResult':
+            # §11.2: conformance names what it was judged against — an artifact or a reference artifact.
+            rid = (a.get('payload') or {}).get('reference_artifact_id')
+            if rid and rid not in known_art:
+                errs.append(f"ConformanceResult {a.get('artifact_id')}: reference_artifact_id '{rid}' is not a known artifact or reference artifact")
         if t == 'VerificationResult':
             status = (a.get('payload') or {}).get('status')
             if status not in _VALID_VERDICTS:
@@ -2212,6 +2227,17 @@ def cmd_resolve(args):
     return 0
 
 
+def cmd_next(args):
+    """`ponens trace next <file> [--json] [--limit N]`: the ordered next steps the record implies."""
+    trace = load_trace(args.trace_file)
+    steps = goalops.next_steps(trace, limit=getattr(args, 'limit', None))
+    if getattr(args, 'json', False):
+        print(json.dumps(steps, indent=2, ensure_ascii=False))
+    else:
+        print(goalops.render_next(steps))
+    return 0
+
+
 def cmd_enrich(args):
     """Augment the trace with all derived views (resolved acceptance, derived residuals, per-goal
     relevance cone, exploration) — one projection a thin viewer can render without re-implementing
@@ -2674,6 +2700,13 @@ def register(subparsers):
     p.set_defaults(func=cmd_status)
 
     # residuals (view)
+    from . import blame as _blame
+    _blame.register(trace_sub)
+    from . import overview as _overview
+    _overview.register(trace_sub)
+    from . import query as _query
+    _query.register(trace_sub)
+
     p = trace_sub.add_parser("residuals", help="List the residual surface (declared negative space)")
     p.add_argument("trace_file")
     p.add_argument("--json", action="store_true", help="Output raw JSON")
@@ -2689,6 +2722,11 @@ def register(subparsers):
     p.set_defaults(func=cmd_resolve)
 
     # enrich (one projection carrying all derived views for a thin viewer)
+    p = trace_sub.add_parser("next", help="What to do next: blocked items to fix, required items to establish, stale evidence to refresh, open gaps with a suggested check")
+    p.add_argument("trace_file")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--limit", type=int, default=None)
+    p.set_defaults(func=cmd_next)
     p = trace_sub.add_parser("enrich", help="Augment the trace with resolved acceptance, derived residuals, cones")
     p.add_argument("trace_file")
     p.add_argument("--goals", help="External goals file to merge before enriching")

@@ -132,7 +132,12 @@ principled way to say what a later change invalidates. Audit logs record \emph{w
 reasoning \emph{states}. We present \textbf{Ponens}, an open-source framework that makes an agent's reasoning
 trace a first-class logical object: a \textbf{defeasible, proof-carrying context} $\Gamma$ in which every
 claim carries a certificate --- which oracle produced it, under what assumptions, whether it is \emph{fresh},
-and whether it is \emph{contested}.
+and whether it is \emph{contested}. The oracle that produced a claim is a \emph{generic type} --- a prover, a test
+runner, a static analyzer, a database queried for a fact, an LLM judge, a human sign-off --- and every result
+carries the honest \emph{strength} of its guarantee (proof $>$ sat $>$ tests $>$ static analysis $>$ attested),
+so a goal reports the weakest link it rests on; a requirement may point at a \emph{reference} model outside the
+repository --- a regulation, a venue specification --- and evidence against it goes stale when the reference
+moves.
 The trace is an append-only \emph{state} with well-formedness invariants, simultaneously \emph{memory}, a
 \emph{governance surface}, and a \emph{logical context}. Over it an
 \emph{evidence logic} judges an agent's work on two axes --- \textbf{goals} (the definition of done, as
@@ -182,7 +187,7 @@ convenience: it is what makes reasoning \emph{compose}.
 
 \subsection{Motivating examples}\label{sec:intro-examples}
 
-Five failures, all but invisible to testing and review as practiced today, motivate the construction. Each is
+Six failures, all but invisible to testing and review as practiced today, motivate the construction. Each is
 a case where individually-reasonable work yields a silently-wrong conclusion because nothing recorded what
 that conclusion \emph{depended on}.
 
@@ -219,6 +224,15 @@ cannot answer a temporal question about ordering. Policies (\S\ref{sec:policies}
 the action timeline, evaluated against the trace, so ``done'' and ``done in a compliant way'' are separate,
 checkable verdicts.
 
+\paragraph{6. The rule that moved.} A payment service was checked, thoroughly, against the provider's
+specification of its PaymentIntent lifecycle; a reporting pipeline was checked against an article of the
+regulation it implements. Then the provider re-issued the specification, or the regulator amended the article.
+No file in the repository changed, so no test, no diff and no freshness check keyed on the code notices;
+every ``conforms'' still reads green against a text that no longer says what it said. A requirement that points
+at a model \emph{outside} the repository must record what it was judged against (\S\ref{sec:goals-reference}),
+and the reference must be a dependency like any other, so that a revision to it stales the evidence
+(\S\ref{sec:freshness-reference}).
+
 None of these is exotic; together they are the ordinary texture of multi-agent, multi-branch development. What
 they share is a single missing ingredient --- a record of \emph{what each conclusion depended on}, kept in a
 form the system can compute over. That record is the reasoning trace.
@@ -228,6 +242,10 @@ form the system can compute over. That record is the reasoning trace.
 \item A formal model of the reasoning trace as state (\S\ref{sec:state}, \S\ref{sec:format}) and the
 argument that it is a \emph{defeasible, proof-carrying context}, with three properties --- non-monotonic,
 query-carrying, and well-founded --- that make it a \emph{good} context (\S\ref{sec:context}).
+\item \textbf{Graded evidence from any oracle} (\S\ref{sec:oracles}): the oracle as a generic type with an
+honest strength ladder and a subject fingerprint, so a proof, a test run, a database lookup and a sign-off are
+governed evidence on one footing; and \textbf{requirements against a reference} (\S\ref{sec:goals-reference}),
+the binding of a repository to a model outside it, with reference freshness (\S\ref{sec:freshness-reference}).
 \item \textbf{An evidence logic in two axes}: \emph{goals}
 (\S\ref{sec:goals}) --- a property language of typed, lineage-resolved acceptance criteria over code
 components --- and \emph{policies} (\S\ref{sec:policies}) --- a first-order temporal language ($G$/$F$/$U$/$S$)
@@ -240,8 +258,10 @@ rename/move so composition survives refactoring, with a never-conflate resolver.
 \item \textbf{A formal model and its verification} (\S\ref{sec:proved}): the framework modelled as a single
 state-transition machine (the trace as state), its entire invariant set proved by the system on itself with
 ImandraX --- 195 proof obligations over one state, 0 failures.
-\item An implementation (\S\ref{sec:impl}), its interchange / audit / review / compliance surfaces
-(\S\ref{sec:interchange}), and the \emph{multi-reasoner} generalization (\S\ref{sec:multireasoner}).
+\item The system (\S\ref{sec:impl}) --- the CLI, the policy checker, the one overview every screen reads
+and the continuous-integration action --- its trust, audit and review surfaces (\S\ref{sec:trust}), its
+interchange and sync (\S\ref{sec:interchange}), and the \emph{multi-reasoner} generalization
+(\S\ref{sec:multireasoner}).
 \end{itemize}
 
 \subsection{Overview: an evidence logic over the trace}\label{sec:evidence-logic}
@@ -325,6 +345,8 @@ policy checks), and a \textbf{logical context} (what may be assumed, and under w
 the paper is what this buys: composability.
 
 \input{sec-format}
+
+\input{sec-oracles}
 
 \input{sec-freshness}
 
@@ -465,8 +487,6 @@ every such dependency is a recorded assumption, so no implicit assumption leakag
 unsound --- and the trace's certificate metadata (oracle, assumptions, freshness, contested) is exactly what
 makes the handoff between reasoners admissible. Composition over merges and composition over logics are one
 mechanism; that is the deepest reason the trace-as-context coheres.
-
-\part{Implementation}
 
 \section{Formal model and verification}\label{sec:proved}
 
@@ -611,6 +631,8 @@ was established --- is proved directly on the machine. That the system can expre
 \emph{itself}, over one state, is evidence that the trace-as-context is a real logical object, not a
 metaphor.
 
+\part{The system}
+
 \section{The Ponens system}\label{sec:impl}
 
 The substrate is \code{ponens}, a reasoner-agnostic trace format and toolchain: an append-only typed trace,
@@ -744,6 +766,63 @@ ImandraX; the governed axis itself is machine-checked in the state machine of \S
 \textrm{LTL}$_f$ \code{G}/\code{F} semantics and \code{governed} $\perp$ \code{met}). The runtime checker and
 the formal model are two readings of one language.
 
+\subsection{The record as it is read}\label{sec:impl-overview}
+
+Everything above is computed \emph{over} the trace; a person, and an agent between turns, reads a
+\emph{summary} of it. Every screen that summary reaches --- a terminal, an agent's own prompt, a desktop,
+the pull-request comment of \S\ref{sec:impl-action} --- speaks five nouns and their states
+(Table~\ref{tab:five-words}). The formal terms of this paper stay in the record; the five words are how the
+record is read. What makes this more than a style guide is \emph{where the states are computed}: once, by
+\code{ponens}, and never by a renderer. \code{ponens trace overview} returns one JSON with every requirement
+and its state, the evidence and grade behind it, every open gap with its state, the gate with the rules that
+block it, what to do next, the evidence per symbol, and the record's health; \code{ponens trace
+requirements} is the requirements part alone, the join of a repository's requirements file with the trace's
+goals, reference artifacts, conformance results and freshness verdicts under seven ordered row rules;
+\code{ponens trace blame} is \code{git blame} for what was established --- per code symbol, the strongest
+fresh result and the gaps anchored to it; \code{ponens trace next} is the record's own to-do list, ordered
+fix, meet, refresh, gap, optional; and \code{ponens trace integrity} names the established evidence a
+proposed new version of the record no longer holds, so a save hook can refuse to weaken a record quietly.
+A renderer paints these; it derives nothing. Two consequences follow. Every surface agrees, because there
+is one place to disagree with. And the vocabulary is enforced: the reference renderers lint their own output
+for the retired terms, so ``residual'' or ``conformance'' cannot leak back onto a screen, and the one rule
+that must never break --- ``tested'' does not read as ``proved'' --- holds by construction.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lXp{4.8cm}@{}}
+\toprule
+Word & Absorbs & States \\
+\midrule
+requirement & goal acceptance item, binding (a reference artifact and its conformance items), invariant & met · open · failed · out of date \\
+evidence & verification, conformance, state-space analysis, tests, attestation & proved · witnessed · tested · checked · attested; fresh · out of date \\
+gap & residual (assumption, limitation, defeater, open question, unverified), stale or detached evidence & missing · assumed · failed · out of date \\
+record & the trace & saved · frozen · combined \\
+gate & the policy evaluations & pass · blocked by \ldots \\
+\bottomrule
+\end{tabularx}
+\caption{How the record is read: the five words every rendered surface speaks, what each absorbs from the
+formal vocabulary, and its states. Plus \emph{model} for what a requirement points at. The states are
+computed once by \code{ponens trace overview}; no renderer derives one.}
+\label{tab:five-words}
+\end{table}
+
+\subsection{Continuous integration: the Action}\label{sec:impl-action}
+
+The record reaches the review it was made for through the pull request. A GitHub Action
+(\code{imandra-ai/ponens/action}) finds the single trace an agent published under \code{.ponens/} --- or
+reconstructs one from a session transcript with \code{ponens emit} when none was published --- validates it,
+runs the policy gate over the policies the trace carries plus any the workflow names, resolves the goals
+(met or open, the weakest grade each rests on, what is at risk, the open gaps), runs the requirements check
+of \S\ref{sec:impl-overview} when the repository carries a requirements file, and reports: in the job
+summary, as a file, and on the pull request as \emph{one} comment updated in place on every push. A failed
+error-severity policy or a blocked requirements gate fails the job under the workflow's \code{fail-on}, so
+the check can be made required and merges blocked on it. Nothing leaves the runner and the repository is
+never modified; the repository dogfoods the action on itself. This is the seam at which the two review
+surfaces meet: the diff on the platform, the warrant beside it.
+
+\input{sec-trust}
+
 \input{sec-interchange}
 
 \part{Demonstration and discussion}
@@ -764,7 +843,12 @@ of our non-monotonic, well-founded context --- the trace can be seen as a proof-
 over a codebase, with merges as the composition operation TMSs do not define. \emph{Version control.} Git
 infers renames heuristically at diff time and merges text without any notion of semantic invalidation;
 \S\ref{sec:identity} gives the durable identity git omits, and \S\ref{sec:merge} the semantic merge it does
-not attempt.
+not attempt. \emph{Software supply-chain attestation.} in-toto~\cite{intoto} and SLSA~\cite{slsa} sign
+statements about how an artifact was built --- the steps, their materials and products --- and verify a chain
+of them against a layout; they are the nearest prior art to the signature and audit surfaces of
+\S\ref{sec:trust}. An attestation records that a step ran; a trace records what the step \emph{established},
+how strongly, on what it depends and what it left open, and the same signature discipline
+(\S\ref{sec:interchange-sign}) applies over that richer statement.
 
 \emph{Runtime governance for agentic AI.} A parallel line in financial Model Risk Management, developed
 independently of this work, arrives at strikingly similar premises: agentic risk is a property of
@@ -816,6 +900,8 @@ specifications are at \url{https://www.ponens.dev}; the source is at
 \bibitem{atms} de Kleer, J.\ \emph{An Assumption-Based TMS.} Artificial Intelligence 28(2), 1986.
 \bibitem{fixgov} FIX Trading Community, AI Working Group.\ \emph{Proposal on Agentic AI Runtime Governance under FIX Protocol Extensions.} R.\ Healey \& K.\ Houston, 12 Jun 2026.
 \bibitem{szpruch} Szpruch, L., Sudjianto, A., Bhatti, T., Ang, G.\ \emph{Scalable Runtime Governance for Agentic AI in Financial Services.} SSRN 6567199, 2026.
+\bibitem{intoto} Torres-Arias, S., Afzali, H., Kuppusamy, T.\ K., Curtmola, R., Cappos, J.\ \emph{in-toto: Providing farm-to-table guarantees for bits and bytes.} USENIX Security, 2019.
+\bibitem{slsa} OpenSSF.\ \emph{Supply-chain Levels for Software Artifacts (SLSA), version 1.0.} \url{https://slsa.dev}, 2023.
 \bibitem{ponensfix} FIX Community.\ \emph{Agentic AI Runtime Governance --- \code{ponens} policy pack.} \url{https://www.ponens.dev/organizations/fix-community}.
 \end{thebibliography}
 

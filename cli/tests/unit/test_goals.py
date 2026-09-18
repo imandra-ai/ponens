@@ -90,7 +90,7 @@ def test_enrich_flags_met_but_stale_criterion_at_risk():
     a1 = next(i for i in g["acceptance"] if i["id"] == "a1")
     assert a1["status"] == "done"                       # still met — the evidence exists
     assert a1.get("at_risk") is True                    # but the proof is stale
-    assert "stale" in (a1.get("at_risk_reason") or "").lower()
+    assert "out of date" in (a1.get("at_risk_reason") or "").lower()
     assert a1.get("at_risk_residual_id") == "stale-vr1"  # links to the derived residual
     # The change criterion a2 (evidence is a Diff, not a proof) is NOT at risk — only proofs go stale here.
     a2 = next(i for i in g["acceptance"] if i["id"] == "a2")

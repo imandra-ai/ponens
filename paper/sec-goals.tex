@@ -259,6 +259,51 @@ resolved at three checkpoints:
 \label{fig:goal-at-risk}
 \end{figure}
 
+\subsection{Requirements against a reference}\label{sec:goals-reference}
+
+Not every requirement is a property the repository states about itself. A payment service must
+\emph{implement} the PaymentIntent lifecycle its provider specifies; a reporting pipeline must implement an
+article of a regulation; a refactor must preserve the behaviour of the function it replaces. In each case
+the definition of done points at a \textbf{model outside the repository} --- a catalogue entry, a venue
+specification, an API model, a spec-first model of the code's own, the previous version of a function at a
+git ref --- at a \emph{pinned version}. The trace records that pointer as a \textbf{reference artifact}:
+a \code{RefFormalModel} whose \code{version} is the pinned version of the text and whose
+\code{payload.checksum} fingerprints the model's content. A repository declares these bindings in one file
+(which entry, at which version, how the code must relate to it --- \code{refinement}, \code{equivalence}
+or an \code{invariant} --- and the weakest grade of evidence that counts); the system turns each into a
+reference artifact and a goal.
+
+Conformance evidence then \textbf{names what it was judged against}. A \code{ConformanceResult} whose
+\code{reference\_artifact\_id} is a reference artifact is conformance \emph{to the reference}, as opposed
+to the model$\leftrightarrow$code fidelity of \S\ref{sec:format-results}; its \code{derived\_from} includes
+the reference, so the reference is in the evidence's dependency closure; its payload records the model
+symbol (\code{entry\_symbol}), the code symbol (\code{target\_symbol}), the \code{conformance\_kind}, and
+what it saw of the reference at production time --- \code{reference\_version} and
+\code{reference\_checksum}; and its strength says \emph{how} conformance was established: \code{proof} for
+a refinement or equivalence theorem discharged by a reasoner, \code{sat} for a witness, \code{tests} for
+tests generated from the reference model's behavioural regions and executed against the code,
+\code{static\_analysis} for a schema check, \code{attested} for a sign-off. Validation rejects a
+\code{reference\_artifact\_id} that names neither an artifact nor a reference artifact.
+
+The resolution rule of \S\ref{sec:goals-resolution} gains one clause. An acceptance item may carry a
+\code{reference}; such an item is met only by evidence of the required type, rooted in the component,
+\emph{whose} \code{reference\_artifact\_id} \emph{equals the item's} \code{reference}. A proof of some other
+property of the same component --- however strong --- is not conformance to the entry, and does not tick
+the item. Two smaller pieces complete the construction. Where the entry admits more than one reading, the
+reading the code implements is an \code{assumption} residual with \code{source: binding}, \code{waived}
+with the approver's justification when a named person approved it and \code{open} otherwise --- so an
+interpretation is never silent, and switching it is a change to the requirements file with an approver,
+not an edit an agent may make. And the policy predicate \code{conforms\_to(}$r$\code{)} holds for an action
+that produced conformance evidence against reference $r$ (an unversioned id matching any version), so
+``high-stakes code conforms to its entry before it ships'' is one line in a pack
+(\S\ref{sec:pol-sources}).
+
+The consequence that matters most is not in the goal but in freshness. Because the reference is in the
+closure, the closure rule of \S\ref{sec:freshness} applies to it: a revision to the catalogue --- a new
+version of the article, a re-issued specification --- stales every result judged against the old one,
+\emph{without any change to the code} (\S\ref{sec:freshness-reference}). That is the sixth failure of
+\S\ref{sec:intro-examples}, decided the same way as the other five.
+
 \subsection{Faithfulness --- the certified axis}\label{sec:goals-certified}
 
 \code{met} and \code{governed} both sit \emph{downstream} of an unguarded seam: in the real workflow

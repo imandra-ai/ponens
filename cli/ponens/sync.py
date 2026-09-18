@@ -67,9 +67,39 @@ def git_remote_slug():
     return m.group(1) if m else ""
 
 
-def write_trace_note(trace_id, sha):
-    """Write a `Trace-Id` note on the commit (refs/notes/ponens), non-mutating."""
-    return _git("notes", "--ref=ponens", "add", "-f", "-m", f"Trace-Id: {trace_id}", sha).returncode == 0
+def note_summary(trace):
+    """The lines a git note carries under `Trace-Id:` so `git log --show-notes=ponens` reads as a
+    scorecard: grade, the policy gate, open gaps, goals met. Best-effort - a trace that cannot be
+    graded still gets its Trace-Id."""
+    lines = []
+    try:
+        from .trace import grade_trace
+        from . import lineage
+        from . import goals as goalops
+        g = grade_trace(json.loads(json.dumps(trace)))
+        lines.append(f"Grade: {g['grade']} ({g['overall']}/100)")
+        c = g.get("compliance") or {}
+        if c.get("applicable"):
+            lines.append(f"Policies: {c.get('passed', 0)}/{c.get('total', 0)} passed"
+                         + (f", {c['failed']} failed" if c.get("failed") else ""))
+        res = [r for r in lineage.residual_surface(trace) if str(r.get("status") or "open").lower() == "open"]
+        high = sum(1 for r in res if str(r.get("severity") or "").lower() in ("high", "critical"))
+        lines.append(f"Gaps: {len(res)} open" + (f" ({high} high)" if high else ""))
+        if trace.get("goals"):
+            e = goalops.enrich(json.loads(json.dumps(trace)))
+            sm = e.get("summary") or {}
+            lines.append(f"Goals: {sm.get('goals_met', 0)}/{sm.get('goals_total', len(trace['goals']))} met"
+                         + (f", {sm['criteria_at_risk']} at risk" if sm.get("criteria_at_risk") else ""))
+    except Exception:  # noqa: BLE001 - the note is a courtesy; never fail bind over it
+        pass
+    return lines
+
+
+def write_trace_note(trace_id, sha, summary=None):
+    """Write a `Trace-Id` note on the commit (refs/notes/ponens), non-mutating. The first line is
+    always `Trace-Id: <id>` (the binding); `summary` lines (see `note_summary`) follow it."""
+    body = "\n".join([f"Trace-Id: {trace_id}", *(summary or [])])
+    return _git("notes", "--ref=ponens", "add", "-f", "-m", body, sha).returncode == 0
 
 
 # ----------------------------------------------------------------------------
@@ -147,14 +177,15 @@ def cmd_bind(args):
     save_trace(tf, trace)
 
     tid = trace.get("trace_id", "")
-    noted = False if getattr(args, "no_note", False) else write_trace_note(tid, sha)
+    summary = note_summary(trace)
+    noted = False if getattr(args, "no_note", False) else write_trace_note(tid, sha, summary)
 
     print(f"{green('Bound')} {cyan(tid)} → {magenta(sha[:12])}")
     print(f"  repo:   {slug or gray('(no remote)')}")
     print(f"  branch: {branch}")
     print(f"  hash:   {gray(trace['content_hash'])}")
     if noted:
-        print(f"  note:   {gray('refs/notes/ponens  (Trace-Id: ' + tid + ')')}")
+        print(f"  note:   {gray('refs/notes/ponens  (Trace-Id: ' + tid + (' · ' + ' · '.join(summary) if summary else '') + ')')}")
     if externalized:
         print(f"  objects: {gray(str(externalized) + ' blob(s) externalized (rehydrate: ponens objects inline)')}")
     print(gray("  next: ponens push"))

@@ -7,6 +7,125 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.14.0] — 2026-09-18
+
+A record is something you can **ask**, not only something you read. `ponens trace symbols` and
+`ponens trace symbol` answer "what do you already know about `step`, and can I still believe it", so a
+reader consults the record instead of working a function's behaviour out from source again. The trace
+format is unchanged: 1.4–1.13 traces stay valid, and everything here is a new way to read one.
+
+The motivation is an agent's context window. Re-deriving what a function does costs the source plus the
+reasoning to enumerate its branches, and it costs that again on every turn that needs it, with a slightly
+different answer each time. The record already holds that enumeration — exhaustive, in closed form,
+computed once on a CPU. It simply was not reachable.
+
+### Added
+- **`ponens trace symbols <trace> [--file <requirements>]` — the index.** One small record per symbol the
+  trace knows anything about: the symbol, its file, what backs it (`decomposition` · `verification` ·
+  `conformance` · `model` · `tests`), its grade, its freshness, how many regions and open gaps, the
+  requirement it serves, and the entry to cite. About 25 tokens each, so a project fits in a prompt.
+  Deliberately enough to decide whether to ask a second question and never enough to answer one. Latest
+  entry wins per symbol — history is in the trace and is not what an index is for.
+- **`ponens trace symbol <trace> <symbol>` — the detail.** Summary by default: the evidence with grades
+  and freshness, the open gaps worst-first, and `shape` — which variables the behaviour actually turns on
+  and how many distinct outcomes there are. Two lines that answer most questions without returning a
+  single region.
+- **`--regions`, with `--where` and `--limit`.** The region map itself, each case as the constraints that
+  reach it and the result it produces. `--where` takes a substring over constraints and results, or
+  `outcome:<label>` · `diverged` · `raised`. On a real 83-region decomposition this is the difference
+  between a page and three lines.
+- **[`spec/RECORD_QUERY_v0_1.md`](spec/RECORD_QUERY_v0_1.md)** — the companion that fixes the shapes, the
+  size budgets and what must always be said. Sits beside `RECORD_OVERVIEW_v0_1.md`: that one answers
+  where a project *stands*, this one answers what is *known* about a symbol.
+
+### Changed
+- **Size is part of the contract, not left to the caller.** An interface that returns everything defeats
+  the purpose of asking rather than reading. The index is one line a symbol; the detail is a summary
+  until regions are requested; a region list is capped and a truncated answer always reports what it
+  left out.
+- **Every answer carries its freshness**, never as a separate call. Substituting a stored result for
+  reading the source is only safe if a stale answer says so, and a consumer may trust `fresh`, must warn
+  on `out_of_date`, and must not treat `unknown` as either.
+- **A region map says whether it is exhaustive.** `complete`, with a `bound` when recursion forced a
+  depth. "Every case satisfies it" and "every case to depth 12 satisfies it" are different claims, and a
+  consumer that cannot see which it has will conflate them.
+- **Absence is an answer.** An unreasoned symbol returns `{"known": false}` rather than an error. Nothing
+  is inferred, and no gap is filled with something plausible — the caller should read the source.
+- **`Gate:` says whether anything was asked.** `ponens trace overview` printed a bare `Gate: pass` for a
+  trace with no policies attached, which reads as an endorsement of the record rather than a statement
+  about policies — a record carrying a refuted property and a failing test suite still said `pass`. The
+  state is unchanged and remains correct (no policy blocked anything, because none was evaluated); the
+  rendered line now carries the context the data already held: `Gate: pass (no policies attached -
+  nothing was checked)`, or `(3 rules checked)` when rules did run. Found by querying a trace rather
+  than by reading one.
+
+## [1.13.0] — 2026-09-12
+
+The package moves `1.12.0` → `1.13.0` to track the trace spec, which advances to **1.13**
+(`TRACE_SPEC_v1_12.md` is now `TRACE_SPEC_v1_13.md`): conformance against a *reference artifact*, the
+binding of a repository to a catalogue entry, is now in the record. A new companion,
+`RECORD_OVERVIEW_v0_1.md`, fixes how a record is *read* in five words (requirement · evidence · gap ·
+record · gate) so every renderer - CodeLogician's `cl`, its agent, its desktop, the Action's comment -
+shows the same states without re-deriving them. Every change is additive: 1.4–1.12 traces stay valid
+and unchanged. PyYAML becomes a required dependency.
+
+### Added
+- **`ponens trace overview` — where the record stands, in five words (spec/RECORD_OVERVIEW_v0_1.md).**
+  One JSON for every screen: requirements (from a requirements file — the agent's `bindings.yaml` — and
+  from every goal item not derived from it), gaps by state (missing · assumed · failed · out of date),
+  the gate (pass · blocked by …), next steps (fix · meet · refresh · gap · optional), evidence per symbol
+  graded (proved · witnessed · tested · checked · attested), record health. A read over `enrich`,
+  `next_steps`, `stale_evidence` and `blame`; no renderer re-derives semantics. `ponens trace
+  requirements <trace> --file <bindings.yaml|.json>` is the requirements part alone: one row per
+  requirement and per named symbol, joined from the file, the trace's goals, reference artifacts,
+  conformance results and the reasoner freshness, with the seven row rules and the model's revision /
+  reading states. `ponens trace integrity <before> <after>` names the established evidence `after` no
+  longer holds (a passed conformance or a proof gone, a reference no longer cited, a done item reopened;
+  exit 3), so a save hook can refuse to weaken a record quietly.
+- PyYAML is now a required dependency (`pyyaml>=6`): the requirements file is YAML.
+
+### Changed
+- Derived freshness residuals speak the five words: a result is "out of date" (was "stale") and "no longer tied to its subject / its model" (was "detached"). Residual `kind`s (`stale_evidence`, `detached_evidence`) are unchanged.
+- **`ponens trace next` — what the record says to do next.** Folds the enriched trace into one ordered
+  list: blocked goal items to FIX (a failed conformance, an open defeater), required items to ESTABLISH,
+  done items whose evidence went stale to REFRESH, open residuals with a `suggested_check` (GAP, highest
+  severity first; a standing `assumption` counts only at high/critical), then OPTIONAL items. `--json`
+  for agents (CodeLogician injects it into every turn), `--limit N`. `goals.next_steps` / `render_next`.
+- **Action: the requirements check on the pull request.** New input `bindings` (`auto` | path | `off`) — the
+  action runs `cl requirements --json` (or reads a pre-computed JSON in the `trace requirements` shape) and
+  posts one row per requirement, or per code symbol → model symbol, with its evidence (grade, fresh or out
+  of date) and state; a blocked requirements gate fails the job under `fail-on`. Output `bindings`.
+- **Bindings in the record — conformance against a reference (Trace Spec 1.13, §11.2–11.3, additive).** A
+  `ConformanceResult` may name a **reference artifact** as its `reference_artifact_id` (a catalogue entry
+  a repository is bound to), with the reference as a valid `derived_from` parent and `entry_symbol` /
+  `target_symbol` / `conformance_kind` / `reference_version` / `reference_checksum` on the payload. A goal
+  criterion may carry `reference`: it is then met only by evidence judged against that reference — a
+  proof of some other property of the component no longer resolves a conformance item (`enrich`).
+  **Reference freshness:** such evidence is `stale_evidence` once the trace's reference artifact carries a
+  different version or checksum, `detached_evidence` when the reference is gone (`stale_evidence` /
+  `reference_freshness`), healed by a later result. New policy predicate **`conforms_to(<reference id>)`**
+  (an unversioned id matches any version). `soundness_errors` rejects a `reference_artifact_id` that
+  names neither an artifact nor a reference artifact.
+- **`ponens trace blame` — evidence per symbol (`git blame` for what was established).** For every
+  code symbol a trace carries evidence about: the best standing result (the strongest FRESH one; strength
+  rank, then latest), its `evidence_strength`, its freshness (`fresh` / `stale` / `detached` / `unknown`,
+  from the same derivations `enrich` uses, plus a producer's `artifact_freshness`), the oracle that
+  produced it, a counterexample when refuted, and the open residuals anchored to it. `--json` for
+  renderers (CodeLogician's `cl blame` gutter, a PR comment, a desktop gutter), `--symbol` to filter.
+- **`ponens bind` writes a scorecard into the git note.** Under the `Trace-Id:` line (unchanged, first),
+  the note now carries `Grade`, `Policies` (the gate), `Gaps` (open, high) and `Goals` (met, at risk),
+  so `git log --show-notes=ponens` reads as an evidence log per commit. Best-effort: a trace that cannot
+  be graded still gets its Trace-Id.
+- **GitHub Action — a checked reasoning trace on every pull request (`action/`).** `uses:
+  imandra-ai/ponens/action@v1.13.0` finds the trace an agent published under `.ponens/` (or
+  reconstructs one from a session transcript with `ponens emit`), validates it, runs the policy gate
+  (`trace check` over the trace's policies plus gallery `policies:` / a local `policy-file:`),
+  resolves the goals (`trace enrich`: met, weakest-link strength, at risk, open gaps) and posts the
+  `trace report` scorecard as a job summary and as ONE pull-request comment updated in place. A failed
+  error-severity policy fails the job (`fail-on: error | warning | never`), so the check can be made
+  required. Runs entirely inside the workflow's runner; the repository file is never modified. The
+  repository dogfoods it (`action-selftest.yml`).
+
 ## [1.12.0] — 2026-09-11
 
 The package moves `1.11.0` → `1.12.0` to track the trace spec, which advances to **1.12**; the oracle

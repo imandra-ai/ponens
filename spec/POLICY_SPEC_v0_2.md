@@ -651,6 +651,7 @@ Preferred predicates include:
 - `derived_from(x, y)`
 - `upstream_of(x, y)`
 - `strength_at_least(s)`, `oracle_type(t)`, `produced_by(id)` — graded evidence (ORACLE_SPEC v0.2 §6): require a guarantee, a mechanism, or a specific oracle without naming a tool in the formula's structure
+- `conforms_to(ref)` — conformance evidence against a REFERENCE artifact (TRACE_SPEC §11.2): `G(Verify && conformance -> conforms_to(ref:atlas:mifir-rts22-art4) && strength_at_least(proof))` requires every conformance step to be judged against the entry, at proof strength
 
 Avoid:
 - `x.type = IMLModel`

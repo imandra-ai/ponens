@@ -1,7 +1,7 @@
 # SDK_SPEC v0.1 — the ponens developer SDK and oracle model
 
 **Status:** draft · design frozen for handoff · **Version:** 0.1
-**Companion specs:** `ORACLE_SPEC_v0_2.md` (graded evidence + oracle contract), `TRACE_SPEC_v1_12.md` (wire format), `POLICY_SPEC_v0_2.md`.
+**Companion specs:** `ORACLE_SPEC_v0_2.md` (graded evidence + oracle contract), `TRACE_SPEC_v1_13.md` (wire format), `POLICY_SPEC_v0_2.md`.
 **Reference implementation:** branch `denis/ponens-sdk-oracle-slice` (`cli/ponens/sdk.py`, `cli/ponens/oracles.py`, tests `test_sdk.py` / `test_oracles.py`).
 
 ---

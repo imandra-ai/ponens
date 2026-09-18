@@ -1,0 +1,170 @@
+\section{Trust, audit, and review}\label{sec:trust}
+
+The preceding sections built the trace as an internal object: a defeasible, proof-carrying context
+(\S\ref{sec:context}) over which an evidence logic resolves goals and policies
+(\S\ref{sec:evidence-logic}), composed at merges (\S\ref{sec:merge}) and machine-checked on itself
+(\S\ref{sec:proved}), with the system of \S\ref{sec:impl} operating it. A reasoning state that only its
+producer can trust, however, is only half of the argument. This section is about the parties who did not do
+the work: the auditor who grades the record against a mechanical floor, the signer who stands behind it,
+the reviewer who consumes it, and the audit that re-performs it. The unifying claim is that the same
+certificate-carrying state that makes reasoning compose \emph{internally} is exactly what makes it
+\emph{verifiable across parties} --- an auditor, a reviewing agent, or a regulator --- without any of them
+having to trust the producer.
+
+\subsection{Audit readiness: a mechanical floor}\label{sec:interchange-audit}
+
+Most ``AI governance'' tooling produces \textbf{attestation} --- checklists and self-reported claims. The
+substrate takes the opposite line: a trace is \textbf{evidence}, an immutable, lineage-linked record where
+every ``done'' resolves to a specific artifact (I3) and every verdict comes from an engine an auditor can
+\emph{re-run}. The difference is between \emph{``we assert we did $X$''} and \emph{``here is $X$, here is the
+proof, re-check it yourself.''} Everything in an audit-readiness assessment follows from holding that line:
+the trace's value is that it is checkable, not that it is signed off.
+
+Audit readiness is therefore not a subjective grade but a \textbf{mechanical floor} that \code{ponens grade} /
+\code{ponens trace check} enforce over the same evidence-logic predicates used for goals. An auditor probes a
+fixed set of dimensions, each of which the state answers structurally:
+
+\begin{itemize}
+\item \textbf{Structure / integrity.} Is the record unaltered? A canonical \code{content\_hash} (sha256), 1:1
+bound to a git commit (\S\ref{sec:interchange-sync}), answers \emph{unaltered}; cryptographic signatures over
+that hash (SSH, GPG, or keyless sigstore) add \emph{by whom}, with an optional RFC-3161 trusted timestamp for
+a TSA-attested \emph{when}.
+\item \textbf{Rationale coverage / grounded ``done.''} Is ``done'' real or self-reported? Acceptance resolves
+\emph{deterministically from evidence} --- a typed artifact in the component's lineage --- never from prose
+(I3).
+\item \textbf{Negative space.} Are the gaps disclosed? The residual surface (assumptions, unverified,
+out-of-scope, limitations, open questions) is first-class, and counter-evidence is a first-class
+\code{Defeater} that \emph{blocks} a contested claim.
+\item \textbf{Reproducibility / verification evidence.} Can a third party re-check it? Entrypoints,
+environments, and re-runnable formal verdicts (\code{ponens trace reproduce}) mean the evidence is not merely
+displayed but re-derivable.
+\item \textbf{Lineage / freshness.} Is the evidence current? Derived freshness (\code{Fresh} / \code{Stale} /
+\code{Detached}) from a dependency-closure fingerprint (I4); a goal never resolves \code{done} over stale or
+detached evidence.
+\end{itemize}
+
+Two disciplines give the floor its teeth. The first is an ethos: \textbf{a trace with no residuals is
+suspicious.} An empty negative space is not evidence of completeness; a reviewer (\S\ref{sec:interchange-review})
+must treat the \emph{absence} of declared gaps as itself reviewable, because real work leaves residue. The
+second is a scoping discipline that the reporting layer must never collapse: the trace separates
+\code{proved} (an engine verdict), \code{conforms} / fidelity-checked (model $\leftrightarrow$ code), and
+\code{certified} (a non-doer confirmed the criteria were right). More sharply, the state distinguishes what
+was \textbf{ESTABLISHED} (backed by a checkable artifact in lineage) from what was merely \textbf{ASSERTED}
+(prose, a summary, an unbacked ``I tested this''). A claim of ``verified'' with no backing artifact is treated
+as \code{Unverified}. Because these are separable in the model and checked mechanically, audit readiness is a
+\emph{floor a tool computes}, not a story a producer tells --- and ``proved'' can never be allowed to read as
+``the system is correct.''
+
+\subsection{Signatures and non-repudiation}\label{sec:interchange-sign}
+
+A verdict is only useful to a third party if they can trust that the trace was not altered and can see who
+stands behind it. A signer signs the trace's \code{content\_hash} with a private key or identity; anyone
+verifies with the public one. This does two things at once: because the signature is over the content
+digest, any later edit breaks it (\textbf{tamper-evidence}), and it identifies \textbf{who} signed
+(\textbf{non-repudiation}). Signatures live in \code{trace["signatures"]}, which is \emph{excluded} from the
+\code{content\_hash}, so several parties can co-sign the \emph{same} content --- the producer, a reviewer, an
+independent auditor --- each with whatever backend they trust.
+
+Three pluggable backends share one verification interface. \code{ssh} uses OpenSSH signatures
+(\code{ssh-keygen -Y}), adds no dependencies, verifies fully \emph{offline}, and trusts a key only if it is
+in a git-style \emph{allowed-signers} roster. \code{gpg} uses detached signatures with the signer's public
+key inlined on the record (offline verification against an ephemeral keyring; trust is a fingerprint
+roster). \code{sigstore} is keyless and identity-bound: a short-lived Fulcio certificate binds the
+signature to an OIDC identity (email $+$ issuer) and the proof is recorded in the public \emph{Rekor}
+transparency log, so trust is ``the certificate identity matches the expected issuer/subject'' with no
+long-lived key to manage or leak. Across all three the verdict is uniform --- \emph{tampered} (the
+content hash changed), \emph{invalid} (the cryptography failed), \emph{untrusted} (a good signature from a
+signer not in the roster), or \emph{valid and trusted} --- and verification can be made to gate on failure
+(\code{--require-trusted}).
+
+A sign-off is not merely a signature: it carries the reviewer's \code{role} and \code{disposition} (e.g.\
+\code{--role auditor --disposition approved}), so the attestation records \emph{what} the party is claiming,
+not just that they signed. And where integrity fixes \emph{what} was signed and the key fixes \emph{who},
+an optional RFC-3161 trusted timestamp (\code{--tsa}) fixes \emph{when}: a Time-Stamping Authority
+countersigns the signature, giving a TSA-attested ``existed by $t$'' rather than a machine-clock assertion.
+Together these are the concrete realization of the \code{certified} axis (\S\ref{sec:goals}): a role-bearing
+sign-off by a named party, bound to the exact content it vouches for and to an attestable time.
+
+\subsection{Review and handoff}\label{sec:interchange-review}
+
+The consumer of a trace is increasingly not a human but a second agent: a coding agent produces the trace, a
+reviewing agent consumes it, and they share neither session, vendor, nor memory. Between them sits the diff,
+which is a \emph{lossy} interface --- it shows what changed, not what the producer tried, ruled out, verified,
+assumed, or left undone. The organizing move of the review model is therefore \textbf{read the trace, not the
+diff}: the trace's residual surface (\S\ref{sec:interchange-audit}) becomes the spine of the review protocol,
+and review becomes \emph{targeted and evidence-grounded} rather than a blind re-derivation.
+
+\paragraph{The handoff contract.} The producer declares its gaps; the consumer verifies the claims and hunts
+the undeclared ones. Concretely, the reviewer sorts the trace's content by \emph{checkability}: independently
+checkable artifacts (verification results, command/test results, decompositions, conformance results) are
+evidence --- but only after the consequential ones are \emph{re-checked}, because a proof travels and
+re-verifies; asserted prose (rationale, summaries) is \emph{attention routing only}, never established fact;
+and the residual surface is the \emph{work-list}, triaged in descending severity. The trust principle is
+\emph{targeted verification, not trust}: the trace tells the reviewer \emph{where to look} and \emph{what was
+claimed}; the reviewer establishes \emph{what is true}. The reviewer's distinctive job --- the reason
+independent review exists --- is Step~4: anything the change touches that is neither verified nor declared is
+an \emph{undeclared} residual that the reviewer must raise. The declared surface does not replace this hunt;
+it makes it \emph{tractable} by shrinking the space to discover from scratch.
+
+\paragraph{Review items and verdicts.} The reviewer writes back into the collaboration surface as
+\code{review\_item}s (each carrying its \code{target} and a \code{blocking} flag), comments, and residual
+status updates (\code{ResidualAcknowledged} for accepted gaps, \code{ResidualWaived} for explicit, auditable
+acceptance). The overall disposition is one of \code{approve}, \code{request-changes}, or
+\code{escalate-to-human}. The disposition rule is exacting: \emph{approve only when no open residual is
+blocking, every consequential checkable claim has been re-verified, and the undeclared-gap hunt surfaced no
+high-severity gap}. Open questions are routed to a human by construction --- they are decisions, not checks,
+and an agent must not auto-approve over one. Above individual traces sits the \emph{review case}: a
+problem-centered workflow container that accumulates verdicts across a chain of traces and carries the
+governing invariant that all current work should retrace to the original problem statement while every step
+stays within policy.
+
+\paragraph{Immutability closes gaps forward.} A reviewer never mutates a trace to ``fix'' a gap. Traces are
+append-only (I1), so a gap is closed in a \emph{successor trace} that \code{supersedes} the original: the
+reviewer emits a successor-trace request naming the \code{residual\_id}s that must close, and the fix produces
+a new, immutable record. The supersedes chain is thus the audit trail of the review itself --- what was
+contested, what was requested, and where it was discharged --- rather than a mutable document whose history is
+lost.
+
+\subsection{The audit process}\label{sec:interchange-process}
+
+The pieces above compose into an audit that is \emph{re-performed}, not merely read. Given a commit bound to
+a trace (\S\ref{sec:interchange-sync} --- a Trace-Id and a git note anchoring the frozen snapshot), an
+auditor proceeds:
+
+\begin{enumerate}
+\item \textbf{Verify signatures} (\S\ref{sec:interchange-sign}): confirm the snapshot is untampered (the
+  signature is over the \code{content\_hash}) and that each sign-off comes from an identity in the trusted
+  roster. This establishes \emph{what} is being audited and \emph{who} stands behind it before any claim is
+  examined.
+\item \textbf{Re-derive the evidence.} Because every verdict is engine-grounded and every result carries a
+  dependency-closure fingerprint (\S\ref{sec:format}), the auditor re-runs the proofs and re-computes
+  freshness rather than taking the recorded verdicts on faith --- the claims are reproducible, not asserted.
+  Carried-forward skips introduced by a merge (\S\ref{sec:merge}) are re-checked by recomputing the
+  closure/change-set disjointness witness, so even the work a merge deliberately did \emph{not} re-run is
+  independently verifiable.
+\item \textbf{Re-resolve goals and re-evaluate policies} (\S\ref{sec:goals}, \S\ref{sec:policies}): the
+  \code{met} and \code{governed} verdicts are recomputed against the trace, so ``done'' and ``done in a
+  compliant way'' are checked, not trusted.
+\item \textbf{Work the residual surface.} The declared negative space --- assumptions, limitations,
+  defeaters, open questions --- is where an auditor's attention goes first; its \emph{emptiness} is itself a
+  warning sign (\S\ref{sec:interchange-audit}), since honest reasoning about a real system almost always
+  leaves something open.
+\item \textbf{Issue a verdict} (\S\ref{sec:interchange-review}): approve, request changes, or escalate,
+  recorded as a review case. Because the trace is immutable, remediation does not overwrite the record ---
+  it lands in a successor trace, and the auditor can re-sign the content they approved.
+\end{enumerate}
+
+The defining property is that authority derives from \emph{reproducible proof, not reputation}. An auditor
+need not trust the producer --- or the model that produced the work --- because the warrant travels with each
+claim and can be re-checked, while the signature fixes accountability. This is precisely what makes the
+substrate suitable for a verification role that is \emph{independent} of the party that did the work: the
+audit is a re-computation over a signed, immutable object, not a reading of someone's report about it.
+
+
+\medskip\noindent
+Taken together --- a mechanical audit floor, role-bearing signatures over the content hash, a
+residual-driven review handoff, and an audit that is re-performed rather than read --- these are the sense in
+which the trace is not merely recorded but \emph{verifiable by a party other than the one that produced it}.
+That is the same warrant-travels-with-the-claim property that made composition sound (\S\ref{sec:merge});
+here it is turned outward. \S\ref{sec:interchange} completes the picture with how the record leaves the
+system and how it stays bound to the code it explains.

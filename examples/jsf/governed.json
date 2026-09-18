@@ -1,6 +1,6 @@
 {
   "trace_id": "jsf-governed-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "coding-agent",
   "model": "demo",
   "trigger": {
@@ -109,7 +109,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(safety_critical ∧ library_use → certified_library)",
+      "formula": "G(safety_critical \u2227 library_use \u2192 certified_library)",
       "description": "Only DO-178B Level A certifiable (SEAL 1) C/C++ libraries are used with safety-critical code."
     },
     {
@@ -118,7 +118,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deviation → rationale_recorded ∧ approval_recorded)",
+      "formula": "G(Deviation \u2192 rationale_recorded \u2227 approval_recorded)",
       "description": "Every deviation record documents the rationale and the required approval(s)."
     },
     {
@@ -127,8 +127,8 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(¬dead_code)",
-      "description": "Dead code — executable code or data not traceable to a system or software requirement — is not present."
+      "formula": "G(\u00acdead_code)",
+      "description": "Dead code \u2014 executable code or data not traceable to a system or software requirement \u2014 is not present."
     },
     {
       "policy_id": "jsf_runtime_checking_provided",
@@ -136,7 +136,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(safety_critical → runtime_checking)",
+      "formula": "G(safety_critical \u2192 runtime_checking)",
       "description": "Safety-critical (SEAL 1/2) software makes provision for run-time checking (defensive programming)."
     },
     {
@@ -145,7 +145,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(shall_deviation → documented_in_file)",
+      "formula": "G(shall_deviation \u2192 documented_in_file)",
       "description": "Each deviation from a 'shall' rule is documented in the file that contains the deviation."
     },
     {
@@ -154,7 +154,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(shall_verified))",
+      "formula": "G(GitCommit \u2192 P(shall_verified))",
       "description": "Compliance with 'shall' rules is verified (automatically or manually) before code is committed."
     },
     {
@@ -163,7 +163,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(shall_violation → P(deviation_approved))",
+      "formula": "G(shall_violation \u2192 P(deviation_approved))",
       "description": "Any violation of a 'shall' rule is covered by an approved deviation."
     },
     {
@@ -172,7 +172,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((shall_deviation ∨ will_deviation) → eng_lead_approved ∧ product_manager_approved)",
+      "formula": "G((shall_deviation \u2228 will_deviation) \u2192 eng_lead_approved \u2227 product_manager_approved)",
       "description": "Breaking a 'shall' or 'will' (mandatory) rule is approved by BOTH the software engineering lead and the software product manager."
     },
     {
@@ -181,7 +181,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(should_deviation → eng_lead_approved)",
+      "formula": "G(should_deviation \u2192 eng_lead_approved)",
       "description": "Breaking a 'should' (advisory) rule is approved by the software engineering lead."
     },
     {
@@ -190,7 +190,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(should_violation → recorded)",
+      "formula": "G(should_violation \u2192 recorded)",
       "description": "Departures from 'should' (advisory) rules are recorded."
     },
     {
@@ -199,7 +199,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(StaticAnalysis ∧ jsf_ruleset))",
+      "formula": "G(GitCommit \u2192 P(StaticAnalysis \u2227 jsf_ruleset))",
       "description": "Source is checked against the JSF++ ruleset by static analysis before it is committed."
     },
     {
@@ -208,7 +208,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(will_violation → P(deviation_approved))",
+      "formula": "G(will_violation \u2192 P(deviation_approved))",
       "description": "Any violation of a 'will' rule is covered by an approved deviation."
     }
   ]

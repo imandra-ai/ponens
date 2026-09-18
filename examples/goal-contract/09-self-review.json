@@ -1,6 +1,6 @@
 {
   "trace_id": "gc-self-review",
-  "spec_version": "1.7",
+  "spec_version": "1.13",
   "assistant": "codelogician",
   "model": "demo",
   "timestamp": "2026-07-25T00:00:00Z",
@@ -107,7 +107,12 @@
       "payload": {
         "goal_id": "a_vg",
         "goal_artifact_id": "a_vg",
-        "status": "proved"
+        "status": "proved",
+        "oracle": {
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof",
+          "id": "demo"
+        }
       }
     }
   ],

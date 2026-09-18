@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-1-stale-pass",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Retrieve → provenance_checked ∧ recency_checked)"
+      "formula": "G(Retrieve \u2192 provenance_checked \u2227 recency_checked)"
     }
   ],
   "artifacts": [
@@ -53,7 +53,7 @@
       "id": 1,
       "type": "Retrieve",
       "rationale": "pull the NBBO before sizing the child order",
-      "label": "market data: NBBO for AAPL — provenance checked (source=SIP), recency checked (age 38ms < 250ms bound)",
+      "label": "market data: NBBO for AAPL \u2014 provenance checked (source=SIP), recency checked (age 38ms < 250ms bound)",
       "outputs": [
         "snapshot"
       ],

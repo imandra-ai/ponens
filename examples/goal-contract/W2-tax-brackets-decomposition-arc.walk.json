@@ -76,7 +76,7 @@
     },
     {
       "id": "m3",
-      "title": "Cover regions with tests — a boundary fails",
+      "title": "Cover regions with tests \u2014 a boundary fails",
       "intent": "One test per region; the 40k edge fails",
       "actions": [
         {
@@ -86,7 +86,7 @@
         },
         {
           "type": "RunTests",
-          "label": "run the suite — boundary FAILS",
+          "label": "run the suite \u2014 boundary FAILS",
           "result": "1 failing: rate at income == 40000"
         }
       ],
@@ -119,7 +119,7 @@
         },
         {
           "type": "RunTests",
-          "label": "re-run — all pass",
+          "label": "re-run \u2014 all pass",
           "result": "7 passed, 0 failing"
         }
       ],
@@ -147,7 +147,7 @@
         },
         {
           "type": "Verify",
-          "label": "verify monotonicity — PROVED",
+          "label": "verify monotonicity \u2014 PROVED",
           "result": "proved"
         }
       ],
@@ -190,5 +190,6 @@
         "certified": true
       }
     }
-  ]
+  ],
+  "spec_version": "1.13"
 }

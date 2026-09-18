@@ -7,7 +7,8 @@ on:
   pull_request:
     paths:
       - "examples/**"
-      - "cli/**"
+      - "cli/**"                       # includes cli/ponens/demos/**, the set the CLI ships
+      - "spec/TRACE_SPEC_v*.md"        # a new spec makes every shipped trace out of date
       - ".github/workflows/validate-samples.yml"
   push:
     branches: [main]
@@ -29,7 +30,10 @@ jobs:
         run: |
           set -e
           fail=0
-          for f in examples/*.json; do
+          # BOTH demo roots. `examples/` is what this job used to scan; `cli/ponens/demos/` is what the
+          # CLI, the viewer dropdown and the website actually read - and it was never checked here, so
+          # the two drifted six spec versions apart without CI noticing.
+          for f in examples/*.json cli/ponens/demos/*.json; do
             [ "$(basename "$f")" = "manifest.json" ] && continue
             echo "::group::$f"
             ponens trace validate "$f" || fail=1
@@ -41,6 +45,12 @@ jobs:
             echo "::endgroup::"
           done
           exit $fail
+
+      - name: Every shipped trace declares the published spec
+        # Validity and currency are different questions. A 1.8 trace still VALIDATES against 1.13 -
+        # the format is backward-compatible by design - and then grades `unranked` in every view that
+        # reads the attribution block 1.12 added. The demo page showed exactly that for six versions.
+        run: python3 cli/tools/check_demo_spec.py
 
       - name: Manifest entries all resolve
         run: |

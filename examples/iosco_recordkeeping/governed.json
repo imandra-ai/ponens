@@ -1,6 +1,6 @@
 {
   "trace_id": "iosco-governed-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "ai-system",
   "model": "demo",
   "trigger": {
@@ -87,7 +87,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Output ∧ client_facing → marked_ai_generated)",
+      "formula": "G(Output \u2227 client_facing \u2192 marked_ai_generated)",
       "description": "AI-generated client-facing content is marked or labelled as AI-generated/synthetic."
     },
     {
@@ -96,7 +96,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((Decision ∨ Output) → inventory_recorded)",
+      "formula": "G((Decision \u2228 Output) \u2192 inventory_recorded)",
       "description": "AI systems producing decisions or outputs are recorded in the firm's AI inventory."
     },
     {
@@ -105,7 +105,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((Decision ∨ Output) → logged ∧ model_version_recorded)",
+      "formula": "G((Decision \u2228 Output) \u2192 logged \u2227 model_version_recorded)",
       "description": "Every AI decision or output is recorded, with the model version that produced it, throughout the AI system lifecycle."
     },
     {
@@ -114,7 +114,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Output ∧ client_facing → ai_disclosed)",
+      "formula": "G(Output \u2227 client_facing \u2192 ai_disclosed)",
       "description": "Clients are informed when an AI system is generating client-facing responses or analysis."
     },
     {
@@ -123,7 +123,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ai_affects_client_rights → P(client_consent))",
+      "formula": "G(ai_affects_client_rights \u2192 P(client_consent))",
       "description": "Client consent is recorded where AI materially affects client rights, account access, or privacy."
     },
     {
@@ -132,7 +132,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Output → explainability_recorded)",
+      "formula": "G(Output \u2192 explainability_recorded)",
       "description": "Each AI output documents the decision-making logic and reasoning behind it (explainability)."
     },
     {
@@ -141,7 +141,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(material_impact → human_reviewed)",
+      "formula": "G(material_impact \u2192 human_reviewed)",
       "description": "Investor- or market-impacting AI outcomes carry evidence of human oversight or intervention."
     },
     {
@@ -150,7 +150,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Incident → root_cause_recorded ∧ remediation_recorded)",
+      "formula": "G(Incident \u2192 root_cause_recorded \u2227 remediation_recorded)",
       "description": "AI-related incidents are recorded with root-cause analysis and remediation actions."
     },
     {
@@ -159,7 +159,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ai_claim → claim_substantiated)",
+      "formula": "G(ai_claim \u2192 claim_substantiated)",
       "description": "Public claims about the firm's AI are substantiated and not overstated (no 'AI-washing')."
     },
     {
@@ -168,7 +168,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((Release ∨ Deploy) → P(Output ∧ logged))",
+      "formula": "G((Release \u2228 Deploy) \u2192 P(Output \u2227 logged))",
       "description": "Every consequential action is traceable to a logged AI output that preceded it."
     },
     {
@@ -177,7 +177,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Incident ∧ reportable → F(supervisor_notified))",
+      "formula": "G(Incident \u2227 reportable \u2192 F(supervisor_notified))",
       "description": "Reportable AI incidents are notified to the supervisory authority."
     }
   ]

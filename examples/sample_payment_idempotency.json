@@ -1,13 +1,13 @@
 {
   "trace_id": "trace-sample-payment-idempotency",
-  "spec_version": "1.8",
+  "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-06-14T12:00:00Z",
   "title": "Make payment capture idempotent (proved)",
   "trigger": {
     "type": "TaskReceived",
-    "description": "capture is being double-charged on gateway retries — make it idempotent and prove it"
+    "description": "capture is being double-charged on gateway retries \u2014 make it idempotent and prove it"
   },
   "actions": [
     {
@@ -43,7 +43,7 @@
       "type": "ExclusiveDecision",
       "category": "gateway",
       "label": "Idempotency strategy",
-      "rationale": "Dedupe on (charge_id, idempotency_key) vs a distributed lock — chose the key (no infra).",
+      "rationale": "Dedupe on (charge_id, idempotency_key) vs a distributed lock \u2014 chose the key (no infra).",
       "inputs": [],
       "outputs": [],
       "evidence": [],
@@ -146,7 +146,7 @@
       "type": "GenerateTests",
       "category": "activity",
       "label": "Generate idempotency tests from regions",
-      "rationale": "One test per decomposition region — covers the dedupe and the replay cases.",
+      "rationale": "One test per decomposition region \u2014 covers the dedupe and the replay cases.",
       "inputs": [
         "a6"
       ],
@@ -269,11 +269,11 @@
   "goals": [
     {
       "id": "session-goal",
-      "intent": "capture is being double-charged on gateway retries — make it idempotent and prove it",
+      "intent": "capture is being double-charged on gateway retries \u2014 make it idempotent and prove it",
       "intent_author": "human",
       "intent_clauses": [
         "capture is idempotent on gateway retries",
-        "no double-charge — proved, not just tested"
+        "no double-charge \u2014 proved, not just tested"
       ],
       "scope": [
         "payment.py",
@@ -293,7 +293,7 @@
           "evidence": "a5",
           "author": "agent",
           "covers": [
-            "no double-charge — proved, not just tested"
+            "no double-charge \u2014 proved, not just tested"
           ]
         },
         {
@@ -435,6 +435,11 @@
               }
             ]
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -504,7 +509,12 @@
           {
             "name": "test_amounts_preserved"
           }
-        ]
+        ],
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "example-model"
+        }
       }
     },
     {
@@ -519,7 +529,7 @@
     {
       "artifact_id": "r1",
       "artifact_type": "Residual",
-      "name": "assumption: Assumes the gateway sends a stable idempotency k…",
+      "name": "assumption: Assumes the gateway sends a stable idempotency k\u2026",
       "payload": {
         "kind": "assumption",
         "severity": "high",
@@ -542,7 +552,7 @@
     {
       "artifact_id": "r2",
       "artifact_type": "Residual",
-      "name": "out of scope: Concurrent capture+refund races are not modelled…",
+      "name": "out of scope: Concurrent capture+refund races are not modelled\u2026",
       "payload": {
         "kind": "out_of_scope",
         "severity": "medium",
@@ -561,7 +571,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -570,7 +580,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(gateway → rationale ≠ ∅)"
+      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
     },
     {
       "policy_id": "p3",

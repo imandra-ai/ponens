@@ -1,12 +1,12 @@
 {
   "trace_id": "trace-auth-xstate-001",
-  "spec_version": "1.1",
+  "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-04-02T14:30:00Z",
   "trigger": {
     "type": "TaskReceived",
-    "description": "Fix session timeout bug in the authentication flow — users are not redirected to login after token expiry",
+    "description": "Fix session timeout bug in the authentication flow \u2014 users are not redirected to login after token expiry",
     "from_user": "developer"
   },
   "artifacts": [
@@ -28,7 +28,7 @@
       "derived_from": [
         "a1"
       ],
-      "summary": "Auth state machine: idle → authenticating → authenticated → sessionExpired. Missing transition on token expiry."
+      "summary": "Auth state machine: idle \u2192 authenticating \u2192 authenticated \u2192 sessionExpired. Missing transition on token expiry."
     },
     {
       "artifact_id": "a3",
@@ -86,6 +86,11 @@
           "refuted": {
             "counterexample": "state = Authenticated\nevent = TokenExpired\n\nauth_transition Authenticated TokenExpired = Authenticated\n\nThe machine stays in Authenticated when token expires.\nExpected: transition to SessionExpired or Idle."
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -107,7 +112,7 @@
       "derived_from": [
         "a6"
       ],
-      "summary": "Add TokenExpired → SessionExpired transition"
+      "summary": "Add TokenExpired \u2192 SessionExpired transition"
     },
     {
       "artifact_id": "a8",
@@ -167,6 +172,11 @@
           "proved": {
             "proof_pp": "deadlock_free: proved for all auth_state values by case analysis"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -310,7 +320,7 @@
               "event": "Login"
             },
             "expected": "Authenticating",
-            "code": "it('idle + LOGIN → authenticating', () => {\n  const state = authMachine.transition('idle', 'LOGIN');\n  expect(state.value).toBe('authenticating');\n});"
+            "code": "it('idle + LOGIN \u2192 authenticating', () => {\n  const state = authMachine.transition('idle', 'LOGIN');\n  expect(state.value).toBe('authenticating');\n});"
           },
           {
             "name": "test_auth_success",
@@ -324,7 +334,7 @@
               "event": "Success"
             },
             "expected": "Authenticated",
-            "code": "it('authenticating + SUCCESS → authenticated', () => {\n  const state = authMachine.transition('authenticating', 'SUCCESS');\n  expect(state.value).toBe('authenticated');\n});"
+            "code": "it('authenticating + SUCCESS \u2192 authenticated', () => {\n  const state = authMachine.transition('authenticating', 'SUCCESS');\n  expect(state.value).toBe('authenticated');\n});"
           },
           {
             "name": "test_token_expired",
@@ -338,7 +348,7 @@
               "event": "TokenExpired"
             },
             "expected": "SessionExpired",
-            "code": "it('authenticated + TOKEN_EXPIRED → sessionExpired', () => {\n  const state = authMachine.transition('authenticated', 'TOKEN_EXPIRED');\n  expect(state.value).toBe('sessionExpired');\n});"
+            "code": "it('authenticated + TOKEN_EXPIRED \u2192 sessionExpired', () => {\n  const state = authMachine.transition('authenticated', 'TOKEN_EXPIRED');\n  expect(state.value).toBe('sessionExpired');\n});"
           },
           {
             "name": "test_session_expired_login",
@@ -352,9 +362,14 @@
               "event": "Login"
             },
             "expected": "Authenticating",
-            "code": "it('sessionExpired + LOGIN → authenticating', () => {\n  const state = authMachine.transition('sessionExpired', 'LOGIN');\n  expect(state.value).toBe('authenticating');\n});"
+            "code": "it('sessionExpired + LOGIN \u2192 authenticating', () => {\n  const state = authMachine.transition('sessionExpired', 'LOGIN');\n  expect(state.value).toBe('authenticating');\n});"
           }
-        ]
+        ],
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "example-model"
+        }
       }
     },
     {
@@ -414,7 +429,7 @@
       "category": "activity",
       "type": "AnalyzeCode",
       "label": "Analyze: XState auth machine with 4 states",
-      "detail": "Auth machine: idle → authenticating → authenticated. SessionExpired state exists but is unreachable from authenticated.",
+      "detail": "Auth machine: idle \u2192 authenticating \u2192 authenticated. SessionExpired state exists but is unreachable from authenticated.",
       "rationale": "map the state machine before formalization",
       "inputs": [
         "a1"
@@ -428,7 +443,7 @@
       "id": 10,
       "category": "reasoning",
       "type": "Formalize",
-      "label": "Formalize: auth XState machine → IML",
+      "label": "Formalize: auth XState machine \u2192 IML",
       "rationale": "translate TypeScript XState definition into IML for formal analysis",
       "inputs": [
         "a2"
@@ -443,7 +458,7 @@
         "status": "completed",
         "artifact_id": "a3"
       },
-      "result_summary": "transparent formalization → 3 IML symbols",
+      "result_summary": "transparent formalization \u2192 3 IML symbols",
       "execution": {
         "tool": "codelogician",
         "version": "2026.04",
@@ -468,7 +483,7 @@
       "id": 12,
       "category": "reasoning",
       "type": "Verify",
-      "label": "Verify: deadlock freedom — REFUTED",
+      "label": "Verify: deadlock freedom \u2014 REFUTED",
       "rationale": "ImandraX found that Authenticated state is stuck on TokenExpired event",
       "inputs": [
         "a4"
@@ -476,7 +491,7 @@
       "outputs": [
         "a5"
       ],
-      "result_summary": "refuted — Authenticated + TokenExpired = stuck",
+      "result_summary": "refuted \u2014 Authenticated + TokenExpired = stuck",
       "execution": {
         "tool": "imandrax",
         "version": "2026.04",
@@ -497,7 +512,7 @@
       "outputs": [
         "a6"
       ],
-      "result_summary": "root cause: no TokenExpired → SessionExpired transition",
+      "result_summary": "root cause: no TokenExpired \u2192 SessionExpired transition",
       "observations": [
         {
           "statement": "Authenticated state silently swallows TokenExpired events. Users remain in authenticated state with expired credentials.",
@@ -509,7 +524,7 @@
       "id": 14,
       "category": "activity",
       "type": "EditFile",
-      "label": "Fix: add TokenExpired → SessionExpired transition",
+      "label": "Fix: add TokenExpired \u2192 SessionExpired transition",
       "rationale": "fix the bug discovered by formal verification",
       "inputs": [
         "a6"
@@ -562,7 +577,7 @@
       "id": 22,
       "category": "reasoning",
       "type": "Verify",
-      "label": "Verify: deadlock freedom — PROVED",
+      "label": "Verify: deadlock freedom \u2014 PROVED",
       "rationale": "confirmed: all states can make progress",
       "inputs": [
         "a9"
@@ -570,7 +585,7 @@
       "outputs": [
         "a10"
       ],
-      "result_summary": "proved — all states have outgoing transitions",
+      "result_summary": "proved \u2014 all states have outgoing transitions",
       "execution": {
         "tool": "imandrax",
         "version": "2026.04",
@@ -582,8 +597,8 @@
       "id": 30,
       "category": "reasoning",
       "type": "Decompose",
-      "label": "Decompose: auth_transition — 8 regions",
-      "rationale": "partition all state × event combinations to generate exhaustive tests",
+      "label": "Decompose: auth_transition \u2014 8 regions",
+      "rationale": "partition all state \u00d7 event combinations to generate exhaustive tests",
       "inputs": [
         "a8"
       ],
@@ -603,7 +618,7 @@
       "category": "reasoning",
       "type": "GenerateTests",
       "label": "Generate: 8 tests from decomposition",
-      "rationale": "produce TypeScript test cases for every state × event region",
+      "rationale": "produce TypeScript test cases for every state \u00d7 event region",
       "inputs": [
         "a11"
       ],
@@ -689,7 +704,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile → P_target(ReadFile ∨ AnalyzeCode))"
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -697,7 +712,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile ∧ xstate_machine → P_chain(Formalize ∧ xstate_domain))"
+      "formula": "G(EditFile \u2227 xstate_machine \u2192 P_chain(Formalize \u2227 xstate_domain))"
     },
     {
       "policy_id": "p3",
@@ -705,7 +720,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(Formalize ∧ xstate_domain → F(Verify ∧ proved ∧ deadlock_free))"
+      "formula": "G(Formalize \u2227 xstate_domain \u2192 F(Verify \u2227 proved \u2227 deadlock_free))"
     },
     {
       "policy_id": "p4",
@@ -713,7 +728,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+      "formula": "G(GitCommit \u2192 P(RunTests \u2227 completed))"
     }
   ],
   "policy_evaluations": [

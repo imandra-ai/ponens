@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-sample-etl-refactor",
-  "spec_version": "1.8",
+  "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-06-14T12:00:00Z",
@@ -146,7 +146,7 @@
     {
       "id": "m1",
       "title": "Map the transform and its callers",
-      "intent": "Refactor safely — know every caller",
+      "intent": "Refactor safely \u2014 know every caller",
       "action_ids": [
         1,
         2
@@ -285,7 +285,12 @@
           {
             "name": "test_nulls_passthrough"
           }
-        ]
+        ],
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "example-model"
+        }
       }
     },
     {
@@ -300,7 +305,7 @@
     {
       "artifact_id": "r1",
       "artifact_type": "Residual",
-      "name": "limitation: Batch transform assumes the file fits in memory;…",
+      "name": "limitation: Batch transform assumes the file fits in memory;\u2026",
       "payload": {
         "kind": "limitation",
         "severity": "medium",
@@ -320,7 +325,7 @@
     {
       "artifact_id": "r2",
       "artifact_type": "Residual",
-      "name": "unverified: Timezone handling for date columns relies on the…",
+      "name": "unverified: Timezone handling for date columns relies on the\u2026",
       "payload": {
         "kind": "unverified",
         "severity": "low",
@@ -340,7 +345,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -349,7 +354,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(gateway → rationale ≠ ∅)"
+      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
     },
     {
       "policy_id": "p3",

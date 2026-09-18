@@ -1,6 +1,6 @@
 {
   "trace_id": "misra-c-violating-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "coding-agent",
   "model": "demo",
   "trigger": {
@@ -65,7 +65,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(advisory_violation → recorded)",
+      "formula": "G(advisory_violation \u2192 recorded)",
       "description": "Violations of Advisory guidelines are recorded (a formal deviation is not required, but the decision is documented)."
     },
     {
@@ -83,7 +83,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+      "formula": "G(Deviation \u2192 rationale_recorded \u2227 deviation_approved)",
       "description": "Every deviation records the violation and its supporting rationale, and is approved through the deviation procedure."
     },
     {
@@ -92,7 +92,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Directive → addressed_with_evidence)",
+      "formula": "G(Directive \u2192 addressed_with_evidence)",
       "description": "Directives (process/design guidelines, whose compliance depends on project context) are addressed with documented evidence."
     },
     {
@@ -101,7 +101,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(StaticAnalysis → enforcement_plan)",
+      "formula": "G(StaticAnalysis \u2192 enforcement_plan)",
       "description": "Each guideline analysed has a defined enforcement means in the Guidelines Enforcement Plan."
     },
     {
@@ -110,7 +110,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(recategorization → ¬weakens_mandatory)",
+      "formula": "G(recategorization \u2192 \u00acweakens_mandatory)",
       "description": "A Mandatory guideline is never re-categorized to a less strict category; only Advisory guidelines may be re-categorized to Disapplied."
     },
     {
@@ -119,7 +119,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deviation → ¬targets_mandatory)",
+      "formula": "G(Deviation \u2192 \u00actargets_mandatory)",
       "description": "No deviation is raised against a Mandatory guideline."
     },
     {
@@ -128,8 +128,8 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(¬mandatory_violation)",
-      "description": "Mandatory guidelines are never violated — no deviation is permitted against a Mandatory guideline."
+      "formula": "G(\u00acmandatory_violation)",
+      "description": "Mandatory guidelines are never violated \u2014 no deviation is permitted against a Mandatory guideline."
     },
     {
       "policy_id": "misra_c_recategorization_in_grp",
@@ -137,7 +137,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(recategorization → P(grp_documented))",
+      "formula": "G(recategorization \u2192 P(grp_documented))",
       "description": "Any change to a guideline's category is documented in the Guidelines Re-categorization Plan (GRP)."
     },
     {
@@ -146,7 +146,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(required_violation → P(deviation_approved))",
+      "formula": "G(required_violation \u2192 P(deviation_approved))",
       "description": "Any violation of a Required guideline is covered by an approved deviation."
     },
     {
@@ -155,7 +155,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(StaticAnalysis ∧ misra_c_ruleset))",
+      "formula": "G(GitCommit \u2192 P(StaticAnalysis \u2227 misra_c_ruleset))",
       "description": "Source is checked against the MISRA C:2012 ruleset by static analysis before it is committed."
     },
     {
@@ -164,7 +164,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(undecidable_violation → manual_review)",
+      "formula": "G(undecidable_violation \u2192 manual_review)",
       "description": "Potential violations of undecidable guidelines (not fully checkable by static analysis) are subject to manual review."
     }
   ]

@@ -20,7 +20,7 @@ different answer each time. The record already holds that enumeration — exhaus
 computed once on a CPU. It simply was not reachable.
 
 ### Added
-- **`ponens trace symbols <trace> [--file <requirements>]` — the index.** One small record per symbol the
+- **`ponens trace symbols <trace>` — the index.** Takes an optional `--file <requirements>`. One small record per symbol the
   trace knows anything about: the symbol, its file, what backs it (`decomposition` · `verification` ·
   `conformance` · `model` · `tests`), its grade, its freshness, how many regions and open gaps, the
   requirement it serves, and the entry to cite. About 25 tokens each, so a project fits in a prompt.

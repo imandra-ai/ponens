@@ -1561,7 +1561,10 @@
   .version-badge {
     font-size: 10px; padding: 1px 6px; border-radius: 3px;
     background: var(--border); color: var(--text-muted); font-weight: 600;
+    white-space: nowrap;
   }
+  /* A trace written against an older spec. Muted, never an alarm: it renders fully either way. */
+  .version-badge.is-behind { opacity: .75; font-style: italic; }
 
   /* ==============================================================
      GOALS view (§18) — declared intent + acceptance

@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-2-tool-pass",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall → in_allowlist)"
+      "formula": "G(ToolCall \u2192 in_allowlist)"
     }
   ],
   "artifacts": [
@@ -84,7 +84,7 @@
       "type": "ToolCall",
       "rationale": "route via the certified smart-order-router",
       "label": "invoke SOR-v3 (in allowlist, tier-2 certified)",
-      "result_summary": "timeout after 900ms — failed",
+      "result_summary": "timeout after 900ms \u2014 failed",
       "inputs": [
         "routing-plan"
       ],
@@ -133,7 +133,7 @@
     },
     {
       "id": "m2",
-      "title": "Route — tool call + fallback",
+      "title": "Route \u2014 tool call + fallback",
       "intent": "call the SOR; on failure fall back to TWAP",
       "action_ids": [
         3,

@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-6-provenance-pass",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release ∨ Deploy → decision_path_present)"
+      "formula": "G(Release \u2228 Deploy \u2192 decision_path_present)"
     }
   ],
   "artifacts": [
@@ -107,7 +107,7 @@
       "id": 4,
       "type": "Release",
       "rationale": "execute on the chosen venue",
-      "label": "child order — decision path present → DecisionPathID DP-903",
+      "label": "child order \u2014 decision path present \u2192 DecisionPathID DP-903",
       "inputs": [
         "venue-choice"
       ],

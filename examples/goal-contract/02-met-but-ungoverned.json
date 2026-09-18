@@ -1,6 +1,6 @@
 {
   "trace_id": "gc-ungoverned",
-  "spec_version": "1.7",
+  "spec_version": "1.13",
   "assistant": "codelogician",
   "model": "demo",
   "timestamp": "2026-07-25T00:00:00Z",
@@ -107,7 +107,12 @@
       "payload": {
         "goal_id": "a_vg",
         "goal_artifact_id": "a_vg",
-        "status": "refuted"
+        "status": "refuted",
+        "oracle": {
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof",
+          "id": "demo"
+        }
       }
     }
   ],
@@ -156,7 +161,7 @@
             "policy_id": "refuted_results_must_be_reproved",
             "name": "refuted_results_must_be_reproved",
             "severity": "error",
-            "formula": "G(VerificationResult(refuted) → F(VerificationResult(proved ∨ sat)))"
+            "formula": "G(VerificationResult(refuted) \u2192 F(VerificationResult(proved \u2228 sat)))"
           }
         ]
       },

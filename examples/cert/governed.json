@@ -1,6 +1,6 @@
 {
   "trace_id": "cert-governed-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "coding-agent",
   "model": "demo",
   "trigger": {
@@ -109,7 +109,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(conformance_summary))",
+      "formula": "G(Release \u2192 P(conformance_summary))",
       "description": "A conformance record (which rules were checked, findings, deviations) exists before release."
     },
     {
@@ -118,7 +118,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deviation → rationale_recorded ∧ deviation_approved)",
+      "formula": "G(Deviation \u2192 rationale_recorded \u2227 deviation_approved)",
       "description": "Every deviation records the violation rationale and is approved."
     },
     {
@@ -127,7 +127,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(level_l1 → remediated)",
+      "formula": "G(level_l1 \u2192 remediated)",
       "description": "Highest-priority (Level L1) findings are remediated."
     },
     {
@@ -136,7 +136,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(level_l2 → reviewed)",
+      "formula": "G(level_l2 \u2192 reviewed)",
       "description": "Medium-priority (Level L2) findings are reviewed."
     },
     {
@@ -145,7 +145,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → ¬open_l1)",
+      "formula": "G(Release \u2192 \u00acopen_l1)",
       "description": "No Level L1 finding remains open at release."
     },
     {
@@ -154,8 +154,8 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Finding → priority_assigned)",
-      "description": "Each finding has a Priority (Severity × Likelihood × Remediation Cost, 1–27) and resulting Level (L1/L2/L3) assigned."
+      "formula": "G(Finding \u2192 priority_assigned)",
+      "description": "Each finding has a Priority (Severity \u00d7 Likelihood \u00d7 Remediation Cost, 1\u201327) and resulting Level (L1/L2/L3) assigned."
     },
     {
       "policy_id": "cert_recommendation_departure_recorded",
@@ -163,7 +163,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Finding ∧ cert_recommendation_departure → recorded)",
+      "formula": "G(Finding \u2227 cert_recommendation_departure \u2192 recorded)",
       "description": "Departures from CERT Recommendations (advisory guidelines) are recorded."
     },
     {
@@ -172,7 +172,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Finding → severity_assessed ∧ likelihood_assessed ∧ remediation_assessed)",
+      "formula": "G(Finding \u2192 severity_assessed \u2227 likelihood_assessed \u2227 remediation_assessed)",
       "description": "Every finding is risk-assessed on the three CERT factors: severity, likelihood, and remediation cost."
     },
     {
@@ -181,7 +181,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Finding ∧ cert_rule_violation → remediated ∨ deviation_approved)",
+      "formula": "G(Finding \u2227 cert_rule_violation \u2192 remediated \u2228 deviation_approved)",
       "description": "Violations of CERT Rules (normative) are remediated, or covered by an approved deviation."
     },
     {
@@ -190,7 +190,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(StaticAnalysis ∧ cert_ruleset))",
+      "formula": "G(GitCommit \u2192 P(StaticAnalysis \u2227 cert_ruleset))",
       "description": "Source is checked against the CERT C / C++ ruleset by static analysis before it is committed."
     },
     {
@@ -199,7 +199,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(undecidable_violation → manual_review)",
+      "formula": "G(undecidable_violation \u2192 manual_review)",
       "description": "Potential violations of undecidable rules (not fully checkable by static analysis) are manually reviewed."
     }
   ]

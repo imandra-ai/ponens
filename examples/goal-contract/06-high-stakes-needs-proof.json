@@ -1,6 +1,6 @@
 {
   "trace_id": "gc-block-default",
-  "spec_version": "1.7",
+  "spec_version": "1.13",
   "assistant": "codelogician",
   "model": "demo",
   "timestamp": "2026-07-25T00:00:00Z",
@@ -82,7 +82,7 @@
             "policy_id": "reasoning_required_for_high_stakes",
             "name": "reasoning_required_for_high_stakes",
             "severity": "error",
-            "formula": "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))"
+            "formula": "G(EditFile \u2227 high_stakes_path \u2192 P_chain(VerificationResult(proved \u2228 sat) \u2228 Decomposition))"
           }
         ]
       },

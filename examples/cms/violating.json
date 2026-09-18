@@ -1,6 +1,6 @@
 {
   "trace_id": "cms-violating-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "ai-system",
   "model": "demo",
   "trigger": {
@@ -98,7 +98,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ai_written_policy → human_review)",
+      "formula": "G(ai_written_policy \u2192 human_review)",
       "description": "Use of AI tools to draft CMS policies is followed by human review; AI supports but does not substitute for human decisions."
     },
     {
@@ -107,7 +107,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ai_component → provenance_verified)",
+      "formula": "G(ai_component \u2192 provenance_verified)",
       "description": "The provenance and integrity of AI components (models, data, code) used in production are verified."
     },
     {
@@ -116,7 +116,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((Deploy ∨ Output) → P(human_oversight))",
+      "formula": "G((Deploy \u2228 Output) \u2192 P(human_oversight))",
       "description": "Continuous human oversight is in place to ensure AI/ML output meets CMS and federal guidelines."
     },
     {
@@ -125,7 +125,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(foreign_ai → on_cms_infrastructure ∧ no_internet_egress)",
+      "formula": "G(foreign_ai \u2192 on_cms_infrastructure \u2227 no_internet_egress)",
       "description": "Foreign-entity AI tools are used only if deployed on CMS infrastructure with no data sent to the internet (CMS data stays in the U.S.)."
     },
     {
@@ -134,7 +134,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(external_ai → P(data_use_agreement))",
+      "formula": "G(external_ai \u2192 P(data_use_agreement))",
       "description": "External AI tools that can access non-public CMS data have appropriate data-use agreements in place beforehand."
     },
     {
@@ -143,7 +143,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(high_impact_decision → human_final_decision ∧ documented_oversight)",
+      "formula": "G(high_impact_decision \u2192 human_final_decision \u2227 documented_oversight)",
       "description": "For high-impact cases, AI provides advice/recommendations only; the final decision is made by qualified staff with documented oversight."
     },
     {
@@ -152,7 +152,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(high_impact_ai → P(risk_assessment_done))",
+      "formula": "G(high_impact_ai \u2192 P(risk_assessment_done))",
       "description": "High-impact AI use cases (per OMB M-25-21) undergo a CMS AI governance risk assessment and apply minimum risk-management practices."
     },
     {
@@ -161,7 +161,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(nonprod_data → synthetic_or_deidentified)",
+      "formula": "G(nonprod_data \u2192 synthetic_or_deidentified)",
       "description": "Development and lower environments use synthetic or de-identified data rather than real PII/PHI."
     },
     {
@@ -170,8 +170,8 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((Deploy ∨ Output) → P(observability_enabled))",
-      "description": "Production AI systems implement observability — traces, evaluations (EVALs), and key metrics tracked over time."
+      "formula": "G((Deploy \u2228 Output) \u2192 P(observability_enabled))",
+      "description": "Production AI systems implement observability \u2014 traces, evaluations (EVALs), and key metrics tracked over time."
     },
     {
       "policy_id": "cms_prompts_versioned",
@@ -179,7 +179,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(production_ai → prompts_versioned)",
+      "formula": "G(production_ai \u2192 prompts_versioned)",
       "description": "AI system prompts used in production are versioned and their performance reviewed over time."
     },
     {
@@ -188,7 +188,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ai_supported_action → records_retained)",
+      "formula": "G(ai_supported_action \u2192 records_retained)",
       "description": "AI-supported official actions and AI-generated content are retained per records-retention and FOIA requirements."
     },
     {
@@ -197,7 +197,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(sensitive_data_use → approved_tool)",
+      "formula": "G(sensitive_data_use \u2192 approved_tool)",
       "description": "PHI / sensitive PII and other sensitive data are used only with AI tools that meet HHS/CMS cybersecurity & privacy standards."
     },
     {
@@ -206,7 +206,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ai_outbound_capable → data_minimization ∧ network_segmented)",
+      "formula": "G(ai_outbound_capable \u2192 data_minimization \u2227 network_segmented)",
       "description": "AI tools that can make outbound requests are constrained by data minimization and network segmentation to contain the blast radius."
     }
   ]

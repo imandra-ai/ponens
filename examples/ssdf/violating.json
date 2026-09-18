@@ -1,6 +1,6 @@
 {
   "trace_id": "ssdf-violating-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "coding-agent",
   "model": "demo",
   "trigger": {
@@ -65,7 +65,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(security_roles_defined))",
+      "formula": "G(Release \u2192 P(security_roles_defined))",
       "description": "Roles and responsibilities for the secure development process are defined (PO.2)."
     },
     {
@@ -74,7 +74,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(security_requirements_defined))",
+      "formula": "G(GitCommit \u2192 P(security_requirements_defined))",
       "description": "Security requirements for the software and its development are defined (PO.1)."
     },
     {
@@ -83,7 +83,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(secure_toolchain))",
+      "formula": "G(GitCommit \u2192 P(secure_toolchain))",
       "description": "Supporting toolchains and development environments are configured to improve security (PO.3)."
     },
     {
@@ -92,7 +92,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(provenance_recorded))",
+      "formula": "G(Release \u2192 P(provenance_recorded))",
       "description": "Provenance data (e.g. an SBOM) for each release is recorded (PS.3)."
     },
     {
@@ -101,7 +101,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(release_archived))",
+      "formula": "G(Release \u2192 P(release_archived))",
       "description": "Each release and its associated files are archived and protected (PS.1/PS.3)."
     },
     {
@@ -110,7 +110,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(artifact_signed))",
+      "formula": "G(Release \u2192 P(artifact_signed))",
       "description": "Each software release is integrity-protected (e.g. cryptographically signed) against tampering (PS.2)."
     },
     {
@@ -119,7 +119,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → ¬open_vulnerability)",
+      "formula": "G(Release \u2192 \u00acopen_vulnerability)",
       "description": "No known unaddressed vulnerability remains open at release."
     },
     {
@@ -128,7 +128,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → secure_defaults)",
+      "formula": "G(Release \u2192 secure_defaults)",
       "description": "Software is configured with secure default settings (PW.9)."
     },
     {
@@ -137,7 +137,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(security_review ∨ static_analysis))",
+      "formula": "G(GitCommit \u2192 P(security_review \u2228 static_analysis))",
       "description": "Code is reviewed and/or analyzed for security before it is accepted (PW.7/PW.8)."
     },
     {
@@ -146,7 +146,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(security_tested))",
+      "formula": "G(Release \u2192 P(security_tested))",
       "description": "Executable code is security-tested before release (PW.8)."
     },
     {
@@ -155,7 +155,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(threat_modeled))",
+      "formula": "G(GitCommit \u2192 P(threat_modeled))",
       "description": "The design is reviewed against security requirements and threats (threat modeling) (PW.1/PW.2)."
     },
     {
@@ -164,7 +164,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Finding → F(root_cause_recorded))",
+      "formula": "G(Finding \u2192 F(root_cause_recorded))",
       "description": "Root-cause analysis is performed to reduce the frequency of future vulnerabilities (RV.3)."
     },
     {
@@ -173,7 +173,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(vuln_analysis))",
+      "formula": "G(Release \u2192 P(vuln_analysis))",
       "description": "Releases are continuously analyzed to identify vulnerabilities (RV.1)."
     },
     {
@@ -182,7 +182,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Finding → assessed ∧ (remediated ∨ mitigated))",
+      "formula": "G(Finding \u2192 assessed \u2227 (remediated \u2228 mitigated))",
       "description": "Each identified vulnerability is assessed and remediated or mitigated (RV.2)."
     }
   ]

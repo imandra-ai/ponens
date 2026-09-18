@@ -1,6 +1,6 @@
 {
   "trace_id": "gc-walk-tax-brackets",
-  "spec_version": "1.7",
+  "spec_version": "1.13",
   "assistant": "codelogician",
   "model": "demo",
   "timestamp": "2026-07-25T00:00:00Z",
@@ -84,7 +84,7 @@
       "id": 6,
       "type": "RunTests",
       "category": "activity",
-      "label": "run the suite — boundary FAILS",
+      "label": "run the suite \u2014 boundary FAILS",
       "rationale": "Region at exactly 40000 computes the wrong rate (off-by-one).",
       "inputs": [],
       "outputs": [],
@@ -122,7 +122,7 @@
       "id": 9,
       "type": "RunTests",
       "category": "activity",
-      "label": "re-run — all pass",
+      "label": "re-run \u2014 all pass",
       "rationale": "All 7 region tests pass, boundary included.",
       "inputs": [],
       "outputs": [],
@@ -149,7 +149,7 @@
       "id": 11,
       "type": "Verify",
       "category": "reasoning",
-      "label": "verify monotonicity — PROVED",
+      "label": "verify monotonicity \u2014 PROVED",
       "rationale": "Holds across all regions.",
       "inputs": [
         "vg"
@@ -213,7 +213,7 @@
     },
     {
       "id": "m3",
-      "title": "Cover regions with tests — a boundary fails",
+      "title": "Cover regions with tests \u2014 a boundary fails",
       "intent": "One test per region; the 40k edge fails",
       "action_ids": [
         5,
@@ -374,7 +374,12 @@
       "payload": {
         "count": 7,
         "failing": 0,
-        "target_symbol": "tax_bracket"
+        "target_symbol": "tax_bracket",
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "demo"
+        }
       }
     },
     {
@@ -406,14 +411,19 @@
     {
       "artifact_id": "vr",
       "artifact_type": "VerificationResult",
-      "name": "monotonic — proved",
+      "name": "monotonic \u2014 proved",
       "producer_action_id": 11,
       "derived_from": [
         "vg"
       ],
       "payload": {
         "goal_id": "vg",
-        "status": "proved"
+        "status": "proved",
+        "oracle": {
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof",
+          "id": "demo"
+        }
       }
     },
     {
@@ -430,7 +440,7 @@
     {
       "artifact_id": "r1",
       "artifact_type": "Residual",
-      "name": "assumption: Rounding is assumed banker's rounding at 2 decim…",
+      "name": "assumption: Rounding is assumed banker's rounding at 2 decim\u2026",
       "payload": {
         "kind": "assumption",
         "severity": "medium",
@@ -511,7 +521,7 @@
             "policy_id": "generated_tests_require_decomposition",
             "name": "generated_tests_require_decomposition",
             "severity": "error",
-            "formula": "G(GeneratedTests → Decomposition ∈ ancestors(derived_from))"
+            "formula": "G(GeneratedTests \u2192 Decomposition \u2208 ancestors(derived_from))"
           }
         ]
       },

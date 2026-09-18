@@ -76,13 +76,13 @@
     },
     {
       "id": "m3",
-      "title": "First proof attempt — counterexample",
+      "title": "First proof attempt \u2014 counterexample",
       "intent": "Verify and get refuted",
       "actions": [
         {
           "type": "Verify",
-          "label": "verify idempotency — REFUTED",
-          "result": "refuted — counterexample: retry after partial refund"
+          "label": "verify idempotency \u2014 REFUTED",
+          "result": "refuted \u2014 counterexample: retry after partial refund"
         }
       ],
       "produced": [
@@ -127,12 +127,12 @@
     },
     {
       "id": "m5",
-      "title": "Re-verify — proved",
+      "title": "Re-verify \u2014 proved",
       "intent": "Prove the property holds with the fix",
       "actions": [
         {
           "type": "Verify",
-          "label": "re-verify idempotency — PROVED",
+          "label": "re-verify idempotency \u2014 PROVED",
           "result": "proved"
         }
       ],
@@ -160,7 +160,7 @@
         },
         {
           "type": "RunTests",
-          "label": "run the suite — all pass",
+          "label": "run the suite \u2014 all pass",
           "result": "18 passed, 0 failing"
         },
         {
@@ -185,5 +185,6 @@
         "certified": true
       }
     }
-  ]
+  ],
+  "spec_version": "1.13"
 }

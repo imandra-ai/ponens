@@ -9,7 +9,9 @@ pins the current set.
 
 | Spec | Version | Status | What it defines |
 |---|---|---|---|
-| [`TRACE_SPEC_v1_12.md`](TRACE_SPEC_v1_12.md) | **1.12** | Draft | **The core.** The typed reasoning-trace format — actions, **meta-actions** (§8.4), artifacts & lineage (§7), the **residual surface** (§13), **goals & acceptance** (§18), reproducibility (§12), and (1.12) the **`Observation`** artifact, **oracle attribution** and the generic **evidence fingerprint** (§10.4a, §10.11, §10.12). Everything else is a companion over this. |
+| [`TRACE_SPEC_v1_13.md`](TRACE_SPEC_v1_13.md) | **1.13** | Draft | **The core.** The typed reasoning-trace format — actions, **meta-actions** (§8.4), artifacts & lineage (§7), the **residual surface** (§13), **goals & acceptance** (§18), reproducibility (§12), (1.12) the **`Observation`** artifact, **oracle attribution** and the generic **evidence fingerprint** (§10.4a, §10.11, §10.12), and (1.13) **conformance against a reference** — a `ConformanceResult` judged against a **reference artifact** (a catalogue entry a repository is bound to), `reference` on an acceptance item, reference freshness (§11.2–11.3, §18.1) and the `conforms_to` predicate. Everything else is a companion over this. |
+| [`RECORD_OVERVIEW_v0_1.md`](RECORD_OVERVIEW_v0_1.md) | 0.1 | Draft | **Where a record stands, in five words.** How a trace is *read*: one JSON (`ponens trace overview`) every renderer consumes — **requirements** (from a requirements file and from goal items) with states met · open · failed · out of date, **evidence** graded proved · witnessed · tested · checked · attested, **gaps** with states missing · assumed · failed · out of date, the **gate**, next steps, and record health; `trace requirements` (the check alone, with its seven row rules) and `trace integrity` (what a save would lose). No renderer re-derives semantics. |
+| [`RECORD_QUERY_v0_1.md`](RECORD_QUERY_v0_1.md) | 0.1 | Draft | **What a record already knows about a symbol.** How a trace is *asked*, so a reader consults it instead of re-deriving a function's behaviour from source: `ponens trace symbols` is the index (one small record per symbol — grade, freshness, gaps, the entry to cite — small enough to carry in a prompt), and `ponens trace symbol` is the detail (what is established, what it turns on, and the region map on request, narrowed by `--where`). Freshness rides on every record and absence is an answer; a truncated or bounded answer always says so. |
 | [`POLICY_SPEC_v0_2.md`](POLICY_SPEC_v0_2.md) | 0.2 | Draft | **Computable Governance.** The policy object model and the temporal/structural DSL (LTL over finite traces + lineage/residual/field predicates) evaluated over a trace. |
 | [`POLICY_LANGUAGE_v0_2.md`](POLICY_LANGUAGE_v0_2.md) | 0.2 | Draft | **Operator reference** (reader-friendly companion to `POLICY_SPEC` §9–13). The full operator set — future/past/scoped-past LTLf, boolean connectives, atomic propositions, structural predicates, quantifiers — trace semantics, and the `language_level` fragments. |
 | [`GOAL_FAITHFULNESS_v0_1.md`](GOAL_FAITHFULNESS_v0_1.md) | 0.1 | Draft | **Definition of done, done right.** Refines TRACE §18 — separates *met* (resolution) from *right* (criteria reviewed by a non-doer), with strength grading, coverage (`covers`), and temporal anchoring against retrofitting. |
@@ -42,6 +44,8 @@ invariant models plus the layered trace+policy model in
             ▼
    …_REVIEWCASE_SEMANTICS  (how policy satisfaction reads over the three)
 
+ RECORD_OVERVIEW     — how a record is read (requirements · evidence · gaps · gate · next)
+ RECORD_QUERY        — how a record is asked (what is known about a symbol, and is it still true)
  REVIEW_HANDOFF      — the protocol for consuming a trace in review
  CLI_SYNC_MODEL      — how traces move (file ↔ git ↔ hub)
  POLICY_SOURCES      — where policies come from

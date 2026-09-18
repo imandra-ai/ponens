@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-3-memory-pass",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(∀input ∈ inputs(a) → ∃!b . b < a ∧ input ∈ outputs(b))"
+      "formula": "G(\u2200input \u2208 inputs(a) \u2192 \u2203!b . b < a \u2227 input \u2208 outputs(b))"
     }
   ],
   "artifacts": [

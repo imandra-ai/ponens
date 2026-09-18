@@ -2,11 +2,13 @@
 
 ## Version
 
-**Version:** 1.12  
+**Version:** 1.13  
 **Status:** Draft  
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
 
+> **Changes in 1.13 (additive, backward-compatible).** Bindings in the record: §11.2 *conformance against a reference* (a `ConformanceResult` may name a `reference_artifact_id` that is a reference artifact, which is then a valid `derived_from` parent; records `entry_symbol`, `target_symbol`, `conformance_kind`, `reference_version`, `reference_checksum`), §18.1 `reference` on an acceptance item (met only by evidence against that reference), §11.3 *reference freshness* (Stale when the reference's version or checksum moved, Detached when it is gone), and the `conforms_to(<reference id>)` policy predicate. The companion `RECORD_OVERVIEW_v0_1.md` fixes how a record is *read* in five words (requirement · evidence · gap · record · gate) - `ponens trace requirements` / `overview` / `integrity` - so no renderer re-derives semantics.
+>
 > **Changes in 1.12 (additive, backward-compatible).** Makes the **oracle a generic type** across the trace model, per `ORACLE_SPEC_v0_2.md`. Adds an **`Observation`** artifact (§7.1, §10.11) - the typed landing place for a *monitor's* evidence: a database or reference-data store queried for a fact, a feed, telemetry - so non-formal evidence is first-class rather than filed under `CommandResult`. Adds an **attribution block** `payload.oracle` (§10.12) on every evidence payload naming the oracle `id`, `oracle_type`, `version` and the honest `evidence_strength` of *this* result; `engine` / `engine_version` remain and are its reasoner profile. Generalizes the 1.9 `reasoning_fingerprint` to an **evidence fingerprint** (§10.4a) with a `subject_checksum` / `subject_ref` / `valid_until`, so the derived freshness verdict (§18.3) is defined for *any* oracle's evidence - a proof goes `Stale` when its dependency closure changes, an observation when its source republishes or its validity expires - and adds an **`Unknown`** freshness outcome for evidence whose subject cannot be re-read. The `oracle_type` vocabulary is **open** (standard names are a classification; consumers warn on, never reject, an unknown name). All additive: a trace may carry none of these, so existing 1.4-1.11 traces remain valid and unchanged.
 
 > **Changes in 1.11 (additive, backward-compatible).** Specifies **integrity and cryptographic signatures** (§12.4) - the fields the sync/sign-off layer writes onto a trace, previously defined only in `CLI_SYNC_MODEL_v0_1.md` and `AUDIT_READINESS_v0_1.md`. Adds two top-level fields (§5): a **`content_hash`** (sha256 over the canonical trace, *excluding* transport/binding metadata and signatures - the `HASH_EXCLUDE` set) and a **`signatures`** list of cryptographic sign-offs *over* that `content_hash`. A **`signature`** (§12.4) records the `signer`, the `content_hash` it covers, the `algo` (**`ssh`** | **`gpg`** | **`sigstore`**), the backend-specific `signature` material, and optional `role`/`disposition` (what the party is attesting) and an RFC-3161 trusted **`timestamp`** (a TSA-attested "existed by *t*", not a machine-clock claim). Because `signatures` is excluded from `content_hash`, multiple parties **co-sign the same content** with whatever backend they trust; verification yields a uniform verdict (**`valid` | `untrusted` | `invalid` | `tampered`**). All additive: a trace may carry neither field, so existing 1.4-1.10 traces remain valid and unchanged. Also additive in 1.11: an **`acceptance_item`** (§18.1) MAY carry a composable **`formula`** — the goal *property language* (`and` / `or` / `not` / `⇒` and `forall` / `exists` over component selectors, with per-atom `met` / `governed` roles). A single-criterion item is the atomic case and resolves exactly as before; grammar and status-lattice semantics are in `GOAL_CONTRACT_v0_2` §9.
@@ -1044,6 +1046,48 @@ type reference_artifact =
   }
 ```
 
+## 11.2 Conformance against a reference (additive, 1.13)
+
+A reference artifact is what a **binding** puts in the record: a repository declares that a code
+symbol implements a catalogue entry (a regulation article, a venue specification, an API model, a
+spec-first model of its own) at a pinned version, and the entry becomes a `reference_artifact` of type
+`RefFormalModel` whose `version` is the pinned text version and whose `payload.checksum` fingerprints
+the model's content. Conformance evidence **names what it was judged against**:
+
+- A `ConformanceResult` whose `payload.reference_artifact_id` is a reference artifact id is *conformance
+  to the reference* (as opposed to §10.11's model↔code fidelity, where the reference is the source or
+  the model). Its `derived_from` **includes the reference artifact id** — a reference artifact is a valid
+  lineage parent — so the reference is in the evidence's dependency closure. Validation (§12) rejects a
+  `reference_artifact_id` that names neither an artifact nor a reference artifact.
+- The payload additionally records `entry_symbol` (the reference-model symbol), `target_symbol` (the
+  code symbol), `conformance_kind` (`refinement` | `equivalence` | `invariant`), and what it saw of
+  the reference at production time: `reference_version` and `reference_checksum`.
+- Its `evidence_strength` says how conformance was established: `proof` (a refinement / equivalence
+  theorem discharged by a reasoner), `sat` (a witness), `tests` (region-derived tests from the reference
+  model executed against the code), `static_analysis` (a schema check), `attested`. The binding names
+  the minimum strength it requires; the policy gate enforces it.
+- A **goal criterion may name a reference** (§18.1: `reference : string option` on an acceptance
+  item). Such a criterion is met only by evidence of the required type, rooted in the component, **whose
+  `reference_artifact_id` equals the criterion's `reference`**. A proof of some other property of the
+  same component is not conformance to the entry.
+- The interpretation a binding chooses where the entry admits more than one reading is an
+  `assumption` residual (§13) with `source: binding`, `waived` with the approver's justification when
+  approved and `open` otherwise.
+
+The policy predicate `conforms_to(<reference id>)` (POLICY_LANGUAGE §evidence attribution) holds for an
+action that produced conformance evidence against that reference; an unversioned id matches any
+version of the entry.
+
+## 11.3 Reference freshness (derived)
+
+Freshness (§18.3) extends to references by the closure rule: evidence whose closure contains a
+reference artifact is **Stale** once the trace's reference artifact of that id carries a `version` or
+`payload.checksum` different from the `reference_version` / `reference_checksum` the evidence recorded,
+and **Detached** when the reference is no longer in the trace. The verdict is derived per (reference,
+target symbol, entry symbol) on the **latest** result, so re-establishing conformance against the new
+version heals the guard. A catalogue revision therefore stales every trace resting on the old version
+without any change to the code.
+
 ---
 
 # 12. Reproducibility
@@ -1766,6 +1810,8 @@ type acceptance_item =
   ; kind : acceptance_kind
   ; label : string                        (* what this criterion means, in plain language *)
   ; binding : acceptance_binding option    (* how it resolves; if absent, `status` is manual *)
+  ; reference : string option              (* §11.2: a reference artifact id the evidence must be
+                                              judged against (its `reference_artifact_id`) *)
   ; status : acceptance_status option      (* authored fallback when unbound or unresolved *)
   ; formula : json option                  (* composable acceptance (v1.11, additive): a formula tree over
                                               atomic criteria — and / or / not / implies / forall / exists,

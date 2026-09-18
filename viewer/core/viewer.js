@@ -268,7 +268,24 @@ function normalizeTrace(data) {
 
   if (version === '1.0') return; // no normalization needed
 
-  // Residuals are first-class artifacts (§13, v1.8): fold any legacy top-level `residuals` list into
+  /**
+ * The spec this viewer is built against. Only used to tell a reader that a trace predates it - the
+ * viewer renders every version from 1.0 onward, so this is never a compatibility check.
+ */
+const SPEC_VERSION = '1.13';
+
+/** Compare two dotted versions numerically: `1.8` is BEFORE `1.13`, which a string compare gets wrong. */
+function cmpSpec(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
+// Residuals are first-class artifacts (§13, v1.8): fold any legacy top-level `residuals` list into
   // Residual artifacts so the DAG/list render them natively, then expose the residual *surface* back
   // on data.residuals (projected from the artifacts) so the surface/attention/goal views read one shape.
   _migrateResidualsInPlace(data);
@@ -383,10 +400,20 @@ function loadTrace(data) {
   document.getElementById('traceMeta').innerHTML =
     `<span>LLM used: ${esc(data.model)}</span><span>Trace updated: ${esc(data.timestamp)}</span>`;
   // Show spec version next to title
+  // The badge is the version of the TRACE's format, not of the viewer - but it sits beside the title,
+  // so a bare `v1.8` reads as "this viewer is old" when it means "this trace was written against an
+  // older spec". Say which, and mark a trace the current viewer has since moved past.
   const vBadgeEl = document.getElementById('headerVersionBadge');
   if (vBadgeEl) {
     if (data._spec_version && data._spec_version !== '1.0') {
-      vBadgeEl.textContent = 'v' + data._spec_version;
+      const v = String(data._spec_version);
+      const behind = cmpSpec(v, SPEC_VERSION) < 0;
+      vBadgeEl.textContent = 'trace spec v' + v;
+      vBadgeEl.title = behind
+        ? `This trace was written against spec ${v}; the current spec is ${SPEC_VERSION}. `
+          + 'Older traces stay valid and render fully - newer fields are simply absent.'
+        : `This trace declares spec ${v}.`;
+      vBadgeEl.classList.toggle('is-behind', behind);
       vBadgeEl.style.display = '';
     } else {
       vBadgeEl.style.display = 'none';

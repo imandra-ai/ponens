@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-stripe-payment-flow-001",
-  "spec_version": "1.8",
+  "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-03-28T10:00:00Z",
@@ -12,12 +12,12 @@
   "goals": [
     {
       "id": "session-goal",
-      "intent": "Add high-risk approval (2 approvals) and 3DS/SCA challenge support to the Stripe payment flow — and prove the money math still holds",
+      "intent": "Add high-risk approval (2 approvals) and 3DS/SCA challenge support to the Stripe payment flow \u2014 and prove the money math still holds",
       "intent_author": "human",
       "intent_clauses": [
         "high-risk payments require two approvals before capture",
         "3DS/SCA challenge is enforced before capture",
-        "amount invariants hold: 0 ≤ refunded ≤ captured ≤ amount",
+        "amount invariants hold: 0 \u2264 refunded \u2264 captured \u2264 amount",
         "the flow conforms to the Stripe reference model"
       ],
       "scope": [
@@ -38,7 +38,7 @@
           "evidence": "a10",
           "author": "agent",
           "covers": [
-            "amount invariants hold: 0 ≤ refunded ≤ captured ≤ amount"
+            "amount invariants hold: 0 \u2264 refunded \u2264 captured \u2264 amount"
           ]
         },
         {
@@ -240,6 +240,11 @@
           "refuted": {
             "counterexample": "amt = 1\no = { amount = 8957;\n      amount_captured = 8957;\n      amount_refunded = 1238;\n      status = ApprovedForCapture;\n      ... }\n\nAfter capture_payment:\n  amount_captured = 1\n  amount_refunded = 1238  <- VIOLATES refunded <= captured"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -400,6 +405,11 @@
               }
             ]
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -437,6 +447,11 @@
           "proved": {
             "proof_pp": "goal_3ds_blocks_authorization: proved by T_deduction"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -474,6 +489,11 @@
           "proved": {
             "proof_pp": "goal_high_risk_needs_two_approvals: proved by T_deduction"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -511,6 +531,11 @@
           "proved": {
             "proof_pp": "goal_high_risk_3ds_requires_both: proved by T_deduction"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -793,7 +818,12 @@
             "expected": "Refunded",
             "code": "def test_full_refund():\n    o = Order(amount=100, amount_captured=100,\n              status=OrderStatus.CAPTURED)\n    result = step(Action(ActionKind.REFUND, 100), o)\n    assert result.status == OrderStatus.REFUNDED\n    assert result.amount_refunded == 100"
           }
-        ]
+        ],
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "example-model"
+        }
       }
     },
     {
@@ -910,13 +940,18 @@
               }
             ]
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
     {
       "artifact_id": "r1",
       "artifact_type": "Residual",
-      "name": "limitation: Amount invariants are proved for single-threaded…",
+      "name": "limitation: Amount invariants are proved for single-threaded\u2026",
       "payload": {
         "kind": "limitation",
         "severity": "high",
@@ -947,7 +982,7 @@
     {
       "artifact_id": "r2",
       "artifact_type": "Residual",
-      "name": "unverified: Dispute and chargeback transitions were not form…",
+      "name": "unverified: Dispute and chargeback transitions were not form\u2026",
       "payload": {
         "kind": "unverified",
         "severity": "medium",
@@ -975,7 +1010,7 @@
     {
       "artifact_id": "r3",
       "artifact_type": "Residual",
-      "name": "open question: Should a refund reset approval_count for a subse…",
+      "name": "open question: Should a refund reset approval_count for a subse\u2026",
       "payload": {
         "kind": "open_question",
         "severity": "low",
@@ -1458,7 +1493,7 @@
       "category": "reasoning",
       "type": "DefineVG",
       "label": "Define: conformance against Stripe Reference Model",
-      "rationale": "verify that the agent's formalization correctly refines the Stripe Payment Reference Model (ref_stripe_payments v2024-12) — capture, refund, and cancel must produce the same results as the reference implementation",
+      "rationale": "verify that the agent's formalization correctly refines the Stripe Payment Reference Model (ref_stripe_payments v2024-12) \u2014 capture, refund, and cancel must produce the same results as the reference implementation",
       "inputs": [
         "a8"
       ],
@@ -1480,7 +1515,7 @@
       "id": 33,
       "category": "reasoning",
       "type": "Verify",
-      "label": "Verify: Stripe reference model conformance — PROVED",
+      "label": "Verify: Stripe reference model conformance \u2014 PROVED",
       "rationale": "ImandraX proves that the agent's formalization is a valid refinement of the Stripe reference model: capture, refund, cancel all conform, and the reference amount invariant is preserved",
       "inputs": [
         "a22"
@@ -1497,7 +1532,7 @@
         "status": "completed",
         "artifact_id": "a23"
       },
-      "result_summary": "proved — all 4 reference model conformance properties hold",
+      "result_summary": "proved \u2014 all 4 reference model conformance properties hold",
       "execution": {
         "tool": "imandrax",
         "version": "2026.04",
@@ -1596,7 +1631,7 @@
       "applies_when": {
         "action_type": "EditFile"
       },
-      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -1608,7 +1643,7 @@
       "applies_when": {
         "category": "gateway"
       },
-      "formula": "G(gateway → rationale ≠ ∅)"
+      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
     },
     {
       "policy_id": "p3",
@@ -1620,7 +1655,7 @@
       "applies_when": {
         "action_type": "GitCommit"
       },
-      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+      "formula": "G(GitCommit \u2192 P(RunTests \u2227 completed))"
     },
     {
       "policy_id": "p4",
@@ -1632,7 +1667,7 @@
       "applies_when": {
         "action_type": "GitCommit"
       },
-      "formula": "G(GitCommit → (RunTests ∧ completed) S_last GitCommit)"
+      "formula": "G(GitCommit \u2192 (RunTests \u2227 completed) S_last GitCommit)"
     },
     {
       "policy_id": "p5",
@@ -1644,7 +1679,7 @@
       "applies_when": {
         "action_type": "DeleteFile"
       },
-      "formula": "G(DeleteFile → P_chain UserApproval)"
+      "formula": "G(DeleteFile \u2192 P_chain UserApproval)"
     },
     {
       "policy_id": "p6",
@@ -1653,7 +1688,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(action → rationale ≠ ∅)"
+      "formula": "G(action \u2192 rationale \u2260 \u2205)"
     },
     {
       "policy_id": "p7",
@@ -1662,7 +1697,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(∀input ∈ inputs(a) → ∃!b . b < a ∧ input ∈ outputs(b))"
+      "formula": "G(\u2200input \u2208 inputs(a) \u2192 \u2203!b . b < a \u2227 input \u2208 outputs(b))"
     },
     {
       "policy_id": "p8",
@@ -1674,7 +1709,7 @@
       "applies_when": {
         "artifact_type": "VerificationGoal"
       },
-      "formula": "G(VerificationGoal → target_artifact_id ∈ {a.id | a.type = IMLModel})"
+      "formula": "G(VerificationGoal \u2192 target_artifact_id \u2208 {a.id | a.type = IMLModel})"
     },
     {
       "policy_id": "p9",
@@ -1683,7 +1718,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "start_event ∧ F end_event"
+      "formula": "start_event \u2227 F end_event"
     },
     {
       "policy_id": "p10",
@@ -1692,7 +1727,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "files_modified = {target(a) | G(a ∧ (EditFile ∨ CreateFile ∨ DeleteFile))}"
+      "formula": "files_modified = {target(a) | G(a \u2227 (EditFile \u2228 CreateFile \u2228 DeleteFile))}"
     },
     {
       "policy_id": "p11",
@@ -1709,7 +1744,7 @@
           "stripe_payment_flow*.py"
         ]
       },
-      "formula": "G(EditFile ∧ high_stakes_path → P_chain(VerificationResult(proved ∨ sat) ∨ Decomposition))"
+      "formula": "G(EditFile \u2227 high_stakes_path \u2192 P_chain(VerificationResult(proved \u2228 sat) \u2228 Decomposition))"
     },
     {
       "policy_id": "p12",
@@ -1721,7 +1756,7 @@
       "applies_when": {
         "artifact_type": "GeneratedTests"
       },
-      "formula": "G(GeneratedTests → Decomposition ∈ ancestors(derived_from))"
+      "formula": "G(GeneratedTests \u2192 Decomposition \u2208 ancestors(derived_from))"
     },
     {
       "policy_id": "p13",
@@ -1738,7 +1773,7 @@
         ]
       },
       "reference_model_id": "ref_stripe_payments",
-      "formula": "G(Formalize ∧ stripe_domain → P_chain(VerificationResult(proved) ∧ ref_model(ref_stripe_payments)))"
+      "formula": "G(Formalize \u2227 stripe_domain \u2192 P_chain(VerificationResult(proved) \u2227 ref_model(ref_stripe_payments)))"
     }
   ],
   "policy_evaluations": [
@@ -1957,7 +1992,7 @@
       "verification_goals": [
         {
           "vg_id": "ref_vg_link_monotonic",
-          "description": "Link token lifecycle is monotonic — succeeded tokens cannot restart",
+          "description": "Link token lifecycle is monotonic \u2014 succeeded tokens cannot restart",
           "kind": "invariant",
           "iml": "verify (fun (lt : link_token) ->\n  lt.lt_status = LinkSucceeded ==>\n  complete_link lt = lt && start_link lt = lt)"
         },
@@ -2036,7 +2071,7 @@
     {
       "id": "m4",
       "title": "Prove the amount invariants",
-      "intent": "0 ≤ refunded ≤ captured ≤ amount across all 7 transitions",
+      "intent": "0 \u2264 refunded \u2264 captured \u2264 amount across all 7 transitions",
       "action_ids": [
         21,
         22

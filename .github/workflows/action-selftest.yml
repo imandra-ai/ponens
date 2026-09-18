@@ -1,0 +1,45 @@
+name: Action self-test
+
+# Dogfoods the GitHub Action in action/ on this repository: unit-tests its pure core, then runs it for
+# real against a sample trace (installing ponens from this checkout), so a change to the CLI's output
+# shape or exit codes that would break the action is caught here, not in a customer's CI.
+on:
+  pull_request:
+    paths: ["action/**", "cli/**", "examples/**", ".github/workflows/action-selftest.yml"]
+  push:
+    branches: [main]
+    paths: ["action/**", "cli/**", "examples/**", ".github/workflows/action-selftest.yml"]
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ponens from this checkout + pytest
+        run: pip install -e ./cli pytest
+
+      - name: Unit-test the action's core (+ end to end against the sample, no PR comment)
+        run: python3 -m pytest -q action/test_run.py
+
+      - name: Stage the sample as a published trace
+        run: mkdir -p .ponens && cp examples/stripe_v1_1.json .ponens/stripe.json
+
+      - name: Run the action (this checkout's ponens)
+        id: ponens
+        uses: ./action
+        with:
+          ponens-source: local
+          fail-on: error
+
+      - name: Outputs
+        run: |
+          echo "status=${{ steps.ponens.outputs.status }} violations=${{ steps.ponens.outputs.violations }} goals=${{ steps.ponens.outputs.goals-met }} trace=${{ steps.ponens.outputs.trace }}"
+          test "${{ steps.ponens.outputs.status }}" = "passed" || test "${{ steps.ponens.outputs.status }}" = "advisory"

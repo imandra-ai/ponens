@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-4-intent-pass",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall ∨ Release ∨ Deploy → intent_resolved)"
+      "formula": "G(ToolCall \u2228 Release \u2228 Deploy \u2192 intent_resolved)"
     }
   ],
   "artifacts": [
@@ -78,8 +78,8 @@
     {
       "id": 3,
       "type": "Decision",
-      "rationale": "vol spiked 3x; revise objective VWAP → Implementation Shortfall",
-      "label": "objective revised — new intent declared: IntentID IS-771 (max 8% ADV)",
+      "rationale": "vol spiked 3x; revise objective VWAP \u2192 Implementation Shortfall",
+      "label": "objective revised \u2014 new intent declared: IntentID IS-771 (max 8% ADV)",
       "inputs": [
         "intent-vwap",
         "vol-obs"
@@ -105,7 +105,7 @@
       "id": 5,
       "type": "Release",
       "rationale": "execute against the newly declared objective",
-      "label": "child order — intent resolved → IntentID IS-771",
+      "label": "child order \u2014 intent resolved \u2192 IntentID IS-771",
       "inputs": [
         "is-schedule"
       ],
@@ -129,7 +129,7 @@
     {
       "id": "m2",
       "title": "Revise objective on volatility",
-      "intent": "switch VWAP → Implementation Shortfall with rationale",
+      "intent": "switch VWAP \u2192 Implementation Shortfall with rationale",
       "action_ids": [
         2,
         3

@@ -138,7 +138,7 @@ require a richer evaluation engine.
 
 - **Artifact types** — `VerificationGoal`, `VerificationResult`, `IMLModel`, `Decomposition`, `GeneratedTests`, `UserApproval`, `Observation` (a monitor's evidence, Trace Spec 1.12 §10.11)
 - **Result status** — `proved`, `refuted`, `sat`, `unknown`
-- **Evidence attribution** (ORACLE_SPEC v0.2 §6) — read from the attribution block of the artifacts an action produced: `strength_at_least(s)` (the result's honest `evidence_strength` is at least `s`; false when unranked), `oracle_type(t)` (the producing oracle's mechanism is `t`, or specializes it), `produced_by(id)` (the producing oracle's id). Oracle invocations are also atoms by their typed action: `Verify`, `Test`, `Analyze`, `Observe`, `Judge`, `Attest`.
+- **Evidence attribution** (ORACLE_SPEC v0.2 §6) — read from the attribution block of the artifacts an action produced: `strength_at_least(s)` (the result's honest `evidence_strength` is at least `s`; false when unranked), `oracle_type(t)` (the producing oracle's mechanism is `t`, or specializes it), `produced_by(id)` (the producing oracle's id), `conforms_to(ref)` (the action produced conformance evidence judged against the reference artifact `ref` — TRACE_SPEC §11.2; the argument is taken verbatim up to the closing paren, and an unversioned id such as `ref:atlas:mifir-rts22-art4` matches any version). Oracle invocations are also atoms by their typed action: `Verify`, `Test`, `Analyze`, `Observe`, `Judge`, `Attest`.
 - **Lineage** — `ancestors(derived_from)`, the transitive closure of `derived_from` over the artifact DAG
 - **Reference integrity** — `target_artifact_id ∈ {a.id | a.type = T}`
 - **Set operations** — `inputs(a)`, `outputs(b)`, `target(a)`, and set comprehensions `{… | …}`
@@ -259,5 +259,5 @@ log.
 
 See also the [Policy Specification](./POLICY_SPEC_v0_2.md) (the policy object,
 selectors, and evaluation records) and the
-[Trace Specification](./TRACE_SPEC_v1_12.md) (the actions and artifacts these
+[Trace Specification](./TRACE_SPEC_v1_13.md) (the actions and artifacts these
 formulas range over).

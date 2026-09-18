@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-1-stale-fail",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Retrieve → provenance_checked ∧ recency_checked)"
+      "formula": "G(Retrieve \u2192 provenance_checked \u2227 recency_checked)"
     }
   ],
   "artifacts": [

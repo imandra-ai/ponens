@@ -75,6 +75,21 @@ as a derived gap rather than continuing to read green. It is also, evaluated at 
 than against the working tree, the exact signal the merge operator uses to compute affected sets
 (\S\ref{sec:merge}).
 
+\subsection{Reference freshness}\label{sec:freshness-reference}
+
+The closure rule extends without change to a dependency that is not code. When a result's closure contains
+a \emph{reference artifact} (\S\ref{sec:goals-reference}) --- the model outside the repository it was judged
+against --- the result records what it saw of that reference, its \code{reference\_version} and
+\code{reference\_checksum}. It is \code{Stale} once the trace's reference artifact of that id carries a
+different version or checksum (the catalogue moved on) and \code{Detached} when the reference is no longer
+in the trace at all (the binding was retired). The verdict is derived per (reference, target symbol,
+model symbol) on the \emph{latest} result, so re-establishing conformance against the new version heals the
+guard, and it surfaces as the same derived residuals a stale proof does. Two properties follow. A catalogue
+revision therefore stales every trace resting on the old version with no edit to any file the repository
+owns --- exactly the case a code-fingerprint alone cannot see. And the decision is symmetric with the code
+side: a change to the implementation invalidates conformance through the target's closure, a change to the
+reference invalidates it through the reference's, and the record shows which leg moved.
+
 \subsection{The formal model}\label{sec:freshness-model}
 
 Freshness is not merely described; its decision core is a \emph{specification-first} model in IML, proved

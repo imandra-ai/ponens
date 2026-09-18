@@ -1,6 +1,6 @@
 {
   "trace_id": "do178c-violating-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "do178c-lifecycle",
   "model": "demo",
   "trigger": {
@@ -124,7 +124,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((HLR ∨ LLR ∨ SourceCode ∨ Test) → baselined)",
+      "formula": "G((HLR \u2228 LLR \u2228 SourceCode \u2228 Test) \u2192 baselined)",
       "description": "All life-cycle data configuration items are identified and placed under configuration management (baselined)."
     },
     {
@@ -133,7 +133,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Change → P(change_approved))",
+      "formula": "G(Change \u2192 P(change_approved))",
       "description": "Changes to baselined configuration items occur only through an approved change-control process."
     },
     {
@@ -142,7 +142,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(SourceCode → P_chain(LLR))",
+      "formula": "G(SourceCode \u2192 P_chain(LLR))",
       "description": "Source code is developed from, and traces to, the low-level requirements."
     },
     {
@@ -151,7 +151,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(SourceCode → reviewed ∨ analyzed)",
+      "formula": "G(SourceCode \u2192 reviewed \u2228 analyzed)",
       "description": "Source code is verified (review/analysis) for compliance with the low-level requirements and coding standards."
     },
     {
@@ -160,7 +160,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(DerivedRequirement → P(safety_assessed))",
+      "formula": "G(DerivedRequirement \u2192 P(safety_assessed))",
       "description": "Derived requirements (not traceable to a higher level) are provided to the system safety assessment process."
     },
     {
@@ -169,7 +169,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(HLR → P_chain(SystemRequirement))",
+      "formula": "G(HLR \u2192 P_chain(SystemRequirement))",
       "description": "High-level requirements are developed from, and trace to, system requirements (bidirectional traceability)."
     },
     {
@@ -178,7 +178,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(HLR → reviewed ∧ requirements_accurate)",
+      "formula": "G(HLR \u2192 reviewed \u2227 requirements_accurate)",
       "description": "High-level requirements are verified for compliance, accuracy and consistency (review/analysis)."
     },
     {
@@ -187,7 +187,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(LLR → P_chain(HLR))",
+      "formula": "G(LLR \u2192 P_chain(HLR))",
       "description": "Low-level requirements (software design) are developed from, and trace to, high-level requirements."
     },
     {
@@ -196,7 +196,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(LLR → reviewed)",
+      "formula": "G(LLR \u2192 reviewed)",
       "description": "Low-level requirements / design are verified by review or analysis."
     },
     {
@@ -205,7 +205,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(plans_approved))",
+      "formula": "G((HLR \u2228 LLR \u2228 SourceCode) \u2192 P(plans_approved))",
       "description": "Software plans (PSAC, SDP, SVP, SCMP, SQAP) are established and approved before development of life-cycle data begins."
     },
     {
@@ -214,8 +214,8 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ProblemReport → F(resolved ∨ deferred_with_rationale))",
-      "description": "Problem reports are tracked to closure — resolved, or deferred with recorded rationale."
+      "formula": "G(ProblemReport \u2192 F(resolved \u2228 deferred_with_rationale))",
+      "description": "Problem reports are tracked to closure \u2014 resolved, or deferred with recorded rationale."
     },
     {
       "policy_id": "psac_agreed",
@@ -223,7 +223,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((HLR ∨ LLR ∨ SourceCode) → P(psac_agreed))",
+      "formula": "G((HLR \u2228 LLR \u2228 SourceCode) \u2192 P(psac_agreed))",
       "description": "The Plan for Software Aspects of Certification (PSAC) is agreed with the certification authority before development proceeds."
     },
     {
@@ -232,7 +232,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((HLR ∨ LLR ∨ SourceCode) → sqa_reviewed)",
+      "formula": "G((HLR \u2228 LLR \u2228 SourceCode) \u2192 sqa_reviewed)",
       "description": "Software Quality Assurance assures that life-cycle processes and outputs comply with the approved plans and standards (conformity review)."
     },
     {
@@ -241,7 +241,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(SourceCode → P(standards_defined))",
+      "formula": "G(SourceCode \u2192 P(standards_defined))",
       "description": "Software requirements, design, and coding standards are defined before the corresponding life-cycle data is produced."
     },
     {
@@ -250,7 +250,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(CoverageAnalysis → coverage_achieved)",
+      "formula": "G(CoverageAnalysis \u2192 coverage_achieved)",
       "description": "Structural coverage analysis confirms the achieved coverage appropriate to the DAL (MC/DC at A, decision at B, statement at C)."
     },
     {
@@ -259,7 +259,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Test → P_chain(HLR))",
+      "formula": "G(Test \u2192 P_chain(HLR))",
       "description": "Every test case traces to the requirement it verifies (bidirectional requirements-to-test traceability)."
     },
     {
@@ -268,7 +268,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Test → requirements_based)",
+      "formula": "G(Test \u2192 requirements_based)",
       "description": "Test cases are requirements-based, exercising the software against its requirements (normal and robustness)."
     },
     {
@@ -277,7 +277,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((HLR ∨ LLR ∨ SourceCode) ∧ dal_a → independent_review)",
+      "formula": "G((HLR \u2228 LLR \u2228 SourceCode) \u2227 dal_a \u2192 independent_review)",
       "description": "At DAL A/B, verification of the development outputs is performed with independence."
     }
   ]

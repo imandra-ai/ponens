@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-2-tool-fail",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall → in_allowlist)"
+      "formula": "G(ToolCall \u2192 in_allowlist)"
     }
   ],
   "artifacts": [
@@ -75,7 +75,7 @@
       "type": "ToolCall",
       "rationale": "reach for an external dark-pool connector to beat the clock",
       "label": "invoke uncertified dark-pool-connector",
-      "result_summary": "returned malformed fill — failed",
+      "result_summary": "returned malformed fill \u2014 failed",
       "inputs": [
         "routing-plan"
       ],

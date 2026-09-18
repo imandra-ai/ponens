@@ -274,7 +274,10 @@ FIELDS = {
 }
 # Evidence predicates over the attribution block of an action's output artifacts (ORACLE_SPEC v0.2 §6):
 #   strength_at_least(proof)  oracle_type(monitor)  produced_by(calendar-db)
-EVIDENCE_PREDICATES = {'strength_at_least', 'oracle_type', 'produced_by'}
+EVIDENCE_PREDICATES = {'strength_at_least', 'oracle_type', 'produced_by', 'conforms_to'}
+# Predicates whose argument is an opaque id (a reference artifact id may carry ':', '@', '/', spaces):
+# the tokenizer captures everything up to the closing paren as ONE identifier token.
+RAW_ARG_PREDICATES = ('conforms_to',)
 
 # Unicode to ASCII mapping for tokenizer
 UNICODE_MAP = {
@@ -303,6 +306,18 @@ def tokenize(formula: str) -> list[Token]:
         if c in ' \t\n\r':
             i += 1
             continue
+
+        # Raw-argument predicates: conforms_to(<reference id>) — the id is one token, verbatim.
+        raw = next((p for p in RAW_ARG_PREDICATES if formula.startswith(p + '(', i)), None)
+        if raw is not None:
+            close = formula.find(')', i + len(raw) + 1)
+            if close > 0:
+                tokens.append(Token('IDENT', raw, i))
+                tokens.append(Token('LPAREN', '(', i + len(raw)))
+                tokens.append(Token('IDENT', formula[i + len(raw) + 1:close].strip(), i + len(raw) + 1))
+                tokens.append(Token('RPAREN', ')', close))
+                i = close + 1
+                continue
 
         # Unicode operators
         if c in UNICODE_MAP:

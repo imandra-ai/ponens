@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-form-validation-001",
-  "spec_version": "1.1",
+  "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-04-04T09:15:00Z",
@@ -182,7 +182,7 @@
             ],
             "invariant": "validation depends on unicode handling",
             "model": {
-              "email": "user@exämple.com",
+              "email": "user@ex\u00e4mple.com",
               "password": "securepass"
             },
             "model_eval": "depends"
@@ -270,7 +270,12 @@
             "expected": "invalid",
             "code": "it('rejects empty email and password', () => {\n  const result = validateSignup('', '');\n  expect(result.valid).toBe(false);\n  expect(result.errors.length).toBeGreaterThanOrEqual(2);\n});"
           }
-        ]
+        ],
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "example-model"
+        }
       }
     },
     {
@@ -322,7 +327,7 @@
       "id": 10,
       "category": "reasoning",
       "type": "Formalize",
-      "label": "Formalize: validation logic → IML",
+      "label": "Formalize: validation logic \u2192 IML",
       "rationale": "formalize the validation rules to find edge cases",
       "inputs": [
         "a1"
@@ -330,7 +335,7 @@
       "outputs": [
         "a2"
       ],
-      "result_summary": "transparent formalization → 4 IML symbols",
+      "result_summary": "transparent formalization \u2192 4 IML symbols",
       "execution": {
         "tool": "codelogician",
         "version": "2026.04",
@@ -341,7 +346,7 @@
       "id": 20,
       "category": "reasoning",
       "type": "Decompose",
-      "label": "Decompose: validate_signup — 11 regions",
+      "label": "Decompose: validate_signup \u2014 11 regions",
       "rationale": "find every distinct validation path including edge cases",
       "inputs": [
         "a2"
@@ -435,7 +440,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(Formalize ∧ form_validation → F(Decompose ∧ complete))"
+      "formula": "G(Formalize \u2227 form_validation \u2192 F(Decompose \u2227 complete))"
     },
     {
       "policy_id": "p2",
@@ -443,7 +448,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+      "formula": "G(GitCommit \u2192 P(RunTests \u2227 completed))"
     }
   ],
   "policy_evaluations": [

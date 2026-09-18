@@ -1,0 +1,163 @@
+name: "ponens — checked reasoning trace"
+description: >-
+  Every pull request gets a checked reasoning trace: validate the trace the agent published (or
+  reconstruct one from its transcript), run the policy gate, and post the goal scorecard, the gaps and
+  the evidence as a status and a PR comment. Runs entirely inside your CI — nothing leaves the runner.
+author: Imandra
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  trace:
+    description: >-
+      Path to the trace JSON. Default: the single trace under `.ponens/` (as published by an agent that
+      speaks ponens, e.g. CodeLogician's /cl-publish).
+    required: false
+    default: ""
+  transcript:
+    description: >-
+      Fallback when no trace was published: an agent session transcript to reconstruct a trace from with
+      `ponens emit` (Claude Code, Cursor, Gemini, Codex or pi format).
+    required: false
+    default: ""
+  transcript-format:
+    description: "Transcript format for `ponens emit --from` (claude-code | cursor | gemini | codex | pi)."
+    required: false
+    default: "claude-code"
+  policies:
+    description: >-
+      Comma-separated policy ids to add from the ponens gallery (e.g. `tests_before_commit,data_flow_integrity`)
+      on top of the policies the trace already carries.
+    required: false
+    default: ""
+  policy-file:
+    description: "A local policy / pack JSON file to check against as well (`ponens trace check --policy-file`)."
+    required: false
+    default: ""
+  fail-on:
+    description: >-
+      When the job fails: `error` (an error-severity policy failed — the default), `warning` (any failed
+      policy), or `never` (report only; the status stays green).
+    required: false
+    default: "error"
+  comment:
+    description: "Post / update the scorecard as a pull-request comment (one comment, updated in place)."
+    required: false
+    default: "true"
+  require-trace:
+    description: "Fail when no trace can be found or reconstructed (default: report and pass)."
+    required: false
+    default: "false"
+  strict-validate:
+    description: "Run `ponens trace validate --strict` (deep soundness: lineage order, references)."
+    required: false
+    default: "false"
+  github-token:
+    description: "Token used to post the PR comment. Defaults to the workflow token."
+    required: false
+    default: ${{ github.token }}
+  ponens-version:
+    description: "The ponens release to install."
+    required: false
+    default: "1.13.0"
+  ponens-source:
+    description: >-
+      Where to install ponens from: `git` (the release tag on GitHub — the default), `pypi`, or `local`
+      (`pip install -e ./cli`, for the ponens repository's own CI).
+    required: false
+    default: "git"
+  python-version:
+    description: "Python to run ponens with."
+    required: false
+    default: "3.12"
+  bindings:
+    description: >-
+      The regulatory/specification bindings check (`cl requirements --json` from CodeLogician). `auto` (the
+      default) runs `cl requirements --json` when `.codelogician/bindings.yaml` exists and `cl` is on PATH, or
+      reads a JSON file at `.ponens-ci/bindings.json` if a previous step produced one; a path reads that
+      JSON; `off` skips the check. A failed bindings gate fails the job under `fail-on: error|warning`.
+    required: false
+    default: "auto"
+  scan:
+    description: >-
+      The autonomous scan (`cl scan --json` from CodeLogician). `off` (default) skips it; `no-agent`
+      reads the proposals and the record as they stand with no model call - the nightly mode, where a
+      revised rulebook shows up as out-of-date evidence; `agent` runs the agent headless (the agent and
+      its model credentials must be on the runner). On a pull request the scan is scoped to what changed
+      since the base. Something not met fails the job under `fail-on: error|warning`.
+    required: false
+    default: "off"
+  scan-issue:
+    description: >-
+      Outside a pull request (a scheduled run), open or update one issue carrying the scan's report.
+    required: false
+    default: "false"
+  scan-issue-title:
+    description: "The title of that issue (one open issue with this title is kept up to date)."
+    required: false
+    default: "CodeLogician scan"
+
+outputs:
+  status:
+    description: "passed | advisory | failed | invalid | no-trace"
+    value: ${{ steps.run.outputs.status }}
+  violations:
+    description: "Number of failed policies (any severity)."
+    value: ${{ steps.run.outputs.violations }}
+  bindings:
+    description: "The bindings gate: passed | failed | skipped."
+    value: ${{ steps.run.outputs.bindings }}
+  scan:
+    description: "The scan's headline (empty when the scan was off)."
+    value: ${{ steps.run.outputs.scan }}
+  scan-status:
+    description: "The scan folded by fail-on: passed | failed | skipped."
+    value: ${{ steps.run.outputs.scan-status }}
+  goals-met:
+    description: "Goals resolved met / goals declared, as `met/total`."
+    value: ${{ steps.run.outputs.goals }}
+  trace:
+    description: "The trace file that was checked (repo-relative), if any."
+    value: ${{ steps.run.outputs.trace }}
+  report:
+    description: "Path to the generated Markdown report."
+    value: ${{ steps.run.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install ponens
+      shell: bash
+      env:
+        PONENS_VERSION: ${{ inputs.ponens-version }}
+        PONENS_SOURCE: ${{ inputs.ponens-source }}
+      run: |
+        set -euo pipefail
+        case "$PONENS_SOURCE" in
+          pypi)  python3 -m pip install -q "ponens==${PONENS_VERSION}" ;;
+          local) python3 -m pip install -q -e "./cli" ;;
+          git|*) python3 -m pip install -q "ponens @ git+https://github.com/imandra-ai/ponens.git@v${PONENS_VERSION}#subdirectory=cli" ;;
+        esac
+        ponens --version
+
+    - name: Check the reasoning trace
+      id: run
+      shell: bash
+      env:
+        INPUT_TRACE: ${{ inputs.trace }}
+        INPUT_TRANSCRIPT: ${{ inputs.transcript }}
+        INPUT_TRANSCRIPT_FORMAT: ${{ inputs.transcript-format }}
+        INPUT_POLICIES: ${{ inputs.policies }}
+        INPUT_POLICY_FILE: ${{ inputs.policy-file }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_COMMENT: ${{ inputs.comment }}
+        INPUT_REQUIRE_TRACE: ${{ inputs.require-trace }}
+        INPUT_STRICT_VALIDATE: ${{ inputs.strict-validate }}
+        INPUT_BINDINGS: ${{ inputs.bindings }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: python3 "${{ github.action_path }}/run.py"

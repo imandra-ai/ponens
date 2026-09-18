@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-4-intent-fail",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall ∨ Release ∨ Deploy → intent_resolved)"
+      "formula": "G(ToolCall \u2228 Release \u2228 Deploy \u2192 intent_resolved)"
     }
   ],
   "artifacts": [
@@ -129,7 +129,7 @@
     {
       "id": "m2",
       "title": "Revise objective on volatility",
-      "intent": "switch VWAP → Implementation Shortfall with rationale",
+      "intent": "switch VWAP \u2192 Implementation Shortfall with rationale",
       "action_ids": [
         2,
         3

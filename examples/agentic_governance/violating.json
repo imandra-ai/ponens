@@ -1,6 +1,6 @@
 {
   "trace_id": "agentic-violating-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "agentic-workflow",
   "model": "demo",
   "trigger": {
@@ -52,7 +52,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(action → agent_id_resolved ∧ kya_valid)",
+      "formula": "G(action \u2192 agent_id_resolved \u2227 kya_valid)",
       "description": "Every agentic action must carry a resolvable AgentID bound to a valid KYA credential (NIST IAL2 human principal)."
     },
     {
@@ -61,7 +61,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release ∨ Deploy → P(UserApproval ∧ authenticated))",
+      "formula": "G(Release \u2228 Deploy \u2192 P(UserApproval \u2227 authenticated))",
       "description": "A consequential action must be preceded by a passed, authenticated approval gate."
     },
     {
@@ -70,7 +70,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(action → ¬credential_expiring)",
+      "formula": "G(action \u2192 \u00accredential_expiring)",
       "description": "KYA/vLEI credentials must not be within the expiry window (proposed threshold < 30 days)."
     },
     {
@@ -79,7 +79,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall ∨ Release ∨ Deploy → dce_current)",
+      "formula": "G(ToolCall \u2228 Release \u2228 Deploy \u2192 dce_current)",
       "description": "Consequential actions may proceed only while the referenced Deterministic Control Envelope (AlgoCertificate) is current and not invalidated."
     },
     {
@@ -88,7 +88,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release ∨ Deploy → decision_path_present)",
+      "formula": "G(Release \u2228 Deploy \u2192 decision_path_present)",
       "description": "Each consequential message should carry a DecisionPathID linking to a reconstructable decision graph."
     },
     {
@@ -97,7 +97,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall → P(default_deny_confirmed))",
+      "formula": "G(ToolCall \u2192 P(default_deny_confirmed))",
       "description": "At Tier 4 a default-deny authorisation must be confirmed before any tool call."
     },
     {
@@ -106,7 +106,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release → P(UserApproval ∧ approver_1) ∧ P(UserApproval ∧ approver_2))",
+      "formula": "G(Release \u2192 P(UserApproval \u2227 approver_1) \u2227 P(UserApproval \u2227 approver_2))",
       "description": "Tier 4 (Critical Autonomous) release requires two distinct authenticated approvals before proceeding."
     },
     {
@@ -115,8 +115,8 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall ∨ Release ∨ Deploy → intent_resolved)",
-      "description": "Every consequential action must resolve to a declared IntentID — the pre-declared objective and constraint set that authorised it."
+      "formula": "G(ToolCall \u2228 Release \u2228 Deploy \u2192 intent_resolved)",
+      "description": "Every consequential action must resolve to a declared IntentID \u2014 the pre-declared objective and constraint set that authorised it."
     },
     {
       "policy_id": "legal_entity_vlei_present",
@@ -124,7 +124,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(action → vlei_present)",
+      "formula": "G(action \u2192 vlei_present)",
       "description": "Every action must carry the verifiable LEI (vLEI / AgentOwnerLEI) of the regulated entity on whose behalf the agent acts."
     },
     {
@@ -133,7 +133,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(¬guard_violation)",
+      "formula": "G(\u00acguard_violation)",
       "description": "No runtime guard (alignment/confidence/policy-boundary) violation may occur in the trajectory."
     },
     {
@@ -142,7 +142,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(¬prohibited_transition)",
+      "formula": "G(\u00acprohibited_transition)",
       "description": "No action may attempt a transition that is not defined in the governed transition system for the current state."
     },
     {
@@ -151,7 +151,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release ∨ Deploy → P(UserApproval ∧ authenticated ∧ approval_scope_covers))",
+      "formula": "G(Release \u2228 Deploy \u2192 P(UserApproval \u2227 authenticated \u2227 approval_scope_covers))",
       "description": "External-facing release or dispatch may occur only after an authenticated approval event whose scope covers the intended action (Szpruch capability C4: Gated Release & Dispatch)."
     },
     {
@@ -160,7 +160,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Compute → deterministic_recompute)",
+      "formula": "G(Compute \u2192 deterministic_recompute)",
       "description": "Capability C2 (Deterministic Numeric Computation): numeric results must be recomputed by a deterministic (non-LLM) calculator, not asserted by the model."
     },
     {
@@ -169,7 +169,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Draft → template_compliant)",
+      "formula": "G(Draft \u2192 template_compliant)",
       "description": "Capability C3 (Policy-Constrained Drafting): drafted outputs must comply with approved templates and policy rules."
     },
     {
@@ -178,7 +178,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(action → policy_current)",
+      "formula": "G(action \u2192 policy_current)",
       "description": "The governing PolicyRefID must reference a current, certified policy document (not superseded or revoked)."
     },
     {
@@ -187,7 +187,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Retrieve → provenance_checked ∧ recency_checked)",
+      "formula": "G(Retrieve \u2192 provenance_checked \u2227 recency_checked)",
       "description": "Capability C1 (Retrieval & Attribution): retrieved data must carry provenance and recency checks before it is relied upon."
     },
     {
@@ -196,7 +196,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "∀ s ∈ telemetry . s.status = recorded",
+      "formula": "\u2200 s \u2208 telemetry . s.status = recorded",
       "description": "Every required governance-semantic telemetry span (capability invocations, tool calls, guard evaluations, approval events) must be recorded."
     },
     {
@@ -205,7 +205,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "count(ToolCall) ≤ 20",
+      "formula": "count(ToolCall) \u2264 20",
       "description": "The number of tool calls in a single workflow must stay within the per-workflow budget. Budget shown as 20; set per deployment."
     },
     {
@@ -214,7 +214,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(ToolCall → in_allowlist)",
+      "formula": "G(ToolCall \u2192 in_allowlist)",
       "description": "Every tool/capability invocation must lie within the certified allowlist for the agent's tier."
     },
     {
@@ -223,7 +223,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "count(action) ≤ 50",
+      "formula": "count(action) \u2264 50",
       "description": "The execution trajectory length must stay within the certified maximum (Lmax). Bound shown as 50; set per deployment."
     },
     {
@@ -232,7 +232,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(action → within_constraint_scope)",
+      "formula": "G(action \u2192 within_constraint_scope)",
       "description": "Every action must fall within the active ConstraintSet binding the execution (limits, permissions, risk envelope)."
     }
   ]

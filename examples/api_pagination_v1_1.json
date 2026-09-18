@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-api-users-endpoint-001",
-  "spec_version": "1.1",
+  "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-04-05T11:20:00Z",
@@ -84,8 +84,13 @@
         "engine": "imandrax",
         "result": {
           "proved": {
-            "proof_pp": "backward_compatible: proved by case analysis on page parameter — None always returns LegacyArray"
+            "proof_pp": "backward_compatible: proved by case analysis on page parameter \u2014 None always returns LegacyArray"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -121,8 +126,13 @@
         "engine": "imandrax",
         "result": {
           "proved": {
-            "proof_pp": "pagination_bounded: proved — List.take guarantees length <= per_page"
+            "proof_pp": "pagination_bounded: proved \u2014 List.take guarantees length <= per_page"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -272,7 +282,12 @@
             "expected": "empty users",
             "code": "def test_page_beyond_total():\n    resp = client.get('/users?page=100')\n    assert resp.json['users'] == []"
           }
-        ]
+        ],
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "example-model"
+        }
       }
     },
     {
@@ -339,13 +354,13 @@
       "outputs": [
         "a2"
       ],
-      "result_summary": "response shape will change — need backward compat"
+      "result_summary": "response shape will change \u2014 need backward compat"
     },
     {
       "id": 10,
       "category": "reasoning",
       "type": "Formalize",
-      "label": "Formalize: API response contract → IML",
+      "label": "Formalize: API response contract \u2192 IML",
       "rationale": "model the dual response format for verification",
       "inputs": [
         "a2"
@@ -353,7 +368,7 @@
       "outputs": [
         "a3"
       ],
-      "result_summary": "transparent formalization → 2 IML symbols",
+      "result_summary": "transparent formalization \u2192 2 IML symbols",
       "execution": {
         "tool": "codelogician",
         "version": "2026.04",
@@ -378,7 +393,7 @@
       "id": 12,
       "category": "reasoning",
       "type": "Verify",
-      "label": "Verify: backward compatibility — PROVED",
+      "label": "Verify: backward compatibility \u2014 PROVED",
       "rationale": "confirmed: omitting page parameter returns identical flat array",
       "inputs": [
         "a4"
@@ -386,7 +401,7 @@
       "outputs": [
         "a5"
       ],
-      "result_summary": "proved — legacy format preserved",
+      "result_summary": "proved \u2014 legacy format preserved",
       "execution": {
         "tool": "imandrax",
         "version": "2026.04",
@@ -412,7 +427,7 @@
       "id": 14,
       "category": "reasoning",
       "type": "Verify",
-      "label": "Verify: pagination bounds — PROVED",
+      "label": "Verify: pagination bounds \u2014 PROVED",
       "rationale": "confirmed: List.take guarantees bounded results",
       "inputs": [
         "a6"
@@ -420,7 +435,7 @@
       "outputs": [
         "a7"
       ],
-      "result_summary": "proved — results bounded by per_page",
+      "result_summary": "proved \u2014 results bounded by per_page",
       "execution": {
         "tool": "imandrax",
         "version": "2026.04",
@@ -432,7 +447,7 @@
       "id": 20,
       "category": "reasoning",
       "type": "Decompose",
-      "label": "Decompose: get_users — 6 regions",
+      "label": "Decompose: get_users \u2014 6 regions",
       "rationale": "find all edge cases including empty pages and out-of-bounds",
       "inputs": [
         "a3"
@@ -533,7 +548,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile → P_target(ReadFile ∨ AnalyzeCode))"
+      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -541,7 +556,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+      "formula": "G(GitCommit \u2192 P(RunTests \u2227 completed))"
     },
     {
       "policy_id": "p3",
@@ -549,7 +564,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile ∧ api_endpoint → P_chain(Verify ∧ proved))"
+      "formula": "G(EditFile \u2227 api_endpoint \u2192 P_chain(Verify \u2227 proved))"
     },
     {
       "policy_id": "p4",
@@ -557,7 +572,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(action → rationale ≠ ∅)"
+      "formula": "G(action \u2192 rationale \u2260 \u2205)"
     }
   ],
   "policy_evaluations": [

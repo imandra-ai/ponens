@@ -79,5 +79,6 @@
         "ponens.outputs": "child-order"
       }
     }
-  ]
+  ],
+  "spec_version": "1.13"
 }

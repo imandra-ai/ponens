@@ -1,6 +1,6 @@
 {
   "trace_id": "nist-rmf-governed-001",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "assistant": "ai-system",
   "model": "demo",
   "trigger": {
@@ -109,7 +109,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((Deploy ∨ Decision) → accountable_role)",
+      "formula": "G((Deploy \u2228 Decision) \u2192 accountable_role)",
       "description": "Clear roles, responsibilities and lines of accountability for the AI system are established."
     },
     {
@@ -118,7 +118,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(legal_requirements_mapped))",
+      "formula": "G(Deploy \u2192 P(legal_requirements_mapped))",
       "description": "Applicable legal and regulatory requirements involving AI are understood and managed."
     },
     {
@@ -127,7 +127,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G((Deploy ∨ Decision) → P(risk_policy_in_place))",
+      "formula": "G((Deploy \u2228 Decision) \u2192 P(risk_policy_in_place))",
       "description": "AI risk management policies and processes are in place and applied across the AI lifecycle."
     },
     {
@@ -136,7 +136,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Incident → F(responded ∧ recovered))",
+      "formula": "G(Incident \u2192 F(responded \u2227 recovered))",
       "description": "AI incidents and negative impacts are responded to, recovered from, and communicated."
     },
     {
@@ -145,8 +145,8 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(identified_risk → P(risk_treated))",
-      "description": "Each identified risk is treated — mitigated, transferred, avoided, or formally accepted."
+      "formula": "G(identified_risk \u2192 P(risk_treated))",
+      "description": "Each identified risk is treated \u2014 mitigated, transferred, avoided, or formally accepted."
     },
     {
       "policy_id": "rmf_manage_risks_prioritized",
@@ -154,7 +154,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(risks_prioritized))",
+      "formula": "G(Deploy \u2192 P(risks_prioritized))",
       "description": "AI risks are prioritized and acted upon based on assessment and impact."
     },
     {
@@ -163,7 +163,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(third_party_ai → P(thirdparty_risk_managed))",
+      "formula": "G(third_party_ai \u2192 P(thirdparty_risk_managed))",
       "description": "Risks from third-party AI resources (models, data, services) are identified and managed."
     },
     {
@@ -172,8 +172,8 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(context_established))",
-      "description": "The context — intended purpose, setting, and the AI system's role — is established and documented before deployment."
+      "formula": "G(Deploy \u2192 P(context_established))",
+      "description": "The context \u2014 intended purpose, setting, and the AI system's role \u2014 is established and documented before deployment."
     },
     {
       "policy_id": "rmf_map_impacts_characterized",
@@ -181,7 +181,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(impacts_characterized))",
+      "formula": "G(Deploy \u2192 P(impacts_characterized))",
       "description": "Potential impacts, benefits and risks to individuals, groups, communities and society are mapped."
     },
     {
@@ -190,7 +190,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(system_categorized))",
+      "formula": "G(Deploy \u2192 P(system_categorized))",
       "description": "The AI system is categorized by its capabilities, intended use, and risk level."
     },
     {
@@ -199,7 +199,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(fairness_measured ∧ bias_managed))",
+      "formula": "G(Deploy \u2192 P(fairness_measured \u2227 bias_managed))",
       "description": "The AI system is measured for fairness, with harmful bias identified and managed."
     },
     {
@@ -208,7 +208,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Output → tracked)",
+      "formula": "G(Output \u2192 tracked)",
       "description": "Mechanisms are in place to track identified AI risks and system performance over time."
     },
     {
@@ -217,7 +217,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(security_resilience_measured ∧ privacy_measured))",
+      "formula": "G(Deploy \u2192 P(security_resilience_measured \u2227 privacy_measured))",
       "description": "The AI system is measured for the secure-&-resilient and privacy-enhanced characteristics."
     },
     {
@@ -226,7 +226,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(transparency_measured ∧ explainability_measured))",
+      "formula": "G(Deploy \u2192 P(transparency_measured \u2227 explainability_measured))",
       "description": "The AI system is measured for the accountable-&-transparent and explainable-&-interpretable characteristics."
     },
     {
@@ -235,7 +235,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Deploy → P(validity_reliability_measured ∧ safety_measured))",
+      "formula": "G(Deploy \u2192 P(validity_reliability_measured \u2227 safety_measured))",
       "description": "The AI system is measured for the validity & reliability and safety trustworthiness characteristics before deployment."
     }
   ]

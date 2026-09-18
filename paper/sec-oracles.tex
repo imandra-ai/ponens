@@ -1,0 +1,119 @@
+\section{Oracles and evidence strength}\label{sec:oracles}
+
+Every certificate in \trace{} begins with \emph{who produced the claim}. \S\ref{sec:context} named that party
+an \emph{oracle} and \S\ref{sec:format} recorded its verdicts; this section makes the oracle a type. The
+point is not taxonomy. A proof, a test run, a static analysis, a database queried for a fact, an LLM's
+judgement and a human sign-off are all evidence an agent's work rests on, and a goal that rests on several
+of them is exactly as strong as the weakest. Unless each result carries the \emph{honest} strength of its own
+guarantee, ``proved'' silently absorbs ``a source said so,'' and the evidence logic grades a chain by its
+strongest link. The construction is therefore \emph{reasoner-agnostic} one level down --- ImandraX is one
+prover among several --- and \emph{oracle-agnostic} one level up: a reasoner is one kind of oracle among
+several, and goals, policies and composition treat them uniformly as attributed, graded evidence.
+
+\subsection{Mechanism and guarantee}\label{sec:oracles-type}
+
+Two classifiers travel with every result, and they are orthogonal. The \textbf{mechanism},
+\code{oracle\_type}, says \emph{how} the evidence was obtained (Table~\ref{tab:oracle-types}). The set is
+\emph{open}: the standard names are a classification, a consumer warns on an unknown one and never rejects
+it, and a specialized oracle names the standard type it \code{specializes} so that filters and policies
+written against the standard name still match. The \textbf{guarantee}, \code{evidence\_strength}, says
+\emph{what the output warrants}, in a total order, strongest first:
+\[
+\id{proof} \;>\; \id{sat} \;>\; \id{tests} \;>\; \id{static\_analysis} \;>\; \id{attested}.
+\]
+A \code{proof} holds over the entire, possibly unbounded, state space; \code{sat} is a witness or a bounded
+check; \code{tests} is empirical evidence from executed cases; \code{static\_analysis} is a sound-ish
+over-approximation without execution; \code{attested} is asserted by a source, a judge or a person and not
+mechanically established. The two are deliberately distinct: a reasoner running as a model checker yields
+\code{sat}, not \code{proof}; a monitor never yields more than \code{attested}, however authoritative its
+source. There is no separate \code{observed} grade: an observation \emph{is} \code{attested}, and the
+authority of its source is a matter of attribution (\S\ref{sec:oracles-attribution}), not of strength.
+Evidence that omits a strength is unranked and sorts last. The order is locked and propagates everywhere
+strength is read --- goal resolution, policy predicates, composition and every rendered screen.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lXX@{}}
+\toprule
+\code{oracle\_type} & What it does & Instances \\
+\midrule
+\code{reasoner} & formal engines: proof and decision procedures & ImandraX, Lean, Z3, a model checker \\
+\code{tester}   & dynamic execution: run it and observe & test runners, property-based testing, fuzzers, simulators, backtests \\
+\code{analyzer} & static inspection without execution & type checkers, SAST, linters, a schema or contract check \\
+\code{monitor}  & observational evidence from a live system or an external source & a database or reference-data store queried for a fact, telemetry, a rate-fixing, calendar or rulebook-version lookup \\
+\code{judge}    & heuristic or probabilistic assessment & an LLM as judge, rubric evaluators, model-graded evaluation \\
+\code{attestor} & a human or external sign-off & a reviewer, a domain expert, an external certification, a regulator \\
+\bottomrule
+\end{tabularx}
+\caption{The standard oracle types --- the \emph{mechanism} that produced a piece of evidence. The set is
+open; the guarantee a result carries is the separate \code{evidence\_strength}.}
+\label{tab:oracle-types}
+\end{table}
+
+\subsection{Attribution and the honesty rule}\label{sec:oracles-attribution}
+
+Every evidence artifact an oracle returns carries an \textbf{attribution block} in its payload:
+\code{payload.oracle = \{ id, oracle\_type, evidence\_strength, version \}} --- the registry id of the
+oracle, its mechanism, the strength of \emph{this} result, and the oracle version that produced it.
+Attribution is what makes a claim re-checkable by a party who was not there: a reviewer sees that a
+\code{VerificationResult} came from ImandraX at a given version, that an \code{Observation} came from the
+settlement-calendar database at schema version seven, that an \code{AnalysisNote} was an LLM judge's
+opinion --- and can re-ask the same oracle, or a different one of the same type. Reasoning results keep
+their \code{engine} / \code{engine\_version} fields; for a reasoner they equal the oracle's \code{id} /
+\code{version}, and a consumer reading an older trace derives the block from them, so attribution is
+additive.
+
+The \textbf{honesty rule} closes the gap between capability and outcome. The strength on a \emph{result}
+reflects the actual verdict, never what the oracle \emph{could} have produced: \code{proved} or
+\code{refuted} carry \code{proof}; a bounded or witnessed result carries \code{sat}; a passing run,
+\code{tests}; an observation or a sign-off, \code{attested}; and an \code{unknown}, timed-out or errored
+result carries \emph{no} strength at all. A consumer that finds a strength above the oracle's declared
+capability, or any strength on an unestablished result, raises a \code{Defeater} residual of kind
+\code{Undermines} against the artifact (\S\ref{sec:format-residual}): evidence never masquerades as stronger
+than what was established, and the rule is enforced by the record, not by the producer's discipline.
+
+\subsection{The evidence fingerprint and the \code{Observation}}\label{sec:oracles-fingerprint}
+
+A result is current only relative to the \emph{subject} the oracle answered about. For a reasoner the
+subject is the task --- the target symbol plus its dependency closure in the model; for a monitor it is the
+queried state --- which source, which query, what it returned, as of when; for a tester it is the code under
+test plus the inputs; for an attestor it is the claim signed. \S\ref{sec:freshness} anchored freshness on a
+reasoner-only fingerprint of the task; the generic form is the \textbf{evidence fingerprint}: a
+\code{subject\_checksum} over whatever must be unchanged for the result to still apply, a
+\code{subject\_ref} naming what the subject \emph{is} (a symbol, a query and its source, a test id, a claim
+id) whose disappearance is what makes evidence \emph{Detached}, the producing oracle's version (an advanced
+version obsoletes the result even on an exact checksum), and, for subjects that expire by the clock rather
+than by change --- a fixing, a calendar year, a rate --- an optional \code{valid\_until}. The reasoner
+fingerprint is the reasoner profile of this record (\code{task\_checksum} is \code{subject\_checksum},
+\code{target\_symbol} is \code{subject\_ref}), and a payload accepts either form. What each standard oracle
+type hashes is normative, so two implementations of a \code{monitor} agree on when an observation is stale.
+The derived verdict of \S\ref{sec:freshness-verdict} extends to any oracle's evidence: a fingerprint whose
+subject can neither be recomputed nor re-read yields \code{Unknown}, which is neither fresh nor stale and
+which a policy may refuse for a class of claims.
+
+A monitor's evidence lands as an \textbf{\code{Observation}} artifact: a typed record that \emph{a source
+stated this value at this time in answer to this query} --- the statement in plain language, the source, the
+canonical query, the value, \code{observed\_at} and an optional \code{valid\_until}, with its attribution
+(strength \code{attested}) and its fingerprint. It anchors by \code{derived\_from} to what it was checked
+\emph{against}, so the DAG shows which established result rests on it; it discharges an \code{Assumption}
+residual by being cited from it; and it is quantifiable in goals and policies like any other artifact. This
+is what lets a proof honestly rest on a premise. A proof that \code{settle} never books on a holiday is
+\code{Fresh} as a reasoner result for as long as the model is unchanged; the \code{Observation} that the
+calendar table matches the official calendar goes \code{Stale} the day the calendar is republished; and the
+goal that needs both shows exactly which leg moved.
+
+\subsection{Consequences for the evidence logic}\label{sec:oracles-consequences}
+
+Grading changes what the rest of the paper computes, in four places. A resolved acceptance item is stamped
+with the strength and freshness of the evidence that met it, and a goal with its \code{min\_strength}, the
+weakest link it rests on (\S\ref{sec:goals-resolution}); a requirement may name the weakest grade that
+counts, so ``tested'' does not meet a requirement that asks for ``proved.'' Policies gain three predicates
+--- \code{strength\_at\_least}, \code{oracle\_type} and \code{produced\_by} --- and the declarative
+\code{reasoner} field a policy may carry desugars into \code{produced\_by} over every evidence-bearing atom
+it mentions, so a policy that names an engine \emph{fails} on a trace whose proofs came from elsewhere or
+carry no attribution (\S\ref{sec:policies}). Composition prefers the stronger of two results about the same
+target (\S\ref{sec:merge}). And validation checks attribution itself: an invalid strength, or an
+\code{Observation} graded above \code{attested}, is an error. On every rendered screen the ladder appears in
+plain words --- proved, witnessed, tested, checked, attested (\S\ref{sec:impl-overview}) --- and the one rule
+the renderers may never break is that ``tested'' does not read as ``proved.''

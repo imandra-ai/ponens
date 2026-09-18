@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-5-agents-fail",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "error",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(action → agent_id_resolved ∧ kya_valid)"
+      "formula": "G(action \u2192 agent_id_resolved \u2227 kya_valid)"
     }
   ],
   "artifacts": [
@@ -53,7 +53,7 @@
       "id": 1,
       "type": "Retrieve",
       "rationale": "market-data agent pulls the book",
-      "label": "agent id resolved: AGT-DATA · kya valid",
+      "label": "agent id resolved: AGT-DATA \u00b7 kya valid",
       "outputs": [
         "book"
       ],
@@ -76,7 +76,7 @@
       "id": 3,
       "type": "Compute",
       "rationale": "execution agent builds the plan",
-      "label": "agent id resolved: AGT-EXEC · kya valid",
+      "label": "agent id resolved: AGT-EXEC \u00b7 kya valid",
       "inputs": [
         "risk-report"
       ],
@@ -90,7 +90,7 @@
       "id": 4,
       "type": "Release",
       "rationale": "supervisor releases",
-      "label": "agent id resolved: AGT-SUP · kya valid",
+      "label": "agent id resolved: AGT-SUP \u00b7 kya valid",
       "inputs": [
         "exec-plan"
       ],

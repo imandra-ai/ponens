@@ -1,6 +1,6 @@
 {
   "trace_id": "fixwg-6-provenance-fail",
-  "spec_version": "1.6",
+  "spec_version": "1.13",
   "trigger": {},
   "outcome": {},
   "policies": [
@@ -10,7 +10,7 @@
       "severity": "warning",
       "scope": "trace",
       "kind": "trace_invariant",
-      "formula": "G(Release ∨ Deploy → decision_path_present)"
+      "formula": "G(Release \u2228 Deploy \u2192 decision_path_present)"
     }
   ],
   "artifacts": [

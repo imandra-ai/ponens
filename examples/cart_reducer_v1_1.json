@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-cart-reducer-001",
-  "spec_version": "1.1",
+  "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-04-06T16:45:00Z",
@@ -77,6 +77,11 @@
           "proved": {
             "proof_pp": "total_non_negative: proved for all cart_action variants"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -112,8 +117,13 @@
         "engine": "imandrax",
         "result": {
           "proved": {
-            "proof_pp": "discount_bounded: proved — ApplyDiscount guards 0 < pct <= 100"
+            "proof_pp": "discount_bounded: proved \u2014 ApplyDiscount guards 0 < pct <= 100"
           }
+        },
+        "oracle": {
+          "id": "imandrax",
+          "oracle_type": "reasoner",
+          "evidence_strength": "proof"
         }
       }
     },
@@ -350,7 +360,12 @@
             "expected": "discount set, total=0",
             "code": "it('sets discount on empty cart (total stays 0)', () => {\n  const state = cartReducer(emptyCart, { type: 'APPLY_DISCOUNT', code: 'SAVE10', percent: 10 });\n  expect(state.discount).toBeDefined();\n  expect(state.total).toBe(0);\n});"
           }
-        ]
+        ],
+        "oracle": {
+          "oracle_type": "tester",
+          "evidence_strength": "tests",
+          "id": "example-model"
+        }
       }
     },
     {
@@ -409,7 +424,7 @@
       "id": 10,
       "category": "reasoning",
       "type": "Formalize",
-      "label": "Formalize: cart reducer → IML",
+      "label": "Formalize: cart reducer \u2192 IML",
       "rationale": "model all action types including new discount actions",
       "inputs": [
         "a1"
@@ -417,7 +432,7 @@
       "outputs": [
         "a2"
       ],
-      "result_summary": "transparent formalization → 4 IML symbols",
+      "result_summary": "transparent formalization \u2192 4 IML symbols",
       "execution": {
         "tool": "codelogician",
         "version": "2026.04",
@@ -429,7 +444,7 @@
       "category": "reasoning",
       "type": "DefineVG",
       "label": "Define: total always non-negative",
-      "rationale": "core invariant — cart total must never go negative",
+      "rationale": "core invariant \u2014 cart total must never go negative",
       "inputs": [
         "a2"
       ],
@@ -442,7 +457,7 @@
       "id": 12,
       "category": "reasoning",
       "type": "Verify",
-      "label": "Verify: total non-negative — PROVED",
+      "label": "Verify: total non-negative \u2014 PROVED",
       "rationale": "confirmed for all 6 action types",
       "inputs": [
         "a3"
@@ -450,7 +465,7 @@
       "outputs": [
         "a4"
       ],
-      "result_summary": "proved — total >= 0 is invariant",
+      "result_summary": "proved \u2014 total >= 0 is invariant",
       "execution": {
         "tool": "imandrax",
         "version": "2026.04",
@@ -476,7 +491,7 @@
       "id": 14,
       "category": "reasoning",
       "type": "Verify",
-      "label": "Verify: discount bounded — PROVED",
+      "label": "Verify: discount bounded \u2014 PROVED",
       "rationale": "ApplyDiscount guards against invalid percentages",
       "inputs": [
         "a5"
@@ -484,7 +499,7 @@
       "outputs": [
         "a6"
       ],
-      "result_summary": "proved — invalid discounts rejected",
+      "result_summary": "proved \u2014 invalid discounts rejected",
       "execution": {
         "tool": "imandrax",
         "version": "2026.04",
@@ -496,8 +511,8 @@
       "id": 20,
       "category": "reasoning",
       "type": "Decompose",
-      "label": "Decompose: cart_reducer — 18 regions",
-      "rationale": "find every distinct action × state combination",
+      "label": "Decompose: cart_reducer \u2014 18 regions",
+      "rationale": "find every distinct action \u00d7 state combination",
       "inputs": [
         "a2"
       ],
@@ -597,7 +612,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(Formalize ∧ reducer → F(Decompose ∧ complete))"
+      "formula": "G(Formalize \u2227 reducer \u2192 F(Decompose \u2227 complete))"
     },
     {
       "policy_id": "p2",
@@ -605,7 +620,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(GitCommit → P(RunTests ∧ completed))"
+      "formula": "G(GitCommit \u2192 P(RunTests \u2227 completed))"
     },
     {
       "policy_id": "p3",
@@ -613,7 +628,7 @@
       "severity": "error",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(action → rationale ≠ ∅)"
+      "formula": "G(action \u2192 rationale \u2260 \u2205)"
     }
   ],
   "policy_evaluations": [

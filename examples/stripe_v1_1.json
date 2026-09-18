@@ -3,7 +3,7 @@
   "spec_version": "1.13",
   "assistant": "ponens",
   "model": "example-model",
-  "timestamp": "2026-03-28T10:00:00Z",
+  "timestamp": "2026-09-18T10:00:00Z",
   "trigger": {
     "type": "TaskReceived",
     "description": "Add high-risk approval (2 approvals) and 3DS/SCA challenge support to Stripe payment flow",
@@ -127,7 +127,7 @@
       "criteria_review": {
         "reviewed_by": "reviewer",
         "verdict": "approved",
-        "at": "2026-02-03T00:00:00Z",
+        "at": "2026-07-27T00:00:00Z",
         "note": "Acceptance faithfully captures the intent: both controls are proved individually AND together, the money math is proved (not just tested), and conformance to the Stripe reference model is checked. The concurrency limitation (r1) is correctly declared, not hidden."
       },
       "progress": 1.0,

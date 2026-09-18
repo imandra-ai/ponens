@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - "examples/**"
-      - "cli/**"                       # includes cli/ponens/demos/**, the set the CLI ships
+      - "cli/**"
       - "spec/TRACE_SPEC_v*.md"        # a new spec makes every shipped trace out of date
       - ".github/workflows/validate-samples.yml"
   push:
@@ -29,12 +29,18 @@ jobs:
       - name: Validate + check every sample
         run: |
           set -e
+          # An unmatched glob expands to ITSELF in bash, so a missing directory silently becomes a
+          # filename and the error is `trace file not found: some/dir/*.json` - a path problem wearing
+          # a data problem's clothes. `nullglob` makes an empty match empty, and the count below turns
+          # "scanned nothing" into a failure rather than a pass.
+          shopt -s nullglob
           fail=0
-          # BOTH demo roots. `examples/` is what this job used to scan; `cli/ponens/demos/` is what the
-          # CLI, the viewer dropdown and the website actually read - and it was never checked here, so
-          # the two drifted six spec versions apart without CI noticing.
-          for f in examples/*.json cli/ponens/demos/*.json; do
+          seen=0
+          # `examples/` only: `cli/ponens/demos/` is a BUILD COPY of it (cli/Makefile) and is gitignored,
+          # so it does not exist in a checkout. Checking the source checks the copy by construction.
+          for f in examples/*.json; do
             [ "$(basename "$f")" = "manifest.json" ] && continue
+            seen=$((seen + 1))
             echo "::group::$f"
             ponens trace validate "$f" || fail=1
             # run the policy gate only when the trace declares policies
@@ -44,6 +50,11 @@ jobs:
             ponens trace grade "$f" | head -1
             echo "::endgroup::"
           done
+          if [ "$seen" -eq 0 ]; then
+            echo "no samples found under examples/ - refusing to pass vacuously"
+            exit 1
+          fi
+          echo "checked $seen sample(s)"
           exit $fail
 
       - name: Every shipped trace declares the published spec

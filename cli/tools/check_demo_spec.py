@@ -26,7 +26,11 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-DEFAULT_ROOTS = ["examples", "cli/ponens/demos"]
+
+# `examples/` is the source. `cli/ponens/demos/` is a build-time COPY of it (see `cli/Makefile`) and is
+# gitignored, so it does not exist in a checkout - naming it here made CI fail on a missing directory
+# rather than on a stale trace. Checking the source checks the copy by construction.
+DEFAULT_ROOTS = ["examples"]
 
 
 def published_spec() -> str:

@@ -37,8 +37,13 @@ that omits it says so instead of rendering a card that looks complete.
 - **The viewer answers "where did this come from" on the card.** Each residual reads
   `surfaced by #22 Verify: all 7 amount invariants - PROVED · about updated_iml_model a8`, with the step
   as a link that jumps into the flow and scrolls it into view; artifact ids resolve to the names their
-  authors gave them. The residual detail overlay gained the same, replacing a bare `Introduced at step
-  #22`. A residual with no introducing step renders `surfaced by: not recorded`.
+  authors gave them. A residual with no introducing step renders `surfaced by: not recorded`.
+- **Every reference on a residual card is now a link.** The card itself opens the residual in
+  Artifacts - a residual is an artifact (§13), and the card was a dead end that led only to the step
+  that surfaced it - and the artifacts it is about and related to select there too. Both places that
+  show a residual in detail gained the same `Surfaced by`: the graph's side panel, which returned
+  before the generic panel's `Producer` and so showed nothing about origin while every other artifact
+  showed it, and the standalone overlay, which showed a bare `Introduced at step #22`.
 - **Every shipped example is attributed.** Each demo residual now names the step at which the gap
   actually becomes visible - the coverage gap in the Stripe trace attaches to the decomposition that
   exposed which transitions carry no goal, not to whichever step came last.

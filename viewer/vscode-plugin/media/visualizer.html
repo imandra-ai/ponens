@@ -1180,6 +1180,19 @@
     padding: 10px 12px; background: var(--bg-deep); border: 1px solid var(--border);
     border-radius: 6px; margin-bottom: 6px;
   }
+  /* A residual card opens the residual artifact - give it the affordance to say so, and keep the id
+     visible so it is obvious WHICH artifact the click lands on. */
+  .mresidual-row { cursor: pointer; transition: border-color .12s, background .12s; }
+  .mresidual-row:hover, .mresidual-row:focus-visible {
+    border-color: var(--accent); background: var(--bg-inset); outline: none;
+  }
+  .mresidual-id {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.03em; color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+  }
+  .mresidual-row:hover .mresidual-id, .mresidual-row:focus-visible .mresidual-id {
+    color: var(--accent); border-color: var(--accent);
+  }
   .mpolicy-icon { font-size: 15px; width: 22px; text-align: center; flex-shrink: 0; }
   .mpolicy-body { flex: 1; min-width: 0; }
   .mpolicy-name { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: var(--text-primary); }
@@ -3590,17 +3603,25 @@ function renderResidualsModal() {
     }
     if (r.target?.target_id) {
       const t = r.target.target_type === 'artifact'
-        ? esc(_artifactLabel(r.target.target_id)) + ` <span style="opacity:.6;">${esc(r.target.target_id)}</span>`
-        : esc((r.target.target_type || '') + ': ' + r.target.target_id);
+        ? _artifactJump(r.target.target_id) + ` <span style="opacity:.6;">${esc(r.target.target_id)}</span>`
+        : r.target.target_type === 'action' && Number.isFinite(Number(r.target.target_id))
+          ? _actionLink(Number(r.target.target_id))
+          : esc((r.target.target_type || '') + ': ' + r.target.target_id);
       prov.push('about ' + t);
     }
     const rel = (r.related_artifact_ids || []).filter(Boolean);
-    if (rel.length) prov.push('related: ' + rel.map(id => esc(_artifactLabel(id))).join(', '));
+    if (rel.length) prov.push('related: ' + rel.map((id) => _artifactJump(id)).join(', '));
 
-    html += `<div class="mpolicy-row">
+    // Each residual IS an artifact (§13), so the card opens it in Artifacts the way every other
+    // artifact reference on this page does. Without it the only link on the card went to the action
+    // that surfaced the gap, and the gap itself - the thing the card is about - was a dead end.
+    const open = `closeModal();switchView('dag');selectDAGNode('${esc(r.residual_id)}');`;
+    html += `<div class="mpolicy-row mresidual-row" role="button" tabindex="0"
+        title="Open ${esc(r.residual_id)} in Artifacts"
+        onclick="${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}">
       <div class="mpolicy-icon">${icon}</div>
       <div class="mpolicy-body">
-        <div class="mpolicy-name">${esc(kindLabel[r.kind] || r.kind || 'residual')} <span style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:${statusColor[status] || 'var(--text-dim)'};border:1px solid ${statusColor[status] || 'var(--border)'};border-radius:4px;padding:1px 5px;font-family:inherit;">${esc(status)}</span>${r.derived ? ' <span style="font-size:8.5px;font-weight:600;color:var(--text-muted);background:var(--bg-inset);border-radius:4px;padding:1px 5px;">derived</span>' : ''}</div>
+        <div class="mpolicy-name">${esc(kindLabel[r.kind] || r.kind || 'residual')} <span style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:${statusColor[status] || 'var(--text-dim)'};border:1px solid ${statusColor[status] || 'var(--border)'};border-radius:4px;padding:1px 5px;font-family:inherit;">${esc(status)}</span>${r.derived ? ' <span style="font-size:8.5px;font-weight:600;color:var(--text-muted);background:var(--bg-inset);border-radius:4px;padding:1px 5px;">derived</span>' : ''} <span class="mresidual-id">${esc(r.residual_id)} \u2192</span></div>
         ${r.statement ? `<div class="mpolicy-desc">${esc(r.statement)}</div>` : ''}
         <div class="mresidual-prov">${prov.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</div>
         ${r.suggested_check ? `<div class="mpolicy-note">check: ${esc(r.suggested_check)}</div>` : ''}
@@ -3828,6 +3849,13 @@ function _actionLabel(id) {
 function _artifactLabel(id) {
   const a = traceData?._artifactMap?.[id];
   return a?.name ? `${a.name}` : String(id);
+}
+
+/** Link text that closes the modal, opens the Artifacts view, and selects that artifact. */
+function _artifactJump(id, text) {
+  const t = esc(text == null ? _artifactLabel(id) : text);
+  return `<a href="#" onclick="event.preventDefault();event.stopPropagation();closeModal();switchView('dag');`
+    + `selectDAGNode('${esc(id)}');" style="color:var(--accent);text-decoration:none;">${t}</a>`;
 }
 
 /** Link text that closes the modal, switches to the flow, and scrolls the step into view. */
@@ -5116,8 +5144,36 @@ function selectDAGNode(artifactId) {
     h += `<div class="dd-field"><span class="dn-type" style="background:${col.border}33;color:${col.text};display:inline-block;margin-bottom:4px;">Residual</span></div>`;
     h += `<div class="dd-field">Severity: <span class="dd-verdict" style="color:${sevColor};border:1px solid ${sevColor};border-radius:5px;padding:1px 6px;">${esc(sev)}</span></div>`;
     h += `<div class="dd-field">Status: <span>${esc(residual.status || 'open')}</span></div>`;
+    h += `<div class="dd-field">ID: <span>${esc(residual.residual_id)}</span></div>`;
     if (residual.statement) h += `<div class="dd-field" style="margin-top:6px;">${esc(residual.statement)}</div>`;
     if (residual.suggested_check) { h += `<div class="dd-label">Suggested check</div><div class="dd-field">${esc(residual.suggested_check)}</div>`; }
+    // This branch returns before the generic artifact panel below, which is where `Producer` and
+    // `Derived From` are rendered - so a residual selected here showed severity, status and a
+    // statement and nothing about where it came from, while every other artifact showed both.
+    const aid = residual.introduced_by_action_id;
+    h += `<div class="dd-label">Surfaced by</div>`;
+    if (aid != null) {
+      h += `<div class="dd-field" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">`
+        + `<span>${esc(_actionLabel(aid))}</span>`
+        + `<button onclick="event.stopPropagation();switchView('flow');selectAction(${aid});`
+        + `document.querySelector('.action-card[data-action-id=&quot;${aid}&quot;]')?.scrollIntoView({behavior:'smooth',block:'center'});"`
+        + ` style="background:var(--bg-deep);border:1px solid var(--accent);color:var(--accent);font-size:10px;`
+        + `padding:2px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;">View in Flow \u2192</button></div>`;
+    } else {
+      h += `<div class="dd-field" style="color:var(--text-dim);">not recorded</div>`;
+    }
+    // What it bites: the artifact it is about, plus anything related - each selectable here.
+    const anchors = [];
+    if (residual.target?.target_type === 'artifact' && residual.target.target_id) anchors.push(residual.target.target_id);
+    for (const id of (residual.related_artifact_ids || [])) if (id && !anchors.includes(id)) anchors.push(id);
+    if (anchors.length) {
+      h += `<div class="dd-label">Where it bites</div><div class="dd-field" style="display:flex;gap:6px;flex-wrap:wrap;">`
+        + anchors.map((id) => `<button onclick="event.stopPropagation();selectDAGNode('${esc(id)}');"`
+            + ` title="Show ${esc(_artifactLabel(id))} in the graph"`
+            + ` style="background:var(--bg-deep);border:1px solid var(--border);color:var(--text-secondary);`
+            + `font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer;">${esc(_artifactLabel(id))}</button>`).join('')
+        + `</div>`;
+    }
     detail.innerHTML = h;
     return;
   }

@@ -20,6 +20,33 @@ still optional. What changed is that producers can now record it, consumers now 
 that omits it says so instead of rendering a card that looks complete.
 
 ### Added
+- **A gap is closed by appending the decision, not by editing the gap.** `ponens trace residual
+  resolve <trace> <id> --status acknowledged|addressed|waived --justification "…" [--evidence <artifact>]
+  [--by …]` writes two things - a `Decision` action carrying the justification as its rationale, and a
+  `ResidualResolution` artifact (spec §13.3a) hanging off the residual in the lineage DAG - and leaves
+  the residual exactly as its producer declared it. Editing `status` in place is indistinguishable from
+  never having declared the gap: the record loses who decided, on what grounds, against what evidence
+  and at which point in the work, and a reader cannot tell a reasoned waiver from a quiet deletion.
+
+  The **effective status is derived**: declared status is the base, resolutions apply in action order,
+  the last one wins. So every consumer that reads `status` - the validator, the §13.5 policies, `next`,
+  the grader, the viewer - sees a closed gap as closed with no change, while `resolution`,
+  `resolutions` and `declared_status` carry the audit trail for anything that wants it. Reversal is
+  another append, so a waiver later withdrawn stays readable as both; `ponens trace residuals` prints
+  the superseded one greyed rather than dropping it.
+- **A justification can be invalidated without being removed.** `ponens trace residual contest <trace>
+  <resolution id> --reason "…" [--defeater-kind rebuts|undermines|undercuts] [--by …]` declares a
+  `defeater` residual against the grounds for a closure. A justification is a claim, and this model
+  attacks a claim with a defeater rather than a deletion - so while that defeater is open the
+  resolution is **not in force** and the gap reads open again, with both the waiver and the reason it
+  does not hold still in the record. Withdrawing the objection is the same move in reverse: resolve
+  the defeater and the closure stands again, the whole exchange readable.
+
+  Contesting is not superseding: superseding says *a different decision was taken later*, contesting
+  says *this decision rested on grounds that do not hold*. Defeating a defeater's own closure is legal,
+  so the derivation is a bounded iteration, and it fails toward the honest side - a tangle that does
+  not settle is read **against** closure, because an unresolvable argument about whether a gap is
+  closed is not a closed gap.
 - **Every declared gap names the step that surfaced it.** `ponens trace residual add` takes
   `--introduced-by <action id>`. It is written to both carriers a consumer might read -
   `payload.introduced_by_action_id` and the artifact's `producer_action_id` - and validated against the
@@ -49,8 +76,131 @@ that omits it says so instead of rendering a card that looks complete.
   exposed which transitions carry no goal, not to whichever step came last.
 - **`AGENT_PROMPT.md`** and the embedded agent prompt tell agents to pass `--introduced-by`, and how to
   choose the step: the one where the gap became visible, not the one they happen to be on.
+- **Amending the definition of done is an append too - and it was the sharper hole.** A waived gap
+  still reads as a gap; a withdrawn acceptance criterion left nothing behind at all. `ponens trace goal
+  drop` was `acc.remove(item)`: deleting the single unmet criterion from the shipped Stripe demo moved
+  it from **88% to 100%**, and `ponens trace integrity` reported nothing lost, because it indexed only
+  criteria that were already done. `goal drop` / `goal rm` / `goal set` (when replacing) now require
+  `--reason` and append a **`GoalAmendment`** (spec §18.3a) carrying the criterion *verbatim*, the
+  reason, the author and the step. `goal certify` appends too - a second review used to overwrite the
+  first, so a `changes-requested` verdict could be replaced by `approved` with nothing to show for it.
+  `trace resolve` and `goal ls` print `! the definition of done was amended N time(s)` next to the
+  percentage, because a percentage only means something against a fixed bar.
+- **`ponens trace integrity` indexes every acceptance criterion**, not only the met ones - so a
+  withdrawal is reported as a loss whatever state the criterion was in, rather than only when it had
+  already been achieved.
+- **The agent's own store keeps what the trace cannot recover.** The register above was built from
+  ponens' file-mutation surface, which is the wrong frame for an agent: CodeLogician *regenerates* its
+  trace from `.codelogician/` state on every export rather than appending to a file, so append-only
+  rules reach nothing the store overwrites - anything the store forgets is gone before the record is
+  written. Three places it forgot: a second decision about a residual **overwrote the first in the
+  store**, so a waiver later superseded never reached the trace at all; re-declaring a goal with fewer
+  criteria **dropped them silently** (the agent-side form of narrowing the bar); and the desktop's
+  "Clear goal" **wiped the definition of done** with nothing left behind. The store now keeps a
+  decision *history* per residual and a list of goal amendments carrying each dropped criterion
+  verbatim, and the exporter emits them as `ResidualResolution` / `GoalAmendment` records. A store
+  written before this still loads.
+- **Workflow stories, asserted on what a person reads.** Thirteen end-to-end runs through the CLI in
+  the order someone actually works (`test_user_stories.py`), plus the agent/ponens handoff
+  (`handoff.story.test.ts`): a refuted property fixed and re-proved; a gap
+  waived, contested, and settled; a criterion withdrawn before a release; handing a finished record to
+  someone who was not there; and the gate speaking plainly. They assert the OUTPUT, not the structure -
+  which is the class the property suites cannot reach, and the class several real bugs fell into
+  (`check` printing `-2 advisory`, `overview` reporting "no policies attached" on a trace carrying
+  eight, `grade` calling a warning a failed gate). Writing them turned one up immediately: `trace next`
+  said *"no open gap has a suggested check"* while `trace residuals` listed exactly such a gap on the
+  same record - a standing assumption is deliberately held back from the to-do list, but the message
+  denied it existed. `next` now names standing assumptions as the boundary the evidence rests on
+  rather than claiming there are none.
+
+  Five more stories - a proof going stale under a model change and healing on re-proof, a defeater
+  blocking a proved criterion, the policy gate failing then passing, criteria reviewed then
+  re-reviewed, and the report matching the record - turned up a second one, and a worse one:
+- **`ponens trace next` never reported stale evidence.** Its `refresh` branch read only
+  `evidence_ref`, which `enrich` populates for a TYPED criterion; for an untyped one - which is what
+  `ponens trace goal accept` creates - the resolved id goes in `evidence` instead. So no criterion
+  authored through the CLI could ever produce a refresh step, and "re-run the affected result", the
+  promise the whole freshness machinery exists to keep, was never once made to anyone by the command
+  whose job is to say what to do next. This was the THIRD bug in this one function from `evidence`
+  carrying two shapes (after the crash and the `art` label above), so it is now read through a single
+  `_resolved_evidence_ref` accessor rather than fixed a third time in place.
+
+  Three more - a proof DETACHING when its symbol is deleted (distinct from stale: there is nothing to
+  re-run), consulting the record about a symbol, and merging two branches - turned up one more:
+- **Stale evidence that no acceptance criterion covered was invisible to `ponens trace next`.** The
+  refresh branch fires only through a goal item, and the gap loop deliberately skips derived
+  residuals, so evidence that went out of date on a record with no goal fell between them: `trace
+  residuals --derived` said "out of date, re-run it" while `trace next` said "nothing to do". A merged
+  record is the ordinary way to land there - `trace merge --combine` carries the evidence and declares
+  no goals. `next` now reports uncovered stale evidence in its own right, without double-reporting it
+  when a criterion does cover it.
+- **Evidence that says no no longer satisfies a criterion.** Three binding stories - a claim that code
+  implements a published spec, the catalogue publishing a new version underneath it, and the binding
+  being removed - turned up the worst kind of defect this format can have: a **failed** conformance
+  check resolved its criterion as done. `trace resolve` read `100% ✓`, `goal ls` read `MET`, `trace
+  next` read "Nothing to do", and there was nowhere a reader could find out the evidence said the code
+  does *not* conform.
+
+  A typed criterion resolved on the EXISTENCE of an artifact of the right type against the right
+  reference, never on what that artifact concluded. The design rests on the met/governed split -
+  existence is `met`, quality is `governed` - and on a producer minting an `undermines` defeater
+  alongside a failing check. Neither holds up: with no policy pack attached, which is the ordinary
+  case, the governed axis judges nothing, and a producer that records `status: failed` without also
+  minting a defeater gets a met criterion.
+
+  The default role now reads the evidence's own verdict - negative blocks, inconclusive is `doing`,
+  and an artifact with no verdict of its own (a diff, a decomposition, a test suite) is still evidence
+  by existing. **The `met` role is unchanged**, so the axis the spec defines still answers "does the
+  artifact exist"; what changed is that `trace resolve` / `goal ls` / `next` no longer present mere
+  existence as the answer. Two ponens tests and one agent test documented the old boundary and now
+  document the new one.
+- **The agent's record is now read by real ponens in CI, not just validated by it.**
+  `export-validity.test.ts` proved the export is well-formed; well-formed is not understood. The
+  handoff story hands a record the agent actually produced - a gap closed twice, a criterion dropped
+  by a re-declare - to the installed `ponens` and asserts it answers the questions a person asks: the
+  gap reads closed with both justifications and the superseded one marked, the withdrawn criterion
+  says it was not met, and every reader runs without crashing.
+- **Checks that generate checks, rather than one more assertion someone thought to write.** Every hole
+  in this release was found by a *different kind* of check - reading a demo, following a click,
+  sweeping commands over fixtures, a round-trip, enumerating state transitions - and each kind found a
+  class the others could not. Two checks now cover the classes rather than the instances:
+  - **Record invariants** (`test_record_invariants.py`) compose the operations an agent can actually
+    perform at random and assert what must hold regardless: nothing ever declared becomes unreadable;
+    the record's apparent standing improves only by adding evidence or by a *recorded* decision; every
+    reader still runs; writing and re-reading changes nothing. Seeds print on failure so a
+    counterexample replays exactly. Verified by regressing `goal drop` to its silent removal - caught
+    in two steps, `goal accept -> goal drop`.
+  - **Three-way derivation parity.** Whether a gap is open is decided in Python (`ponens trace
+    check`), JavaScript (the viewer) and TypeScript (the agent). They were kept in step by writing
+    the same rule carefully three times, which is not a mechanism: a viewer showing a gap as open
+    while `check` passes it is worse than either alone, because neither side can see the
+    disagreement. One fixture corpus, one expected answer generated by ponens, all three asserted
+    against it (`viewer/parity.test.mjs` in CI, `derivation-parity.test.ts` in the agent).
+- **A register of every state transition a trace holds** (`cli/ponens/transitions.py`), classifying each
+  as *derived* (computed on read - nothing to forge), *appended* (a decision that is itself a record),
+  or *applied* (written in place, each with the reason that is tolerable). `trace residual resolve` and
+  the goal amendments above are the two rows that moved from applied to appended; they were found by
+  writing the register. Gated in both directions: a new state type in the published spec fails until it
+  has a row, a row whose states drift from the spec fails, an `applied` row with no justification fails,
+  and the set of commands that let a status be *asserted* is pinned - so an earned verdict cannot
+  quietly become a declared one.
+- **Trace spec 1.14** (`spec/TRACE_SPEC_v1_14.md`) - additive, backward-compatible: §13.3a defines the
+  `ResidualResolution` artifact and derived residual status. Traces from 1.4 onward stay valid and
+  unchanged, and editing `status` in place remains readable; it is simply no longer how the CLI closes
+  a gap. Shipped demos re-stamped to 1.14, and `sample_auth_xstate` now carries a real waiver so the
+  mechanism is visible on the demo page beside a gap closed the old way.
+- **The viewer shows how a gap was closed** - status, who, when, the deciding step (clickable) and the
+  cited evidence - on the residual card and in the Artifacts panel, with superseded decisions dimmed
+  rather than hidden. It derives status exactly as the CLI does, so the two cannot disagree about what
+  is open.
 
 ### Fixed
+- **`ponens trace next` crashed on an acceptance item whose `evidence` is a plain artifact id.**
+  `evidence` carries two shapes - the requirement (`{"artifact": "VerificationResult"}`) on a typed
+  criterion, a resolved artifact id on an untyped one, which is what `enrich` itself writes when there
+  is no requirement object to preserve. `next` read the second as the first and raised
+  `AttributeError: 'str' object has no attribute 'get'`, taking the command down on the shipped Stripe
+  demo among others: the one command whose job is to say what to do about an open gap.
 - **Provenance recorded in the standard place was thrown away on render.** Projecting a `Residual`
   artifact back to the residual surface read only `payload.introduced_by_action_id` and ignored the
   artifact's own `producer_action_id` — the field every artifact is required to carry. A trace that

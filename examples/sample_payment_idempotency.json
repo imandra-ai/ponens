@@ -558,9 +558,18 @@
         "severity": "medium",
         "status": "open",
         "source": "agent_declared",
-        "statement": "Concurrent capture+refund races are not modelled (single-threaded application only)."
+        "statement": "Concurrent capture+refund races are not modelled (single-threaded application only).",
+        "introduced_by_action_id": 4,
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a3"
+        }
       },
-      "summary": "Concurrent capture+refund races are not modelled (single-threaded application only)."
+      "summary": "Concurrent capture+refund races are not modelled (single-threaded application only).",
+      "producer_action_id": 4,
+      "derived_from": [
+        "a3"
+      ]
     }
   ],
   "policies": [

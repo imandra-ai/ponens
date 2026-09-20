@@ -283,6 +283,24 @@ def test_overview_with_nothing_declared_is_quiet():
     assert "Next: nothing to do" in O.render_overview(o)
 
 
+def test_attached_but_unevaluated_policies_are_not_reported_as_unattached():
+    """Two states, opposite advice: attach policies, versus run the checker over the ones you have.
+
+    `gate()` builds its rules from `policy_evaluations`, and nothing stamps those until
+    `trace check --write` runs - so a trace carrying eight policies rendered "no policies attached",
+    sending a reader off to attach what was already there.
+    """
+    t = _trace(arts=[], goals=[])
+    t["policies"] = [{"policy_id": "p%d" % i, "name": "p%d" % i, "formula": "G(true)"} for i in range(8)]
+
+    o = O.overview(t, None)
+    assert o["gate"]["rules"] == [] and o["gate"]["attached"] == 8
+    text = O.render_overview(o)
+    assert "8 policies attached, none evaluated" in text
+    assert "trace check --write" in text, "and it names the command that fixes it"
+    assert "no policies attached" not in text
+
+
 # ── integrity ─────────────────────────────────────────────────────────────────────────────────────
 
 def _ver(aid, status="proved"):

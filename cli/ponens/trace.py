@@ -275,6 +275,20 @@ def _canon_type(name):
     return TYPE_SYNONYMS.get(name, name)
 
 
+def _is_type(art, *names):
+    """Does this artifact have one of these types, comparing CANONICAL forms?
+
+    The synonym table above exists so a policy written with either spelling matches either artifact,
+    and `evaluate_formula` honours it - but the per-policy witness functions below compared raw
+    strings. A trace emitting the modern `StateSpaceAnalysisResult` therefore failed
+    `generated_tests_require_decomposition` while its tests derived from exactly such an artifact:
+    the rule agreed with the trace and the checker reported a violation anyway. Found by running the
+    checker over a trace from a current producer.
+    """
+    t = _canon_type(art.get('artifact_type'))
+    return any(t == _canon_type(n) for n in names)
+
+
 def evaluate_formula(node, trace, ctx=None):
     if isinstance(node, (ForAll, Exists, ExistsUnique)):
         coll = trace.get(node.set_name, []) if node.set_name else []
@@ -608,7 +622,7 @@ def evaluate_structural(policy_name, trace):
 
     if policy_name == 'goals_reference_valid_artifacts':
         artifacts = trace.get('artifacts', [])
-        iml_ids = {a['artifact_id'] for a in artifacts if a.get('artifact_type') == 'IMLModel'}
+        iml_ids = {a['artifact_id'] for a in artifacts if _is_type(a, 'IMLModel')}
         for art in artifacts:
             if art.get('artifact_type') == 'VerificationGoal':
                 payload = art.get('payload', {})
@@ -635,7 +649,7 @@ def evaluate_structural(policy_name, trace):
             if art.get('artifact_type') == 'GeneratedTests':
                 ancestors = get_ancestors(art['artifact_id'], trace)
                 has_decomp = any(
-                    a.get('artifact_type') in ('Decomposition', 'Decomposition_Art')
+                    _is_type(a, 'Decomposition', 'Decomposition_Art')
                     for a in artifacts if a['artifact_id'] in ancestors
                 )
                 if not has_decomp:
@@ -736,12 +750,12 @@ def _structural_witnesses(name, trace):
         for art in arts:
             if art.get('artifact_type') == 'GeneratedTests':
                 ancestors = get_ancestors(art['artifact_id'], trace)
-                has_decomp = any(a.get('artifact_type') in ('Decomposition', 'Decomposition_Art')
+                has_decomp = any(_is_type(a, 'Decomposition', 'Decomposition_Art')
                                  for a in arts if a['artifact_id'] in ancestors)
                 (ev_r if has_decomp else vi_r).append(art['artifact_id'])
 
     elif name == 'goals_reference_valid_artifacts':
-        iml_ids = {a['artifact_id'] for a in arts if a.get('artifact_type') == 'IMLModel'}
+        iml_ids = {a['artifact_id'] for a in arts if _is_type(a, 'IMLModel')}
         for art in arts:
             if art.get('artifact_type') == 'VerificationGoal':
                 target = (art.get('payload') or {}).get('target_artifact_id')
@@ -1360,14 +1374,22 @@ def _policy_compliance(trace):
     policies = trace.get("policies", []) or []
     if not policies:
         return {"applicable": False}
-    passed, failed = 0, []
+    passed, failed, blocking, advisory = 0, [], [], []
     for p in policies:
         status, _ = evaluate_policy(p, trace)
         if status == "passed":
             passed += 1
         elif status == "failed":
-            failed.append(p.get("name", p.get("policy_id", "?")))
-    return {"applicable": True, "passed": passed, "total": len(policies), "failed": failed}
+            name = p.get("name", p.get("policy_id", "?"))
+            failed.append(name)
+            # A violation's SEVERITY is what decides whether the gate blocks. Ignoring it here meant a
+            # warning-severity policy was rendered as a failed "governance gate" - directly
+            # contradicting `trace overview`, which reported `Gate: pass` on the very same trace, and
+            # the exit code, which was 0. `failed` stays the union so existing readers see every
+            # violation; the split says which ones actually stop anything.
+            (blocking if str(p.get("severity") or "error").lower() == "error" else advisory).append(name)
+    return {"applicable": True, "passed": passed, "total": len(policies), "failed": failed,
+            "blocking": blocking, "advisory": advisory}
 
 
 def grade_trace(trace):
@@ -1395,8 +1417,11 @@ def grade_trace(trace):
     elif by.get("Lineage / integrity", 1) < 1.0:
         suggestions.append("Artifact lineage is broken — a consumed artifact has no valid producer (data flow integrity)")
     compliance = _policy_compliance(trace)
-    if compliance.get("applicable") and compliance["failed"]:
-        suggestions.append(f"Policy compliance: failing {', '.join(compliance['failed'])} (governance gate, separate from quality)")
+    if compliance.get("applicable") and compliance.get("blocking"):
+        suggestions.append(f"Policy compliance: failing {', '.join(compliance['blocking'])} (governance gate, separate from quality)")
+    elif compliance.get("applicable") and compliance.get("advisory"):
+        suggestions.append(f"Policy compliance: {', '.join(compliance['advisory'])} raised a warning "
+                           f"(advisory - does not block the gate)")
     return {"overall": overall, "grade": letter, "dimensions": dims,
             "applicable_weight": total, "compliance": compliance, "suggestions": suggestions}
 
@@ -1421,8 +1446,13 @@ def cmd_grade(args):
         share = round(d["weight"] / total * 100)
         print(f"  {d['name']:22s} {bar} {int(d['score']*100):3d}%  ({share}%)  {d['note']}")
     if c.get("applicable"):
-        mark = "✓" if not c["failed"] else "✗"
-        tail = f"  —  failed: {', '.join(c['failed'])}" if c["failed"] else ""
+        mark = "✗" if c.get("blocking") else ("~" if c.get("advisory") else "✓")
+        bits = []
+        if c.get("blocking"):
+            bits.append(f"failed: {', '.join(c['blocking'])}")
+        if c.get("advisory"):
+            bits.append(f"warnings: {', '.join(c['advisory'])}")
+        tail = ("  —  " + "; ".join(bits)) if bits else ""
         print(f"\n  Policy compliance {mark}  {c['passed']}/{c['total']} passed{tail}   (separate axis — not in the quality score)")
     if g["suggestions"]:
         print("\n  To improve:")
@@ -1450,7 +1480,8 @@ def cmd_report(args):
     head = [f"**Grade {g['grade']} ({g['overall']}/100)**"]
     c = g["compliance"]
     if c.get("applicable"):
-        head.append(f"policies {c['passed']}/{c['total']}" + (" ✓" if not c["failed"] else " ✗"))
+        head.append(f"policies {c['passed']}/{c['total']}"
+                    + (" ✗" if c.get("blocking") else (" ~" if c.get("advisory") else " ✓")))
     head.append(f"{len(metas)} steps")
     if arts:
         head.append(f"{len(arts)} artifacts")
@@ -1675,6 +1706,19 @@ def cmd_residual_add(args):
         r["related_artifact_ids"] = args.related
     if args.suggested_check:
         r["suggested_check"] = args.suggested_check
+    # Which step surfaced it. A residual says what the trace did NOT establish; in a record whose whole
+    # claim is attribution, a gap nobody can trace back to a step is the one artifact that undercuts
+    # the claim. There was no way to record this from the CLI at all, so every residual declared this
+    # way was born unattributed - five of the eight shipped demo residuals were in exactly that state.
+    # Never guessed: attributing a gap to the wrong step is worse than leaving it open, so an omission
+    # warns rather than picking the most recent action.
+    intro = getattr(args, "introduced_by", None)
+    if intro is not None:
+        known = {a.get("id") for a in (trace.get("actions") or [])}
+        if intro not in known:
+            print(f"error: --introduced-by {intro} is not an action in {args.trace_file}", file=sys.stderr)
+            return 1
+        r["introduced_by_action_id"] = intro
     if getattr(args, "tag", None):
         r["tags"] = args.tag
     arts.append(lineage.residual_to_artifact(r))
@@ -1682,6 +1726,9 @@ def cmd_residual_add(args):
         trace["spec_version"] = "1.8"
     _save_trace_fmt(args.trace_file, trace)
     print(f"Declared residual {rid} ({args.severity} {args.kind}) as a Residual artifact in {args.trace_file}")
+    if intro is None and (trace.get("actions") or []):
+        print(f"  note: {rid} names no introducing action, so every view of it reads "
+              f"'surfaced by: not recorded'. Re-declare with --introduced-by <action id>.", file=sys.stderr)
     return 0
 
 
@@ -1976,6 +2023,13 @@ def cmd_check(args):
     failed = 0
     warnings = 0
     errors = []
+    # Every other outcome the loop below can reach, counted where it happens rather than derived from
+    # the ones above. A syntax rejection appends to `errors` WITHOUT touching `failed`, and a disabled
+    # or unevaluable policy touches neither, so any arithmetic over `passed`/`failed`/`total` gets some
+    # row twice and some not at all - which is how the summary once printed a negative count.
+    syntax = 0
+    advisory = 0            # a violation at neither error nor warning severity
+    not_evaluated = 0       # disabled, or the evaluator could not decide
     # policy_evaluation records (Trace Spec §7) accumulated for --json / --write.
     evaluations = []
     as_json = getattr(args, 'json', False)
@@ -2031,6 +2085,7 @@ def cmd_check(args):
         # bar's `disabled` handling (governance_of).
         if p.get('disabled'):
             emit(f"  SKIP    {name} (disabled)")
+            not_evaluated += 1
             record_eval(pid, 'disabled', 'Disabled by the user — not evaluated.')
             continue
         _, syntax_errors, syntax_warnings = syntax_check_policy(p)
@@ -2039,6 +2094,7 @@ def cmd_check(args):
             for e in syntax_errors:
                 emit(f"          {e.message}")
             errors.append(name)
+            syntax += 1
             record_eval(pid, 'unknown', f'Syntax error: {syntax_errors[0].message}')
             continue
         status, note, ev_actions, vi_actions, ev_arts, vi_arts = evaluate_policy_full(p, trace)
@@ -2056,7 +2112,10 @@ def cmd_check(args):
                 errors.append(name)
             elif severity == 'warning':
                 warnings += 1
+            else:
+                advisory += 1
         else:
+            not_evaluated += 1
             emit(f"  SKIP    {name} — {note or 'could not evaluate'}")
 
     if getattr(args, 'write', False):
@@ -2073,7 +2132,17 @@ def cmd_check(args):
 
     emit(f"\n{'='*50}")
     emit(f"  {total} policies checked")
-    emit(f"  {passed} passed, {failed} failed, {warnings} warnings")
+    # Counts that PARTITION, and that agree with the rows above. `failed` tallies every violation
+    # regardless of severity, so a run whose worst row was a WARN - and which therefore exits 0 -
+    # still announced "1 failed, 1 warnings", double-reporting one violation as both and showing a
+    # failure count with no FAIL row to back it. A warning is not a failure; only an `error` is.
+    parts = [f"{passed} passed", f"{failed - warnings - advisory + syntax} failed",
+             f"{warnings} warnings"]
+    if advisory:
+        parts.append(f"{advisory} advisory")
+    if not_evaluated:
+        parts.append(f"{not_evaluated} not evaluated")
+    emit("  " + ", ".join(parts))
     if faith_rows:
         emit(f"\n  Goal faithfulness (is \"done\" right, not just met?):")
         for row in faith_rows:
@@ -2756,6 +2825,8 @@ def register(subparsers):
     p.add_argument("--target-type", choices=["trace", "action", "artifact", "policy"])
     p.add_argument("--target-id")
     p.add_argument("--suggested-check", help="How a reviewer could close it")
+    p.add_argument("--introduced-by", type=int, metavar="ACTION_ID",
+                   help="The action that surfaced this gap - what a reader clicks to see where it came from")
     p.add_argument("--related", action="append", help="Related artifact id (repeatable)")
     p.add_argument("--status", default="open", choices=sorted(RESIDUAL_STATUSES))
     p.add_argument("--tag", action="append", help="Tag (repeatable)")

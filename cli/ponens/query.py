@@ -175,10 +175,32 @@ def _entries_for(trace):
     return out
 
 
+def _headline(ent):
+    """The record that speaks for a symbol: the one `blame` picked, else the newest.
+
+    One function because there are two views of a symbol - the index row and the detail header - and
+    they have to agree. They did not: the index was moved to the best result while the detail header
+    kept reading `recs[0]`, so the same trace reported `proved · fresh` in a list and `unknown` at the
+    top of the page describing that very symbol. `blame` already ranks; neither view ranks again.
+    """
+    recs = ent["results"]
+    best = ent.get("best") or {}
+    return next((r for r in recs if r.get("artifact_id") and r["artifact_id"] == best.get("artifact_id")),
+                recs[0])
+
+
 def symbols(trace, reqs=None, cwd=None):
     """The index: one record per symbol the record knows anything about. Enough to decide whether to
-    ask a second question, never enough to answer one. Latest entry wins per symbol — history is in
-    the trace, and is not what an index is for."""
+    ask a second question, never enough to answer one.
+
+    The row describes the symbol's BEST result, not its latest one - `blame`'s own choice: the strongest
+    FRESH result, or, when none is fresh, the strongest there is, carrying its own freshness. Latest-wins
+    was the earlier rule and it read badly: running a test suite against a function that had been PROVED
+    moved the row from `proved · proof` to `tested · tests`, so the strongest thing known about a symbol
+    became invisible the moment anything weaker happened afterwards, and the index contradicted `blame`
+    about the same trace. A later run does not retract an earlier proof.
+
+    History is still not what an index is for - `trace symbol <name>` lists every record, newest first."""
     ent = _entries_for(trace)
     req_of = {}
     if reqs:
@@ -192,7 +214,7 @@ def symbols(trace, reqs=None, cwd=None):
         recs = ent[sym]["results"]
         if not recs:
             continue
-        top = recs[0]
+        top = _headline(ent[sym])
         counts[top["freshness"]] = counts.get(top["freshness"], 0) + 1
         row = {
             "symbol": sym,
@@ -205,8 +227,14 @@ def symbols(trace, reqs=None, cwd=None):
             "ref": top["ref"],
             "established_at": top.get("at"),
         }
-        if top.get("regions"):
-            row["regions"] = top["regions"]
+        # ANY record's region count, not just the newest one's. A decomposition is a one-time fact about
+        # a symbol; a test run recorded after it does not retract it. Reading only `top` meant the count
+        # showed up if and only if the decomposition happened to be the last thing recorded - so the same
+        # symbol reported `regions=None` here and `2 regions` from `trace symbol`, which searches all
+        # records (below). Two views of one trace disagreeing is worse than either answer.
+        n_regions = next((r["regions"] for r in recs if r.get("regions")), None)
+        if n_regions:
+            row["regions"] = n_regions
         rows.append(row)
     return {"symbols": rows, "summary": {"symbols": len(rows), **counts}}
 
@@ -219,7 +247,7 @@ def symbol(trace, name, regions=False, where=None, limit=DEFAULT_REGION_LIMIT):
         return {"symbol": name, "known": False}
 
     recs = ent["results"]
-    top = recs[0]
+    top = _headline(ent)
     with_regions = next((r for r in recs if r.get("_regions")), None)
     regs = [_region_rec(r, i) for i, r in enumerate(with_regions["_regions"])] if with_regions else []
 

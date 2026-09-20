@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: imandra-ai/ponens/action@v1.14.0
+      - uses: imandra-ai/ponens/action@v1.15.0
         with:
           policies: tests_before_commit,data_flow_integrity   # optional: gallery policies on top of the trace's own
           fail-on: error                                      # error (default) | warning | never
@@ -52,7 +52,7 @@ jobs:
 | `require-trace` | `false` | fail when no trace can be found or reconstructed |
 | `strict-validate` | `false` | `ponens trace validate --strict` (deep soundness) |
 | `github-token` | workflow token | token for the comment |
-| `ponens-version`, `ponens-source` | `1.14.0`, `git` | which ponens, from `git` (release tag) · `pypi` · `local` |
+| `ponens-version`, `ponens-source` | `1.15.0`, `git` | which ponens, from `git` (release tag) · `pypi` · `local` |
 
 ## Outputs
 
@@ -111,7 +111,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm i -g imandra-pi-agent
-      - uses: imandra-ai/ponens/action@v1.14.0
+      - uses: imandra-ai/ponens/action@v1.15.0
         with:
           scan: no-agent
           scan-issue: "true"

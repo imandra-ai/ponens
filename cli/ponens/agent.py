@@ -32,6 +32,7 @@ Workflow — after you finish the work:
               ponens trace residual add trace.json \\
                 --kind <assumption|unverified|out_of_scope|limitation|open_question|defeater> \\
                 --severity <info|low|medium|high|critical> --statement "..." \\
+                --introduced-by <action id>                          # the step that surfaced it \\
                 [--defeater-kind <rebuts|undermines|undercuts> --target-id <result>] \\
                 [--suggested-check "how a reviewer could close it"]  # declare your gaps
               # `defeater` = counter-evidence AGAINST a claim (a counterexample, model≠code, a test that

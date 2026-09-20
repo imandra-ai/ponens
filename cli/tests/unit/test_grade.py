@@ -100,3 +100,29 @@ def test_compliance_runs_attached_policies():
     assert g["compliance"]["total"] == 1
     # compliance is reported but does NOT appear as a quality dimension
     assert all(d["name"] != "Policy compliance" for d in g["dimensions"])
+
+
+def test_a_warning_severity_violation_is_advisory_not_a_failed_gate():
+    """`grade` and `overview` must not contradict each other about the same trace.
+
+    Compliance ignored severity, so a warning-severity violation was rendered as a failed governance
+    gate - while `trace overview` reported `Gate: pass` on that very trace and `trace check` exited 0.
+    `failed` stays the union of every violation; `blocking` is the subset that actually stops anything.
+    """
+    pol = lambda n, f, sev: {"name": n, "policy_id": n, "formula": f, "severity": sev}
+    t = {"trace_id": "t", "actions": [], "artifacts": [],
+         "policies": [pol("ok", "¬data_flow_integrity", "error"),
+                      pol("advises", "data_flow_integrity", "warning")]}
+
+    c = grade_trace(t)["compliance"]
+    assert c["advisory"] == ["advises"], "the warning is recorded"
+    assert c["blocking"] == [], "and it blocks nothing"
+    assert c["failed"] == ["advises"], "while `failed` still names every violation"
+
+
+def test_an_error_severity_violation_still_blocks():
+    pol = lambda n, f, sev: {"name": n, "policy_id": n, "formula": f, "severity": sev}
+    t = {"trace_id": "t", "actions": [], "artifacts": [],
+         "policies": [pol("blocks", "data_flow_integrity", "error")]}
+    c = grade_trace(t)["compliance"]
+    assert c["blocking"] == ["blocks"] and c["advisory"] == []

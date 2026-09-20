@@ -63,6 +63,12 @@ jobs:
         # reads the attribution block 1.12 added. The demo page showed exactly that for six versions.
         run: python3 cli/tools/check_demo_spec.py
 
+      - name: Every shipped residual names the step that surfaced it
+        # Also not validity: `introduced_by_action_id` is optional in the spec, so a residual without
+        # one is well-formed and renders as `surfaced by: not recorded` on the demo page. Five of the
+        # eight shipped residuals were in that state, on a page whose whole claim is attribution.
+        run: python3 cli/tools/check_demo_provenance.py
+
       - name: Manifest entries all resolve
         run: |
           python3 - <<'PY'

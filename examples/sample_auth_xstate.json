@@ -487,9 +487,18 @@
         "severity": "low",
         "status": "open",
         "source": "agent_declared",
-        "statement": "Should a token refresh failure log the user out or move to Error? Left as Error for now."
+        "statement": "Should a token refresh failure log the user out or move to Error? Left as Error for now.",
+        "introduced_by_action_id": 4,
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a3"
+        }
       },
-      "summary": "Should a token refresh failure log the user out or move to Error? Left as Error for now."
+      "summary": "Should a token refresh failure log the user out or move to Error? Left as Error for now.",
+      "producer_action_id": 4,
+      "derived_from": [
+        "a3"
+      ]
     }
   ],
   "policies": [

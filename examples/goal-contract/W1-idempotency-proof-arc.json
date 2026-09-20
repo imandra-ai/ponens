@@ -383,12 +383,14 @@
           "target_type": "artifact",
           "target_id": "vr2"
         },
-        "suggested_check": "Add a concurrency model or a DB-level unique constraint on the guard key."
+        "suggested_check": "Add a concurrency model or a DB-level unique constraint on the guard key.",
+        "introduced_by_action_id": 8
       },
       "derived_from": [
         "vr2"
       ],
-      "summary": "Idempotency is proved for single-threaded transition application; concurrent capture/refund interleavings are not modeled."
+      "summary": "Idempotency is proved for single-threaded transition application; concurrent capture/refund interleavings are not modeled.",
+      "producer_action_id": 8
     }
   ],
   "outcome": {

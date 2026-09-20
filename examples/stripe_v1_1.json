@@ -999,13 +999,15 @@
         "suggested_check": "Add verification goals for the dispute and chargeback transitions.",
         "tags": [
           "coverage"
-        ]
+        ],
+        "introduced_by_action_id": 30
       },
       "derived_from": [
         "a17",
         "a9"
       ],
-      "summary": "Dispute and chargeback transitions were not formalized; only the transitions in the amount-invariant suite are covered by verification goals."
+      "summary": "Dispute and chargeback transitions were not formalized; only the transitions in the amount-invariant suite are covered by verification goals.",
+      "producer_action_id": 30
     },
     {
       "artifact_id": "r3",
@@ -1023,12 +1025,14 @@
         },
         "tags": [
           "product-decision"
-        ]
+        ],
+        "introduced_by_action_id": 20
       },
       "derived_from": [
         "a8"
       ],
-      "summary": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact."
+      "summary": "Should a refund reset approval_count for a subsequent re-capture? The model currently leaves prior approvals intact.",
+      "producer_action_id": 20
     }
   ],
   "actions": [

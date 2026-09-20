@@ -174,8 +174,12 @@ When a human asks you to "produce / complete a trace" of work you did:
    what lets ponens tell whether a result is still **current** (see *Keep formal results current* below).
 5. **Declare your gaps honestly (negative space)** — for each thing you assumed, did not
    verify, left out of scope, the limitations of your work, and any open questions, run:
-   `ponens trace residual add trace.json --kind <assumption|unverified|out_of_scope|limitation|open_question|defeater> --severity <info|low|medium|high|critical> --statement "..." [--target-type artifact --target-id a3] [--suggested-check "how a reviewer could close it"]`
+   `ponens trace residual add trace.json --kind <assumption|unverified|out_of_scope|limitation|open_question|defeater> --severity <info|low|medium|high|critical> --statement "..." --introduced-by <action id> [--target-type artifact --target-id a3] [--suggested-check "how a reviewer could close it"]`
    Be candid: the value of the trace to a reviewer is that you disclosed what you did *not* establish.
+   Always pass `--introduced-by`: the step that surfaced the gap is what a reader clicks to see where
+   it came from, and a residual without it reads *surfaced by: not recorded* in every view. Name the
+   step at which the gap actually became visible - the verify that proved the narrow case, the
+   decompose that showed which transitions have no goal - not simply the step you happen to be on.
    Use `--kind defeater` for **counter-evidence** — not a missing gap but a reason to believe a stated
    result is *wrong* (a counterexample to a "proved" property, a model that doesn't match the code, a
    test that doesn't establish what it claims). Add `--defeater-kind <rebuts|undermines|undercuts>` and

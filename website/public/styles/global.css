@@ -320,7 +320,12 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 2rem; width: 100%; box-sizi
   gap: 0.4rem 1rem; padding: 0.8rem 1.2rem 1rem; border-top: 1px solid var(--border);
   font-size: 0.8rem; color: var(--muted);
 }
-.mv-residual { display: inline-flex; align-items: center; gap: 0.45rem; }
+.mv-residual { display: inline-flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+/* Every declared gap names the step that surfaced it - the viewer renders this on each residual card,
+   so the mock window on this page shows it too rather than a gap that appears from nowhere. */
+.mv-prov { color: var(--muted); opacity: 0.85; font-size: 0.74rem; }
+.mv-prov code { font-size: 0.72rem; padding: 0.05rem 0.3rem; border-radius: 4px;
+  background: rgba(127, 127, 127, 0.12); }
 .mv-grade strong { color: var(--fg); font-weight: 700; }
 
 /* Review swimlane — developer + AI agent hand a record to the reviewer */

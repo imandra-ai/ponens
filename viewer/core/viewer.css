@@ -1183,6 +1183,11 @@
   .mpolicy-severity.warning { background: #854d0e; color: #fef08a; }
   .mpolicy-severity.info { background: #1e3a5f; color: #93c5fd; }
   .mpolicy-note { font-size: 10px; color: var(--text-dim); font-style: italic; margin-top: 4px; }
+  /* Provenance is a fact about the residual, not an aside about it: upright and a shade brighter than
+     the italic `check:` note below it, so "which step surfaced this" reads as part of the record. */
+  .mresidual-prov { font-size: 10.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
+  .mresidual-prov a { border-bottom: 1px solid transparent; }
+  .mresidual-prov a:hover { border-bottom-color: currentColor; }
 
   /* ---- Artifact DAG view ---- */
   .dag-view { overflow: hidden; padding: 0; flex-direction: column; position: relative; }

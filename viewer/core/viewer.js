@@ -1814,16 +1814,31 @@ function renderResidualsModal() {
     const color = sevColor[sev] || 'var(--text-dim)';
     const status = r.status || 'open';
     const icon = statusIcon[status] || '❓';
-    const loc = [];
-    if (r.target) loc.push('target: ' + esc((r.target.target_type || '') + ':' + (r.target.target_id || '')));
-    if (r.related_artifact_ids?.length) loc.push('related: ' + esc(r.related_artifact_ids.join(', ')));
+    // Where this came from. A residual states what the trace did NOT establish, so the first question
+    // a reader has is which step noticed - without it the card is an unattributed assertion sitting in
+    // a record whose whole claim is attribution. `introduced_by_action_id` answers it; when a producer
+    // did not record one, say so rather than render a card that looks complete.
+    const prov = [];
+    if (r.introduced_by_action_id != null) {
+      prov.push('surfaced by ' + _actionLink(r.introduced_by_action_id));
+    } else {
+      prov.push('<span style="color:var(--text-dim);">surfaced by: not recorded</span>');
+    }
+    if (r.target?.target_id) {
+      const t = r.target.target_type === 'artifact'
+        ? esc(_artifactLabel(r.target.target_id)) + ` <span style="opacity:.6;">${esc(r.target.target_id)}</span>`
+        : esc((r.target.target_type || '') + ': ' + r.target.target_id);
+      prov.push('about ' + t);
+    }
+    const rel = (r.related_artifact_ids || []).filter(Boolean);
+    if (rel.length) prov.push('related: ' + rel.map(id => esc(_artifactLabel(id))).join(', '));
 
     html += `<div class="mpolicy-row">
       <div class="mpolicy-icon">${icon}</div>
       <div class="mpolicy-body">
         <div class="mpolicy-name">${esc(kindLabel[r.kind] || r.kind || 'residual')} <span style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:${statusColor[status] || 'var(--text-dim)'};border:1px solid ${statusColor[status] || 'var(--border)'};border-radius:4px;padding:1px 5px;font-family:inherit;">${esc(status)}</span>${r.derived ? ' <span style="font-size:8.5px;font-weight:600;color:var(--text-muted);background:var(--bg-inset);border-radius:4px;padding:1px 5px;">derived</span>' : ''}</div>
         ${r.statement ? `<div class="mpolicy-desc">${esc(r.statement)}</div>` : ''}
-        ${loc.length ? `<div class="mpolicy-note">${loc.join('&nbsp;&nbsp;&nbsp;')}</div>` : ''}
+        <div class="mresidual-prov">${prov.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</div>
         ${r.suggested_check ? `<div class="mpolicy-note">check: ${esc(r.suggested_check)}</div>` : ''}
       </div>
       <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:${color};border:1px solid ${color};border-radius:4px;padding:2px 6px;white-space:nowrap;height:fit-content;">${esc(sev)}</span>
@@ -2031,6 +2046,34 @@ const _RESIDUAL_KEYS = ['kind', 'severity', 'status', 'source', 'statement', 'ta
 
 function _isResidualArt(a) { return !!a && a.artifact_type === 'Residual'; }
 
+/** A step's own words: `#22 Verify: all 7 amount invariants - PROVED`. */
+function _actionLabel(id) {
+  const a = (traceData?.actions || []).find(x => x.id === id);
+  if (!a) return `#${id}`;
+  const type = a.type || '';
+  const label = a.label || '';
+  // Some labels already lead with their type ("Verify: all 7 amount invariants"), others are a bare
+  // path ("src/auth/machine.ts") that means nothing without it. Prefix only when it is not already there.
+  const what = !label ? type
+    : (type && !label.toLowerCase().startsWith(type.toLowerCase())) ? `${type}: ${label}`
+    : label;
+  return what ? `#${id} ${what}` : `#${id}`;
+}
+
+/** An artifact by the name its author gave it, falling back to the id. */
+function _artifactLabel(id) {
+  const a = traceData?._artifactMap?.[id];
+  return a?.name ? `${a.name}` : String(id);
+}
+
+/** Link text that closes the modal, switches to the flow, and scrolls the step into view. */
+function _actionLink(id, text) {
+  const t = esc(text == null ? _actionLabel(id) : text);
+  return `<a href="#" onclick="event.preventDefault();event.stopPropagation();closeModal();switchView('flow');`
+    + `selectAction(${id});document.querySelector('.action-card[data-action-id=&quot;${id}&quot;]')`
+    + `?.scrollIntoView({behavior:'smooth',block:'center'});" style="color:var(--accent);text-decoration:none;">${t}</a>`;
+}
+
 function _residualName(r) {
   const kind = (r.kind || 'residual').replace(/_/g, ' ');
   const stmt = (r.statement || '').trim();
@@ -2062,6 +2105,14 @@ function _artifactToResidual(a) {
   const r = { residual_id: a.artifact_id };
   for (const k of _RESIDUAL_KEYS) if (p[k] != null) r[k] = p[k];
   if (r.statement == null && a.summary) r.statement = a.summary;
+  // The artifact WRAPPER carries provenance too, and it is the half a producer is most likely to
+  // fill: `producer_action_id` is required of every artifact, `payload.introduced_by_action_id` is
+  // particular to residuals. Reading only the payload threw away the answer to "which step surfaced
+  // this" on any trace that recorded it in the standard place.
+  if (r.introduced_by_action_id == null && a.producer_action_id != null) {
+    r.introduced_by_action_id = a.producer_action_id;
+  }
+  if (a.derived_from?.length) r.derived_from = a.derived_from;
   return r;
 }
 
@@ -3187,7 +3238,20 @@ function openResidual(artifactId) {
     }).join('');
     body += `<div class="rp-sec">Where it bites</div><div class="rp-anchors">${links}</div>`;
   }
-  if (r.introduced_by_action_id != null) body += `<div class="rp-meta">Introduced at step #${esc(String(r.introduced_by_action_id))}</div>`;
+  // Which step surfaced it. "#22" alone makes the reader go hunting; the step's own label answers the
+  // question on the card, and the button takes them to it. A residual with no introducing step says so
+  // - an unattributed gap in an attribution record is worth showing, not hiding.
+  if (r.introduced_by_action_id != null) {
+    const aid = r.introduced_by_action_id;
+    const jump = !window.__ponensEmbedded;   // embedded: the host owns navigation
+    const label = esc(_actionLabel(aid));
+    body += `<div class="rp-sec">Surfaced by</div><div class="rp-anchors">`
+      + (jump ? `<button class="rp-anchor" data-action="${esc(String(aid))}" title="Show this step in the flow">${label}</button>`
+              : `<span class="rp-anchor rp-anchor-static">${label}</span>`)
+      + `</div>`;
+  } else {
+    body += `<div class="rp-meta">Surfaced by: not recorded</div>`;
+  }
 
   const ov = document.createElement('div');
   ov.className = 'rmap-overlay' + (window.__ponensEmbedded ? ' rmap-embedded' : '');
@@ -3201,6 +3265,15 @@ function openResidual(artifactId) {
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
   ov.querySelectorAll('.rp-anchor[data-id]').forEach((b) => {
     b.onclick = () => { close(); switchView('dag'); selectDAGNode(b.getAttribute('data-id')); };
+  });
+  ov.querySelectorAll('.rp-anchor[data-action]').forEach((b) => {
+    b.onclick = () => {
+      close();
+      const id = Number(b.getAttribute('data-action'));
+      switchView('flow');
+      selectAction(id);
+      document.querySelector(`.action-card[data-action-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
   });
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);

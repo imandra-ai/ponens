@@ -332,9 +332,18 @@
         "status": "open",
         "source": "agent_declared",
         "statement": "Timezone handling for date columns relies on the fixtures' implicit UTC; not asserted.",
-        "suggested_check": "Add a test with a non-UTC date column."
+        "suggested_check": "Add a test with a non-UTC date column.",
+        "introduced_by_action_id": 6,
+        "target": {
+          "target_type": "artifact",
+          "target_id": "a5"
+        }
       },
-      "summary": "Timezone handling for date columns relies on the fixtures' implicit UTC; not asserted."
+      "summary": "Timezone handling for date columns relies on the fixtures' implicit UTC; not asserted.",
+      "producer_action_id": 6,
+      "derived_from": [
+        "a5"
+      ]
     }
   ],
   "policies": [

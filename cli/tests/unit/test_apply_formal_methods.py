@@ -155,3 +155,57 @@ def test_cmd_check_json_with_no_policies_emits_empty_array(tmp_path, capsys):
     rc = cmd_check(check_args(str(p), json=True))
     assert rc == 0
     assert json.loads(capsys.readouterr().out) == []
+
+
+# --------------------------------------------------------------------------- the summary line
+
+def test_check_summary_counts_partition_and_a_warning_is_not_a_failure(tmp_path, capsys):
+    """`N passed, N failed, N warnings` has to add up to the rows printed above it.
+
+    `failed` used to tally EVERY violation regardless of severity, so a run whose only violation was a
+    warning printed one `WARN` row and then announced `1 failed, 1 warnings` - the same violation
+    counted twice, under a heading contradicted by the exit code, which was 0. A reader chasing a
+    reported failure finds no FAIL row to chase.
+    """
+    # A real trace, not the formula-level stub `trace()` builds: `cmd_check` validates before it checks.
+    from ponens.trace import create_empty_trace
+    t = create_empty_trace(model="m", assistant="t")
+    t["actions"] = [action(1, "EditFile", evidence=fileref("billing/pricing.py"))]
+    t["policies"] = [
+        {**policy("always_true", "G(EditFile → EditFile)"), "scope": "trace", "kind": "invariant"},
+        {**policy("warns_only", "G(EditFile → Verify)", severity="warning"),
+         "scope": "trace", "kind": "invariant"},
+    ]
+    p = tmp_path / "t.json"
+    p.write_text(json.dumps(t))
+
+    rc = cmd_check(check_args(str(p)))
+    out = capsys.readouterr().out
+
+    assert "  WARN    warns_only" in out
+    assert "FAIL" not in out, "no error-severity violation, so no FAIL row"
+    assert "1 passed, 0 failed, 1 warnings" in out
+    assert rc == 0, "a warning does not fail the gate"
+
+
+def test_check_summary_never_double_counts_a_syntax_rejection(tmp_path, capsys):
+    """A policy rejected for SYNTAX is one row, counted once.
+
+    Syntax rejection appends to `errors` and returns early without touching `failed`, so a summary that
+    derived its counts by arithmetic over `passed`/`failed`/`total` reported the same policy as both a
+    failure and as not-evaluated - and printed `-2 advisory`, a count that cannot exist.
+    """
+    from ponens.trace import create_empty_trace
+    t = create_empty_trace(model="m", assistant="t")
+    t["actions"] = [action(1, "EditFile")]
+    t["policies"] = [{"policy_id": "malformed", "name": "malformed",
+                      "formula": "G(EditFile → EditFile)", "severity": "error"}]  # no scope/kind
+    p = tmp_path / "t.json"
+    p.write_text(json.dumps(t))
+
+    cmd_check(check_args(str(p)))
+    out = capsys.readouterr().out
+
+    assert "  SYNTAX  malformed" in out
+    assert "0 passed, 1 failed, 0 warnings" in out
+    assert "advisory" not in out and "not evaluated" not in out, "one row, one count"

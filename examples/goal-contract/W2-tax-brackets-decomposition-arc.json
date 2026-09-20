@@ -450,12 +450,14 @@
           "target_type": "artifact",
           "target_id": "vr"
         },
-        "suggested_check": "Confirm the ledger's configured rounding mode matches."
+        "suggested_check": "Confirm the ledger's configured rounding mode matches.",
+        "introduced_by_action_id": 11
       },
       "derived_from": [
         "vr"
       ],
-      "summary": "Rounding is assumed banker's rounding at 2 decimals; other rounding modes are out of scope."
+      "summary": "Rounding is assumed banker's rounding at 2 decimals; other rounding modes are out of scope.",
+      "producer_action_id": 11
     }
   ],
   "outcome": {

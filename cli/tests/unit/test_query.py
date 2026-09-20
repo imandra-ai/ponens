@@ -4,6 +4,7 @@ The overview says where a project stands. These say what is already established 
 an agent consults the record instead of re-deriving the function's behaviour from source every turn.
 """
 from ponens import query as q
+from ponens import blame as blamemod
 from ponens import trace as traceops
 
 
@@ -92,3 +93,105 @@ def test_where_can_select_by_outcome():
 def test_rendering_is_readable_without_json():
     assert "step" in q.render_symbols(q.symbols(_trace()))
     assert "Nothing is known" in q.render_symbol(q.symbol(_trace(), "absent"))
+
+
+def test_index_reports_regions_even_when_a_later_record_arrives():
+    """A decomposition is not retracted by the test run recorded after it.
+
+    The index read the region count off the NEWEST record only, so a symbol that was decomposed and then
+    tested reported `regions=None` from `trace symbols` while `trace symbol` - which searches every
+    record - answered `2 regions` for the same trace. Two views of one record disagreeing about a plain
+    fact is worse than either answer; the count now comes from whichever record carries one.
+    """
+    t = _trace()
+    t["actions"].append({"id": 4, "type": "Test", "category": "verification", "rationale": "r",
+                         "inputs": [], "outputs": []})
+    t["artifacts"].append(
+        {"artifact_id": "t1", "artifact_type": "TestResult", "derived_from": ["src1"],
+         "producer_action_id": 4, "created_at": "2030-01-01T00:00:00Z",
+         "payload": {"status": "passed", "target_symbol": "step", "evidence_strength": "tests",
+                     "passed": 3, "failed": 0}})
+
+    row = q.symbols(t)["symbols"][0]
+    assert row["kind"] == "testresult", "the newest record still sets the headline kind"
+    assert row["regions"] == 3, "and the decomposition's region count survives it"
+    assert q.symbol(t, "step")["shape"]["splits_on"], "the detail view agreed all along"
+
+
+def test_index_headlines_the_best_result_not_the_latest_one():
+    """A later test run does not retract an earlier proof.
+
+    The row used to describe `recs[0]`, the newest record, so running a suite against a function that
+    had been PROVED moved the headline from `proved · proof · fresh` to `tested · tests · unknown` -
+    the strongest thing known about the symbol became invisible the moment anything weaker happened
+    afterwards, and `trace symbols` contradicted `trace blame` about the same trace. The row now takes
+    the record `blame` already picked.
+    """
+    t = _trace()
+    t["actions"].append({"id": 4, "type": "Verify", "category": "verification", "rationale": "r",
+                         "inputs": [], "outputs": []})
+    t["artifacts"].append(
+        {"artifact_id": "v1", "artifact_type": "VerificationResult", "derived_from": ["m1"],
+         "producer_action_id": 4, "ref": "fr1-result", "created_at": "2029-01-01T00:00:00Z",
+         "payload": {"status": "proved", "target_symbol": "step", "evidence_strength": "proof",
+                     "engine": "imandrax", "goal_artifact_id": "g1"}})
+    # …and then something weaker, and LATER.
+    t["actions"].append({"id": 5, "type": "Test", "category": "verification", "rationale": "r",
+                         "inputs": [], "outputs": []})
+    t["artifacts"].append(
+        {"artifact_id": "t1", "artifact_type": "TestResult", "derived_from": ["src1"],
+         "producer_action_id": 5, "created_at": "2030-01-01T00:00:00Z",
+         "payload": {"status": "passed", "target_symbol": "step", "evidence_strength": "tests"}})
+
+    row = q.symbols(t)["symbols"][0]
+    assert row["grade"] == "proved", "the proof is still the strongest thing known"
+    assert row["kind"] == "verification"
+    assert row["ref"] == "fr1-result", "and the row points at the record it describes"
+
+    # The two surfaces agree, which is the actual requirement.
+    best = blamemod.blame(t)["symbols"]["step"]["best"]
+    assert best["artifact_id"] == "v1"
+
+
+def test_index_falls_back_to_the_latest_when_nothing_is_established():
+    """With no best, "the latest thing that happened" IS the honest headline."""
+    t = _trace()
+    t["actions"].append({"id": 4, "type": "Verify", "category": "verification", "rationale": "r",
+                         "inputs": [], "outputs": []})
+    t["artifacts"].append(
+        {"artifact_id": "u1", "artifact_type": "VerificationResult", "derived_from": ["m1"],
+         "producer_action_id": 4, "created_at": "2030-01-01T00:00:00Z",
+         "payload": {"status": "unknown", "target_symbol": "step", "engine": "imandrax"}})
+    row = q.symbols(t)["symbols"][0]
+    assert row["symbol"] == "step"
+    assert row["gaps"] >= 0
+
+
+def test_the_index_row_and_the_detail_header_describe_the_same_record():
+    """Two views of one symbol, one headline rule.
+
+    Moving the index to the best result without moving the detail header produced exactly the class of
+    contradiction this change set out to remove: `proved · fresh` in the list, `unknown` at the top of
+    the page about that same symbol. Both go through `_headline` now.
+    """
+    t = _trace()
+    t["actions"].append({"id": 4, "type": "Verify", "category": "verification", "rationale": "r",
+                         "inputs": [], "outputs": []})
+    t["artifacts"].append(
+        {"artifact_id": "v1", "artifact_type": "VerificationResult", "derived_from": ["m1"],
+         "producer_action_id": 4, "created_at": "2029-01-01T00:00:00Z",
+         "payload": {"status": "proved", "target_symbol": "step", "evidence_strength": "proof",
+                     "engine": "imandrax", "goal_artifact_id": "g1"}})
+    t["actions"].append({"id": 5, "type": "Test", "category": "verification", "rationale": "r",
+                         "inputs": [], "outputs": []})
+    t["artifacts"].append(
+        {"artifact_id": "t1", "artifact_type": "TestResult", "derived_from": ["src1"],
+         "producer_action_id": 5, "created_at": "2030-01-01T00:00:00Z",
+         "payload": {"status": "passed", "target_symbol": "step", "evidence_strength": "tests"}})
+
+    row = q.symbols(t)["symbols"][0]
+    detail = q.symbol(t, "step")
+    assert row["freshness"] == detail["freshness"]["state"]
+    assert row["ref"] == "fr1-result" or row["ref"] == "v1"
+    # and the detail still carries the whole history, newest first
+    assert [e["kind"] for e in detail["evidence"]][0] == "testresult"

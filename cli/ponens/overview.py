@@ -465,7 +465,13 @@ def gate(trace):
             state = "unchecked"
         rules.append({"id": pid, "state": state, "severity": severity, "note": e.get("note") or e.get("message")})
     blocked = [r["id"] for r in rules if r["state"] == "blocked"]
-    return {"state": "blocked" if blocked else "pass", "blocked_by": blocked, "rules": rules}
+    # How many policies the trace CARRIES, which is a different number from how many were evaluated:
+    # `rules` comes from `policy_evaluations`, and nothing stamps those until `trace check --write`
+    # runs. Without this the renderer cannot tell "there are no rules" from "the rules were never
+    # run", and those two states need opposite advice.
+    attached = len([p for p in (trace.get("policies") or []) if isinstance(p, dict)])
+    return {"state": "blocked" if blocked else "pass", "blocked_by": blocked, "rules": rules,
+            "attached": attached}
 
 
 _NEXT_KIND = {"establish": "meet"}
@@ -620,7 +626,13 @@ def render_overview(o):
     # said so (`rules: []`); only the line dropped it.
     gate_note = ""
     if not gt["rules"]:
-        gate_note = " (no policies attached - nothing was checked)"
+        # Attached-but-unevaluated is NOT the same state as unattached, and it was reported as one:
+        # a trace carrying eight policies said "no policies attached", sending a reader to go attach
+        # policies it already had, when what it needed was for the checker to be run and stamped.
+        n = gt.get("attached") or 0
+        gate_note = (" (%d polic%s attached, none evaluated - run `ponens trace check --write`)"
+                     % (n, "y" if n == 1 else "ies")) if n else \
+                    " (no policies attached - nothing was checked)"
     elif gt["state"] == "pass":
         n = len(gt["rules"])
         gate_note = " (%d rule%s checked)" % (n, "" if n == 1 else "s")

@@ -7,6 +7,50 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.15.0] — 2026-09-20
+
+A residual says what the record did **not** establish. Until now nothing said where it came from. The
+command that declares a gap had no way to record the step that surfaced it, so gaps declared through the
+CLI were born unattributed - including five of the eight in the shipped demos, on a page whose whole
+claim is attribution. A reader was told a limitation exists and given no way to ask when it was noticed,
+or by what.
+
+The trace format is unchanged: `introduced_by_action_id` has been in the spec since 1.8 (§13.1) and is
+still optional. What changed is that producers can now record it, consumers now show it, and a record
+that omits it says so instead of rendering a card that looks complete.
+
+### Added
+- **Every declared gap names the step that surfaced it.** `ponens trace residual add` takes
+  `--introduced-by <action id>`. It is written to both carriers a consumer might read -
+  `payload.introduced_by_action_id` and the artifact's `producer_action_id` - and validated against the
+  trace: naming an action that does not exist is rejected with nothing written, because a live link to a
+  step that isn't there is worse than no link. Omitting it is still legal and now says what it costs.
+  Never inferred from the most recent action: attributing a gap to the wrong step would be worse than
+  leaving it open.
+- **`cli/tools/check_demo_provenance.py`** — a release check over every shipped trace: each residual
+  names an introducing action, the two carriers agree, the action is in the trace, and every
+  `derived_from`, `target` and `related` edge resolves. Runs in `validate-samples`. Validity and
+  provenance are different questions, which is why this sits beside `check_demo_spec.py` rather than in
+  the validator.
+
+### Changed
+- **The viewer answers "where did this come from" on the card.** Each residual reads
+  `surfaced by #22 Verify: all 7 amount invariants - PROVED · about updated_iml_model a8`, with the step
+  as a link that jumps into the flow and scrolls it into view; artifact ids resolve to the names their
+  authors gave them. The residual detail overlay gained the same, replacing a bare `Introduced at step
+  #22`. A residual with no introducing step renders `surfaced by: not recorded`.
+- **Every shipped example is attributed.** Each demo residual now names the step at which the gap
+  actually becomes visible - the coverage gap in the Stripe trace attaches to the decomposition that
+  exposed which transitions carry no goal, not to whichever step came last.
+- **`AGENT_PROMPT.md`** and the embedded agent prompt tell agents to pass `--introduced-by`, and how to
+  choose the step: the one where the gap became visible, not the one they happen to be on.
+
+### Fixed
+- **Provenance recorded in the standard place was thrown away on render.** Projecting a `Residual`
+  artifact back to the residual surface read only `payload.introduced_by_action_id` and ignored the
+  artifact's own `producer_action_id` — the field every artifact is required to carry. A trace that
+  recorded the introducing action the ordinary way displayed as though it had none.
+
 ## [1.14.0] — 2026-09-18
 
 A record is something you can **ask**, not only something you read. `ponens trace symbols` and

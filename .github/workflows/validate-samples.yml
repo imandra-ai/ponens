@@ -69,6 +69,12 @@ jobs:
         # eight shipped residuals were in that state, on a page whose whole claim is attribution.
         run: python3 cli/tools/check_demo_provenance.py
 
+      - name: The viewer derives what ponens derives
+        # The rule deciding whether a gap is open lives in three languages. A viewer that shows a gap
+        # as open while `trace check` passes it is worse than either alone: neither side can see the
+        # disagreement. Same fixtures, one expected answer.
+        run: node viewer/parity.test.mjs
+
       - name: Manifest entries all resolve
         run: |
           python3 - <<'PY'

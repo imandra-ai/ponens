@@ -1,0 +1,17 @@
+{
+  "trace_id": "d",
+  "spec_version": "1.14",
+  "actions": [],
+  "artifacts": [],
+  "outcome": {
+    "type": "ProcessCompleted"
+  },
+  "residuals": [
+    {
+      "residual_id": "r1",
+      "kind": "assumption",
+      "status": "waived",
+      "statement": "old shape"
+    }
+  ]
+}

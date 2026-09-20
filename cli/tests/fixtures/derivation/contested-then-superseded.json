@@ -1,0 +1,61 @@
+{
+  "trace_id": "d",
+  "spec_version": "1.14",
+  "actions": [],
+  "artifacts": [
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "producer_action_id": 1,
+      "payload": {
+        "kind": "limitation",
+        "status": "open",
+        "statement": "gap r1"
+      }
+    },
+    {
+      "artifact_id": "rr1",
+      "artifact_type": "ResidualResolution",
+      "producer_action_id": 2,
+      "derived_from": [
+        "r1"
+      ],
+      "payload": {
+        "residual_id": "r1",
+        "status": "waived",
+        "justification": "because"
+      }
+    },
+    {
+      "artifact_id": "r2",
+      "artifact_type": "Residual",
+      "producer_action_id": 3,
+      "payload": {
+        "kind": "defeater",
+        "defeater_kind": "undermines",
+        "status": "open",
+        "statement": "unsound",
+        "target": {
+          "target_type": "artifact",
+          "target_id": "rr1"
+        }
+      }
+    },
+    {
+      "artifact_id": "rr3",
+      "artifact_type": "ResidualResolution",
+      "producer_action_id": 9,
+      "derived_from": [
+        "r1"
+      ],
+      "payload": {
+        "residual_id": "r1",
+        "status": "addressed",
+        "justification": "because"
+      }
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted"
+  }
+}

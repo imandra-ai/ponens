@@ -66,7 +66,13 @@ def _vg_matches(vg, sym, prop):
 
 def _artifact_type(ev):
     """The artifact TYPE a typed criterion requires as its evidence. Accepts `artifact` (canonical),
-    or `artifact_type` / `type` as tolerant aliases."""
+    or `artifact_type` / `type` as tolerant aliases.
+
+    `evidence` carries two shapes and only the object one is a type requirement: a plain string is an
+    artifact ID - a pointer to evidence that already exists - which names no type. Return None for it,
+    which every caller already handles as "untyped criterion"."""
+    if not isinstance(ev, dict):
+        return None
     return ev.get("artifact") or ev.get("artifact_type") or ev.get("type")
 
 
@@ -134,6 +140,20 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     # property path. This is what makes a FAILING conformance (its ConformanceResult carries an undermines
     # defeater) leave a `conformance` criterion unmet, not silently `done` on mere existence. Role-gated:
     # the default (and `governed`) apply it; `met` = mere existence, so it does not.
+    # The evidence's OWN verdict comes first. The defeater gate above is for evidence somebody
+    # DISPUTES; this is for evidence that says no on its own face. Relying on the defeater alone made
+    # the criterion met whenever a producer emitted `status: failed` and did not also mint one - a
+    # failing conformance read as 100% done. A result that says the code does NOT conform is not
+    # weak evidence for conformance, it is evidence against it, so this is not role-gated: under
+    # `met` the question is whether the required evidence exists, and a refutation is not that
+    # evidence.
+    # Role-gated exactly like the defeater gate below, and for the same reason: `met` asks only whether
+    # the artifact EXISTS, the default and `governed` ask whether it establishes anything.
+    verdict = _evidence_verdict(a)
+    if gate_defeater and verdict == "negative":
+        return {"status": "blocked", "from_trace": True, "evidence": aid}
+    if gate_defeater and verdict == "inconclusive":
+        return {"status": "doing", "from_trace": True, "evidence": aid}
     contest_ids = {aid} | set(a.get("derived_from") or [])
     if gate_defeater and _open_defeater_contests(contest_ids, trace):
         return {"status": "blocked", "from_trace": True, "evidence": aid}
@@ -141,6 +161,26 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     if gate_fresh and _evidence_stale(aid, trace):
         return {"status": "blocked", "from_trace": True, "evidence": aid}
     return {"status": "done", "from_trace": True, "evidence": aid}
+
+
+# What an evidence artifact's own `status` says about the claim it is offered for. Only recognized
+# values are judged: an artifact with no status (a Diff, a decomposition, generated tests) is evidence
+# by existing, and an unrecognized one is not second-guessed here.
+_POSITIVE_VERDICTS = {"proved", "sat", "passed", "matched"}
+_NEGATIVE_VERDICTS = {"refuted", "failed", "mismatched"}
+_INCONCLUSIVE_VERDICTS = {"unknown", "partial", "pending", "error"}
+
+
+def _evidence_verdict(a):
+    """"positive" | "negative" | "inconclusive" | None (no verdict of its own)."""
+    st = _lc(_payload(a).get("status"))
+    if not st:
+        return None
+    if st in _NEGATIVE_VERDICTS:
+        return "negative"
+    if st in _INCONCLUSIVE_VERDICTS:
+        return "inconclusive"
+    return "positive" if st in _POSITIVE_VERDICTS else None
 
 
 def _open_defeater_contests(ids, trace):
@@ -1276,6 +1316,22 @@ _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 _KIND_TAG = {"fix": "FIX", "establish": "ESTABLISH", "refresh": "REFRESH", "gap": "GAP", "optional": "OPTIONAL"}
 
 
+def _resolved_evidence_ref(item):
+    """The artifact an enriched acceptance item actually resolved to.
+
+    `evidence` carries two shapes, and this function has now been wrong about it three times. On a
+    TYPED criterion it is the requirement (`{"artifact": "VerificationResult"}`) and the resolved id
+    goes in `evidence_ref`; on an untyped one - which is what `ponens trace goal accept` creates -
+    `enrich` writes the resolved id straight into `evidence`. Reading only `evidence_ref` meant no
+    criterion from `goal accept` could ever produce a `refresh` step, so `trace next` never once told
+    anyone to re-run stale evidence. Read both, in one place."""
+    ref = item.get("evidence_ref")
+    if ref:
+        return ref
+    ev = item.get("evidence")
+    return ev if isinstance(ev, str) else None
+
+
 def next_steps(trace, limit=None):
     """Ordered next steps over an (un-enriched) trace: [{kind, priority, goal_id, item_id, label, why,
     suggested, evidence_ref}] — see the module comment for the order. `kind` in fix | establish |
@@ -1295,11 +1351,18 @@ def next_steps(trace, limit=None):
             st = _lc(it.get("status") or "todo")
             required = it.get("required", True) is not False
             base = {"goal_id": gid, "item_id": it.get("id"), "label": it.get("label") or it.get("id"),
-                    "evidence_ref": it.get("evidence_ref")}
+                    "evidence_ref": _resolved_evidence_ref(it)}
             ref = it.get("reference")
             comp = it.get("component") or {}
             what = comp.get("function") or comp.get("symbol") or "the component"
-            art = (it.get("evidence") or {}).get("artifact") or "the required evidence"
+            # Same two shapes. On a TYPED criterion `evidence` is the requirement - `{"artifact":
+            # "VerificationResult"}` - and names what to produce. On an untyped one it is a plain
+            # artifact id, either authored that way or written there by `enrich`, which stores the
+            # resolved ref in `evidence` when there was no requirement object to keep. Reading the
+            # second as the first crashed `trace next` outright, on the flagship demo among others -
+            # the one command whose whole job is to say what to do about an open gap.
+            ev = it.get("evidence")
+            art = (ev.get("artifact") if isinstance(ev, dict) else None) or "the required evidence"
             if st == "blocked":
                 steps.append(dict(base, kind="fix", priority=1,
                                   why="evidence exists but is contested (a failed check or an open defeater)",
@@ -1309,13 +1372,29 @@ def next_steps(trace, limit=None):
                 steps.append(dict(base, kind="establish", priority=2, why="required, nothing established yet",
                                   suggested=("establish conformance against " + ref + " (check_conformance / formal_conform)") if ref
                                   else "produce " + art + " for " + what))
-            elif st == "done" and it.get("evidence_ref") in stale:
-                r = stale[it["evidence_ref"]]
+            elif st == "done" and _resolved_evidence_ref(it) in stale:
+                r = stale[_resolved_evidence_ref(it)]
                 steps.append(dict(base, kind="refresh", priority=3, why=r.get("statement") or "the evidence is stale",
                                   suggested=r.get("suggested_check") or "re-run the evidence against the current code"))
             elif st in ("todo", "doing") and not required:
                 steps.append(dict(base, kind="optional", priority=5, why="optional, not yet established",
                                   suggested="establish when convenient"))
+    # Stale or detached evidence that NO acceptance criterion covers. The refresh branch above only
+    # fires through a goal, and the gap loop below deliberately skips derived residuals - so evidence
+    # that went out of date on a record with no goal fell between them and `next` said "nothing to do"
+    # while `trace residuals --derived` said "out of date, re-run it". A merged record is the ordinary
+    # way to end up there: `trace merge --combine` carries the evidence and declares no goals.
+    covered = {st.get("evidence_ref") for st in steps if st.get("kind") == "refresh"}
+    for tgt, r in stale.items():
+        if tgt in covered:
+            continue
+        steps.append({"kind": "refresh", "priority": 3, "goal_id": None, "item_id": tgt,
+                      "label": r.get("target_symbol") or tgt,
+                      "why": r.get("statement") or "the evidence is out of date",
+                      "suggested": r.get("suggested_check")
+                      or "re-run the evidence against the current code",
+                      "evidence_ref": tgt, "severity": r.get("severity")})
+
     for r in lineage.residual_surface(e):
         if _lc(r.get("status") or "open") != "open" or r.get("derived"):
             continue
@@ -1335,8 +1414,35 @@ def next_steps(trace, limit=None):
     return steps[:limit] if limit else steps
 
 
-def render_next(steps):
+def standing_assumptions(trace):
+    """Open assumptions deliberately held back from `next` - the boundary the evidence rests on rather
+    than work to do. They are still real, so anything that reports "nothing to do" has to account for
+    them or it contradicts `trace residuals`, which lists them with their checks."""
+    out = []
+    for r in lineage.residual_surface(trace):
+        if _lc(r.get("status") or "open") != "open" or r.get("derived"):
+            continue
+        if not r.get("suggested_check"):
+            continue
+        if _lc(r.get("kind")) == "assumption" and _lc(r.get("severity") or "medium") not in ("high", "critical"):
+            out.append(r)
+    return out
+
+
+def render_next(steps, standing=()):
     if not steps:
+        # "no open gap has a suggested check" was flatly untrue whenever an assumption had been held
+        # back: `trace residuals` showed exactly such a gap, with its check, on the same record. Two
+        # renderings of one fact telling different stories is the thing a reader cannot recover from.
+        n = len(standing)
+        if n:
+            lines = ["Nothing to do: every required goal item is established.",
+                     f"{n} standing assumption(s) remain - the boundary the evidence rests on, not work:"]
+            for r in standing:
+                lines.append(f"  - {r.get('statement') or r.get('residual_id')}")
+                if r.get("suggested_check"):
+                    lines.append(f"      to discharge: {r['suggested_check']}")
+            return "\n".join(lines)
         return "Nothing to do: every required goal item is established and no open gap has a suggested check."
     out = []
     for i, s in enumerate(steps, 1):

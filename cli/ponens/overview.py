@@ -555,8 +555,15 @@ def _evidence_index(trace):
     for g in (trace or {}).get("goals") or []:
         gid = str(g.get("id") or "goal")
         for it in g.get("acceptance") or []:
-            if _lc(it.get("status")) == "done" and it.get("id") is not None:
-                out["goal:%s/%s" % (gid, it["id"])] = {"type": "goal", "reference": None}
+            if it.get("id") is None:
+                continue
+            # EVERY criterion, not only the `done` ones. Indexing only what was already met missed the
+            # loss that actually matters: delete the criteria you have NOT met and the goal reads
+            # 100%. Measured on the Stripe demo - one unmet item dropped took it from 88% to 100% and
+            # `integrity` reported nothing lost. A criterion that was asked for and is now absent is a
+            # loss whatever state it was in; `done` vs `open again` is only the DETAIL below.
+            out["goal:%s/%s" % (gid, it["id"])] = {
+                "type": "goal", "reference": None, "done": _lc(it.get("status")) == "done"}
     return out
 
 
@@ -572,7 +579,13 @@ def integrity(before, after):
         n = now.get(aid)
         if e["type"] == "goal":
             if not n:
-                lost.append({"id": aid[len("goal:"):], "what": "done requirement item", "reference": None, "detail": "was done and is open again"})
+                # Gone entirely: the definition of done itself shrank. That is a different loss from a
+                # met item going back to open, and the worse one - it changes what was being asked.
+                lost.append({"id": aid[len("goal:"):], "what": "requirement item",
+                             "reference": None, "detail": "is gone from the definition of done"})
+            elif e["done"] and not n["done"]:
+                lost.append({"id": aid[len("goal:"):], "what": "done requirement item",
+                             "reference": None, "detail": "was done and is open again"})
             continue
         what = "met requirement" if e["type"] == "ConformanceResult" else "proof"
         if not n:

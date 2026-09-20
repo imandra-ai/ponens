@@ -1,6 +1,6 @@
 {
   "trace_id": "agentic-violating-001",
-  "spec_version": "1.13",
+  "spec_version": "1.14",
   "assistant": "agentic-workflow",
   "model": "demo",
   "trigger": {

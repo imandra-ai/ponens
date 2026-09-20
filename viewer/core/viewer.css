@@ -1184,6 +1184,24 @@
   .mresidual-row:hover .mresidual-id, .mresidual-row:focus-visible .mresidual-id {
     color: var(--accent); border-color: var(--accent);
   }
+  /* How a gap was closed. Set apart from the statement above it - the gap and the decision about the
+     gap are two different claims by two (possibly) different authors, and the card should not blur them. */
+  .mresidual-res {
+    margin-top: 6px; padding: 5px 8px; border-left: 2px solid var(--border);
+    background: var(--bg-inset); border-radius: 0 4px 4px 0; font-size: 10.5px; line-height: 1.5;
+  }
+  .mresidual-res.superseded { opacity: 0.55; }
+  /* A contested closure must not read as though it held - the reader needs the justification AND the
+     reason it does not. Struck through, not hidden: it was said, and it is still in the record. */
+  .mresidual-res.contested { border-left-color: var(--red); }
+  .mresidual-res.contested .mresidual-res-w { text-decoration: line-through; opacity: 0.7; }
+  .mresidual-contested {
+    color: var(--red); font-weight: 700; text-transform: uppercase; font-size: 9px;
+    letter-spacing: 0.04em; margin-left: 4px;
+  }
+  .mresidual-reopened { margin-top: 6px; font-size: 10.5px; color: var(--red); font-weight: 600; }
+  .mresidual-res-h { font-weight: 700; color: var(--text-secondary); }
+  .mresidual-res-w { color: var(--text-dim); margin-top: 2px; }
   .mpolicy-icon { font-size: 15px; width: 22px; text-align: center; flex-shrink: 0; }
   .mpolicy-body { flex: 1; min-width: 0; }
   .mpolicy-name { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: var(--text-primary); }

@@ -50,10 +50,25 @@ def test_verification_result_present_is_met():
     assert r["evidence"] == "vr1"
 
 
-def test_met_does_not_judge_quality_refuted_still_met():
-    # A refuted result still satisfies "settle has a VerificationResult" — quality is the governed axis.
-    r = resolve_item(crit("refund", "VerificationResult"), _trace())
+def test_a_refuted_result_is_met_but_does_not_resolve_the_criterion():
+    """The met/governed split holds - but only `met` is pure existence.
+
+    A refuted result does satisfy "settle HAS a VerificationResult": that is the `met` axis, and it
+    still reads done there. Under the DEFAULT role it does not, and that changed deliberately. The
+    split assumes a policy pack judges quality on the governed axis; with no pack attached - the
+    ordinary case - nothing did, and a record whose only conformance check FAILED read `100%` in
+    `trace resolve`, `MET` in `goal ls` and "Nothing to do" in `trace next`, with nowhere for a reader
+    to discover the evidence said the opposite. Evidence that says no is not weak evidence for yes.
+    """
+    from ponens.goals import _resolve_criterion
+    item = crit("refund", "VerificationResult")
+    # `met`: does the artifact exist? Yes.
+    r = _resolve_criterion(item, _trace(), gate_defeater=False, gate_fresh=False)
     assert r["status"] == "done"
+    assert r["evidence"] == "vr2"
+    # default: does it establish the claim? No.
+    r = resolve_item(item, _trace())
+    assert r["status"] == "blocked"
     assert r["evidence"] == "vr2"
 
 

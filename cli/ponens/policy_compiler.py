@@ -254,6 +254,15 @@ ARTIFACT_TYPES = {
     # A residual — the trace's negative space (§13) — is a first-class artifact (v1.8), so policies
     # can quantify over it by type; its kind/severity/status live in `payload`.
     'Residual',
+    # The decision that CLOSED a residual (§13.3a, v1.14), appended rather than edited into the gap:
+    # who decided, on what grounds, against what evidence, and where in the work. A policy can require
+    # that every waiver of a high-severity gap names a person, or cites evidence.
+    'ResidualResolution',
+    # The decision that changed the DEFINITION OF DONE (§13.3a's sibling, v1.14): a criterion or a
+    # whole goal withdrawn, a goal replaced, a criteria review recorded - each carrying what it was.
+    # A policy can require that no required criterion is withdrawn after work began, or that every
+    # withdrawal names a person.
+    'GoalAmendment',
     # A monitor's evidence (Trace Spec 1.12 §10.11): a database / reference-data store, a feed, telemetry.
     'Observation',
 }

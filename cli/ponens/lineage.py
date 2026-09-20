@@ -240,6 +240,213 @@ def artifact_to_residual(a):
     return r
 
 
+# --- closing a residual (v1.14) ---------------------------------------------------------------------
+#
+# A gap is closed by APPENDING a `ResidualResolution` artifact that names it, never by editing the
+# residual's `status` in place. Editing is indistinguishable from never having declared the gap: the
+# record loses who decided, when, on what grounds, and at which point in the work - and a reader cannot
+# tell a waiver from a deletion. A trace is append-only everywhere else; its negative space should be
+# no different.
+#
+# The effective status is therefore DERIVED: the declared status is the base, and the last resolution
+# naming the residual wins. Superseding a resolution is itself an append, so a waiver that was later
+# reversed stays visible as both.
+
+RESOLUTION_TYPE = "ResidualResolution"
+
+# A resolution may only move a gap to one of these. `open` is not among them - a residual is born open
+# and re-opening is a new resolution back to `acknowledged`, not a pretence it was never closed.
+RESOLUTION_STATUSES = ("acknowledged", "addressed", "waived")
+
+
+def is_resolution(a):
+    return isinstance(a, dict) and a.get("artifact_type") == RESOLUTION_TYPE
+
+
+def _resolution_order(a):
+    """Trace order: by the action that made the decision when it is known, else last. Ties keep list
+    order, which is append order, so two resolutions in one action resolve predictably."""
+    aid = a.get("producer_action_id")
+    return aid if isinstance(aid, int) else float("inf")
+
+
+def resolutions_of(trace):
+    """Every resolution in the trace, oldest first, grouped by the residual it closes."""
+    rows = []
+    for i, a in enumerate(trace.get("artifacts") or []):
+        if not is_resolution(a):
+            continue
+        p = _payload(a)
+        rid = p.get("residual_id")
+        if not rid:
+            continue
+        rows.append((_resolution_order(a), i, rid, {
+            "resolution_id": a.get("artifact_id"),
+            "status": p.get("status"),
+            "justification": p.get("justification"),
+            "by": p.get("by"),
+            "at": p.get("at"),
+            "action_id": a.get("producer_action_id"),
+            "evidence_artifact_ids": p.get("evidence_artifact_ids") or [],
+        }))
+    out = {}
+    for _, _, rid, row in sorted(rows, key=lambda t: (t[0], t[1])):
+        out.setdefault(rid, []).append(row)
+    return out
+
+
+# A justification is a CLAIM, and the way a claim is attacked in this model is a Defeater (§13.2): an
+# open one means the claim it targets must not be treated as established. A `ResidualResolution` is an
+# artifact with an id, so a defeater can target it like any other claim - and when one stands, the
+# closure does not hold and the gap is open again. That is how a justification is invalidated without
+# being removed: both the waiver and the reason it does not hold stay in the record, and a reader sees
+# the argument rather than a silent edit.
+#
+# Defeating a defeater's own resolution is legal and terminates here by bounded iteration. Eight rounds
+# is far past anything real (each round can only settle one more link of a chain of contested
+# closures); a tangle that has not settled by then is NOT resolved in favour of closure - see below.
+_CONTEST_ROUNDS = 8
+
+
+def _contested_index(residuals):
+    """artifact id -> the residual ids of the Defeaters aimed at it."""
+    out = {}
+    for r in residuals:
+        if str(r.get("kind") or "").lower() != "defeater":
+            continue
+        rid = r.get("residual_id")
+        for ref in residual_anchor(r):
+            out.setdefault(ref, []).append(rid)
+    return out
+
+
+def apply_resolutions(residuals, trace):
+    """Stamp each residual with its DERIVED status. Mutates and returns the list.
+
+    `status` becomes the status of the last resolution IN FORCE; `declared_status` keeps what the
+    producer originally wrote, `resolution` is the one in force, and `resolutions` the full history -
+    so a consumer that only reads `status` (every policy, `next`, the grader) gets the right answer,
+    and one that wants the audit trail has it without re-deriving anything.
+
+    A resolution contested by an open Defeater is NOT in force: the gap it claimed to close is open
+    again, and `resolution_contested_by` names the defeaters that put it there."""
+    res = resolutions_of(trace)
+    if not res:
+        return residuals
+
+    by_id = {r.get("residual_id"): r for r in residuals}
+    contested = _contested_index(residuals)
+    # Seed from what each producer declared, then settle.
+    status = {rid: (r.get("status") or "open") for rid, r in by_id.items()}
+
+    def live_defeaters(resolution_id):
+        return [d for d in contested.get(resolution_id, []) if status.get(d, "open") == "open"]
+
+    settled = False
+    for _ in range(_CONTEST_ROUNDS):
+        changed = False
+        for rid, r in by_id.items():
+            eff = r.get("status") or "open"
+            for row in res.get(rid, []):
+                if live_defeaters(row["resolution_id"]):
+                    continue                    # contested: this one closes nothing
+                if row.get("status"):
+                    eff = row["status"]
+            if status.get(rid) != eff:
+                status[rid] = eff
+                changed = True
+        if not changed:
+            settled = True
+            break
+
+    for rid, r in by_id.items():
+        hist = res.get(rid)
+        if not hist:
+            continue
+        r["declared_status"] = r.get("status", "open")
+        r["resolutions"] = hist
+        in_force = None
+        for row in hist:
+            # A tangle that did not settle is read AGAINST closure: an unresolvable argument about
+            # whether a gap is closed is not a closed gap. Failing the other way would let a cycle
+            # close a gap that nobody can show is closed.
+            blockers = contested.get(row["resolution_id"], []) if not settled else live_defeaters(row["resolution_id"])
+            row["contested_by"] = list(blockers)
+            if not blockers and row.get("status"):
+                in_force = row
+        if in_force is not None:
+            r["status"] = in_force["status"]
+            r["resolution"] = in_force
+            if in_force.get("justification") and not r.get("justification"):
+                r["justification"] = in_force["justification"]
+        else:
+            # Every closure is contested - the gap stands as declared, and we say who put it back.
+            r["status"] = r["declared_status"]
+            r["resolution_contested_by"] = sorted(
+                {d for row in hist for d in (row.get("contested_by") or [])})
+    return residuals
+
+
+# --- amending the definition of done (v1.14) ---------------------------------------------------------
+#
+# The same rule as closing a gap, applied to the thing that says what "done" means. Withdrawing an
+# acceptance criterion is the sharper case: a gap that is waived still READS as a gap, but a criterion
+# that is deleted leaves nothing behind at all - the goal simply reads met. Measured on the shipped
+# Stripe demo: dropping the one criterion that was not met took it from 88% to 100%, and `ponens trace
+# integrity` (which indexed only ALREADY-DONE items) reported nothing lost.
+#
+# So a withdrawal appends a `GoalAmendment` carrying the criterion VERBATIM. It leaves the goal's
+# `acceptance` list as the current definition of done - consumers need one unambiguous answer to "what
+# is being asked" - while the record keeps what was asked for before, who withdrew it and why.
+
+AMENDMENT_TYPE = "GoalAmendment"
+
+AMENDMENT_CHANGES = ("item_withdrawn", "goal_withdrawn", "goal_replaced", "criteria_reviewed")
+
+
+def is_amendment(a):
+    return isinstance(a, dict) and a.get("artifact_type") == AMENDMENT_TYPE
+
+
+def amendments_of(trace, goal_id=None):
+    """Every amendment in the trace, oldest first, optionally for one goal."""
+    rows = []
+    for i, a in enumerate(trace.get("artifacts") or []):
+        if not is_amendment(a):
+            continue
+        p = _payload(a)
+        if goal_id is not None and p.get("goal_id") != goal_id:
+            continue
+        aid = a.get("producer_action_id")
+        rows.append((aid if isinstance(aid, int) else float("inf"), i,
+                     dict(p, amendment_id=a.get("artifact_id"), action_id=aid)))
+    return [r for _, _, r in sorted(rows, key=lambda t: (t[0], t[1]))]
+
+
+def amendment_artifact(goal_id, change, reason, action_id, seq, was=None, item_id=None, by=None, at=None):
+    """Build the record of one amendment. `was` is the thing as it stood - the whole point: withdrawn
+    from the definition of done is not the same as gone from the record."""
+    payload = {"goal_id": goal_id, "change": change, "reason": reason}
+    if item_id is not None:
+        payload["item_id"] = item_id
+    if was is not None:
+        payload["was"] = was
+    if by:
+        payload["by"] = by
+    if at:
+        payload["at"] = at
+    what = item_id or goal_id
+    return {
+        "artifact_id": f"ga{seq}",
+        "artifact_type": AMENDMENT_TYPE,
+        "name": f"{change}: {what}",
+        "summary": reason,
+        "producer_action_id": action_id,
+        "derived_from": [],
+        "payload": payload,
+    }
+
+
 def residual_surface(trace):
     """The trace's residual surface as flat residual dicts — Residual artifacts projected back to the
     §13 shape, plus any legacy top-level `residuals` (deduped by id). The single accessor every residual
@@ -260,7 +467,10 @@ def residual_surface(trace):
             continue
         seen.add(rid)
         out.append(r)
-    return out
+    # Closure is derived, not stored (see RESOLUTION_TYPE above). Applying it HERE is what makes every
+    # existing consumer - the validator, the policy witnesses, `next`, the grader, the report - agree
+    # on whether a gap is open without any of them learning about resolutions.
+    return apply_resolutions(out, trace)
 
 
 def migrate_residuals(trace):

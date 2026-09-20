@@ -1732,6 +1732,147 @@ def cmd_residual_add(args):
     return 0
 
 
+def cmd_residual_resolve(args):
+    """Close a residual by APPENDING the decision, never by editing the gap out.
+
+    Editing `status` in place is indistinguishable from never having declared the gap: the record
+    loses who decided, on what grounds, and at which point in the work, and a reader cannot tell a
+    reasoned waiver from a quiet deletion. So this writes two things - an action carrying the
+    decision and its rationale, and a `ResidualResolution` artifact hanging off the residual - and
+    leaves the residual itself exactly as its producer wrote it. The effective status is derived
+    (`lineage.apply_resolutions`), so every consumer sees the gap as closed while the declaration
+    and the closure both stay in the record.
+    """
+    trace = load_trace(args.trace_file)
+    lineage.migrate_residuals(trace)
+
+    surface = {r.get("residual_id"): r for r in lineage.residual_surface(trace)}
+    r = surface.get(args.residual_id)
+    if r is None:
+        known = ", ".join(sorted(k for k in surface if k)) or "none"
+        print(f"error: no residual '{args.residual_id}' in {args.trace_file} (declared: {known})",
+              file=sys.stderr)
+        return 1
+    # Closing something already closed is legal - a waiver can be revisited, an `addressed` gap can be
+    # re-acknowledged when the evidence turns out not to hold - but say so, because the earlier
+    # decision stays in the record and a reader will see both.
+    if r.get("status", "open") != "open":
+        print(f"note: {args.residual_id} is already {r['status']}; appending a superseding resolution "
+              f"(the earlier one stays in the record)", file=sys.stderr)
+
+    evidence = [e.strip() for e in (args.evidence or []) if e and e.strip()]
+    known_arts = {a.get("artifact_id") for a in trace.get("artifacts") or []}
+    for e in evidence:
+        if e not in known_arts:
+            print(f"error: --evidence {e} is not an artifact in {args.trace_file}", file=sys.stderr)
+            return 1
+    # An `addressed` gap is one the evidence closed. Not naming that evidence is allowed - the
+    # justification may cite work outside this trace - but it is worth a word, because "addressed"
+    # without a pointer is the shape a quiet edit would take.
+    if args.status == "addressed" and not evidence:
+        print("note: marking addressed without --evidence; the justification is then the only record "
+              "of what closed it", file=sys.stderr)
+
+    action_id = next_action_id(trace)
+    arts = trace.setdefault("artifacts", [])
+    n = sum(1 for a in arts if lineage.is_resolution(a))
+    res_id = f"rr{n + 1}"
+    verb = {"waived": "Waive", "addressed": "Address", "acknowledged": "Acknowledge"}[args.status]
+
+    trace.setdefault("actions", []).append({
+        "id": action_id,
+        "category": "gateway",          # a judgement about the record, not work on the code
+        "type": "Decision",
+        "label": f"{verb} {args.residual_id}: {(r.get('statement') or '')[:60]}",
+        "rationale": args.justification,
+        "inputs": [args.residual_id] + evidence,
+        "outputs": [res_id],
+    })
+    payload = {"residual_id": args.residual_id, "status": args.status,
+               "justification": args.justification,
+               "at": args.at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    if args.by:
+        payload["by"] = args.by
+    if evidence:
+        payload["evidence_artifact_ids"] = evidence
+    arts.append({
+        "artifact_id": res_id,
+        "artifact_type": lineage.RESOLUTION_TYPE,
+        "name": f"{args.status}: {args.residual_id}",
+        "summary": args.justification,
+        "producer_action_id": action_id,
+        "derived_from": [args.residual_id] + evidence,
+        "payload": payload,
+    })
+    if str(trace.get("spec_version", "1.1")) < "1.14":
+        trace["spec_version"] = "1.14"
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"{args.residual_id} is now {args.status} - recorded as {res_id} at action #{action_id} "
+          f"in {args.trace_file}")
+    print(f"  the residual itself is unchanged; `ponens trace residuals {args.trace_file}` shows both")
+    return 0
+
+
+def cmd_residual_contest(args):
+    """Invalidate a justification without removing it.
+
+    A justification is a claim, and this model attacks a claim with a Defeater (§13.2) - not by
+    deleting it. So contesting a resolution declares a `defeater` residual against it: the waiver and
+    the reason it does not hold both stay in the record, a reader sees the argument rather than a
+    silent edit, and while the defeater is open the closure is not in force and the gap is open again.
+
+    Withdrawing the objection is the same move in reverse - resolve the defeater
+    (`ponens trace residual resolve <defeater id> --status addressed …`) and the closure stands again,
+    with the whole exchange readable.
+    """
+    trace = load_trace(args.trace_file)
+    lineage.migrate_residuals(trace)
+
+    res = next((a for a in trace.get("artifacts") or []
+                if lineage.is_resolution(a) and a.get("artifact_id") == args.resolution_id), None)
+    if res is None:
+        known = ", ".join(a.get("artifact_id") for a in trace.get("artifacts") or []
+                          if lineage.is_resolution(a)) or "none"
+        print(f"error: no resolution '{args.resolution_id}' in {args.trace_file} (recorded: {known})",
+              file=sys.stderr)
+        # A status written straight onto the residual (valid pre-1.14) has no claim to contest - there
+        # is no recorded justification, only a bare status. Superseding it is the honest move.
+        print("  a residual whose status was set directly carries no justification to contest; "
+              "append a new decision with `ponens trace residual resolve` instead", file=sys.stderr)
+        return 1
+
+    target = (res.get("payload") or {}).get("residual_id")
+    arts = trace.setdefault("artifacts", [])
+    rid = f"r{sum(1 for a in arts if lineage.is_residual(a)) + 1}"
+    action_id = next_action_id(trace)
+
+    trace.setdefault("actions", []).append({
+        "id": action_id,
+        "category": "gateway",
+        "type": "Decision",
+        "label": f"Contest {args.resolution_id} (the grounds for closing {target})",
+        "rationale": args.reason,
+        "inputs": [args.resolution_id],
+        "outputs": [rid],
+    })
+    r = {"residual_id": rid, "kind": "defeater", "defeater_kind": args.defeater_kind,
+         "severity": args.severity, "status": "open", "source": "reviewer_added",
+         "statement": args.reason,
+         "target": {"target_type": "artifact", "target_id": args.resolution_id},
+         "related_artifact_ids": [target] if target else [],
+         "introduced_by_action_id": action_id}
+    if args.by:
+        r["tags"] = [f"by:{args.by}"]
+    arts.append(lineage.residual_to_artifact(r))
+    if str(trace.get("spec_version", "1.1")) < "1.14":
+        trace["spec_version"] = "1.14"
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"{args.resolution_id} is contested by {rid} ({args.defeater_kind}) - "
+          f"{target} reads open again while it stands")
+    print(f"  the justification is untouched; both it and the objection are in {args.trace_file}")
+    return 0
+
+
 # --- meta-action curation (scrub the narrative; the atomic actions stay ground truth) ---
 
 def _find_meta(trace, mid):
@@ -2226,7 +2367,10 @@ def cmd_residuals(args):
         counts[r.get('severity', 'info')] = counts.get(r.get('severity', 'info'), 0) + 1
     summary = "  ".join(f"{counts[s]} {s}" for s in ['critical', 'high', 'medium', 'low', 'info'] if s in counts)
 
-    print(f"Residual surface: {trace.get('trace_id', '?')}   ({len(residuals)} declared)")
+    open_n = sum(1 for r in residuals if (r.get('status') or 'open') == 'open')
+    closed = len(residuals) - open_n
+    head = f"{len(residuals)} declared, {open_n} open" + (f", {closed} closed" if closed else "")
+    print(f"Residual surface: {trace.get('trace_id', '?')}   ({head})")
     print(f"  {summary}\n")
     for r in ordered:
         print(f"  [{r.get('severity', 'info').upper()}] {r.get('residual_id', '?')}  "
@@ -2243,6 +2387,27 @@ def cmd_residuals(args):
             print(f"      {'   '.join(loc)}")
         if r.get('suggested_check'):
             print(f"      check:  {r['suggested_check']}")
+        if r.get('resolution_contested_by'):
+            print(f"      open again: every closure is contested "
+                  f"({', '.join(r['resolution_contested_by'])})")
+        # How it was closed. A derived status with the decision left invisible would be the same
+        # opacity as editing the gap out, one level removed - the point of appending the resolution
+        # is that a reader sees who decided, on what grounds, and where in the work.
+        for i, res in enumerate(r.get('resolutions') or []):
+            last = i == len(r['resolutions']) - 1
+            who = f" by {res['by']}" if res.get('by') else ""
+            when = f" on {res['at'][:10]}" if res.get('at') else ""
+            step = f" at #{res['action_id']}" if res.get('action_id') is not None else ""
+            # A contested closure printed as though it held would be the same opacity as editing the
+            # gap out: the reader needs to see BOTH the justification and the reason it does not hold.
+            contested = res.get('contested_by') or []
+            mark = "      " if last else "      (superseded) "
+            tail = f"  - CONTESTED by {', '.join(contested)}" if contested else ""
+            print(f"{mark}{res.get('status', '?')}{who}{when}{step}{tail}")
+            if res.get('justification'):
+                print(f"          {res['justification']}")
+            if res.get('evidence_artifact_ids'):
+                print(f"          evidence: {', '.join(res['evidence_artifact_ids'])}")
         print()
     return 0
 
@@ -2259,6 +2424,27 @@ def _apply_goals_file(trace, goals_path):
     goals = data.get('goals') if isinstance(data, dict) else data
     if goals is not None:
         trace['goals'] = goals
+
+
+def _print_amendments(trace, goal_id, indent="  "):
+    """Say that the definition of done changed, and how, wherever its progress is shown."""
+    ams = lineage.amendments_of(trace, goal_id)
+    changed = [a for a in ams if a.get("change") != "criteria_reviewed"]
+    if not changed:
+        return
+    print(f"{indent}! the definition of done was amended {len(changed)} time(s):")
+    for a in changed:
+        what = a.get("item_id") or a.get("goal_id")
+        was = a.get("was") or {}
+        label = was.get("label") or was.get("intent") or ""
+        met = str(was.get("status") or "").lower() == "done"
+        note = "" if a.get("change") != "item_withdrawn" else ("" if met else ", which was not met")
+        who = f" by {a['by']}" if a.get("by") else ""
+        step = f" at #{a['action_id']}" if a.get("action_id") is not None else ""
+        print(f"{indent}  {a.get('change')}: {what}{note}{who}{step}"
+              + (f" - {label[:60]}" if label else ""))
+        if a.get("reason"):
+            print(f"{indent}      {a['reason']}")
 
 
 def cmd_resolve(args):
@@ -2285,6 +2471,9 @@ def cmd_resolve(args):
     marks = {'done': '✓', 'blocked': '✗', 'doing': '◐', 'todo': '○'}
     for g in out:
         print(f"{g['id']}  {int(round(g['progress'] * 100))}%  {g['intent']}")
+        # A percentage is only meaningful against a fixed bar. If the bar moved, say so next to the
+        # number - 100% of a definition of done that was narrowed last week is not 100%.
+        _print_amendments(trace, g['id'])
         for it in g['acceptance']:
             src = ' (trace)' if it.get('from_trace') else ''
             if isinstance(it.get('component'), dict):
@@ -2303,7 +2492,7 @@ def cmd_next(args):
     if getattr(args, 'json', False):
         print(json.dumps(steps, indent=2, ensure_ascii=False))
     else:
-        print(goalops.render_next(steps))
+        print(goalops.render_next(steps, goalops.standing_assumptions(trace)))
     return 0
 
 
@@ -2531,7 +2720,16 @@ def cmd_goal_set(args):
             goal["intent_clauses"] = args.clause
     existing = _find_goal(trace, goal["id"])
     if existing is not None:
+        # Replacing a goal rewrites what "done" means. Same rule as withdrawing one: the previous
+        # definition stays in the record, so a reader can see that the bar moved and what it was.
+        if not args.reason:
+            print(f"Error: goal '{goal['id']}' already exists; --reason is required to replace it "
+                  f"(the previous definition of done is kept in the record)", file=sys.stderr)
+            return 1
         goals[goals.index(existing)] = goal
+        _record_amendment(trace, goal["id"], "goal_replaced", args.reason,
+                          f"Replace the definition of done for '{goal['id']}'",
+                          was=copy.deepcopy(existing), by=args.by)
     else:
         goals.append(goal)
     if trace.get("spec_version", "1.1") < "1.7":
@@ -2578,14 +2776,52 @@ def cmd_goal_certify(args):
     review = {"reviewed_by": args.by, "verdict": args.verdict, "at": _now_iso()}
     if args.note:
         review["note"] = args.note
+    prior = goal.get("criteria_review")
     goal["criteria_review"] = review
+    # A second review used to erase the first, so a `rejected` verdict could be overwritten by an
+    # `approved` one with nothing to show for it. The current review stays where consumers read it;
+    # every review is also appended, so the sequence survives.
+    _record_amendment(trace, goal.get("id"), "criteria_reviewed",
+                      args.note or f"{args.verdict} by {args.by}",
+                      f"Criteria review on '{goal.get('id')}': {args.verdict}",
+                      was=copy.deepcopy(prior) if prior else None, by=args.by)
     _save_trace_fmt(args.trace_file, trace)
     print(f"Recorded criteria review on '{args.goal}': {args.verdict} by {args.by}")
+    if prior:
+        print(f"  supersedes {prior.get('verdict')} by {prior.get('reviewed_by')}; both are in the record")
     return 0
 
 
+def _record_amendment(trace, goal_id, change, reason, label, was=None, item_id=None, by=None):
+    """Append the decision that changed the definition of done, and return nothing.
+
+    Narrowing what "done" means is the sharpest edit a trace allows: a waived gap still READS as a
+    gap, but a deleted criterion leaves nothing at all - the goal simply reads met. On the shipped
+    Stripe demo, dropping the one criterion that was not met moved it from 88% to 100%. So the
+    criterion is kept VERBATIM in the record while leaving the goal's `acceptance` list as the current,
+    unambiguous definition of done."""
+    arts = trace.setdefault("artifacts", [])
+    seq = sum(1 for a in arts if lineage.is_amendment(a)) + 1
+    action_id = next_action_id(trace)
+    trace.setdefault("actions", []).append({
+        "id": action_id,
+        "category": "gateway",
+        "type": "Decision",
+        "label": label,
+        "rationale": reason,
+        "inputs": [],
+        "outputs": [f"ga{seq}"],
+    })
+    arts.append(lineage.amendment_artifact(
+        goal_id, change, reason, action_id, seq, was=was, item_id=item_id, by=by,
+        at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+    if str(trace.get("spec_version", "1.1")) < "1.14":
+        trace["spec_version"] = "1.14"
+    return action_id
+
+
 def cmd_goal_drop(args):
-    """Remove an acceptance item from a goal by item id."""
+    """Withdraw an acceptance item from a goal, recording what was withdrawn and why."""
     trace = load_trace(args.trace_file)
     goal = _find_goal(trace, args.goal)
     if goal is None:
@@ -2597,21 +2833,34 @@ def cmd_goal_drop(args):
         print(f"Error: no acceptance item '{args.item_id}' in goal '{args.goal}'", file=sys.stderr)
         return 1
     acc.remove(item)
+    aid = _record_amendment(
+        trace, goal.get("id"), "item_withdrawn", args.reason,
+        f"Withdraw {args.item_id} from '{goal.get('id')}': {(item.get('label') or '')[:50]}",
+        was=copy.deepcopy(item), item_id=args.item_id, by=args.by)
     _save_trace_fmt(args.trace_file, trace)
-    print(f"Removed acceptance {args.item_id} from goal '{args.goal}'")
+    was_done = str(item.get("status") or "todo").lower() == "done"
+    print(f"Withdrew acceptance {args.item_id} from goal '{args.goal}' - recorded at action #{aid}")
+    print(f"  it is out of the definition of done, not out of the record"
+          + ("" if was_done else "; it had not been met"))
     return 0
 
 
 def cmd_goal_rm(args):
-    """Remove a goal from the trace by id."""
+    """Withdraw a whole goal, recording what it asked for and why it was withdrawn."""
     trace = load_trace(args.trace_file)
     goal = _find_goal(trace, args.goal)
     if goal is None:
         print(f"Error: no goal '{args.goal}'", file=sys.stderr)
         return 1
     trace["goals"].remove(goal)
+    n = len(goal.get("acceptance") or [])
+    aid = _record_amendment(
+        trace, goal.get("id"), "goal_withdrawn", args.reason,
+        f"Withdraw goal '{goal.get('id')}' ({n} acceptance item(s))",
+        was=copy.deepcopy(goal), by=args.by)
     _save_trace_fmt(args.trace_file, trace)
-    print(f"Removed goal '{args.goal}' from {args.trace_file}")
+    print(f"Withdrew goal '{args.goal}' - recorded at action #{aid}")
+    print(f"  its {n} acceptance item(s) are kept verbatim in the record")
     return 0
 
 
@@ -2630,6 +2879,7 @@ def cmd_goal_ls(args):
         flags += " · CERTIFIED" if f.get("certified") else " · uncertified"
         print(f"\n{g.get('id')}: {g.get('intent', '')}")
         print(f"  {flags}  ({int(round(g.get('progress', 0) * 100))}% done)")
+        _print_amendments(trace, g.get("id"))
         for c in f.get("uncovered_clauses", []):
             print(f"  ! uncovered intent clause: {c}")
         for a in g.get("acceptance", []):
@@ -2832,6 +3082,32 @@ def register(subparsers):
     p.add_argument("--tag", action="append", help="Tag (repeatable)")
     p.set_defaults(func=cmd_residual_add)
 
+    p = rp_sub.add_parser("resolve", help="Close a residual by APPENDING the decision (never by editing it out)")
+    p.add_argument("trace_file")
+    p.add_argument("residual_id", help="The residual to close, e.g. r1")
+    p.add_argument("--status", required=True, choices=list(lineage.RESOLUTION_STATUSES),
+                   help="acknowledged = seen and accepted as a known gap; addressed = closed by evidence; "
+                        "waived = accepted as a permanent limitation")
+    p.add_argument("--justification", required=True,
+                   help="Why it is closed - the evidence that closed it, or the reasoning that justifies "
+                        "accepting it. Recorded verbatim, so a reviewer sees WHY")
+    p.add_argument("--evidence", action="append", metavar="ARTIFACT_ID",
+                   help="The artifact that closed it (repeatable) - expected for --status addressed")
+    p.add_argument("--by", help="Who decided (a name, handle or email)")
+    p.add_argument("--at", help="When, as an ISO-8601 instant (default: now)")
+    p.set_defaults(func=cmd_residual_resolve)
+
+    p = rp_sub.add_parser("contest", help="Invalidate a justification without removing it (declare a defeater against it)")
+    p.add_argument("trace_file")
+    p.add_argument("resolution_id", help="The resolution whose grounds are contested, e.g. rr1")
+    p.add_argument("--reason", required=True, help="Why the justification does not hold")
+    p.add_argument("--defeater-kind", default="undermines", choices=sorted(DEFEATER_KINDS),
+                   help="rebuts = the conclusion is false; undermines = the grounds are unsound; "
+                        "undercuts = the grounds do not support the conclusion (default: undermines)")
+    p.add_argument("--severity", default="high", choices=["info", "low", "medium", "high", "critical"])
+    p.add_argument("--by", help="Who is objecting")
+    p.set_defaults(func=cmd_residual_contest)
+
     # meta (curate the narrative layer)
     mp = trace_sub.add_parser("meta", help="Curate the meta-action narrative (scrub the raw directives)")
     mp_sub = mp.add_subparsers(dest="meta_command", required=True)
@@ -2868,6 +3144,9 @@ def register(subparsers):
     q.add_argument("--intent-author", dest="intent_author", default="human", choices=["human", "agent", "reviewer"])
     q.add_argument("--id", default="session-goal", help="Goal id (default: session-goal)")
     q.add_argument("--json", help="Load the full goal (incl. acceptance) from a JSON file, or - for stdin")
+    q.add_argument("--reason", help="Required only when REPLACING an existing goal: why the definition "
+                                    "of done changed (the previous one is kept in the record)")
+    q.add_argument("--by", help="Who decided")
     q.set_defaults(func=cmd_goal_set)
 
     q = gp_sub.add_parser("accept", help="Add an acceptance item (a piece of the definition of done)")
@@ -2894,15 +3173,21 @@ def register(subparsers):
     q.add_argument("--note")
     q.set_defaults(func=cmd_goal_certify)
 
-    q = gp_sub.add_parser("drop", help="Remove an acceptance item from a goal")
+    q = gp_sub.add_parser("drop", help="Withdraw an acceptance item (kept in the record, out of the definition of done)")
     q.add_argument("trace_file")
     q.add_argument("item_id", help="Acceptance item id (e.g. s2)")
     q.add_argument("--goal", default="session-goal")
+    q.add_argument("--reason", required=True,
+                   help="Why this is no longer part of 'done'. Narrowing the bar without saying why is "
+                        "the one edit that makes a goal read met when it is not")
+    q.add_argument("--by", help="Who decided")
     q.set_defaults(func=cmd_goal_drop)
 
-    q = gp_sub.add_parser("rm", help="Remove a goal from the trace")
+    q = gp_sub.add_parser("rm", help="Withdraw a goal (kept in the record)")
     q.add_argument("trace_file")
-    q.add_argument("--goal", default="session-goal", help="Goal id to remove (default: session-goal)")
+    q.add_argument("--goal", default="session-goal", help="Goal id to withdraw (default: session-goal)")
+    q.add_argument("--reason", required=True, help="Why this goal is no longer being pursued")
+    q.add_argument("--by", help="Who decided")
     q.set_defaults(func=cmd_goal_rm)
 
     q = gp_sub.add_parser("ls", help="Show goals with resolved status + faithfulness (met vs certified)")

@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-stripe-payment-flow-001",
-  "spec_version": "1.13",
+  "spec_version": "1.14",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-09-18T10:00:00Z",

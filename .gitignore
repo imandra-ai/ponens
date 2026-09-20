@@ -51,3 +51,6 @@ examples/otel/*-trace.json
 
 # Generated from the Langfuse sample (regenerate: ponens langfuse import examples/langfuse/sample-langfuse.json)
 examples/langfuse/*-trace.json
+
+# Local bug reproductions - scratch, not part of the distribution
+repro/

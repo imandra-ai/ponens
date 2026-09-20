@@ -270,7 +270,7 @@ if (!window._vscodeManaged && !window.__ponensEmbedded && _traceParam) {
  * ReferenceError reaching for them, the header rendered (it runs first) and every view below it did
  * not. The demo page showed a title, a timestamp, and an empty body.
  */
-const SPEC_VERSION = '1.13';
+const SPEC_VERSION = '1.14';
 
 /** Compare two dotted versions numerically: `1.8` is BEFORE `1.13`, which a string compare gets wrong. */
 function cmpSpec(a, b) {
@@ -1848,6 +1848,12 @@ function renderResidualsModal() {
         ${r.statement ? `<div class="mpolicy-desc">${esc(r.statement)}</div>` : ''}
         <div class="mresidual-prov">${prov.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</div>
         ${r.suggested_check ? `<div class="mpolicy-note">check: ${esc(r.suggested_check)}</div>` : ''}
+        ${r.resolution_contested_by?.length ? `<div class="mresidual-reopened">open again &mdash; every closure is contested (${r.resolution_contested_by.map((id) => _artifactJump(id, id)).join(', ')})</div>` : ''}
+        ${_resolutionLines(r, true).map((x) => `<div class="mresidual-res${x.last ? '' : ' superseded'}${x.contested.length ? ' contested' : ''}">`
+          + `<span class="mresidual-res-h">${x.last ? '' : 'superseded &middot; '}${x.head}</span>`
+          + (x.why ? `<div class="mresidual-res-w">${x.why}</div>` : '')
+          + (x.evidence ? `<div class="mresidual-res-w">${x.evidence}</div>` : '')
+          + `</div>`).join('')}
       </div>
       <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:${color};border:1px solid ${color};border-radius:4px;padding:2px 6px;white-space:nowrap;height:fit-content;">${esc(sev)}</span>
     </div>`;
@@ -2074,6 +2080,36 @@ function _artifactLabel(id) {
   return a?.name ? `${a.name}` : String(id);
 }
 
+/** How a gap was closed, oldest first. A derived status with the decision left invisible would be the
+ *  same opacity as editing the gap out, one level removed - the point of appending the resolution is
+ *  that a reader sees who decided, on what grounds, and where in the work. `link` decides whether the
+ *  deciding step is clickable (the modal can navigate; a static panel renders it plain). */
+function _resolutionLines(r, link) {
+  const hist = r.resolutions || (r.resolution ? [r.resolution] : []);
+  return hist.map((res, i) => {
+    const last = i === hist.length - 1;
+    const who = res.by ? ' by ' + esc(res.by) : '';
+    const when = res.at ? ' on ' + esc(String(res.at).slice(0, 10)) : '';
+    const step = res.action_id != null
+      ? ' at ' + (link ? _actionLink(res.action_id, '#' + res.action_id) : '#' + esc(String(res.action_id)))
+      : '';
+    const ev = (res.evidence_artifact_ids || []).filter(Boolean);
+    const contested = (res.contested_by || []).filter(Boolean);
+    return {
+      last,
+      contested,
+      head: `${esc(res.status || '?')}${who}${when}${step}`
+        + (contested.length
+          ? ` <span class="mresidual-contested">contested by ${contested.map((id) => (link ? _artifactJump(id, id) : esc(id))).join(', ')}</span>`
+          : ''),
+      why: res.justification ? esc(res.justification) : '',
+      evidence: ev.length
+        ? 'evidence: ' + ev.map((id) => (link ? _artifactJump(id) : esc(_artifactLabel(id)))).join(', ')
+        : '',
+    };
+  });
+}
+
 /** Link text that closes the modal, opens the Artifacts view, and selects that artifact. */
 function _artifactJump(id, text) {
   const t = esc(text == null ? _artifactLabel(id) : text);
@@ -2131,6 +2167,103 @@ function _artifactToResidual(a) {
   return r;
 }
 
+// A gap is closed by APPENDING a `ResidualResolution` artifact naming it (§13.3a, v1.14), never by
+// editing the residual's `status`. The effective status is therefore derived here, exactly as
+// `lineage.apply_resolutions` derives it in the CLI: declared status is the base, resolutions apply in
+// ACTION order, last one wins. Keeping the two in step matters - a viewer that showed a gap as open
+// while `ponens trace check` passed it (or the reverse) would be worse than showing neither.
+const _isResolutionArt = (a) => !!a && a.artifact_type === 'ResidualResolution';
+
+function _resolutionsOf(trace) {
+  const rows = [];
+  (trace.artifacts || []).forEach((a, i) => {
+    if (!_isResolutionArt(a)) return;
+    const p = a.payload || {};
+    if (!p.residual_id) return;
+    rows.push({
+      order: Number.isFinite(a.producer_action_id) ? a.producer_action_id : Infinity,
+      i,
+      residual_id: p.residual_id,
+      row: {
+        resolution_id: a.artifact_id, status: p.status, justification: p.justification,
+        by: p.by, at: p.at, action_id: a.producer_action_id,
+        evidence_artifact_ids: p.evidence_artifact_ids || [],
+      },
+    });
+  });
+  rows.sort((x, y) => (x.order - y.order) || (x.i - y.i));
+  const out = {};
+  for (const r of rows) (out[r.residual_id] = out[r.residual_id] || []).push(r.row);
+  return out;
+}
+
+// A justification is a CLAIM, and a claim is attacked here with a Defeater (§13.2), never deleted. A
+// `ResidualResolution` is an artifact, so a defeater can target it: while one stands, the closure is
+// not in force and the gap is open again - with the waiver and the objection both still readable.
+// Bounded iteration, and a tangle that does not settle reads AGAINST closure. Mirrors the CLI's
+// `lineage.apply_resolutions` exactly; a viewer that disagreed with `ponens trace check` about what is
+// open would be worse than one that showed neither.
+const _CONTEST_ROUNDS = 8;
+
+function _contestedIndex(residuals) {
+  const out = {};
+  for (const r of residuals) {
+    if (String(r.kind || '').toLowerCase() !== 'defeater') continue;
+    const refs = [];
+    if (r.target?.target_type === 'artifact' && r.target.target_id) refs.push(r.target.target_id);
+    for (const id of (r.related_artifact_ids || [])) if (id && !refs.includes(id)) refs.push(id);
+    for (const ref of refs) (out[ref] = out[ref] || []).push(r.residual_id);
+  }
+  return out;
+}
+
+function _applyResolutions(residuals, trace) {
+  const res = _resolutionsOf(trace);
+  if (!Object.keys(res).length) return residuals;
+
+  const byId = {};
+  for (const r of residuals) byId[r.residual_id] = r;
+  const contested = _contestedIndex(residuals);
+  const status = {};
+  for (const r of residuals) status[r.residual_id] = r.status || 'open';
+  const liveDefeaters = (resId) => (contested[resId] || []).filter((d) => (status[d] || 'open') === 'open');
+
+  let settled = false;
+  for (let i = 0; i < _CONTEST_ROUNDS; i += 1) {
+    let changed = false;
+    for (const r of residuals) {
+      let eff = r.status || 'open';
+      for (const row of (res[r.residual_id] || [])) {
+        if (liveDefeaters(row.resolution_id).length) continue;
+        if (row.status) eff = row.status;
+      }
+      if (status[r.residual_id] !== eff) { status[r.residual_id] = eff; changed = true; }
+    }
+    if (!changed) { settled = true; break; }
+  }
+
+  for (const r of residuals) {
+    const hist = res[r.residual_id];
+    if (!hist || !hist.length) continue;
+    r.declared_status = r.status || 'open';
+    r.resolutions = hist;
+    let inForce = null;
+    for (const row of hist) {
+      row.contested_by = settled ? liveDefeaters(row.resolution_id) : (contested[row.resolution_id] || []);
+      if (!row.contested_by.length && row.status) inForce = row;
+    }
+    if (inForce) {
+      r.status = inForce.status;
+      r.resolution = inForce;
+      if (inForce.justification && !r.justification) r.justification = inForce.justification;
+    } else {
+      r.status = r.declared_status;
+      r.resolution_contested_by = [...new Set(hist.flatMap((x) => x.contested_by || []))].sort();
+    }
+  }
+  return residuals;
+}
+
 function _residualSurface(trace) {
   const out = [], seen = new Set();
   for (const a of (trace.artifacts || [])) {
@@ -2143,7 +2276,7 @@ function _residualSurface(trace) {
     if (seen.has(r.residual_id)) continue;
     seen.add(r.residual_id); out.push(r);
   }
-  return out;
+  return _applyResolutions(out, trace);
 }
 
 function _migrateResidualsInPlace(trace) {
@@ -3384,6 +3517,17 @@ function selectDAGNode(artifactId) {
         + `padding:2px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;">View in Flow \u2192</button></div>`;
     } else {
       h += `<div class="dd-field" style="color:var(--text-dim);">not recorded</div>`;
+    }
+    const rlines = _resolutionLines(residual, false);
+    if (rlines.length) {
+      h += `<div class="dd-label">How it was closed</div>`;
+      for (const x of rlines) {
+        h += `<div class="dd-field"${x.last ? '' : ' style="opacity:.6;"'}>`
+          + `<b>${x.last ? '' : 'superseded &middot; '}${x.head}</b>`
+          + (x.why ? `<div style="margin-top:2px;">${x.why}</div>` : '')
+          + (x.evidence ? `<div style="margin-top:2px;">${x.evidence}</div>` : '')
+          + `</div>`;
+      }
     }
     // What it bites: the artifact it is about, plus anything related - each selectable here.
     const anchors = [];

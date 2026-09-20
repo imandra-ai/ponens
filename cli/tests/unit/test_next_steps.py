@@ -69,3 +69,36 @@ def test_next_steps_refresh_when_the_reference_moved_and_nothing_when_all_done()
     text = G.render_next(G.next_steps(_trace()))
     assert text.splitlines()[0] == "1. [FIX] the project conforms to ref:gallery:stripe/idempotency@2024-06-20  (binding:stripe-idempotency)"
     assert "     do:  " in text
+
+
+def test_next_survives_an_acceptance_item_whose_evidence_is_a_plain_artifact_id():
+    """`evidence` has two shapes and `next` must read both.
+
+    On a TYPED criterion it is the requirement (`{"artifact": "VerificationResult"}`); on an untyped
+    one it is a plain artifact id - authored that way, or written there by `enrich`, which stores the
+    resolved ref in `evidence` when there is no requirement object to preserve. Reading the second as
+    the first raised `AttributeError: 'str' object has no attribute 'get'` and took the whole command
+    down, including on the shipped Stripe demo - the one command whose job is to say what to do about
+    an open gap.
+    """
+    t = _trace()
+    t["goals"] = [{"id": "g", "intent": "i", "scope": [], "status": "active", "acceptance": [
+        {"id": "s1", "kind": "property", "label": "amount invariants hold", "required": True,
+         "status": "done", "evidence": "a10"},
+        {"id": "s2", "kind": "property", "label": "disputes are covered", "required": True,
+         "status": "todo", "evidence": "a11"},
+    ]}]
+    steps = G.next_steps(t)
+    assert isinstance(steps, list)
+    # The untyped `todo` item still yields an `establish` step; with no type to name, it says so.
+    est = [s for s in steps if s.get("item_id") == "s2"]
+    assert est and est[0]["kind"] == "establish"
+    assert "the required evidence" in est[0]["suggested"]
+    # And the open gaps still come through - the reason someone runs this command.
+    assert any(s.get("kind") == "close" or "gap" in str(s.get("kind", "")).lower()
+               or s.get("why", "").startswith("open ") for s in steps)
+
+
+def test_artifact_type_of_a_plain_id_is_untyped_not_a_crash():
+    assert G._artifact_type("a10") is None
+    assert G._artifact_type({"artifact": "VerificationResult"}) == "VerificationResult"

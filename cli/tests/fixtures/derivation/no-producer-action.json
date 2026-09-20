@@ -1,0 +1,32 @@
+{
+  "trace_id": "d",
+  "spec_version": "1.14",
+  "actions": [],
+  "artifacts": [
+    {
+      "artifact_id": "r1",
+      "artifact_type": "Residual",
+      "producer_action_id": null,
+      "payload": {
+        "kind": "limitation",
+        "status": "open",
+        "statement": "gap r1"
+      }
+    },
+    {
+      "artifact_id": "rr1",
+      "artifact_type": "ResidualResolution",
+      "derived_from": [
+        "r1"
+      ],
+      "payload": {
+        "residual_id": "r1",
+        "status": "waived",
+        "justification": "j"
+      }
+    }
+  ],
+  "outcome": {
+    "type": "ProcessCompleted"
+  }
+}

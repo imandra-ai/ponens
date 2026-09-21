@@ -61,9 +61,14 @@ function firstAddedBullet(body) {
 /** First clause of a tail: up to the first sentence break (`.`, `:`, `;`, or ` — `), trimmed and
  *  lower-cased at the first letter (the banner reads "…headline — tail."). Long tails are cut at a
  *  word boundary. */
+/** One line, beside a link, at the width the hero gives it. */
+const BANNER_MAX = 118;
+
 function firstClause(tail, max = 110) {
   let t = plain(tail).replace(/^[\s—–:-]+/, "");
-  const cut = t.search(/[.;:]\s|[.;:]$|\s[—–]\s/);
+  // A single spaced hyphen is the house dash, so it is the clause break that actually occurs in this
+  // changelog - matching only the em dash meant nothing ever cut and every tail ran to the ellipsis.
+  const cut = t.search(/[.;:]\s|[.;:]$|\s[—–-]\s/);
   if (cut > 0) t = t.slice(0, cut);
   t = t.trim().replace(/[.,;:]$/, "");
   if (t.length > max) {
@@ -89,5 +94,10 @@ export function latestHighlight(raw) {
   if (!m) return null;
   const headline = plain(m[1]).replace(/\s*\([^)]*\)/g, "").replace(/\s*[—–-]\s*$/, "").replace(/[.:]$/, "").trim();
   if (!headline) return null;
-  return { version: latest.version, headline, tail: firstClause(m[2] || "") };
+  // Budget the WHOLE banner, not just the tail. It is one line beside a "What's new →" link, and
+  // capping the tail alone let a long headline plus a full-length tail wrap to two lines and end in a
+  // mid-thought ellipsis. A tail with no room left to say anything is worse than no tail.
+  const room = BANNER_MAX - headline.length - 3;          // 3 = the " — " joining them
+  const tail = room >= 30 ? firstClause(m[2] || "", room) : "";
+  return { version: latest.version, headline, tail };
 }

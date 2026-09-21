@@ -311,7 +311,23 @@ def _goal_requirements(enriched):
             st = _lc(it.get("status") or "todo")
             fresh = it.get("freshness")
             if st == "done":
-                state, why = ("out_of_date", "the evidence is out of date") if fresh in ("stale", "detached", "gone") else ("met", None)
+                # `done` is not enough on its own. The resolver marks an item done when it finds
+                # evidence bound to it; whether that evidence is worth anything is a separate question,
+                # and this path never asked it - unlike `_row_state`, which has always required a
+                # grade. Measured over a 25-story corpus: 2 of 5 met requirements were resolved by a
+                # `Diff`, grade `unranked`, one of them reading "apply_discount is fixed to guarantee
+                # the property" - and the gate passed. A code edit is the thing that NEEDS evidence.
+                # An unranked result is an unknown or errored one (oracles.py, the honesty rule), and a
+                # gate that accepts it is worse than no gate, because it looks like a check.
+                grade = grade_of(it.get("evidence_strength"))
+                if fresh in ("stale", "detached", "gone"):
+                    state, why = "out_of_date", "the evidence is out of date"
+                elif grade == "unranked":
+                    # Wording matters: this reason is rendered inside the agent's own panes, where a
+                    # vocabulary lint retires "established". Say what a reader needs either way.
+                    state, why = "open", "the evidence that resolved it is unranked - it settles nothing"
+                else:
+                    state, why = "met", None
             elif st == "blocked":
                 state, why = "failed", "evidence exists but is contested (a failed check or an open defeater)"
             elif st == "doing":

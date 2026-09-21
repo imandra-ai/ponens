@@ -30,7 +30,8 @@ try {
     {highlight && (
       <a class="hero-new" href="/whats-new" title={`ponens ${highlight.version} — what's new`}>
         <span class="hn-badge">New</span>
-        <span><em>{highlight.headline}</em>{highlight.tail ? ` — ${highlight.tail}.` : ""}</span>
+        <span><em>{highlight.headline}</em>{highlight.tail
+          ? ` — ${highlight.tail}${/[.…!?]$/.test(highlight.tail) ? "" : "."}` : ""}</span>
         <span class="hn-arrow">What's new →</span>
       </a>
     )}

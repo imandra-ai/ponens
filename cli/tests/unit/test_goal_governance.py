@@ -131,9 +131,14 @@ def test_met_but_ungoverned_when_result_stays_refuted():
     r = governance_of(_verif_goal(), t, [_REPROVED])
     assert r["governed"] is False                     # a refuted result is not good-enough evidence
     assert r["blocking"] == ["refuted_results_must_be_reproved"]
-    # ...yet the criterion is MET — the artifact exists (quality is the governed axis, not met).
-    from ponens.goals import resolve_item
-    assert resolve_item(_verif_goal()["acceptance"][0], t)["status"] == "done"
+    # The artifact exists, so the MET axis still reads done...
+    from ponens.goals import _resolve_criterion, resolve_item
+    item = _verif_goal()["acceptance"][0]
+    assert _resolve_criterion(item, t, gate_defeater=False, gate_fresh=False)["status"] == "done"
+    # ...but the default role does not resolve a criterion on evidence that says the opposite. Without
+    # a policy pack attached the governed axis judges nothing, so this is the only thing standing
+    # between a refutation and a record that reads fully met.
+    assert resolve_item(item, t)["status"] == "blocked"
 
 
 def test_governed_once_refutation_is_reproved():

@@ -1,0 +1,189 @@
+{
+  "closed": [
+    {
+      "residual_id": "r1",
+      "status": "waived",
+      "declared_status": "open",
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": []
+        }
+      ]
+    }
+  ],
+  "contest-withdrawn": [
+    {
+      "residual_id": "r1",
+      "status": "waived",
+      "declared_status": "open",
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": []
+        }
+      ]
+    },
+    {
+      "residual_id": "r2",
+      "status": "addressed",
+      "declared_status": "open",
+      "resolutions": [
+        {
+          "resolution_id": "rr2",
+          "status": "addressed",
+          "contested_by": []
+        }
+      ]
+    }
+  ],
+  "contested-then-superseded": [
+    {
+      "residual_id": "r1",
+      "status": "addressed",
+      "declared_status": "open",
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": [
+            "r2"
+          ]
+        },
+        {
+          "resolution_id": "rr3",
+          "status": "addressed",
+          "contested_by": []
+        }
+      ]
+    },
+    {
+      "residual_id": "r2",
+      "status": "open"
+    }
+  ],
+  "contested": [
+    {
+      "residual_id": "r1",
+      "status": "open",
+      "declared_status": "open",
+      "resolution_contested_by": [
+        "r2"
+      ],
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": [
+            "r2"
+          ]
+        }
+      ]
+    },
+    {
+      "residual_id": "r2",
+      "status": "open"
+    }
+  ],
+  "declared-waived": [
+    {
+      "residual_id": "r1",
+      "status": "waived"
+    }
+  ],
+  "defeater-by-relation": [
+    {
+      "residual_id": "r1",
+      "status": "open",
+      "declared_status": "open",
+      "resolution_contested_by": [
+        "r2"
+      ],
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": [
+            "r2"
+          ]
+        }
+      ]
+    },
+    {
+      "residual_id": "r2",
+      "status": "open"
+    }
+  ],
+  "legacy-carrier": [
+    {
+      "residual_id": "r1",
+      "status": "waived"
+    }
+  ],
+  "no-producer-action": [
+    {
+      "residual_id": "r1",
+      "status": "waived",
+      "declared_status": "open",
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": []
+        }
+      ]
+    }
+  ],
+  "out-of-file-order": [
+    {
+      "residual_id": "r1",
+      "status": "addressed",
+      "declared_status": "open",
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": []
+        },
+        {
+          "resolution_id": "rr2",
+          "status": "addressed",
+          "contested_by": []
+        }
+      ]
+    }
+  ],
+  "plain": [
+    {
+      "residual_id": "r1",
+      "status": "open"
+    }
+  ],
+  "resolution-no-target": [
+    {
+      "residual_id": "r1",
+      "status": "open"
+    }
+  ],
+  "superseded": [
+    {
+      "residual_id": "r1",
+      "status": "addressed",
+      "declared_status": "open",
+      "resolutions": [
+        {
+          "resolution_id": "rr1",
+          "status": "waived",
+          "contested_by": []
+        },
+        {
+          "resolution_id": "rr2",
+          "status": "addressed",
+          "contested_by": []
+        }
+      ]
+    }
+  ]
+}

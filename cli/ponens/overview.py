@@ -437,6 +437,14 @@ def gaps(enriched, blame_out=None):
             "id": r.get("residual_id"), "state": gap_state(r.get("kind")), "severity": _lc(r.get("severity") or "medium"),
             "kind": r.get("kind"), "statement": r.get("statement"), "symbols": sorted(sym_of.get(r.get("residual_id"), [])),
             "suggested_check": r.get("suggested_check"), "derived": bool(r.get("derived")),
+            # The boundary the evidence rests on, not a finding. Measured: two such assumptions - the
+            # same two, worded identically - were 35% of every gap in 68 records, roughly one of each
+            # per run. `next` already held them back; the gap LIST still led with them, so a reader
+            # met the standing caveats before the signature change and the stale verdict.
+            "standing": goalops.is_standing_assumption(r),
+            **({"overtaken": r["overtaken"]} if r.get("overtaken") else {}),
+            **({"abandoned": r["abandoned"]} if r.get("abandoned") else {}),
+            **({"subject": r["subject"]} if r.get("subject") else {}),
         })
     out.sort(key=lambda g: (_SEV_RANK.get(g["severity"], 2), str(g["id"])))
     return out
@@ -555,8 +563,15 @@ def _evidence_index(trace):
     for g in (trace or {}).get("goals") or []:
         gid = str(g.get("id") or "goal")
         for it in g.get("acceptance") or []:
-            if _lc(it.get("status")) == "done" and it.get("id") is not None:
-                out["goal:%s/%s" % (gid, it["id"])] = {"type": "goal", "reference": None}
+            if it.get("id") is None:
+                continue
+            # EVERY criterion, not only the `done` ones. Indexing only what was already met missed the
+            # loss that actually matters: delete the criteria you have NOT met and the goal reads
+            # 100%. Measured on the Stripe demo - one unmet item dropped took it from 88% to 100% and
+            # `integrity` reported nothing lost. A criterion that was asked for and is now absent is a
+            # loss whatever state it was in; `done` vs `open again` is only the DETAIL below.
+            out["goal:%s/%s" % (gid, it["id"])] = {
+                "type": "goal", "reference": None, "done": _lc(it.get("status")) == "done"}
     return out
 
 
@@ -572,7 +587,13 @@ def integrity(before, after):
         n = now.get(aid)
         if e["type"] == "goal":
             if not n:
-                lost.append({"id": aid[len("goal:"):], "what": "done requirement item", "reference": None, "detail": "was done and is open again"})
+                # Gone entirely: the definition of done itself shrank. That is a different loss from a
+                # met item going back to open, and the worse one - it changes what was being asked.
+                lost.append({"id": aid[len("goal:"):], "what": "requirement item",
+                             "reference": None, "detail": "is gone from the definition of done"})
+            elif e["done"] and not n["done"]:
+                lost.append({"id": aid[len("goal:"):], "what": "done requirement item",
+                             "reference": None, "detail": "was done and is open again"})
             continue
         what = "met requirement" if e["type"] == "ConformanceResult" else "proof"
         if not n:
@@ -609,15 +630,70 @@ def render_requirements(res):
     return "\n".join(lines)
 
 
+def _strip_citation(text):
+    """Drop a trailing `[fr3-regions]` citation - what distinguishes gaps that share one cause."""
+    return re.sub(r"\s*\[[^\]]+\]\.?$", "", str(text or "")).rstrip(" .")
+
+
+def _by_cause(gaps):
+    """Group consecutive-equivalent gaps by statement-minus-citation, keeping the original order."""
+    order, groups = [], {}
+    for g in gaps:
+        key = (_strip_citation(g.get("statement")), g["state"], g["severity"])
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(g)
+    return [groups[k] for k in order]
+
+
 def render_overview(o):
     out = []
     if o["requirements"]:
         out.append("Requirements")
         out.append(render_requirements({"requirements": o["requirements"], "summary": o["summary"]}))
         out.append("")
-    out.append("Gaps" if o["gaps"] else "Gaps: none open")
-    for g in o["gaps"]:
-        out.append("  %-12s %-9s %s  [%s]" % (g["state"].replace("_", " "), g["severity"], (g.get("statement") or "").replace("\n", " "), g["id"]))
+    # Findings first, standing assumptions collapsed to one line beneath them. Nothing is dropped:
+    # `trace residuals` still prints every one in full, with its check.
+    findings = [g for g in o["gaps"] if not g.get("standing") and not g.get("abandoned")]
+    standing = [g for g in o["gaps"] if g.get("standing")]
+    # Properties established and then invalidated by the agent rewriting its own model, never
+    # re-checked. One statement of what happened beats N notes that each read as bookkeeping.
+    abandoned = [g for g in o["gaps"] if g.get("abandoned")]
+    out.append("Gaps" if findings else ("Gaps: none open" if not standing else "Gaps: no findings"))
+    for group in _by_cause(findings):
+        g = group[0]
+        mark = "  (may no longer apply)" if g.get("overtaken") else ""
+        text = (g.get("statement") or "").replace("\n", " ")
+        if len(group) > 1:
+            # One cause, several consequences. A single hand-edit to `rounding.py` undermined four
+            # results, and the four lines differed only in the `[frN]` at the end - which reads as the
+            # same thing said four times, and buries how far the one edit reached.
+            subs = []
+            for x in group:
+                sub = x.get("subject")
+                if sub and sub not in subs:
+                    subs.append(sub)
+            shown = (", ".join(subs[:4]) + (" and %d more" % (len(subs) - 4) if len(subs) > 4 else "")) if subs else ""
+            text = _strip_citation(text) + " - %d results affected%s" % (len(group), (": " + shown) if shown else "")
+        ids = ", ".join(x["id"] for x in group[:4]) + (", …" if len(group) > 4 else "")
+        out.append("  %-12s %-9s %s  [%s]%s" % (g["state"].replace("_", " "), g["severity"], text, ids, mark))
+    if abandoned:
+        syms = []
+        for g in abandoned:
+            sym = (g.get("abandoned") or {}).get("symbol")
+            if sym and sym not in syms:
+                syms.append(sym)
+        shown = ", ".join(syms[:4]) + (" and %d more" % (len(syms) - 4) if len(syms) > 4 else "")
+        # Counted by SYMBOL, not by gap: one abandoned property can raise both a staleness note and a
+        # detached-evidence note, and "12 properties" over six would be a louder way of being wrong.
+        n = len(syms)
+        out.append("  %-12s %-9s %d propert%s established and then abandoned - the model each ran on was "
+                   "replaced and it was never re-checked: %s"
+                   % ("out of date", "high", n, "y was" if n == 1 else "ies were", shown))
+    if standing:
+        out.append("  %d standing assumption%s (the boundary the evidence rests on) - `ponens trace residuals` lists them"
+                   % (len(standing), "" if len(standing) == 1 else "s"))
     out.append("")
     gt = o["gate"]
     # `pass` with no rules means nothing was ASKED, not that nothing failed - the state is right (no
@@ -648,6 +724,15 @@ def render_overview(o):
             out.append("  %d. [%s] %s" % (i, s["kind"].upper(), s["label"]) + (("  (" + s["requirement"] + ")") if s.get("requirement") else ""))
             out.append("     why: " + str(s["why"]))
             out.append("     do:  " + str(s["suggested"]))
+    elif not o["requirements"]:
+        # The same bug the Gate line above already carries a note about, one line further down. A run
+        # that formalized `apply_payment`, found the non-negativity property FALSE, and reported the
+        # counterexample `balance=100, amount=150` in chat printed "nothing to do - every requirement
+        # is met". Nothing was met; nothing was ever required. An empty requirement set is the weakest
+        # state a record has, and it was being rendered as the strongest.
+        n = len(o["gaps"])
+        tail = (" - and 1 gap is open." if n == 1 else " - and %d gaps are open." % n) if n else "."
+        out.append("Next: no requirements were declared, so nothing was checked" + tail)
     else:
         out.append("Next: nothing to do — every requirement is met and no open gap has a suggested check.")
     return "\n".join(out)

@@ -69,3 +69,71 @@ def test_next_steps_refresh_when_the_reference_moved_and_nothing_when_all_done()
     text = G.render_next(G.next_steps(_trace()))
     assert text.splitlines()[0] == "1. [FIX] the project conforms to ref:gallery:stripe/idempotency@2024-06-20  (binding:stripe-idempotency)"
     assert "     do:  " in text
+
+
+def test_next_survives_an_acceptance_item_whose_evidence_is_a_plain_artifact_id():
+    """`evidence` has two shapes and `next` must read both.
+
+    On a TYPED criterion it is the requirement (`{"artifact": "VerificationResult"}`); on an untyped
+    one it is a plain artifact id - authored that way, or written there by `enrich`, which stores the
+    resolved ref in `evidence` when there is no requirement object to preserve. Reading the second as
+    the first raised `AttributeError: 'str' object has no attribute 'get'` and took the whole command
+    down, including on the shipped Stripe demo - the one command whose job is to say what to do about
+    an open gap.
+    """
+    t = _trace()
+    t["goals"] = [{"id": "g", "intent": "i", "scope": [], "status": "active", "acceptance": [
+        {"id": "s1", "kind": "property", "label": "amount invariants hold", "required": True,
+         "status": "done", "evidence": "a10"},
+        {"id": "s2", "kind": "property", "label": "disputes are covered", "required": True,
+         "status": "todo", "evidence": "a11"},
+    ]}]
+    steps = G.next_steps(t)
+    assert isinstance(steps, list)
+    # The untyped `todo` item still yields an `establish` step; with no type to name, it says so.
+    est = [s for s in steps if s.get("item_id") == "s2"]
+    assert est and est[0]["kind"] == "establish"
+    assert "the required evidence" in est[0]["suggested"]
+    # And the open gaps still come through - the reason someone runs this command.
+    assert any(s.get("kind") == "close" or "gap" in str(s.get("kind", "")).lower()
+               or s.get("why", "").startswith("open ") for s in steps)
+
+
+def test_artifact_type_of_a_plain_id_is_untyped_not_a_crash():
+    assert G._artifact_type("a10") is None
+    assert G._artifact_type({"artifact": "VerificationResult"}) == "VerificationResult"
+
+
+def test_a_module_qualified_criterion_matches_a_bare_symbol():
+    """`pricing.apply_discount` against an artifact recording `apply_discount`.
+
+    An agent naturally writes the qualified name; every engine artifact records the bare symbol the
+    formalization used. Nothing on either side normalized, so the criterion matched nothing and the
+    goal read 0% with the decomposition sitting in the trace. Found on real agent output.
+    """
+    from ponens import lineage
+    t = {"trace_id": "t", "spec_version": "1.14",
+         "actions": [{"id": 1, "type": "Decompose", "category": "reasoning", "rationale": "r",
+                      "inputs": [], "outputs": ["d1"]}],
+         "artifacts": [{"artifact_id": "d1", "artifact_type": "StateSpaceAnalysisResult",
+                        "name": "d1", "producer_action_id": 1,
+                        "payload": {"target_symbol": "apply_discount"}}],
+         "outcome": {"type": "ProcessCompleted"}}
+    assert lineage.roots_in_component("d1", "apply_discount", t)          # bare, as before
+    assert lineage.roots_in_component("d1", "pricing.apply_discount", t)  # qualified, now too
+    # It is a fallback on the TAIL, not a substring match: a different function does not match.
+    assert not lineage.roots_in_component("d1", "pricing.apply_tax", t)
+    assert not lineage.roots_in_component("d1", "discount", t)
+
+
+def test_an_exact_match_still_wins_over_the_tail_fallback():
+    # The fallback must never pull a criterion onto the wrong artifact while an exact one exists.
+    from ponens import lineage
+    t = {"trace_id": "t", "spec_version": "1.14",
+         "actions": [{"id": 1, "type": "Decompose", "category": "reasoning", "rationale": "r",
+                      "inputs": [], "outputs": ["d1"]}],
+         "artifacts": [{"artifact_id": "d1", "artifact_type": "StateSpaceAnalysisResult",
+                        "name": "d1", "producer_action_id": 1,
+                        "payload": {"target_symbol": "pricing.apply_discount"}}],
+         "outcome": {"type": "ProcessCompleted"}}
+    assert lineage.roots_in_component("d1", "pricing.apply_discount", t)

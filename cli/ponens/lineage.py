@@ -99,12 +99,27 @@ def roots_in_component(artifact_id, component, trace):
 
     # Component-identity alternative — only when the trace has been stamped.
     by_name = _component_by_name(trace)
-    if not by_name:
-        return False
-    want = by_name.get(component)
-    if want is None:
-        return False
-    return want in _lineage_component_ids(artifact_id, trace)
+    if by_name:
+        want = by_name.get(component)
+        if want is not None and want in _lineage_component_ids(artifact_id, trace):
+            return True
+
+    # LAST-RESORT: a MODULE-QUALIFIED criterion against a bare symbol.
+    #
+    # An author (or an agent) naturally writes `pricing.apply_discount`, while every artifact records
+    # the bare `apply_discount` the engine formalized - so the criterion matched nothing and the goal
+    # read 0% with the evidence sitting in the trace. Observed end to end on real agent output.
+    #
+    # Deliberately a FALLBACK and never a shortcut: it applies only when the qualified name matched
+    # nothing anywhere, and only to the last dotted segment. `a.foo` will match a bare `foo` from
+    # another module, which is the residual risk accepted here - the alternative is a criterion that
+    # can never resolve, and a record that understates what was established is the worse failure.
+    if "." in str(component):
+        tail = str(component).rsplit(".", 1)[-1]
+        if tail and tail != component:
+            specific, model = _lineage_symbols(artifact_id, trace)
+            return tail in specific if specific else tail in model
+    return False
 
 
 def _component_by_name(trace):
@@ -182,6 +197,10 @@ _RESIDUAL_PAYLOAD_KEYS = (
     # Plain-language lead (`summary`) shown first by viewers, with the formal IML kept as detail —
     # the `property` that was checked and a `counterexample` input that breaks it (§13).
     "summary", "property", "counterexample",
+    # What would make this gap's own claim stop being true (see `apply_overtaken`). Carried through
+    # the projection in both directions so the condition survives a round-trip - a gap that states its
+    # retirement condition and then loses it on the next read would never retire.
+    "retires_when", "record_size_at_declaration",
 )
 
 
@@ -240,6 +259,464 @@ def artifact_to_residual(a):
     return r
 
 
+# --- closing a residual (v1.14) ---------------------------------------------------------------------
+#
+# A gap is closed by APPENDING a `ResidualResolution` artifact that names it, never by editing the
+# residual's `status` in place. Editing is indistinguishable from never having declared the gap: the
+# record loses who decided, when, on what grounds, and at which point in the work - and a reader cannot
+# tell a waiver from a deletion. A trace is append-only everywhere else; its negative space should be
+# no different.
+#
+# The effective status is therefore DERIVED: the declared status is the base, and the last resolution
+# naming the residual wins. Superseding a resolution is itself an append, so a waiver that was later
+# reversed stays visible as both.
+
+RESOLUTION_TYPE = "ResidualResolution"
+
+# A resolution may only move a gap to one of these. `open` is not among them - a residual is born open
+# and re-opening is a new resolution back to `acknowledged`, not a pretence it was never closed.
+RESOLUTION_STATUSES = ("acknowledged", "addressed", "waived")
+
+
+def is_resolution(a):
+    return isinstance(a, dict) and a.get("artifact_type") == RESOLUTION_TYPE
+
+
+def _resolution_order(a):
+    """Trace order: by the action that made the decision when it is known, else last. Ties keep list
+    order, which is append order, so two resolutions in one action resolve predictably."""
+    aid = a.get("producer_action_id")
+    return aid if isinstance(aid, int) else float("inf")
+
+
+def resolutions_of(trace):
+    """Every resolution in the trace, oldest first, grouped by the residual it closes."""
+    rows = []
+    for i, a in enumerate(trace.get("artifacts") or []):
+        if not is_resolution(a):
+            continue
+        p = _payload(a)
+        rid = p.get("residual_id")
+        if not rid:
+            continue
+        rows.append((_resolution_order(a), i, rid, {
+            "resolution_id": a.get("artifact_id"),
+            "status": p.get("status"),
+            "justification": p.get("justification"),
+            "by": p.get("by"),
+            "at": p.get("at"),
+            "action_id": a.get("producer_action_id"),
+            "evidence_artifact_ids": p.get("evidence_artifact_ids") or [],
+        }))
+    out = {}
+    for _, _, rid, row in sorted(rows, key=lambda t: (t[0], t[1])):
+        out.setdefault(rid, []).append(row)
+    return out
+
+
+# A justification is a CLAIM, and the way a claim is attacked in this model is a Defeater (§13.2): an
+# open one means the claim it targets must not be treated as established. A `ResidualResolution` is an
+# artifact with an id, so a defeater can target it like any other claim - and when one stands, the
+# closure does not hold and the gap is open again. That is how a justification is invalidated without
+# being removed: both the waiver and the reason it does not hold stay in the record, and a reader sees
+# the argument rather than a silent edit.
+#
+# Defeating a defeater's own resolution is legal and terminates here by bounded iteration. Eight rounds
+# is far past anything real (each round can only settle one more link of a chain of contested
+# closures); a tangle that has not settled by then is NOT resolved in favour of closure - see below.
+_CONTEST_ROUNDS = 8
+
+
+def _contested_index(residuals):
+    """artifact id -> the residual ids of the Defeaters aimed at it."""
+    out = {}
+    for r in residuals:
+        if str(r.get("kind") or "").lower() != "defeater":
+            continue
+        rid = r.get("residual_id")
+        for ref in residual_anchor(r):
+            out.setdefault(ref, []).append(rid)
+    return out
+
+
+def apply_resolutions(residuals, trace):
+    """Stamp each residual with its DERIVED status. Mutates and returns the list.
+
+    `status` becomes the status of the last resolution IN FORCE; `declared_status` keeps what the
+    producer originally wrote, `resolution` is the one in force, and `resolutions` the full history -
+    so a consumer that only reads `status` (every policy, `next`, the grader) gets the right answer,
+    and one that wants the audit trail has it without re-deriving anything.
+
+    A resolution contested by an open Defeater is NOT in force: the gap it claimed to close is open
+    again, and `resolution_contested_by` names the defeaters that put it there."""
+    res = resolutions_of(trace)
+    if not res:
+        return residuals
+
+    by_id = {r.get("residual_id"): r for r in residuals}
+    contested = _contested_index(residuals)
+    # Seed from what each producer declared, then settle.
+    status = {rid: (r.get("status") or "open") for rid, r in by_id.items()}
+
+    def live_defeaters(resolution_id):
+        return [d for d in contested.get(resolution_id, []) if status.get(d, "open") == "open"]
+
+    settled = False
+    for _ in range(_CONTEST_ROUNDS):
+        changed = False
+        for rid, r in by_id.items():
+            eff = r.get("status") or "open"
+            for row in res.get(rid, []):
+                if live_defeaters(row["resolution_id"]):
+                    continue                    # contested: this one closes nothing
+                if row.get("status"):
+                    eff = row["status"]
+            if status.get(rid) != eff:
+                status[rid] = eff
+                changed = True
+        if not changed:
+            settled = True
+            break
+
+    for rid, r in by_id.items():
+        hist = res.get(rid)
+        if not hist:
+            continue
+        r["declared_status"] = r.get("status", "open")
+        r["resolutions"] = hist
+        in_force = None
+        for row in hist:
+            # A tangle that did not settle is read AGAINST closure: an unresolvable argument about
+            # whether a gap is closed is not a closed gap. Failing the other way would let a cycle
+            # close a gap that nobody can show is closed.
+            blockers = contested.get(row["resolution_id"], []) if not settled else live_defeaters(row["resolution_id"])
+            row["contested_by"] = list(blockers)
+            if not blockers and row.get("status"):
+                in_force = row
+        if in_force is not None:
+            r["status"] = in_force["status"]
+            r["resolution"] = in_force
+            if in_force.get("justification") and not r.get("justification"):
+                r["justification"] = in_force["justification"]
+        else:
+            # Every closure is contested - the gap stands as declared, and we say who put it back.
+            r["status"] = r["declared_status"]
+            r["resolution_contested_by"] = sorted(
+                {d for row in hist for d in (row.get("contested_by") or [])})
+    return residuals
+
+
+# --- amending the definition of done (v1.14) ---------------------------------------------------------
+#
+# The same rule as closing a gap, applied to the thing that says what "done" means. Withdrawing an
+# acceptance criterion is the sharper case: a gap that is waived still READS as a gap, but a criterion
+# that is deleted leaves nothing behind at all - the goal simply reads met. Measured on the shipped
+# Stripe demo: dropping the one criterion that was not met took it from 88% to 100%, and `ponens trace
+# integrity` (which indexed only ALREADY-DONE items) reported nothing lost.
+#
+# So a withdrawal appends a `GoalAmendment` carrying the criterion VERBATIM. It leaves the goal's
+# `acceptance` list as the current definition of done - consumers need one unambiguous answer to "what
+# is being asked" - while the record keeps what was asked for before, who withdrew it and why.
+
+AMENDMENT_TYPE = "GoalAmendment"
+
+AMENDMENT_CHANGES = ("item_withdrawn", "goal_withdrawn", "goal_replaced", "criteria_reviewed")
+
+
+def is_amendment(a):
+    return isinstance(a, dict) and a.get("artifact_type") == AMENDMENT_TYPE
+
+
+def amendments_of(trace, goal_id=None):
+    """Every amendment in the trace, oldest first, optionally for one goal."""
+    rows = []
+    for i, a in enumerate(trace.get("artifacts") or []):
+        if not is_amendment(a):
+            continue
+        p = _payload(a)
+        if goal_id is not None and p.get("goal_id") != goal_id:
+            continue
+        aid = a.get("producer_action_id")
+        rows.append((aid if isinstance(aid, int) else float("inf"), i,
+                     dict(p, amendment_id=a.get("artifact_id"), action_id=aid)))
+    return [r for _, _, r in sorted(rows, key=lambda t: (t[0], t[1]))]
+
+
+def amendment_artifact(goal_id, change, reason, action_id, seq, was=None, item_id=None, by=None, at=None):
+    """Build the record of one amendment. `was` is the thing as it stood - the whole point: withdrawn
+    from the definition of done is not the same as gone from the record."""
+    payload = {"goal_id": goal_id, "change": change, "reason": reason}
+    if item_id is not None:
+        payload["item_id"] = item_id
+    if was is not None:
+        payload["was"] = was
+    if by:
+        payload["by"] = by
+    if at:
+        payload["at"] = at
+    what = item_id or goal_id
+    return {
+        "artifact_id": f"ga{seq}",
+        "artifact_type": AMENDMENT_TYPE,
+        "name": f"{change}: {what}",
+        "summary": reason,
+        "producer_action_id": action_id,
+        "derived_from": [],
+        "payload": payload,
+    }
+
+
+# A gap can say when its own claim would stop being true. `retires_when` is the producer's statement
+# of that condition, and the check below is a DERIVATION - recomputed on every read, never written.
+#
+# Why this exists: `ponens trace next` told a reader to "Answer the question, then record the answer"
+# about a question the user had already answered two turns earlier, and listed `test_fees.py fails its
+# own tests` fifth, below it, on a project whose suite now passes. Nothing retires a gap. Evidence has
+# had derived freshness for a long time; gaps never got it, so a to-do list that is right on Monday is
+# wrong by Wednesday and stays wrong. Across 64 measured records not one gap was ever closed by hand
+# (`ResidualResolution`: zero), so "somebody will resolve it" is not a mechanism.
+#
+# Deliberately NOT a closure. Overtaken means "the moment this described has passed - look again", not
+# "this is settled": a turn recording more work does not prove the question was answered well, and a
+# later green run does not prove the defect was understood. Closure stays what it was - an appended
+# `ResidualResolution` carrying a justification somebody is accountable for. This only stops a stale
+# item from crowding out a live one.
+RETIRES_MORE_EVIDENCE = "more_evidence"
+
+# Artifact types that are ABOUT the record rather than evidence in it. Counting them would let a gap
+# retire itself: every declared gap is a Residual, so a second question asked later would "move the
+# record on" past the first.
+_NOT_EVIDENCE = {"Residual", "ResidualResolution", "GoalAmendment"}
+
+
+def _evidence_count(trace):
+    """How much the record actually holds - artifacts that are evidence, not bookkeeping about it."""
+    return sum(1 for a in (trace.get("artifacts") or [])
+               if a.get("artifact_type") not in _NOT_EVIDENCE)
+
+
+def _passing_result_after(trace, target, after_action):
+    """A later artifact reporting that `target` passed. Returns its id, or None."""
+    want = str(target or "").strip().lower()
+    if not want:
+        return None
+    for a in trace.get("artifacts", []) or []:
+        p = a.get("payload") or {}
+        produced = a.get("producer_action_id")
+        if not isinstance(produced, int) or produced <= (after_action or 0):
+            continue
+        hay = " ".join(str(p.get(k) or "") for k in ("target", "target_symbol", "file", "summary", "statement"))
+        if want not in hay.lower():
+            continue
+        verdict = str(p.get("status") or p.get("verdict") or p.get("result_summary") or "").lower()
+        failed = p.get("failed")
+        if verdict in ("passed", "pass", "ok", "proved") or failed is False:
+            return a.get("artifact_id")
+    return None
+
+
+# A staleness gap names the result that went out of date. Two very different things wear that one
+# shape, and telling them apart is the whole point:
+#
+#   - the property was re-established afterwards      -> the gap is answered, and retires;
+#   - it never was                                    -> the work was ABANDONED, which is a finding.
+#
+# Measured over 68 records: 48 staleness gaps about the agent's own `.codelogician/` models, and only
+# 8 had a later result for the same target. The other 40 are properties the agent established, then
+# invalidated by rewriting its model under them, and never came back to. Reported one line at a time
+# that reads as bookkeeping; stated once per run it is the most actionable thing in the record.
+_RESULT_TYPES = ("StateSpaceAnalysisResult", "VerificationResult", "ConformanceResult")
+
+
+def _result_index(trace):
+    """(target_symbol, producing action) for every result, and each artifact by id."""
+    by_id, results = {}, []
+    for a in trace.get("artifacts", []) or []:
+        by_id[a.get("artifact_id")] = a
+        if a.get("artifact_type") in _RESULT_TYPES:
+            results.append(((a.get("payload") or {}).get("target_symbol"),
+                            a.get("producer_action_id") or 0, a.get("artifact_id")))
+    return by_id, results
+
+
+def _subject_of(r, by_id):
+    """The (symbol, action, artifact) the result this gap is about was produced for.
+
+    A stored staleness gap names it in `related_artifact_ids`; a DERIVED detached-evidence gap names it
+    in `target`. Both are about a result whose subject moved, and reading only the first spelling is
+    how one run came to state the same six abandoned properties twice, in different words - six
+    "no longer tied to its subject" lines above a "6 properties were abandoned" summary.
+    """
+    ids = list(r.get("related_artifact_ids") or [])
+    tgt = r.get("target") or {}
+    if tgt.get("target_type") == "artifact" and tgt.get("target_id"):
+        ids.append(tgt["target_id"])
+    for rid in ids:
+        a = by_id.get(rid)
+        if not a:
+            continue
+        return (a.get("payload") or {}).get("target_symbol"), (a.get("producer_action_id") or 0), rid
+    return None, 0, None
+
+
+def stamp_subjects(residuals, trace):
+    """Record WHICH result each gap is about, as the symbol that result was produced for.
+
+    Several gaps routinely share one statement while being about different results - a single
+    hand-edit to `rounding.py` undermined four of them, and the only thing distinguishing the four
+    lines was the `[frN]` citation at the end. The subject is what lets them be stated once, as one
+    cause with four consequences, without pretending they are the same finding.
+    """
+    by_id, _ = _result_index(trace)
+    for r in residuals:
+        if r.get("subject"):
+            continue
+        sym, _at, _rid = _subject_of(r, by_id)
+        if sym:
+            r["subject"] = sym
+    return residuals
+
+
+# An engine `unknown` is a real gap, and it has TWO ways out: prove it, or accept it with a
+# justification. A third thing happens in practice and the record never noticed it - the property gets
+# proved later, on a second attempt, and the gap stays open beside the proof that answers it.
+#
+# Matching a later proof to the goal it answers cannot go through the target symbol. The symbol is
+# DERIVED from the goal text, and the same property appears under different symbols in the corpus
+# (`no_double_charge` as both `sym=charge_fee` and `sym=no_double_charge`); worse, a different, weaker
+# property about the same function would match and retire a gap nothing had answered.
+#
+# The goal's identity is its DESCRIPTION. That is the property itself - a name where it has one
+# (`never_negative`), the lambda text where it does not (`fun c -> Impl.minor_unit_exponent
+# (abs_currency c) = Entry.minor_unit_exponent c`). Matching on it is exact in the way that matters:
+# if the agent REFORMULATED the property to get it through - bounded it, strengthened a hypothesis -
+# the description differs, nothing retires, and that is right, because a proof of a different
+# statement did not establish this one.
+_UNDECIDED = "could not decide"
+
+
+def _goal_text(art):
+    """The property a VerificationGoal states, normalized for comparison but not weakened."""
+    p = (art or {}).get("payload") or {}
+    return " ".join(str(p.get("description") or "").split()) or None
+
+
+def classify_undecided(residuals, trace):
+    """Retire an engine `unknown` when the SAME goal is later proved. Mutates and returns the list.
+
+    `overtaken`, not closed: on the wire a bounded proof also reads `proved` (ponens accepts only
+    proved/refuted/unknown), so "this was answered later" is a reason to look again rather than a
+    claim that the property holds unconditionally. The bounded case carries its own limitation gap
+    saying so.
+    """
+    arts = {a.get("artifact_id"): a for a in (trace.get("artifacts") or [])}
+    # Every goal that was later PROVED, by the text of the goal, with when it happened.
+    proved = {}
+    for a in trace.get("artifacts") or []:
+        if a.get("artifact_type") != "VerificationResult":
+            continue
+        p = a.get("payload") or {}
+        if str(p.get("status")) != "proved":
+            continue
+        text = _goal_text(arts.get(p.get("goal_artifact_id")))
+        if not text:
+            continue
+        at = a.get("producer_action_id") or 0
+        if text not in proved or at > proved[text][0]:
+            proved[text] = (at, a.get("artifact_id"))
+
+    for r in residuals:
+        if str(r.get("status") or "open") != "open" or r.get("overtaken"):
+            continue
+        if _UNDECIDED not in str(r.get("statement") or ""):
+            continue
+        # The result this gap is about, and the goal that result was for.
+        for rid in r.get("related_artifact_ids") or []:
+            res = arts.get(rid)
+            if not res:
+                continue
+            text = _goal_text(arts.get((res.get("payload") or {}).get("goal_artifact_id")))
+            at = res.get("producer_action_id") or 0
+            hit = proved.get(text) if text else None
+            if hit and hit[0] > at:
+                r["overtaken"] = {
+                    "why": "the same goal was proved later [%s]" % hit[1],
+                    "recheck": "confirm the later proof is of this property unconditionally, not a "
+                               "reformulation or a bounded version of it",
+                    "by": hit[1],
+                }
+            break
+    return residuals
+
+
+def _lc_kind(r):
+    return str(r.get("kind") or "").lower()
+
+
+def classify_staleness(residuals, trace):
+    """Split staleness gaps into RETIRED (re-established since) and ABANDONED (never was).
+
+    A derivation, so it needs nothing stamped by the producer and applies to records already written.
+    """
+    by_id, results = _result_index(trace)
+    for r in residuals:
+        if str(r.get("status") or "open") != "open" or r.get("overtaken"):
+            continue
+        st = str(r.get("statement") or "")
+        detached = _lc_kind(r) == "detached_evidence" or "no longer tied to its subject" in st
+        stale = bool(r.get("related_artifact_ids")) and "changed since this result" in st
+        if not (stale or detached):
+            continue
+        subj, at, rid = _subject_of(r, by_id)
+        if not subj:
+            continue
+        newer = [aid for sym, act, aid in results if sym == subj and act > at]
+        if newer:
+            r["overtaken"] = {
+                "why": "`%s` was established again after this [%s]" % (subj, newer[-1]),
+                "recheck": "confirm the later result covers what this one did",
+                "by": newer[-1],
+            }
+        else:
+            # Not retired: nothing re-established it. Marked so a reader meets it ONCE, as what it is.
+            r["abandoned"] = {"symbol": subj, "result": rid}
+    return residuals
+
+
+def apply_overtaken(residuals, trace):
+    """Mark gaps whose own stated condition has since come true. Mutates and returns the list.
+
+    Only a gap that SAID what would retire it is considered: `retires_when` is the producer committing
+    in advance to a falsifiable claim, so nothing here has to interpret a statement's prose. A gap
+    without it is left exactly as it is, which is why old traces are unaffected.
+    """
+    evidence = _evidence_count(trace)
+    for r in residuals:
+        cond = r.get("retires_when")
+        if not cond or str(r.get("status") or "open") != "open":
+            continue
+        intro = r.get("introduced_by_action_id") or 0
+        if cond == RETIRES_MORE_EVIDENCE:
+            # The size the record had when the gap was raised. Absent (an older producer, or a gap
+            # that never stamped one) means the comparison cannot be made, and nothing is claimed.
+            was = r.get("record_size_at_declaration")
+            if isinstance(was, int) and evidence > was:
+                r["overtaken"] = {
+                    "why": "the record has grown since this was raised (%d artifacts, was %d)"
+                           % (evidence, was),
+                    "recheck": "confirm it still applies; close it with a justification if it does not",
+                }
+        elif isinstance(cond, dict) and cond.get("passing_result_for"):
+            hit = _passing_result_after(trace, cond["passing_result_for"], intro)
+            if hit:
+                r["overtaken"] = {
+                    "why": "%s has passed since this was raised [%s]" % (cond["passing_result_for"], hit),
+                    "recheck": "confirm the later result covers what failed here",
+                    "by": hit,
+                }
+    return residuals
+
+
 def residual_surface(trace):
     """The trace's residual surface as flat residual dicts — Residual artifacts projected back to the
     §13 shape, plus any legacy top-level `residuals` (deduped by id). The single accessor every residual
@@ -260,7 +737,13 @@ def residual_surface(trace):
             continue
         seen.add(rid)
         out.append(r)
-    return out
+    # Closure is derived, not stored (see RESOLUTION_TYPE above). Applying it HERE is what makes every
+    # existing consumer - the validator, the policy witnesses, `next`, the grader, the report - agree
+    # on whether a gap is open without any of them learning about resolutions.
+    # Closure first (a resolved gap is not open and never needs retiring), then retirement.
+    surface = classify_staleness(apply_overtaken(apply_resolutions(out, trace), trace), trace)
+    surface = classify_undecided(surface, trace)
+    return stamp_subjects(surface, trace)
 
 
 def migrate_residuals(trace):

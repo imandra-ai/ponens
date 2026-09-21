@@ -22,7 +22,7 @@ def _goal(f):
 
 def _set_args(f, **kw):
     base = dict(trace_file=str(f), intent=None, scope=None, clause=None,
-               intent_author="human", id="session-goal", json=None)
+               intent_author="human", id="session-goal", json=None, reason=None, by=None)
     base.update(kw)
     return types.SimpleNamespace(**base)
 
@@ -98,27 +98,87 @@ def test_ls_reports_met_vs_certified(tmp_path, capsys):
     assert "CERTIFIED" in out and "not met" in out
 
 
-def test_drop_removes_acceptance_item(tmp_path):
+def test_drop_withdraws_the_item_and_records_what_it_was(tmp_path):
+    # Narrowing the bar is the one edit that makes a goal read met when it is not: delete the criteria
+    # you have not met and progress goes to 100%. So the item leaves the definition of done and stays
+    # in the record, with who withdrew it and why.
+    from ponens import lineage
     f = _trace(tmp_path)
     cmd_goal_set(_set_args(f, intent="i"))
     cmd_goal_accept(_accept_args(f, label="a"))
     cmd_goal_accept(_accept_args(f, label="b"))
-    args = types.SimpleNamespace(trace_file=str(f), goal="session-goal", item_id="s1")
+    args = types.SimpleNamespace(trace_file=str(f), goal="session-goal", item_id="s1",
+                                 reason="duplicated by s2", by="eng-lead")
     from ponens.trace import cmd_goal_drop
     assert cmd_goal_drop(args) == 0
     assert [a["id"] for a in _goal(f)["acceptance"]] == ["s2"]
+
+    t = json.loads(f.read_text())
+    am = lineage.amendments_of(t, "session-goal")
+    assert len(am) == 1
+    assert am[0]["change"] == "item_withdrawn"
+    assert am[0]["item_id"] == "s1"
+    assert am[0]["reason"] == "duplicated by s2"
+    assert am[0]["by"] == "eng-lead"
+    assert am[0]["was"]["label"] == "a", "the criterion is kept verbatim, not merely named"
+    act = next(a for a in t["actions"] if a["id"] == am[0]["action_id"])
+    assert act["type"] == "Decision" and act["rationale"] == "duplicated by s2"
+
     args.item_id = "nope"
     assert cmd_goal_drop(args) == 1  # unknown item
 
 
-def test_rm_removes_goal(tmp_path):
+def test_rm_withdraws_the_goal_and_keeps_what_it_asked_for(tmp_path):
+    from ponens import lineage
     f = _trace(tmp_path)
     cmd_goal_set(_set_args(f, intent="i"))
+    cmd_goal_accept(_accept_args(f, label="a"))
     from ponens.trace import cmd_goal_rm
-    args = types.SimpleNamespace(trace_file=str(f), goal="session-goal")
+    args = types.SimpleNamespace(trace_file=str(f), goal="session-goal",
+                                 reason="superseded by the binding goals", by=None)
     assert cmd_goal_rm(args) == 0
-    assert json.loads(f.read_text())["goals"] == []
+    t = json.loads(f.read_text())
+    assert t["goals"] == []
+    am = lineage.amendments_of(t, "session-goal")
+    assert am[0]["change"] == "goal_withdrawn"
+    assert am[0]["was"]["intent"] == "i"
+    assert [x["label"] for x in am[0]["was"]["acceptance"]] == ["a"]
     assert cmd_goal_rm(args) == 1  # already gone
+
+
+def test_replacing_a_goal_needs_a_reason_and_keeps_the_previous_definition(tmp_path):
+    from ponens import lineage
+    f = _trace(tmp_path)
+    cmd_goal_set(_set_args(f, intent="first"))
+    cmd_goal_accept(_accept_args(f, label="a"))
+    # Replacing without saying why is refused, and nothing is written.
+    before = f.read_text()
+    assert cmd_goal_set(_set_args(f, intent="second")) == 1
+    assert f.read_text() == before
+    assert cmd_goal_set(_set_args(f, intent="second", reason="scope changed after review")) == 0
+    t = json.loads(f.read_text())
+    assert _goal(f)["intent"] == "second"
+    am = lineage.amendments_of(t, "session-goal")
+    assert am[0]["change"] == "goal_replaced"
+    assert am[0]["was"]["intent"] == "first"
+    assert [x["label"] for x in am[0]["was"]["acceptance"]] == ["a"]
+
+
+def test_a_second_criteria_review_supersedes_rather_than_erases(tmp_path):
+    # A `changes-requested` verdict overwritten by an `approved` one used to leave nothing behind.
+    from ponens import lineage
+    from ponens.trace import cmd_goal_certify
+    f = _trace(tmp_path)
+    cmd_goal_set(_set_args(f, intent="i"))
+    a = lambda v, note: types.SimpleNamespace(trace_file=str(f), goal="session-goal", by="reviewer",
+                                              verdict=v, note=note)
+    assert cmd_goal_certify(a("changes-requested", "the bar is too low")) == 0
+    assert cmd_goal_certify(a("approved", "raised after discussion")) == 0
+    t = json.loads(f.read_text())
+    assert _goal(f)["criteria_review"]["verdict"] == "approved"      # current review, where consumers read it
+    am = [x for x in lineage.amendments_of(t, "session-goal") if x["change"] == "criteria_reviewed"]
+    assert len(am) == 2
+    assert am[1]["was"]["verdict"] == "changes-requested", "the superseded verdict is still readable"
 
 
 def test_roundtrip_author_enrich_check(tmp_path):

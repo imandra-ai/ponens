@@ -1,6 +1,6 @@
 {
   "trace_id": "cert-governed-001",
-  "spec_version": "1.13",
+  "spec_version": "1.14",
   "assistant": "coding-agent",
   "model": "demo",
   "trigger": {

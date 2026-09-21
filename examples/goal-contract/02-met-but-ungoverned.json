@@ -1,6 +1,6 @@
 {
   "trace_id": "gc-ungoverned",
-  "spec_version": "1.13",
+  "spec_version": "1.14",
   "assistant": "codelogician",
   "model": "demo",
   "timestamp": "2026-07-25T00:00:00Z",

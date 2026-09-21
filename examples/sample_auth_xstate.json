@@ -1,13 +1,13 @@
 {
   "trace_id": "trace-sample-auth-xstate",
-  "spec_version": "1.13",
+  "spec_version": "1.14",
   "assistant": "ponens",
   "model": "example-model",
-  "timestamp": "2026-09-14T12:00:00Z",
+  "timestamp": "2026-09-20T11:24:48Z",
   "title": "Migrate auth to an explicit state machine (reachability proved)",
   "trigger": {
     "type": "TaskReceived",
-    "description": "the auth booleans admit impossible states \u2014 model it as a machine and prove every state is reachable"
+    "description": "the auth booleans admit impossible states — model it as a machine and prove every state is reachable"
   },
   "actions": [
     {
@@ -43,7 +43,7 @@
       "type": "ExclusiveDecision",
       "category": "gateway",
       "label": "Model as an explicit state machine",
-      "rationale": "XState chart vs a hand-rolled reducer \u2014 chose XState for the reachability tooling.",
+      "rationale": "XState chart vs a hand-rolled reducer — chose XState for the reachability tooling.",
       "inputs": [],
       "outputs": [],
       "evidence": [],
@@ -186,6 +186,19 @@
       "evidence": [],
       "detail": "git commit -m 'auth: explicit state machine (reachability proved)'",
       "meta_action_id": "m5"
+    },
+    {
+      "id": 12,
+      "category": "gateway",
+      "type": "Decision",
+      "label": "Waive r2: Should a token refresh failure log the user out or move to E",
+      "rationale": "Product decided a refresh failure stays in Error rather than logging out: the user keeps their session context and can retry, and the Error state already blocks every authenticated transition. Revisit if refresh failures become common.",
+      "inputs": [
+        "r2"
+      ],
+      "outputs": [
+        "rr1"
+      ]
     }
   ],
   "meta_actions": [
@@ -458,7 +471,7 @@
     {
       "artifact_id": "r1",
       "artifact_type": "Residual",
-      "name": "limitation: Reachability is proved for the modelled events o\u2026",
+      "name": "limitation: Reachability is proved for the modelled events o…",
       "payload": {
         "kind": "limitation",
         "severity": "medium",
@@ -481,7 +494,7 @@
     {
       "artifact_id": "r2",
       "artifact_type": "Residual",
-      "name": "open question: Should a token refresh failure log the user out \u2026",
+      "name": "open question: Should a token refresh failure log the user out …",
       "payload": {
         "kind": "open_question",
         "severity": "low",
@@ -499,6 +512,23 @@
       "derived_from": [
         "a3"
       ]
+    },
+    {
+      "artifact_id": "rr1",
+      "artifact_type": "ResidualResolution",
+      "name": "waived: r2",
+      "summary": "Product decided a refresh failure stays in Error rather than logging out: the user keeps their session context and can retry, and the Error state already blocks every authenticated transition. Revisit if refresh failures become common.",
+      "producer_action_id": 12,
+      "derived_from": [
+        "r2"
+      ],
+      "payload": {
+        "residual_id": "r2",
+        "status": "waived",
+        "justification": "Product decided a refresh failure stays in Error rather than logging out: the user keeps their session context and can retry, and the Error state already blocks every authenticated transition. Revisit if refresh failures become common.",
+        "at": "2026-09-19T14:20:00Z",
+        "by": "product"
+      }
     }
   ],
   "policies": [
@@ -509,7 +539,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(EditFile \u2192 P_target(ReadFile \u2228 ReadDocumentation \u2228 SearchCode \u2228 AnalyzeCode))"
+      "formula": "G(EditFile → P_target(ReadFile ∨ ReadDocumentation ∨ SearchCode ∨ AnalyzeCode))"
     },
     {
       "policy_id": "p2",
@@ -518,7 +548,7 @@
       "severity": "warning",
       "scope": "action",
       "kind": "trace_invariant",
-      "formula": "G(gateway \u2192 rationale \u2260 \u2205)"
+      "formula": "G(gateway → rationale ≠ ∅)"
     },
     {
       "policy_id": "p3",

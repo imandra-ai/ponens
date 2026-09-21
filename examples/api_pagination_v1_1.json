@@ -1,6 +1,6 @@
 {
   "trace_id": "trace-api-users-endpoint-001",
-  "spec_version": "1.13",
+  "spec_version": "1.14",
   "assistant": "ponens",
   "model": "example-model",
   "timestamp": "2026-09-08T11:20:00Z",

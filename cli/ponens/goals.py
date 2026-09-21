@@ -1403,15 +1403,73 @@ def next_steps(trace, limit=None):
             continue
         # A standing ASSUMPTION is the boundary the evidence rests on, not a to-do — it becomes a step only
         # when it is severe enough to demand discharge.
-        if _lc(r.get("kind")) == "assumption" and _lc(r.get("severity") or "medium") not in ("high", "critical"):
+        if is_standing_assumption(r):
             continue
-        steps.append({"kind": "gap", "priority": 4, "goal_id": None, "item_id": r.get("residual_id"),
+        # A gap whose own stated condition has since come true is demoted, not dropped: the claim it
+        # made has passed its moment, but nobody has said it is settled. Left at the same priority it
+        # told a reader to "answer the question, then record the answer" about a question answered two
+        # turns earlier - while the project's failing test suite sat fifth on the same list.
+        over = r.get("overtaken")
+        steps.append({"kind": "gap", "priority": 6 if over else 4, "goal_id": None,
+                      "item_id": r.get("residual_id"),
                       "label": r.get("statement") or r.get("residual_id"),
-                      "why": "open " + str(r.get("kind") or "residual") + " (" + str(r.get("severity") or "medium") + ")",
-                      "suggested": sc, "evidence_ref": None, "severity": r.get("severity")})
+                      "why": ("may no longer apply: " + str(over.get("why"))) if over
+                             else "open " + str(r.get("kind") or "residual") + " (" + str(r.get("severity") or "medium") + ")",
+                      "suggested": str(over.get("recheck")) if over else sc,
+                      "evidence_ref": None, "severity": r.get("severity"),
+                      **({"subject": r["subject"]} if r.get("subject") else {}),
+                      **({"overtaken": True} if over else {})})
     steps.sort(key=lambda x: (x["priority"], _SEV_RANK.get(_lc(x.get("severity") or "medium"), 2),
                               str(x.get("goal_id") or ""), str(x.get("item_id") or "")))
+    steps = _fold_shared_cause(steps)
     return steps[:limit] if limit else steps
+
+
+def _strip_citation(text):
+    """Drop a trailing `[fr3-regions]` - the only thing distinguishing gaps that share one cause."""
+    return re.sub(r"\s*\[[^\]]+\]\.?$", "", str(text or "")).rstrip(" .")
+
+
+def _fold_shared_cause(steps):
+    """Several gaps saying the same thing about different results become ONE step.
+
+    A single hand-edit to `rounding.py` undermined four results; `next` listed it as items 5, 7, 8 and
+    9, identical but for the citation. Folded in `next_steps` rather than in a renderer so every
+    reader of the list - the terminal, an agent, the desktop - sees the same count.
+    """
+    out, at = [], {}
+    for s in steps:
+        if s["kind"] != "gap":
+            out.append(s)
+            continue
+        key = (_strip_citation(s.get("label")), s.get("why"))
+        if key in at:
+            first = out[at[key]]
+            first.setdefault("also", []).append(s.get("item_id"))
+            subs = first.setdefault("subjects", [])
+            if s.get("subject") and s["subject"] not in subs:
+                subs.append(s["subject"])
+            n = len(first["also"]) + 1
+            shown = ", ".join(subs[:4]) + (" and %d more" % (len(subs) - 4) if len(subs) > 4 else "")
+            first["label"] = _strip_citation(key[0]) + " - %d results affected%s" % (n, (": " + shown) if shown else "")
+            continue
+        at[key] = len(out)
+        if s.get("subject"):
+            s["subjects"] = [s["subject"]]
+        out.append(s)
+    return out
+
+
+def is_standing_assumption(r):
+    """A gap that states the BOUNDARY the evidence rests on, rather than work to do.
+
+    One predicate, used by `next` (which holds these back) and by `overview` (which collapses them),
+    because two definitions of "standing" drifting apart is how one rendering ends up contradicting
+    another on the same record. A high or critical assumption is NOT standing: at that severity it is
+    something to discharge, and it stays in the list with everything else.
+    """
+    return (_lc(r.get("kind")) == "assumption"
+            and _lc(r.get("severity") or "medium") not in ("high", "critical"))
 
 
 def standing_assumptions(trace):
@@ -1424,7 +1482,7 @@ def standing_assumptions(trace):
             continue
         if not r.get("suggested_check"):
             continue
-        if _lc(r.get("kind")) == "assumption" and _lc(r.get("severity") or "medium") not in ("high", "critical"):
+        if is_standing_assumption(r):
             out.append(r)
     return out
 

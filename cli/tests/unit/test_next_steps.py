@@ -102,3 +102,38 @@ def test_next_survives_an_acceptance_item_whose_evidence_is_a_plain_artifact_id(
 def test_artifact_type_of_a_plain_id_is_untyped_not_a_crash():
     assert G._artifact_type("a10") is None
     assert G._artifact_type({"artifact": "VerificationResult"}) == "VerificationResult"
+
+
+def test_a_module_qualified_criterion_matches_a_bare_symbol():
+    """`pricing.apply_discount` against an artifact recording `apply_discount`.
+
+    An agent naturally writes the qualified name; every engine artifact records the bare symbol the
+    formalization used. Nothing on either side normalized, so the criterion matched nothing and the
+    goal read 0% with the decomposition sitting in the trace. Found on real agent output.
+    """
+    from ponens import lineage
+    t = {"trace_id": "t", "spec_version": "1.14",
+         "actions": [{"id": 1, "type": "Decompose", "category": "reasoning", "rationale": "r",
+                      "inputs": [], "outputs": ["d1"]}],
+         "artifacts": [{"artifact_id": "d1", "artifact_type": "StateSpaceAnalysisResult",
+                        "name": "d1", "producer_action_id": 1,
+                        "payload": {"target_symbol": "apply_discount"}}],
+         "outcome": {"type": "ProcessCompleted"}}
+    assert lineage.roots_in_component("d1", "apply_discount", t)          # bare, as before
+    assert lineage.roots_in_component("d1", "pricing.apply_discount", t)  # qualified, now too
+    # It is a fallback on the TAIL, not a substring match: a different function does not match.
+    assert not lineage.roots_in_component("d1", "pricing.apply_tax", t)
+    assert not lineage.roots_in_component("d1", "discount", t)
+
+
+def test_an_exact_match_still_wins_over_the_tail_fallback():
+    # The fallback must never pull a criterion onto the wrong artifact while an exact one exists.
+    from ponens import lineage
+    t = {"trace_id": "t", "spec_version": "1.14",
+         "actions": [{"id": 1, "type": "Decompose", "category": "reasoning", "rationale": "r",
+                      "inputs": [], "outputs": ["d1"]}],
+         "artifacts": [{"artifact_id": "d1", "artifact_type": "StateSpaceAnalysisResult",
+                        "name": "d1", "producer_action_id": 1,
+                        "payload": {"target_symbol": "pricing.apply_discount"}}],
+         "outcome": {"type": "ProcessCompleted"}}
+    assert lineage.roots_in_component("d1", "pricing.apply_discount", t)

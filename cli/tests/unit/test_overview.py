@@ -280,7 +280,23 @@ def test_overview_with_nothing_declared_is_quiet():
     # policies. The state stays `pass` - it is precise about what it measures - and the line qualifies it.
     assert o["gate"]["rules"] == []
     assert "no policies attached" in O.render_overview(o)
-    assert "Next: nothing to do" in O.render_overview(o)
+    # Same reasoning one line further down, and this test used to pin the wrong half of it. "Nothing
+    # to do - every requirement is met" over a record with NO requirements says the strongest thing
+    # about the weakest state. A run that refuted its property and recorded no verdict printed exactly
+    # that line. An empty requirement set is reported as an empty requirement set.
+    assert "Next: no requirements were declared, so nothing was checked." in O.render_overview(o)
+
+
+def test_next_says_nothing_was_checked_rather_than_everything_passed():
+    """With gaps open and no requirements, the line names both facts."""
+    t = _trace(arts=[], goals=[])
+    t["residuals"] = [
+        {"residual_id": "r1", "kind": "unverified", "severity": "high", "status": "open",
+         "statement": "the property does not hold - counterexample: balance=100, amount=150"},
+    ]
+    text = O.render_overview(O.overview(t, None))
+    assert "no requirements were declared" in text and "1 gap is open" in text
+    assert "every requirement is met" not in text
 
 
 def test_attached_but_unevaluated_policies_are_not_reported_as_unattached():
@@ -366,3 +382,50 @@ def test_cli_requirements_overview_and_integrity_round_trip(tmp_path):
     assert r.returncode == 3 and json.loads(r.stdout)["lost"][0]["id"] == "c1"
     r = _run(["trace", "integrity", str(tp), str(tp)], str(tmp_path))
     assert r.returncode == 0 and "nothing would be lost" in r.stdout
+
+
+def test_standing_assumptions_are_collapsed_not_listed():
+    """35% of every gap in 68 measured records was one of two boilerplate assumptions, worded
+    identically, roughly one of each per run. They are the boundary the evidence rests on - real, and
+    already held back from `next` - but leading the gap list with them buried the findings."""
+    t = _trace(arts=[], goals=[])
+    t["residuals"] = [
+        {"residual_id": "r1", "kind": "assumption", "severity": "medium", "status": "open",
+         "statement": "Numeric types are modeled as unbounded mathematical integers/reals.",
+         "suggested_check": "confirm production values stay in range"},
+        {"residual_id": "r2", "kind": "assumption", "severity": "low", "status": "open",
+         "statement": "Verdicts hold over the formalized model; dependencies were stubbed.",
+         "suggested_check": "verify the stubs separately"},
+        {"residual_id": "r3", "kind": "open_question", "severity": "high", "status": "open",
+         "statement": "The signature of `charge_fee` changed.", "suggested_check": "confirm it"},
+    ]
+    text = O.render_overview(O.overview(t, None))
+    # The GAPS block specifically. Asserting against the whole page passed even with every finding
+    # dropped, because `Next` lists the same gap further down - a green test examining the wrong half.
+    block = text.split("Gaps", 1)[1].split("Gate:", 1)[0]
+    assert "The signature of `charge_fee` changed." in block, "the finding still shows in full"
+    assert "Numeric types are modeled" not in block, "the boilerplate does not"
+    assert "2 standing assumptions" in block
+    assert "trace residuals" in block, "and the line says where to read them"
+
+
+def test_a_HIGH_assumption_is_not_standing():
+    """At that severity it is something to discharge, not a boundary - it stays with the findings."""
+    t = _trace(arts=[], goals=[])
+    t["residuals"] = [
+        {"residual_id": "r1", "kind": "assumption", "severity": "critical", "status": "open",
+         "statement": "The caller is trusted to have authenticated.", "suggested_check": "check it"},
+    ]
+    block = O.render_overview(O.overview(t, None)).split("Gaps", 1)[1].split("Gate:", 1)[0]
+    assert "The caller is trusted" in block
+    assert "standing assumption" not in block
+
+
+def test_the_two_renderings_agree_on_what_standing_means():
+    """`next` holds these back and `overview` collapses them - from ONE predicate, so a record cannot
+    show a gap in one view and hide it in the other."""
+    from ponens import goals as G
+    r = {"kind": "assumption", "severity": "medium"}
+    assert G.is_standing_assumption(r)
+    assert not G.is_standing_assumption({"kind": "assumption", "severity": "high"})
+    assert not G.is_standing_assumption({"kind": "limitation", "severity": "medium"})

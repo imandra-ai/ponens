@@ -7,6 +7,43 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.15.1] — 2026-09-21
+
+A patch release about what the residual surface says is still **open**. 1.15.0 made a gap's origin
+recordable; this makes the list honest about which gaps the record has already answered, and cuts the
+repetition that made the list hard to read at all.
+
+### Added
+- **A gap the record already answered is marked `overtaken`.** An engine `unknown` has two ways out -
+  prove it, or accept it with a justification - and a third happens constantly: the property is proved
+  on a second attempt and the gap sits open beside the proof that answers it. `classify_undecided`
+  now matches a later `proved` result back to the gap, by the **goal's description** rather than its
+  target symbol. The symbol is derived from the goal text and the same property appears under
+  different symbols; worse, a weaker property about the same function would have matched and retired a
+  gap nothing had answered. A property *reformulated* to get it through - bounded, or with a
+  strengthened hypothesis - has a different description, retires nothing, and that is correct: a proof
+  of a different statement did not establish this one.
+- **`ponens trace residual` marks retirement without closing anything.** `overtaken` carries `why`,
+  `recheck` and `by`, and `status` stays `open`. A bounded proof also reads `proved` on the wire, so
+  this is a reason to look again, never a claim that the property holds unconditionally.
+- **`cli/tools/ponens-live.py`** serves `trace view` and redraws it whenever the trace changes. It
+  shells out to the real viewer on every rebuild rather than reimplementing any of it, so a change to
+  the viewer needs no change here.
+
+### Changed
+- **`trace overview` stops repeating itself.** A standing assumption that every record carries is
+  collapsed to one line rather than restated per artifact; gaps that share a cause fold together; and
+  abandoned work - a property attempted many ways where only the first attempt carried `derived_from`
+  - is reported as one item rather than counted once per attempt.
+- **`trace next` says something true when no requirements were declared**, instead of advising work
+  against a goal that does not exist.
+
+### Fixed
+- The reloader in the live viewer is injected at the **last** `</body>`. The viewer's print function
+  builds a page inside a template literal, so the file carries the tag twice; injecting at the first
+  one put a `<script>` block inside a JavaScript string, whose `</script>` closed the viewer's own
+  script tag early and spilled the rest of `viewer.js` onto the page as text.
+
 ## [1.15.0] — 2026-09-20
 
 A residual says what the record did **not** establish. Until now nothing said where it came from. The

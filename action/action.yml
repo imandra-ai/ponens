@@ -60,7 +60,7 @@ inputs:
   ponens-version:
     description: "The ponens release to install."
     required: false
-    default: "1.15.0"
+    default: "1.15.1"
   ponens-source:
     description: >-
       Where to install ponens from: `git` (the release tag on GitHub — the default), `pypi`, or `local`

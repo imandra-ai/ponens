@@ -15,6 +15,7 @@ Engine verdicts are written the way an engine writes them (there is deliberately
 on the CLI - a verdict is earned, not typed). Everything a PERSON does goes through the CLI.
 """
 import json
+import pathlib
 import subprocess
 import sys
 
@@ -87,6 +88,36 @@ def trace(tmp_path):
     f = tmp_path / "work.json"
     cli(f, "init", str(f), "--model", "imandrax", "--assistant", "codelogician")
     return f
+
+
+@pytest.fixture
+def gallery_source(tmp_path):
+    """A directory from which `policies add` resolves against THIS repo's gallery, not a cache.
+
+    Unqualified policy lookup searches the configured sources, and the default one is the community
+    GALLERY, whose catalog `source_catalog` reads from `~/.ponens/registry` - a cache populated by
+    `registry update`. So this story passed on any machine that had ever run that command and failed
+    on a clean runner, which is every CI runner: the job is named "Unit tests (offline)" and will
+    never populate it. The failure read `policy 'no_open_critical_residuals' not found in any
+    configured source`, which is true of the environment and says nothing about the code.
+
+    A `local` source is scanned straight off disk by `_local_catalog` - no cache, no network - and
+    `gallery/policies/` in this repo is the very directory the gallery publishes, so the file the test
+    resolves is byte-identical to the one a person downloads. That keeps what this story is actually
+    about: `policies add` converting the gallery's on-disk shape into the trace's policy shape.
+
+    A project `sources.toml` is found by walking up from the cwd, and its presence REPLACES the
+    built-in community default, so the test is hermetic in both directions - it cannot reach the
+    network, and it cannot silently pass off a developer's warm cache.
+    """
+    gallery = pathlib.Path(__file__).resolve().parents[3] / "gallery" / "policies"
+    assert (gallery / "no_open_critical_residuals.json").exists(), \
+        f"the repo's gallery is not where this test expects it: {gallery}"
+    here = tmp_path / "project"
+    (here / ".ponens").mkdir(parents=True)
+    (here / ".ponens" / "sources.toml").write_text(
+        '[[source]]\nname = "gallery"\ntype = "local"\npath = "%s"\n' % gallery)
+    return here
 
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -390,7 +421,7 @@ def test_story_a_defeater_blocks_a_proved_criterion(trace):
 # STORY 8  "CI has to say yes or no."
 # ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-def test_story_the_policy_gate_fails_then_passes(trace):
+def test_story_the_policy_gate_fails_then_passes(trace, gallery_source):
     f = trace
     _model(f)
     # The real path a person takes. Two shortcuts were tried first and both were correctly refused:
@@ -399,7 +430,7 @@ def test_story_the_policy_gate_fails_then_passes(trace):
     # rule instead of pretending to evaluate it is the behaviour you want.
     r = subprocess.run([sys.executable, "-m", "ponens.cli", "policies", "add",
                         "no_open_critical_residuals", "--into", str(f)],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, cwd=str(gallery_source))
     assert r.returncode == 0, r.stdout + r.stderr
     cli(f, "residual", "add", str(f), "--kind", "limitation", "--severity", "critical",
         "--statement", "The concurrent path is unverified.",

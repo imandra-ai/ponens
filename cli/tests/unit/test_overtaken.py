@@ -212,3 +212,87 @@ def test_next_folds_them_too_so_both_views_agree():
     assert len(gaps) == 1
     assert "2 results affected" in gaps[0]["label"]
     assert gaps[0]["also"] == ["r2"], "the folded ones are still named"
+
+
+# ── an engine `unknown` that was later proved ──────────────────────────────────────────────────────
+
+def _goal(aid, desc, action):
+    return {"artifact_id": aid, "artifact_type": "VerificationGoal", "producer_action_id": action,
+            "payload": {"kind": "verify", "description": desc}}
+
+
+def _verdict(aid, goal_id, status, action, sym=None):
+    return {"artifact_id": aid, "artifact_type": "VerificationResult", "producer_action_id": action,
+            "payload": {"goal_artifact_id": goal_id, "status": status,
+                        **({"target_symbol": sym} if sym else {})}}
+
+
+def _undecided(rid, about, action):
+    return {"residual_id": rid, "kind": "unverified", "severity": "high", "status": "open",
+            "statement": "ImandraX could not decide the goal for f (P) [fr1].",
+            "suggested_check": "bound the search", "related_artifact_ids": [about],
+            "introduced_by_action_id": action}
+
+
+LAMBDA = "fun m c -> m >= 0 ==> Impl.to_minor_units m (abs_currency c) = Entry.to_minor_units m c"
+
+
+def test_the_same_goal_proved_later_retires_the_unknown():
+    t = _t([_undecided("r1", "fr1-result", 3)],
+           [_goal("fr1-goal", LAMBDA, 1), _verdict("fr1-result", "fr1-goal", "unknown", 2),
+            _goal("fr5-goal", LAMBDA, 6), _verdict("fr5-result", "fr5-goal", "proved", 7)])
+    r = next(x for x in L.residual_surface(t) if x["residual_id"] == "r1")
+    assert "proved later" in r["overtaken"]["why"]
+    assert r["overtaken"]["by"] == "fr5-result"
+
+
+def test_a_DIFFERENT_property_about_the_same_function_does_not_retire_it():
+    """The whole reason matching cannot go through the symbol: a weaker property would answer it."""
+    t = _t([_undecided("r1", "fr1-result", 3)],
+           [_goal("fr1-goal", LAMBDA, 1), _verdict("fr1-result", "fr1-goal", "unknown", 2, "to_minor_units"),
+            _goal("fr5-goal", "fun m c -> m >= 0 ==> Impl.to_minor_units m (abs_currency c) >= 0", 6),
+            _verdict("fr5-result", "fr5-goal", "proved", 7, "to_minor_units")])
+    r = next(x for x in L.residual_surface(t) if x["residual_id"] == "r1")
+    assert "overtaken" not in r
+
+
+def test_a_REFORMULATION_does_not_retire_it_either():
+    """Bounding the property to get it through proves a different statement."""
+    t = _t([_undecided("r1", "fr1-result", 3)],
+           [_goal("fr1-goal", LAMBDA, 1), _verdict("fr1-result", "fr1-goal", "unknown", 2),
+            _goal("fr5-goal", LAMBDA + " [@@upto 3]", 6), _verdict("fr5-result", "fr5-goal", "proved", 7)])
+    r = next(x for x in L.residual_surface(t) if x["residual_id"] == "r1")
+    assert "overtaken" not in r
+
+
+def test_an_EARLIER_proof_does_not_retire_a_later_unknown():
+    t = _t([_undecided("r1", "fr5-result", 8)],
+           [_goal("fr1-goal", LAMBDA, 1), _verdict("fr1-result", "fr1-goal", "proved", 2),
+            _goal("fr5-goal", LAMBDA, 6), _verdict("fr5-result", "fr5-goal", "unknown", 7)])
+    r = next(x for x in L.residual_surface(t) if x["residual_id"] == "r1")
+    assert "overtaken" not in r
+
+
+def test_a_bare_property_NAME_works_the_same_as_a_lambda():
+    t = _t([_undecided("r1", "fr1-result", 3)],
+           [_goal("fr1-goal", "never_negative", 1), _verdict("fr1-result", "fr1-goal", "unknown", 2),
+            _goal("fr5-goal", "never_negative", 6), _verdict("fr5-result", "fr5-goal", "proved", 7)])
+    r = next(x for x in L.residual_surface(t) if x["residual_id"] == "r1")
+    assert r["overtaken"]["by"] == "fr5-result"
+
+
+def test_whitespace_is_not_a_different_property():
+    t = _t([_undecided("r1", "fr1-result", 3)],
+           [_goal("fr1-goal", "fun x ->  x >= 0", 1), _verdict("fr1-result", "fr1-goal", "unknown", 2),
+            _goal("fr5-goal", "fun x -> x >= 0", 6), _verdict("fr5-result", "fr5-goal", "proved", 7)])
+    r = next(x for x in L.residual_surface(t) if x["residual_id"] == "r1")
+    assert r["overtaken"] is not None
+
+
+def test_retiring_is_still_not_closing():
+    t = _t([_undecided("r1", "fr1-result", 3)],
+           [_goal("fr1-goal", LAMBDA, 1), _verdict("fr1-result", "fr1-goal", "unknown", 2),
+            _goal("fr5-goal", LAMBDA, 6), _verdict("fr5-result", "fr5-goal", "proved", 7)])
+    r = next(x for x in L.residual_surface(t) if x["residual_id"] == "r1")
+    assert r["status"] == "open"
+    assert "not a reformulation or a bounded version" in r["overtaken"]["recheck"]

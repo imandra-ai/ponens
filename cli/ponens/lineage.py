@@ -577,6 +577,78 @@ def stamp_subjects(residuals, trace):
     return residuals
 
 
+# An engine `unknown` is a real gap, and it has TWO ways out: prove it, or accept it with a
+# justification. A third thing happens in practice and the record never noticed it - the property gets
+# proved later, on a second attempt, and the gap stays open beside the proof that answers it.
+#
+# Matching a later proof to the goal it answers cannot go through the target symbol. The symbol is
+# DERIVED from the goal text, and the same property appears under different symbols in the corpus
+# (`no_double_charge` as both `sym=charge_fee` and `sym=no_double_charge`); worse, a different, weaker
+# property about the same function would match and retire a gap nothing had answered.
+#
+# The goal's identity is its DESCRIPTION. That is the property itself - a name where it has one
+# (`never_negative`), the lambda text where it does not (`fun c -> Impl.minor_unit_exponent
+# (abs_currency c) = Entry.minor_unit_exponent c`). Matching on it is exact in the way that matters:
+# if the agent REFORMULATED the property to get it through - bounded it, strengthened a hypothesis -
+# the description differs, nothing retires, and that is right, because a proof of a different
+# statement did not establish this one.
+_UNDECIDED = "could not decide"
+
+
+def _goal_text(art):
+    """The property a VerificationGoal states, normalized for comparison but not weakened."""
+    p = (art or {}).get("payload") or {}
+    return " ".join(str(p.get("description") or "").split()) or None
+
+
+def classify_undecided(residuals, trace):
+    """Retire an engine `unknown` when the SAME goal is later proved. Mutates and returns the list.
+
+    `overtaken`, not closed: on the wire a bounded proof also reads `proved` (ponens accepts only
+    proved/refuted/unknown), so "this was answered later" is a reason to look again rather than a
+    claim that the property holds unconditionally. The bounded case carries its own limitation gap
+    saying so.
+    """
+    arts = {a.get("artifact_id"): a for a in (trace.get("artifacts") or [])}
+    # Every goal that was later PROVED, by the text of the goal, with when it happened.
+    proved = {}
+    for a in trace.get("artifacts") or []:
+        if a.get("artifact_type") != "VerificationResult":
+            continue
+        p = a.get("payload") or {}
+        if str(p.get("status")) != "proved":
+            continue
+        text = _goal_text(arts.get(p.get("goal_artifact_id")))
+        if not text:
+            continue
+        at = a.get("producer_action_id") or 0
+        if text not in proved or at > proved[text][0]:
+            proved[text] = (at, a.get("artifact_id"))
+
+    for r in residuals:
+        if str(r.get("status") or "open") != "open" or r.get("overtaken"):
+            continue
+        if _UNDECIDED not in str(r.get("statement") or ""):
+            continue
+        # The result this gap is about, and the goal that result was for.
+        for rid in r.get("related_artifact_ids") or []:
+            res = arts.get(rid)
+            if not res:
+                continue
+            text = _goal_text(arts.get((res.get("payload") or {}).get("goal_artifact_id")))
+            at = res.get("producer_action_id") or 0
+            hit = proved.get(text) if text else None
+            if hit and hit[0] > at:
+                r["overtaken"] = {
+                    "why": "the same goal was proved later [%s]" % hit[1],
+                    "recheck": "confirm the later proof is of this property unconditionally, not a "
+                               "reformulation or a bounded version of it",
+                    "by": hit[1],
+                }
+            break
+    return residuals
+
+
 def _lc_kind(r):
     return str(r.get("kind") or "").lower()
 
@@ -670,6 +742,7 @@ def residual_surface(trace):
     # on whether a gap is open without any of them learning about resolutions.
     # Closure first (a resolved gap is not open and never needs retiring), then retirement.
     surface = classify_staleness(apply_overtaken(apply_resolutions(out, trace), trace), trace)
+    surface = classify_undecided(surface, trace)
     return stamp_subjects(surface, trace)
 
 

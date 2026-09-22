@@ -62,7 +62,7 @@ function firstAddedBullet(body) {
  *  lower-cased at the first letter (the banner reads "…headline — tail."). Long tails are cut at a
  *  word boundary. */
 /** One line, beside a link, at the width the hero gives it. */
-const BANNER_MAX = 118;
+export const BANNER_MAX = 118;
 
 function firstClause(tail, max = 110) {
   let t = plain(tail).replace(/^[\s—–:-]+/, "");
@@ -72,8 +72,13 @@ function firstClause(tail, max = 110) {
   if (cut > 0) t = t.slice(0, cut);
   t = t.trim().replace(/[.,;:]$/, "");
   if (t.length > max) {
-    const sp = t.lastIndexOf(" ", max);
-    t = (sp > 40 ? t.slice(0, sp) : t.slice(0, max)).replace(/[.,;:]$/, "") + "…";
+    // The ellipsis is a CHARACTER and counts against the budget. Slicing to `max` and then appending
+    // it produced max + 1 every time, so the banner this budget exists to keep on one line came out
+    // one character too long - and the test never saw it, because it bounded the tail alone rather
+    // than the whole banner, which is the exact mistake the budget was introduced to fix.
+    const room = max - 1;
+    const sp = t.lastIndexOf(" ", room);
+    t = (sp > 40 ? t.slice(0, sp) : t.slice(0, room)).replace(/[.,;:]$/, "") + "…";
   }
   if (/^[A-Z][a-z]/.test(t)) t = t[0].toLowerCase() + t.slice(1);
   return t;

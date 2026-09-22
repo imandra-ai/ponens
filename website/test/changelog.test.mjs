@@ -2,7 +2,7 @@
 // and against the shapes past releases used, so a release cannot leave the banner stale or malformed.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { latestHighlight, versionsOf, plain } from "../src/lib/changelog.mjs";
+import { latestHighlight, versionsOf, plain, BANNER_MAX } from "../src/lib/changelog.mjs";
 
 const raw = readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8");
 const pyver = (readFileSync(new URL("../../cli/pyproject.toml", import.meta.url), "utf8")
@@ -16,6 +16,12 @@ const pyver = (readFileSync(new URL("../../cli/pyproject.toml", import.meta.url)
   assert.ok(h.headline.length > 3 && h.headline.length < 80, `headline reasonable: ${h.headline}`);
   assert.ok(!/[*`\[\]]/.test(h.headline + h.tail), "no markdown leaks into the banner");
   assert.ok(h.tail.length <= 112, `tail is a clause, not a paragraph: ${h.tail}`);
+  // The WHOLE banner, not the tail alone. Bounding only the tail is how a one-character overflow
+  // survived: the budget exists to keep headline + " — " + tail on a single line beside the
+  // "What's new →" link, so that is the thing to measure.
+  const banner = h.tail ? `${h.headline} — ${h.tail}` : h.headline;
+  assert.ok(banner.length <= BANNER_MAX,
+    `banner is ${banner.length} chars, budget ${BANNER_MAX}: ${banner}`);
   console.log(`latest → ${h.version}: "${h.headline}" — ${h.tail}`);
 }
 

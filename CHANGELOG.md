@@ -7,7 +7,9 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
-## [1.15.2] — 2026-09-22
+## [1.15.3] — 2026-09-22
+
+> 1.15.2 was published to PyPI before this had been reviewed. It carries the same code; 1.15.3 is the reviewed release, and the one to install.
 
 A patch release about **being told why**. A trace can be rejected, and a rule can be attached, and in
 both cases ponens knew something the person in front of it did not.

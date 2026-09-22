@@ -7,6 +7,39 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.15.2] — 2026-09-22
+
+A patch release about **being told why**. A trace can be rejected, and a rule can be attached, and in
+both cases ponens knew something the person in front of it did not.
+
+### Added
+- **Every validation error now states the rule it breaks, and cites the spec.** `trace validate` named
+  the violation and never the rule. "action 1 is in two meta-actions (m1 and t1)" is a statement about
+  your data; it is not a statement that nesting is expressed with `parent_id` rather than by
+  containment, which is the belief you actually hold wrongly - so an author who built a deliberate
+  parent/child structure reads it as a description of what they built and looks elsewhere. That cost a
+  producer a day of invalid records. Errors breaking the same rule are now grouped and the rule is
+  stated once, with the section of TRACE_SPEC that says it; `--all` lists every error rather than
+  summarising the ones that break a rule already shown. Closed-vocabulary errors spell out what was
+  permitted, and cite the section defining *that* vocabulary rather than a general one.
+- **`policies remove <id> --from <trace>`** - the counterpart to `policies add --into`. Attaching was
+  possible and detaching was not, so a rule picked up by mistake could only be taken out by
+  hand-editing the record.
+- **`policies attached <trace>`** - what rules is this record actually being judged against? `search`
+  says what exists and `check` gives the verdict; nothing said what a given record carries. With
+  nothing attached it says so plainly, because no policies attached and every policy passing produce
+  the same silence in every downstream summary, and only one of them means anything was checked.
+
+### Changed
+- **Reading an invalid trace says so.** `validate` and `check` refused one; every other command
+  reported on it and exited 0 - `overview` printed a gate verdict, `status` a summary, `residuals` a
+  gap list - none mentioning that the record underneath had been rejected. A reader got a confident
+  report about a record nothing downstream would accept. It is a warning rather than a refusal,
+  because diagnosing a broken record is exactly when you want to read it; set
+  `PONENS_NO_VALIDITY_WARNING=1` to silence it.
+- **`trace check` says that nothing was evaluated.** Policy evaluation validates before it evaluates,
+  so an invalid trace means no policy ran at all - an absence that otherwise reads as a pass.
+
 ## [1.15.1] — 2026-09-21
 
 A patch release about what the residual surface says is still **open**. 1.15.0 made a gap's origin

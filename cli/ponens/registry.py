@@ -451,6 +451,61 @@ def cmd_policies_add(args):
     print(gray(f"  run: ponens trace check {path}"))
 
 
+def _load_local_trace(path):
+    if not os.path.exists(path):
+        _err(f"trace file not found: {path}")
+    with open(path) as f:
+        return json.load(f)
+
+
+def cmd_policies_remove(args):
+    """The counterpart to `add --into`. Attaching was possible and detaching was not, so a rule
+    picked up by mistake could only be taken out by hand-editing the record."""
+    path = args.from_
+    trace = _load_local_trace(path)
+    policies = trace.get("policies") or []
+    wanted = set(args.policy_id)
+    kept = [p for p in policies if p.get("policy_id") not in wanted]
+    gone = [p.get("policy_id") for p in policies if p.get("policy_id") in wanted]
+    trace["policies"] = kept
+    with open(path, "w") as f:
+        json.dump(trace, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    for pid in gone:
+        print(f"{yellow('Removed')} policy {cyan(pid)} from {path}")
+    missing = sorted(wanted - set(gone))
+    for pid in missing:
+        print(f"  not attached: {pid}", file=sys.stderr)
+    return 1 if missing else 0
+
+
+def cmd_policies_attached(args):
+    """What rules is this record actually being judged against?
+
+    `search` tells you what EXISTS and `check` tells you the verdict, but nothing said what a given
+    record carries. That matters more than it sounds: no policies attached and every policy passing
+    produce the same silence in every downstream summary, and only one of them means anything was
+    checked.
+    """
+    trace = _load_local_trace(args.trace_file)
+    policies = [p for p in (trace.get("policies") or []) if isinstance(p, dict)]
+    if not policies:
+        print("No policies are attached - `trace check` has nothing to evaluate here.")
+        print(gray("  find one:    ponens policies search <query>"))
+        print(gray(f"  attach it:   ponens policies add <policy-id> --into {args.trace_file}"))
+        return 0
+    heading(f"Policies attached to {trace.get('trace_id', '?')} ({len(policies)})")
+    for p in policies:
+        src = (p.get("source") or {}).get("source", "?")
+        off = yellow("  disabled") if p.get("disabled") else ""
+        print(f"  {cyan(p.get('policy_id', '?')):40} {p.get('severity', 'warning'):9} "
+              f"from {blue(src)}{off}")
+        if p.get("display_name"):
+            print(f"    {gray(p['display_name'])}")
+    print(gray(f"\n  evaluate: ponens trace check {args.trace_file}"))
+    return 0
+
+
 def cmd_policies_lint(args):
     """Lint policy definitions locally: required fields + formula syntax.
 
@@ -668,6 +723,15 @@ def register(subparsers):
     p.add_argument("--into", required=True, help="Path to the trace JSON file")
     p.add_argument("--refresh", action="store_true", help="Force re-fetch, bypassing the cache")
     p.set_defaults(func=cmd_policies_add)
+
+    p = pol_sub.add_parser("remove", help="Remove an attached policy from a local trace file")
+    p.add_argument("policy_id", nargs="+", metavar="POLICY_ID")
+    p.add_argument("--from", dest="from_", required=True, help="Path to the trace JSON file")
+    p.set_defaults(func=cmd_policies_remove)
+
+    p = pol_sub.add_parser("attached", help="List the policies a local trace carries")
+    p.add_argument("trace_file")
+    p.set_defaults(func=cmd_policies_attached)
 
     p = pol_sub.add_parser("lint", help="Lint policy definitions locally (required fields + formula syntax)")
     p.add_argument("policy_file", help='Policy JSON file: an array of policies, or {"policies": [...]}')

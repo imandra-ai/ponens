@@ -429,3 +429,41 @@ def test_the_two_renderings_agree_on_what_standing_means():
     assert G.is_standing_assumption(r)
     assert not G.is_standing_assumption({"kind": "assumption", "severity": "high"})
     assert not G.is_standing_assumption({"kind": "limitation", "severity": "medium"})
+
+
+def test_a_code_edit_does_not_meet_a_requirement(tmp_path):
+    """An item resolved by unranked evidence is not met, and the gate does not pass.
+
+    The resolver marks an acceptance item `done` when it finds evidence bound to it; whether that
+    evidence is worth anything is a separate question, and the goal path never asked it. Measured over
+    a 25-story corpus: 2 of 5 met requirements were resolved by a `Diff` - grade `unranked` - one of
+    them reading "apply_discount is fixed to guarantee the property", and the gate passed. An edit is
+    the thing that NEEDS evidence.
+    """
+    from ponens import overview
+
+    enriched = {"goals": [{"id": "g1", "acceptance": [
+        {"id": "a1", "label": "the property holds", "status": "done",
+         "evidence_ref": "fr3-regions", "evidence_strength": "proof"},
+        {"id": "a2", "label": "the code is fixed to guarantee it", "status": "done",
+         "evidence_ref": "fr14-change"},                      # a Diff: no strength at all
+    ]}]}
+    rows = {r["id"]: r for r in overview._goal_requirements(enriched)}
+
+    assert rows["g1/a1"]["state"] == "met"                    # a real result still meets it
+    assert rows["g1/a2"]["state"] == "open"                   # the edit does not
+    assert "unranked" in rows["g1/a2"]["reason"]
+    # The reason is rendered inside the agent's panes, which retire "established".
+    assert "established" not in rows["g1/a2"]["reason"]
+
+
+def test_an_out_of_date_result_still_reads_out_of_date(tmp_path):
+    """The freshness rule keeps precedence over the new grade rule - a stale proof is not `open`."""
+    from ponens import overview
+
+    enriched = {"goals": [{"id": "g1", "acceptance": [
+        {"id": "a1", "label": "x", "status": "done", "evidence_ref": "fr1",
+         "evidence_strength": "proof", "freshness": "stale"},
+    ]}]}
+    rows = {r["id"]: r for r in overview._goal_requirements(enriched)}
+    assert rows["g1/a1"]["state"] == "out_of_date"

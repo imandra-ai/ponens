@@ -27,6 +27,7 @@ from .policy_compiler import (
 from . import goals as goalops
 from . import lineage
 from . import merge as mergeops
+from . import rules
 
 
 # ================================================================
@@ -55,7 +56,18 @@ def _dump_yaml(trace):
     return yaml.safe_dump(trace, sort_keys=False, allow_unicode=True, default_flow_style=False)
 
 
-def load_trace(path):
+def load_trace(path, warn_invalid=True):
+    """Read a trace, and say so if it is one no consumer can read.
+
+    `validate` and `check` refuse an invalid trace. Every OTHER command reported on one happily and
+    exited 0 - `overview` printed a gate verdict, `status` a summary, `residuals` a gap list - none
+    of them mentioning that the record underneath had been rejected. A reader got a confident report
+    about a record nothing downstream would accept, which is the failure this whole line of work is
+    about: an absence that reads like a result.
+
+    So the warning lives here, where every command already goes, and it is a warning rather than a
+    refusal - diagnosing a broken record is exactly when you want to read it.
+    """
     if not os.path.exists(path):
         print(f"Error: trace file not found: {path}", file=sys.stderr)
         sys.exit(1)
@@ -64,15 +76,36 @@ def load_trace(path):
     if path.endswith((".yaml", ".yml")):
         yaml = _require_yaml()
         try:
-            return yaml.safe_load(text)
+            trace = yaml.safe_load(text)
         except yaml.YAMLError as e:
             print(f"Error: {path} is not valid YAML: {e}", file=sys.stderr)
             sys.exit(1)
+    else:
+        try:
+            trace = json.loads(text)
+        except json.JSONDecodeError as e:
+            print(f"Error: {path} is not valid JSON: {e}", file=sys.stderr)
+            sys.exit(1)
+    if warn_invalid and os.environ.get("PONENS_NO_VALIDITY_WARNING") != "1":
+        _warn_if_invalid(trace, path)
+    return trace
+
+
+def _warn_if_invalid(trace, path):
     try:
-        return json.loads(text)
-    except json.JSONDecodeError as e:
-        print(f"Error: {path} is not valid JSON: {e}", file=sys.stderr)
-        sys.exit(1)
+        errors, _ = validate_trace(trace)
+    except Exception:
+        return                                  # never let the courtesy check break the command
+    if not errors:
+        return
+    first = errors[0]
+    rule = rules.rule_for(first)
+    print(f"  warning: this trace is INVALID ({len(errors)} error(s)) - `ponens trace check` and "
+          f"policy evaluation will refuse it, so nothing below has been governed.", file=sys.stderr)
+    print(f"           {first}", file=sys.stderr)
+    if rule:
+        print(f"           {rule['id']}: run `ponens trace validate {path}` for the rule and the "
+              f"spec section.", file=sys.stderr)
 
 
 def save_trace(path, trace):
@@ -1272,14 +1305,18 @@ def soundness_errors(trace, strict=False):
 
 
 def cmd_validate(args):
-    trace = load_trace(args.trace_file)
+    trace = load_trace(args.trace_file, warn_invalid=False)
     errors, warnings = validate_trace(trace)
     if getattr(args, 'strict', False):
         errors = errors + soundness_errors(trace, strict=True)
     for w in warnings:
         print(f"  warning: {w}")
-    for e in errors:
-        print(f"  error:   {e}")
+    # Errors are grouped by the RULE they break and the rule is stated once, with the section of the
+    # spec that says it. Naming only the violation leaves the author to guess which of their
+    # assumptions was wrong - and the one they are most likely to hold is the one the message just
+    # described back to them.
+    for line in rules.render(errors, show_all=getattr(args, 'all', False)):
+        print(line)
     if errors:
         print(f"\nInvalid trace: {len(errors)} error(s), {len(warnings)} warning(s).")
         return 1
@@ -2142,12 +2179,17 @@ def _faithfulness_findings(trace):
 
 
 def cmd_check(args):
-    trace = load_trace(args.trace_file)
+    trace = load_trace(args.trace_file, warn_invalid=False)
     errors, _ = validate_trace(trace)
     if errors:
         print("Error: cannot check an invalid trace:", file=sys.stderr)
-        for e in errors[:10]:
-            print(f"  - {e}", file=sys.stderr)
+        # Same explanation as `trace validate`. This is the message most authors actually hit, since
+        # policy evaluation validates before it evaluates - an invalid trace means NO policy is
+        # evaluated at all, which is worth saying out loud rather than leaving as a silent absence.
+        for line in rules.render(errors):
+            print(line, file=sys.stderr)
+        print(f"\n  No policy was evaluated: checking requires a valid trace. "
+              f"Run `ponens trace validate {args.trace_file}` after fixing.", file=sys.stderr)
         return 1
     normalize_trace(trace)
     if args.policy_file:
@@ -2957,6 +2999,9 @@ def register(subparsers):
     p.add_argument("--strict", action="store_true",
                    help="also check deep soundness: reference resolution, data-flow ordering, "
                         "verification lineage, phase coverage, and that enrich/grade run clean")
+    p.add_argument("--all", action="store_true",
+                   help="list every error, rather than summarising the ones that break a rule "
+                        "already shown")
     p.set_defaults(func=cmd_validate)
 
     # fmt

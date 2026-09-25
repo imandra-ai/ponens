@@ -30,6 +30,12 @@
     <button id="dagViewBtn" onclick="switchView('dag')">Artifacts</button>
     <button id="funnelViewBtn" onclick="switchView('funnel')">Reasoning</button>
     <button id="policyViewBtn" onclick="switchView('policy')">Policies</button>
+    <!-- GAPS. The residual surface used to be reachable only from inside the Grade pane, and the grade
+         is computed by the ponens CLI and injected as `window.__ponensGrade` - so mounting this viewer
+         directly (the desktop, the VS Code plugin) showed no gaps AT ALL. `showEl('residualsBtn', ...)`
+         had been targeting an element that was never in this skeleton, and `renderResidualsModal()`
+         was defined and never called. -->
+    <button id="residualsBtn" style="display:none" onclick="openResidualsModal()">Gaps <span id="residualsCount">0</span></button>
   </div>
   <!-- The artifact-category shortcuts (Verification Goals, Edge Cases, …) now live inside the
        Artifacts tab (renderDAGView), not in this top bar — see viewer.js. -->

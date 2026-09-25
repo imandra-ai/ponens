@@ -11,7 +11,12 @@ export function goalFaithfulnessV(g) {
   const acc = g.acceptance || [];
   const required = acc.filter((a) => a.required !== false);
   const reqItems = required.length ? required : acc;
-  const met = reqItems.length > 0 && reqItems.every((a) => norm(a.status) === 'done');
+  // A goal whose own DEFINITION is in dispute cannot be reported met, however well the criteria
+  // resolved. `contested` is written by `ponens trace merge --combine` when two branches changed the
+  // same authored field differently and the merge declined to choose; `ponens trace goal resolve`
+  // clears it. Kept in step with faithfulness_of() in goals.py - the parity harness enforces it.
+  const contestedFields = (g.contested || []).map((c) => c && c.field).filter(Boolean);
+  const met = reqItems.length > 0 && reqItems.every((a) => norm(a.status) === 'done') && !contestedFields.length;
   const clauses = g.intent_clauses || g.intentClauses || [];
   const covered = new Set();
   for (const a of acc) for (const c of (a.covers || [])) covered.add(c);
@@ -24,6 +29,6 @@ export function goalFaithfulnessV(g) {
   const doers = new Set(acc.map((a) => a.author).filter(Boolean));
   const nonDoer = reviewer && !doers.has(reviewer);
   const approved = review && review.verdict === 'approved';
-  const certified = !!(approved && nonDoer && uncovered.length === 0);
-  return { met, uncovered, certified, reviewer, intentAuthor: g.intent_author || g.intentAuthor };
+  const certified = !!(approved && nonDoer && uncovered.length === 0) && !contestedFields.length;
+  return { met, uncovered, certified, reviewer, contestedFields, intentAuthor: g.intent_author || g.intentAuthor };
 }

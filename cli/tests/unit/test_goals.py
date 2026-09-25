@@ -227,7 +227,11 @@ def test_faithfulness_no_longer_grades_strength():
     # reports weakly_specified at all, regardless of the evidence mix.
     f = faithfulness_of(_fgoal([{"kind": "change", "status": "done"}]))
     assert "weakly_specified" not in f
-    assert set(f) == {"met", "certified", "uncovered_clauses"}
+    # `contested_fields` joined the contract when merge gained goal divergence: a goal whose own
+    # DEFINITION two branches changed differently is neither met nor certified until a person settles
+    # it. Still no strength axis, which is what this test is about.
+    assert set(f) == {"met", "certified", "uncovered_clauses", "contested_fields"}
+    assert f["contested_fields"] == []
 
 
 def test_faithfulness_uncovered_clauses():

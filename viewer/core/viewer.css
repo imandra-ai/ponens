@@ -361,6 +361,30 @@
     flex: 1; min-width: 200px; max-width: 400px; position: relative;
   }
   .action-card:hover { border-color: var(--border-hover); transform: scale(1.10); z-index: 1; }
+
+  /* A gap in the Grade pane is a full-width list row, not a flow card. `.action-card` is sized for
+     the flow (`flex:1; max-width:400px`) and grows on hover so a dense row can be read - both wrong
+     here, and the 400px cap is why the gaps stayed narrow after the pane itself was widened. The
+     class is kept for its inner typography (`.action-card .card-label` and friends). */
+  .gap-card { flex: none; max-width: none; width: 100%; cursor: pointer; }
+  .gap-card:hover { transform: none; border-color: var(--accent); }
+  /* One severity chip, one kind label, one id link - the modal used to draw all three differently
+     (severity on the right, its own palette, a yellow glyph) for the same object. */
+  .gap-sev { flex: none; font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; border: 1px solid; border-radius: 4px; padding: 1px 6px; }
+  .gap-kind { flex: none; font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--text-secondary); }
+  .gap-id { margin-left: auto; font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--accent); }
+  .gap-prov { margin-top: 5px; font-size: 10.5px; color: var(--text-secondary); }
+  .gap-prov code { font-size: 10px; }
+  /* The witness for a refuted claim. It is the most concrete thing on the card - the actual input
+     that breaks the property - so it gets monospace and room, not a truncated prose aside. The
+     card suppresses the `qualifier` when that is just this value cut to one line. */
+  .gap-cex {
+    margin: 7px 0 0; padding: 9px 11px; overflow-x: auto;
+    background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px;
+    font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.45;
+    color: var(--text-primary); white-space: pre;
+  }
   .action-card.selected { border-color: #818cf8; box-shadow: 0 0 0 1px #818cf8; }
 
   .action-card .card-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
@@ -720,6 +744,14 @@
 
   .top-view { display: none; height: calc(100vh - 90px); }
   .top-view.active { display: flex; }
+
+  /* A pane whose content is one centered column must say so. `.top-view.active` is `display:flex`
+     with no direction, so a single child becomes a ROW item: it shrink-to-fits instead of filling,
+     and `margin:0 auto` inside it stops centering the way it reads. That is how the Grade pane came
+     to render ~600px wide against a 1160px window while the Goals pane sat pushed off to one side -
+     one missing declaration, two different-looking bugs. The row panes (`.main-area` is the flow
+     sidebar + canvas) keep their default. */
+  .goals-view, .grade-view { flex-direction: column; }
 
   /* Lineage view */
   .lineage-view { overflow-y: auto; padding: 24px 32px; flex-direction: column; }
@@ -1605,7 +1637,14 @@
   /* ==============================================================
      GOALS view (§18) — declared intent + acceptance
      ============================================================== */
-  .goals-wrap { max-width: 920px; margin: 0 auto; }
+  .goals-wrap, .grade-wrap { max-width: 920px; margin: 0 auto; width: 100%; }
+  .goals-count { display: flex; align-items: baseline; gap: 10px; font-size: 13px; font-weight: 700;
+    color: var(--text-bright); margin: 0 2px 12px; }
+  .goals-count span { font-weight: 500; font-size: 12px; color: var(--text-muted); }
+  .grade-sub { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-muted); margin: 22px 0 10px; }
+  .goal-empty { color: var(--text-muted); font-size: 13px; background: var(--bg-inset);
+    border: 1px dashed var(--border); border-radius: 8px; padding: 12px 14px; }
   .goal-block { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
   .goal-block-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
   .goal-prog { flex: 0 0 120px; height: 8px; background: var(--bg-inset); border-radius: 6px; overflow: hidden; }
@@ -1643,6 +1682,9 @@
   .gh-count { color: var(--text-muted); background: var(--bg-inset); border-radius: 999px; padding: 0 7px; font-size: 10px; margin-left: 4px; }
   .gh-attn { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
   .gh-attn-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-inset); }
+  /* `display:flex` above beats the `hidden` attribute's UA `display:none`, so the collapsed rows
+     need an author rule that outranks it - class+attribute does. */
+  .gh-attn-item[hidden] { display: none; }
   .gh-attn-item.tone-issue { border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
   .gh-attn-item.clickable { cursor: pointer; }
   .gh-attn-item.clickable:hover { border-color: var(--accent); }
@@ -1650,7 +1692,12 @@
   .gh-attn-item.tone-issue .gh-attn-glyph { color: var(--red-text); }
   .gh-attn-item.tone-rec .gh-attn-glyph { color: var(--text-dim); }
   .gh-attn-text { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
-  .gh-attn-more { font-size: 12px; color: var(--accent); cursor: pointer; padding: 4px 10px; }
+  .gh-attn-more { font-size: 12px; color: var(--accent); cursor: pointer; padding: 4px 10px;
+    background: none; border: 0; font-family: inherit; text-align: left; }
+  .gh-attn-more:hover { text-decoration: underline; }
+  /* An UNRESOLVED criterion is not a failed one. It reads as a question, not a cross. */
+  .goal-acc-item.ga-unresolved { opacity: .85; }
+  .goal-acc-item.ga-unresolved .goal-acc-glyph { color: var(--text-muted); font-weight: 700; }
   /* Goal graph (goal → criteria → evidence/residual DAG) */
   .goal-graph-wrap { margin-top: 12px; }
   .goal-graph-wrap > summary { cursor: pointer; font-size: 12px; color: var(--accent); user-select: none; }

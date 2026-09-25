@@ -12,7 +12,7 @@ the altitude a reviewer actually reads, not a replay of the dialogue.
 where rigor is missing**: to separate what was *established* from what was merely *asserted*, and
 to point at where formal methods and other verification tools belong.
 
-**In CI:** `uses: imandra-ai/ponens/action@v1.15.3` puts a checked reasoning trace on every pull request — the policy gate as a status check and the goal scorecard as a comment ([action/README.md](action/README.md)).
+**In CI:** `uses: imandra-ai/ponens/action@v1.15.4` puts a checked reasoning trace on every pull request — the policy gate as a status check and the goal scorecard as a comment ([action/README.md](action/README.md)).
 
 Reasoner-agnostic — and oracle-agnostic: a proof, a test run, a database lookup, an LLM's judgment and a human sign-off are all governed evidence, attributed and honestly graded — **local-first** (no backend required), and built so the agent does the capture.
 

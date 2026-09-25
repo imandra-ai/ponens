@@ -1152,10 +1152,34 @@ type reproduction_procedure =
   ; reference : string option
   }
 
+type replay_check_kind =
+  | JsonPathCheck
+
+type replay_check =
+  { kind : replay_check_kind
+  ; path : string              (* dotted, with numeric indices: `vg_res_list.0.vg_res.proved` *)
+  ; present : bool option      (* must the path resolve to a non-null value? default true *)
+  ; equals : json option        (* ... or must it equal this value? *)
+  }
+
 type expected_output =
   { artifact_ids : string list
   ; result_summary : string option
+  ; check : replay_check option
   }
+
+`check` is how a replay DECIDES, and it is optional and additive - a record without one is read
+exactly as before. It exists because the obvious comparison does not work: matching a
+`result_summary` against the re-run's output assumes the producer's verdict vocabulary appears in the
+tool's own output, and for a formal engine it does not. Measured against ImandraX, none of `proved`,
+`refuted`, `unknown` or `bounded` occurs anywhere in what it prints, so every replay reported a
+divergence on verdicts that had reproduced exactly.
+
+Naming a path keeps this layer engine-agnostic. A consumer evaluates a JSON path; it needs no
+knowledge of ImandraX, Lean, or a test runner, while the PRODUCER - which does know its engine -
+supplies the predicate. Note that a check must be specific about presence: a tool may emit every
+possible verdict key on every run, most of them null, in which case asking "does the output mention
+`proved`" is true always.
 
 type action_reproducibility =
   { status : reproducibility_status

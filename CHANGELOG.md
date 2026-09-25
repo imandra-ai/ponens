@@ -7,6 +7,46 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.15.4] — 2026-09-25
+
+A patch release about **checking the record against reality**, from a week spent handing published
+records to readers who had nothing else - no source, no repository, no session - and scoring what they
+could work out. Three defects came back that no test had asked about.
+
+### Added
+- **Replays can decide whether a verdict still holds.** A record now carries its own check.
+  `trace reproduce --run` compared by substring before - the record's verdict word against
+  the engine's raw output - and measured against a live ImandraX run that can never match: none of
+  `proved`, `refuted`, `unknown` or `bounded` appears anywhere in it. Every replay reported DIVERGED
+  on a verdict that had reproduced exactly, in the alarming direction, on the one path a person takes
+  to verify. `expected_output.check` names a JSON path and what must be there, which keeps ponens
+  engine-agnostic - a path needs no knowledge of ImandraX, or Lean, or a test runner. Records without
+  one keep the old comparison.
+- **`trace goal resolve <goal> --take ours|theirs`** - settle a goal the merge found contested.
+  Choosing is an amendment like any other, so the version not taken stays in the record rather than
+  disappearing behind the one that won, and the residual is marked addressed with who decided and why.
+- **Merge reports goal divergence.** `trace merge --combine` deep-copied ours and overlaid only model
+  artifacts, so a branch that TIGHTENED a goal - broadened the intent, added a required criterion -
+  had the tightening silently discarded, and a goal the other branch introduced vanished. No residual,
+  no report line: the totality invariant covers `result_id` only. A field one side moved is now taken;
+  a field BOTH sides moved differently is a conflict the merge refuses to settle, recording both
+  readings and opening a `goal_divergence` residual. A goal states what the work is for, and that is
+  not an algorithm's call.
+
+### Changed
+- **A goal whose definition is contested is never met, and never certified.** Every criterion may
+  resolve to done - but under which definition of done? Nobody has said. Kept in step across the
+  Python, the viewer and the parity corpus.
+- **The grade's Reproducibility axis counts commands, not objects.** It counted any action carrying a
+  `reproducibility` block, while the replayer reads `procedure.command`, so one trace scored 100% and
+  "4 replayable action(s)" while `trace reproduce` on the same file found none. Grading a record on an
+  auditability nobody can exercise is the failure that axis exists to detect.
+
+### Fixed
+- **A criterion can name the property it is about.** Two criteria over one function were the same
+  criterion to the resolver - "clamp stays within its bounds" and "clamp swaps inverted bounds" both
+  matched the first verdict for the component, and the one that had been proved came out blocked.
+
 ## [1.15.3] — 2026-09-22
 
 > 1.15.2 was published to PyPI before this had been reviewed. It carries the same code; 1.15.3 is the reviewed release, and the one to install.

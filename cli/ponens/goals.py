@@ -97,6 +97,30 @@ def _canon_art_type(s):
     return _ART_TYPE_ALIASES.get(k, k)
 
 
+def _asserts_property(art, prop, trace):
+    """Is this evidence about the named property? Matched against the goal the verdict came from (its
+    `description`) and against the properties the verdict itself reports. Substring, case-insensitive:
+    a criterion is authored by a person quoting the property, not by pasting an identifier."""
+    want = " ".join(str(prop).lower().split())
+    if not want:
+        return True
+    p = _payload(art)
+    hay = []
+    gid = p.get("goal_artifact_id")
+    if gid:
+        g = next((a for a in trace.get("artifacts", []) if a.get("artifact_id") == gid), None)
+        if g:
+            gp = _payload(g)
+            hay += [gp.get("description") or "", gp.get("src") or ""]
+    res = p.get("result") or {}
+    for k in ("proved", "refuted", "unknown"):
+        v = res.get(k)
+        if isinstance(v, dict):
+            hay += [str(x) for x in (v.get("properties") or [])]
+    hay += [p.get("description") or ""]
+    return any(want in " ".join(str(h).lower().split()) for h in hay if h)
+
+
 def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     """Resolve a typed criterion (`component` + `evidence: {artifact}`) by lineage: MET iff an artifact
     of the required type roots in the component. Quality of derivation is left to policies. Returns a
@@ -131,6 +155,18 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     # other property of the same component is not conformance to the entry.
     if reference:
         matches = [a for a in matches if _payload(a).get("reference_artifact_id") == reference]
+    # A criterion may also name the PROPERTY it is about, which is what makes a multi-property goal
+    # statable at all. Without it a criterion can only say "this component has evidence of this type",
+    # so "allowed_cents stays within the ceiling" and "allowed_cents is never negative" are the SAME
+    # criterion to the resolver - the first VerificationResult for the component marks both met. The
+    # producer-side check refuses that pair outright, which is correct and leaves the ordinary
+    # two-property goal unstatable.
+    #
+    # The join is already in the trace: a VerificationResult names its `goal_artifact_id`, and the goal
+    # carries the property text as its `description`. Same shape as the `reference` narrowing above.
+    prop = item.get("property")
+    if prop:
+        matches = [a for a in matches if _asserts_property(a, prop, trace)]
     if not matches:
         return keep
     a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact
@@ -465,7 +501,15 @@ def faithfulness_of(goal, high_stakes=False):
     required = [a for a in acc if a.get("required") is not False]
     req_items = required or acc
 
-    met = bool(req_items) and all(_lc(a.get("status")) == "done" for a in req_items)
+    # A goal whose own DEFINITION is in dispute cannot be reported met, however well the criteria
+    # resolved. `contested` is written by `ponens trace merge --combine` when two branches changed
+    # the same authored field differently and the merge declined to choose (see merge.py); it is
+    # cleared by `ponens trace goal resolve`. Without this the marker would be decoration: a merge
+    # could leave two readings of "done" on the record and the goal would still read met under one
+    # of them, chosen by nobody.
+    contested = [c.get("field") for c in (goal.get("contested") or []) if isinstance(c, dict)]
+
+    met = bool(req_items) and all(_lc(a.get("status")) == "done" for a in req_items) and not contested
 
     clauses = goal.get("intent_clauses") or []
     covered = {c for a in acc for c in (a.get("covers") or [])}
@@ -475,12 +519,13 @@ def faithfulness_of(goal, high_stakes=False):
     reviewer = review.get("reviewed_by")
     doers = {a.get("author") for a in acc if a.get("author")}
     non_doer = bool(reviewer) and reviewer not in doers
-    certified = bool(review.get("verdict") == "approved" and non_doer and not uncovered)
+    certified = bool(review.get("verdict") == "approved" and non_doer and not uncovered) and not contested
 
     return {
         "met": met,
         "certified": certified,
         "uncovered_clauses": uncovered,
+        "contested_fields": contested,
     }
 
 

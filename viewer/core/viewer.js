@@ -403,7 +403,8 @@ function loadTrace(data) {
 
   // Header with optional version badge
   document.getElementById('traceMeta').innerHTML =
-    `<span>LLM used: ${esc(data.model)}</span><span>Trace updated: ${esc(data.timestamp)}</span>`;
+    `<span>LLM used: ${esc(data.model)}</span>`
+    + `<span title="${esc(data.timestamp || '')}">Trace updated: ${esc(_fmtStamp(data.timestamp))}</span>`;
   // Show spec version next to title
   // The badge is the version of the TRACE's format, not of the viewer - but it sits beside the title,
   // so a bare `v1.8` reads as "this viewer is old" when it means "this trace was written against an
@@ -482,7 +483,7 @@ function openModal(kind, focusId) {
   const body = document.getElementById('modalBody');
 
   const renderers = { vg: renderVGModal, formal: renderFormalModal, tests: renderTestsModal, policies: renderPoliciesModal, refmodels: renderRefModelsModal, residuals: renderResidualsModal };
-  const titles = { vg: 'Verification Goals', formal: 'Formal Model', tests: 'Generated Tests', policies: 'Policies', refmodels: 'Reference Models', residuals: 'Residual Surface' };
+  const titles = { vg: 'Verification Goals', formal: 'Formal Model', tests: 'Generated Tests', policies: 'Policies', refmodels: 'Reference Models', residuals: 'Gaps' };
 
   title.textContent = titles[kind] || kind;
   body.innerHTML = renderers[kind] ? renderers[kind]() : '';
@@ -1193,9 +1194,14 @@ function selectAction(actionId) {
     html += `<div class="detail-section">
       <p class="label">Formalization</p>
       <span class="dp-status ${f.status}">${f.status}</span>`;
-    html += `<p class="label" style="margin-top:8px;">Source (${esc(f.src_lang)})</p>
-      <div class="dp-code-block src">${highlightCode(f.src_code, f.src_lang)}</div>`;
-    html += `<div class="dp-arrow-label">\u2193 formalized to IML</div>`;
+    // Only when there IS a source side. An authored/spec model has no "before" - it was written as IML,
+    // not formalized from code - and drawing the header anyway produced a labelled empty box reading
+    // "Source ()" above the model, which reads as missing data rather than as absent by nature.
+    if (f.src_code) {
+      html += `<p class="label" style="margin-top:8px;">Source (${esc(f.src_lang)})</p>
+        <div class="dp-code-block src">${highlightCode(f.src_code, f.src_lang)}</div>`;
+      html += `<div class="dp-arrow-label">\u2193 formalized to IML</div>`;
+    }
     html += `<div class="dp-code-block iml">${highlightIMLSmart(f.iml_code)}</div>`;
     // Symbols omitted — the IML source is the authoritative listing
     html += `</div>`;
@@ -1221,6 +1227,27 @@ function selectAction(actionId) {
     html += `<div class="detail-section">
       <p class="label">Verification Result</p>
       <span class="dp-status ${vr.status}">${vr.status}</span>`;
+    // WHAT was verified. The goal lives on the `DefineVG` action, so opening the VERIFY step showed a
+    // status badge and nothing else - a reader could see that something was undecided without being
+    // able to see what. The result names its goal artifact, so resolve and show it here.
+    if (!d.vg_defined && vr.goal_artifact_id) {
+      const g = (traceData?.artifacts || []).find(a => a.artifact_id === vr.goal_artifact_id);
+      if (g?.payload?.src || g?.payload?.description) {
+        html += `<p style="font-size:10px;color:#64748b;text-transform:uppercase;margin-top:6px;">Goal</p>`;
+        html += g.payload.src
+          ? `<div class="dp-code-block vg-src">${highlightIMLSmart(g.payload.src)}</div>`
+          : `<p style="font-size:13px;">${esc(g.payload.description)}</p>`;
+      }
+    }
+    // An UNKNOWN had no branch at all, so the one thing a reader needs from it - WHY the engine stopped,
+    // which decides whether to add a lemma, bound the search, or go looking for the input - was dropped.
+    if (vr.result?.unknown && (vr.result.unknown.reason || vr.result.unknown.verified_upto != null)) {
+      html += `<p style="font-size:10px;color:#64748b;text-transform:uppercase;margin-top:6px;">Why it stopped</p>`;
+      html += `<p style="font-size:13px;color:var(--text-primary);">${esc(vr.result.unknown.reason || '')}`
+        + (vr.result.unknown.verified_upto != null
+            ? ` <span style="color:var(--text-secondary);">(held to depth ${esc(String(vr.result.unknown.verified_upto))})</span>` : '')
+        + `</p>`;
+    }
     if (vr.result?.proved) {
       html += formatProof(vr.result.proved.proof_pp, vr.result.proved.properties);
     }
@@ -1793,72 +1820,25 @@ function renderPoliciesModal() {
 // ============================================================
 // Residual Surface Modal (v1.5 negative space)
 // ============================================================
+/** Open the gaps. The one door to the residual surface that does not need a CLI-computed grade. */
+// The Gaps button in the header. A thin delegate on purpose: this used to build the modal itself -
+// its own title ("Gaps (7)"), its own body call - so the same panel had two doors and two names
+// depending on which one you came through. One door, one name.
+function openResidualsModal() { openModal('residuals'); }
+window.openResidualsModal = openResidualsModal;
+// Inline `onclick` handlers reach these at global scope in the browser; the desktop and the tests
+// evaluate this file inside a function, where a bare declaration would not escape.
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.switchView = switchView;
+
 function renderResidualsModal() {
   const residuals = traceData?.residuals || [];
-  if (!residuals.length) return '<p style="color:var(--text-dim)">No residuals declared — empty negative space.</p>';
-
-  const sevColor = { critical: 'var(--red)', high: '#f59e0b', medium: '#eab308', low: 'var(--text-muted)', info: 'var(--text-dim)' };
-  const statusColor = { open: '#f59e0b', acknowledged: '#eab308', addressed: '#3fb950', waived: 'var(--text-muted)' };
-  const sevRank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
-  const kindLabel = { assumption: 'Assumption', unverified: 'Unverified', out_of_scope: 'Out of scope', limitation: 'Limitation', open_question: 'Open question' };
-  const statusIcon = { open: '⚠️', acknowledged: '\u{1F441}️', addressed: '✅', waived: '➖' };
-
-  const ordered = [...residuals].sort((a, b) => (sevRank[b.severity] || 0) - (sevRank[a.severity] || 0));
-  const openCount = residuals.filter(r => (r.status || 'open') === 'open').length;
-
-  let html = `<div class="mprop-summary" style="margin:0 0 6px;">${residuals.length} declared · ${openCount} open</div>
-    <p style="color:var(--text-dim);font-size:11px;margin:0 0 16px;">What the trace did <b>not</b> establish &mdash; assumptions, unverified claims, out-of-scope items, limitations, and open questions.</p>`;
-
-  for (const r of ordered) {
-    const sev = r.severity || 'info';
-    const color = sevColor[sev] || 'var(--text-dim)';
-    const status = r.status || 'open';
-    const icon = statusIcon[status] || '❓';
-    // Where this came from. A residual states what the trace did NOT establish, so the first question
-    // a reader has is which step noticed - without it the card is an unattributed assertion sitting in
-    // a record whose whole claim is attribution. `introduced_by_action_id` answers it; when a producer
-    // did not record one, say so rather than render a card that looks complete.
-    const prov = [];
-    if (r.introduced_by_action_id != null) {
-      prov.push('surfaced by ' + _actionLink(r.introduced_by_action_id));
-    } else {
-      prov.push('<span style="color:var(--text-dim);">surfaced by: not recorded</span>');
-    }
-    if (r.target?.target_id) {
-      const t = r.target.target_type === 'artifact'
-        ? _artifactJump(r.target.target_id) + ` <span style="opacity:.6;">${esc(r.target.target_id)}</span>`
-        : r.target.target_type === 'action' && Number.isFinite(Number(r.target.target_id))
-          ? _actionLink(Number(r.target.target_id))
-          : esc((r.target.target_type || '') + ': ' + r.target.target_id);
-      prov.push('about ' + t);
-    }
-    const rel = (r.related_artifact_ids || []).filter(Boolean);
-    if (rel.length) prov.push('related: ' + rel.map((id) => _artifactJump(id)).join(', '));
-
-    // Each residual IS an artifact (§13), so the card opens it in Artifacts the way every other
-    // artifact reference on this page does. Without it the only link on the card went to the action
-    // that surfaced the gap, and the gap itself - the thing the card is about - was a dead end.
-    const open = `closeModal();switchView('dag');selectDAGNode('${esc(r.residual_id)}');`;
-    html += `<div class="mpolicy-row mresidual-row" role="button" tabindex="0"
-        title="Open ${esc(r.residual_id)} in Artifacts"
-        onclick="${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}">
-      <div class="mpolicy-icon">${icon}</div>
-      <div class="mpolicy-body">
-        <div class="mpolicy-name">${esc(kindLabel[r.kind] || r.kind || 'residual')} <span style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:${statusColor[status] || 'var(--text-dim)'};border:1px solid ${statusColor[status] || 'var(--border)'};border-radius:4px;padding:1px 5px;font-family:inherit;">${esc(status)}</span>${r.derived ? ' <span style="font-size:8.5px;font-weight:600;color:var(--text-muted);background:var(--bg-inset);border-radius:4px;padding:1px 5px;">derived</span>' : ''} <span class="mresidual-id">${esc(r.residual_id)} \u2192</span></div>
-        ${r.statement ? `<div class="mpolicy-desc">${esc(r.statement)}</div>` : ''}
-        <div class="mresidual-prov">${prov.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</div>
-        ${r.suggested_check ? `<div class="mpolicy-note">check: ${esc(r.suggested_check)}</div>` : ''}
-        ${r.resolution_contested_by?.length ? `<div class="mresidual-reopened">open again &mdash; every closure is contested (${r.resolution_contested_by.map((id) => _artifactJump(id, id)).join(', ')})</div>` : ''}
-        ${_resolutionLines(r, true).map((x) => `<div class="mresidual-res${x.last ? '' : ' superseded'}${x.contested.length ? ' contested' : ''}">`
-          + `<span class="mresidual-res-h">${x.last ? '' : 'superseded &middot; '}${x.head}</span>`
-          + (x.why ? `<div class="mresidual-res-w">${x.why}</div>` : '')
-          + (x.evidence ? `<div class="mresidual-res-w">${x.evidence}</div>` : '')
-          + `</div>`).join('')}
-      </div>
-      <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:${color};border:1px solid ${color};border-radius:4px;padding:2px 6px;white-space:nowrap;height:fit-content;">${esc(sev)}</span>
-    </div>`;
-  }
-  return html;
+  if (!residuals.length) return '<p style="color:var(--text-dim)">No gaps declared - a record with no declared gaps is suspicious, not clean.</p>';
+  const openCount = residuals.filter((r) => (r.status || 'open') === 'open').length;
+  return `<div class="mprop-summary" style="margin:0 0 6px;">${residuals.length} declared &middot; ${openCount} open</div>`
+    + `<p style="color:var(--text-dim);font-size:11px;margin:0 0 16px;">What the trace did <b>not</b> establish &mdash; assumptions, unverified claims, out-of-scope items, limitations, and open questions.</p>`
+    + _gapsBySeverity(residuals).map(_gapCard).join('');
 }
 
 // ============================================================
@@ -2055,8 +2035,25 @@ function openGoalEvidence(id) {
 // A residual is an artifact_type 'Residual' whose residual fields live in `payload` and which anchors
 // into the DAG via `derived_from`. These helpers fold a legacy top-level `residuals[]` forward and
 // project artifacts back to the flat residual shape the surface/attention/goal views consume.
-const _RESIDUAL_KEYS = ['kind', 'severity', 'status', 'source', 'statement', 'target',
-  'related_artifact_ids', 'suggested_check', 'introduced_by_action_id', 'tags', 'derived'];
+// `summary` and `qualifier` are the readable half - a headline and its conditions, as opposed to
+// `statement`, which is the full prose sentence a machine reader wants. Leaving them off this list meant
+// a producer could write a scannable gap and the surface would still render the paragraph.
+// A WHITELIST, applied in BOTH directions (residual -> artifact and back), so a key missing here is
+// silently dropped from the record rather than merely unrendered. That is the hazard: the producer
+// emits deliberately, nothing errors, and the field is gone by the time anything reads it.
+//
+// Found by running the readers over real producer output rather than diffing field names: five keys
+// were being dropped across 52 residuals in the fixture corpus. Three of them - `property`,
+// `assuming`, `checked_over` - were added to the producer and never added here, on the same day.
+// `residual_id` is absent on purpose: it rides on the artifact wrapper as `artifact_id`.
+const _RESIDUAL_KEYS = ['kind', 'severity', 'status', 'source', 'statement', 'summary', 'qualifier',
+  'target', 'related_artifact_ids', 'suggested_check', 'introduced_by_action_id', 'tags', 'derived',
+  // The witness for a refuted claim, and how a defeater attacks one - the two that carry
+  // information no other field on the card does.
+  'counterexample', 'defeater_kind',
+  // Structured forms of what `qualifier` says in prose. Kept so a programmatic reader does not have
+  // to parse the sentence back apart.
+  'property', 'assuming', 'checked_over'];
 
 function _isResidualArt(a) { return !!a && a.artifact_type === 'Residual'; }
 
@@ -2118,6 +2115,90 @@ function _artifactJump(id, text) {
 }
 
 /** Link text that closes the modal, switches to the flow, and scrolls the step into view. */
+/** Worst first. A CRITICAL gap listed below four LOW ones is a CRITICAL gap nobody reads. */
+const _SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+
+/** The qualifier + the trail back, indented under the headline. */
+// ============================================================
+// ONE gap card. A gap was rendered three different ways - as a card in the Grade pane, as a row in
+// the modal (severity on the RIGHT, `check:` not `try:`, its own card fill and a yellow glyph), and
+// as a one-liner in a goal's attention list - with three provenance helpers and TWO severity
+// palettes behind them (the modal made `high` amber and `low` grey; the Grade pane made `high` red
+// and `low` blue). The same object should not change appearance depending on which door you opened.
+// ============================================================
+
+/** One severity ramp, used everywhere a gap is drawn. */
+const GAP_SEV = { critical: '#e5534b', high: '#e0813a', medium: '#e0a458', low: '#6ea8fe', info: 'var(--text-secondary)' };
+const GAP_SEV_RANK = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+const GAP_KIND = { assumption: 'assumption', unverified: 'unverified', out_of_scope: 'out of scope',
+  limitation: 'limitation', open_question: 'open question' };
+const GAP_STATUS = { open: '#e0a458', acknowledged: '#eab308', addressed: '#3fb950', waived: 'var(--text-muted)' };
+
+/** "surfaced by #12 · about X · related: a, b" - the trail from a gap back to the work. */
+function _gapProvenance(r) {
+  const bits = [];
+  // A gap states what the trace did NOT establish, so the first question is which step noticed.
+  // Without it the card is an unattributed assertion inside a record whose whole claim is
+  // attribution - so when no producer recorded one, say so rather than look complete.
+  bits.push(r.introduced_by_action_id != null
+    ? 'surfaced by ' + _actionLink(r.introduced_by_action_id, '#' + r.introduced_by_action_id)
+    : '<span style="opacity:.7;">surfaced by: not recorded</span>');
+  if (r.target?.target_id) {
+    const t = r.target.target_type === 'artifact' ? _artifactJump(r.target.target_id)
+      : r.target.target_type === 'action' && Number.isFinite(Number(r.target.target_id))
+        ? _actionLink(Number(r.target.target_id))
+        : esc((r.target.target_type || '') + ': ' + r.target.target_id);
+    bits.push('about ' + t);
+  }
+  const rel = (r.related_artifact_ids || []).filter(Boolean);
+  if (rel.length) {
+    // A gap that touches every model in the run would otherwise list every model in the run.
+    const shown = rel.slice(0, 3).map((id) => _artifactJump(id)).join(', ');
+    bits.push('related: ' + (rel.length > 3 ? shown + ' +' + (rel.length - 3) + ' more' : shown));
+  }
+  return '<div class="gap-prov">' + bits.join(' &middot; ') + '</div>';
+}
+
+/** The card. Every surface that shows a gap in full uses this one. */
+function _gapCard(r) {
+  const sev = r.severity || 'info';
+  const col = GAP_SEV[sev] || GAP_SEV.info;
+  const status = r.status || 'open';
+  // Each gap IS an artifact (§13), so the card opens it the way every other artifact reference does.
+  const go = `closeModal();switchView('dag');selectDAGNode('${esc(r.residual_id)}');`;
+  return `<div class="action-card gap-card" style="border-left:3px solid ${col};" role="button" tabindex="0"
+      title="Open ${esc(r.residual_id)}" onclick="${go}"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${go}}">
+    <div class="card-top" style="gap:8px;">
+      <span class="gap-sev" style="color:${col};border-color:${col};">${esc(sev)}</span>
+      <span class="gap-kind">${esc(GAP_KIND[r.kind] || r.kind || 'gap')}</span>
+      ${status !== 'open' ? `<span class="gap-sev" style="color:${GAP_STATUS[status] || 'var(--text-muted)'};border-color:${GAP_STATUS[status] || 'var(--border)'};">${esc(status)}</span>` : ''}
+      ${r.defeater_kind ? `<span class="gap-kind" title="How this attacks the claim">${esc(r.defeater_kind)}</span>` : ''}
+      ${r.derived ? '<span class="gap-kind" style="opacity:.7;">derived</span>' : ''}
+      <span class="gap-id">${esc(r.residual_id || '')} \u2192</span>
+    </div>
+    <div class="card-label" style="margin-top:2px;">${esc(r.summary || r.statement || '')}</div>
+    ${r.qualifier && !(r.counterexample && /^counterexample:/i.test(r.qualifier))
+      ? `<div class="card-rationale">${esc(r.qualifier)}</div>` : ''}
+    ${r.counterexample ? `<pre class="gap-cex" title="The input that violates the claim">${esc(r.counterexample)}</pre>` : ''}
+    ${r.suggested_check ? `<div class="card-rationale" style="font-style:italic;">try: ${esc(r.suggested_check)}</div>` : ''}
+    ${_gapProvenance(r)}
+    ${r.resolution_contested_by?.length ? `<div class="mresidual-reopened">open again &mdash; every closure is contested (${r.resolution_contested_by.map((id) => _artifactJump(id, id)).join(', ')})</div>` : ''}
+    ${_resolutionLines(r, true).map((x) => `<div class="mresidual-res${x.last ? '' : ' superseded'}${x.contested.length ? ' contested' : ''}">`
+      + `<span class="mresidual-res-h">${x.last ? '' : 'superseded &middot; '}${x.head}</span>`
+      + (x.why ? `<div class="mresidual-res-w">${x.why}</div>` : '')
+      + (x.evidence ? `<div class="mresidual-res-w">${x.evidence}</div>` : '')
+      + `</div>`).join('')}
+  </div>`;
+}
+
+/** Worst first. A CRITICAL listed under four LOWs is a CRITICAL nobody read. */
+function _gapsBySeverity(rs) {
+  return [...rs].sort((a, b) => (GAP_SEV_RANK[b.severity] || 0) - (GAP_SEV_RANK[a.severity] || 0));
+}
+
+
+
 function _actionLink(id, text) {
   const t = esc(text == null ? _actionLabel(id) : text);
   return `<a href="#" onclick="event.preventDefault();event.stopPropagation();closeModal();switchView('flow');`
@@ -3913,30 +3994,39 @@ function renderGradeView() {
   const residuals = (traceData && traceData.residuals) || [];
   const sevColor = { critical: '#e5534b', high: '#e5534b', medium: '#e0a458', low: '#6ea8fe', info: 'var(--text-secondary)' };
   const gColor = g.overall >= 70 ? '#57ab5a' : g.overall >= 60 ? '#e0a458' : '#e5534b';
-  let h = '<div style="max-width:900px;">';
-  h += '<div style="display:flex;gap:20px;align-items:flex-start;">';
-  h += '<div style="flex:none;width:110px;height:110px;border-radius:14px;border:1px solid var(--border);background:var(--bg-surface);display:flex;flex-direction:column;align-items:center;justify-content:center;">'
-     + '<div style="font-size:44px;font-weight:800;color:' + gColor + ';">' + esc(g.grade) + '</div>'
-     + '<div style="font-size:12px;color:var(--text-secondary);">' + g.overall + '/100</div></div>';
-  h += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;">';
+  // The Goals pane's shell, reused: one centered column, capped at a reading width, with each
+  // block a card. The previous version hand-rolled a `max-width:1180px` div that never took effect
+  // (see `.goals-view, .grade-view` in the CSS) and drew the axes as bare rows, so the pane looked
+  // like a different product from the one next to it.
+  let h = '<div class="grade-wrap">';
+  h += '<div class="goal-block"><div class="goal-block-head">';
+  h += '<div style="flex:none;width:86px;height:86px;border-radius:14px;border:1px solid var(--border);background:var(--bg-inset);display:flex;flex-direction:column;align-items:center;justify-content:center;">'
+     + '<div style="font-size:38px;font-weight:800;line-height:1;color:' + gColor + ';">' + esc(g.grade) + '</div>'
+     + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:3px;">' + g.overall + '/100</div></div>';
+  h += '<div class="goal-block-text"><div class="goal-block-intent">Trace grade</div>'
+     + '<div class="goal-block-meta">' + (g.dimensions || []).length + ' axes, weighted - a score is a '
+     + 'summary of the record, not a verdict on the code.</div></div>';
+  h += '</div>';
+  // The axes. A bar that runs the full width of the card is harder to compare than a short one, so
+  // they share a fixed track and the numbers stay in a column the eye can run down.
+  h += '<div style="display:flex;flex-direction:column;gap:11px;">';
   for (const d of (g.dimensions || [])) {
     const na = d.applicable === false, pct = Math.round((d.score || 0) * 100);
-    h += '<div><div style="display:flex;gap:8px;font-size:13px;align-items:baseline;"><b>' + esc(d.name) + '</b>'
-       + '<span style="margin-left:auto;color:var(--text-primary);">' + (na ? 'n/a' : pct + '%') + '</span>'
-       + '<span style="color:var(--text-secondary);font-size:11px;">w' + d.weight + '</span></div>'
-       + '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:3px 0;"><div style="height:100%;width:' + (na ? 0 : pct) + '%;background:var(--accent);"></div></div>'
-       + '<div style="color:var(--text-secondary);font-size:11.5px;">' + esc(d.note || '') + '</div></div>';
+    const bar = na ? 'var(--text-muted)' : pct >= 70 ? '#57ab5a' : pct >= 40 ? '#e0a458' : '#e5534b';
+    h += '<div style="display:flex;align-items:baseline;gap:12px;">'
+       + '<div style="flex:0 0 150px;font-size:13px;font-weight:600;color:var(--text-bright);">' + esc(d.name) + '</div>'
+       + '<div style="flex:0 0 180px;height:7px;background:var(--bg-inset);border-radius:4px;overflow:hidden;">'
+       + '<div style="height:100%;width:' + (na ? 0 : pct) + '%;background:' + bar + ';"></div></div>'
+       + '<div style="flex:0 0 42px;text-align:right;font-size:13px;font-weight:700;color:var(--text-bright);font-variant-numeric:tabular-nums;">' + (na ? 'n/a' : pct + '%') + '</div>'
+       + '<div style="flex:0 0 34px;font-size:11px;color:var(--text-muted);">w' + d.weight + '</div>'
+       + '<div style="flex:1;min-width:0;font-size:12px;color:var(--text-muted);">' + esc(d.note || '') + '</div>'
+       + '</div>';
   }
   h += '</div></div>';
-  h += '<div style="margin-top:22px;"><div style="font-weight:700;margin-bottom:8px;">Residual surface (declared gaps)</div>';
-  if (!residuals.length) h += '<div style="color:var(--text-secondary);">No residuals declared - a trace with no declared gaps is suspicious, not clean.</div>';
-  else for (const r of residuals) {
-    h += '<div style="display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">'
-       + '<span style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:' + (sevColor[r.severity] || 'var(--text-secondary)') + ';border:1px solid var(--border);border-radius:4px;padding:1px 6px;">' + esc(r.severity || 'info') + '</span>'
-       + '<span style="font-family:ui-monospace,monospace;color:var(--accent);">' + esc(r.kind || '') + '</span>'
-       + '<span>' + esc(r.statement || '') + '</span></div>';
-  }
-  h += '</div></div>';
+  h += '<div class="grade-sub">Gaps' + (residuals.length ? ' <span class="gh-count">' + residuals.length + '</span>' : '') + '</div>';
+  if (!residuals.length) h += '<div class="goal-empty">No residuals declared - a trace with no declared gaps is suspicious, not clean.</div>';
+  else h += _gapsBySeverity(residuals).map(_gapCard).join('');
+  h += '</div>';
   el.innerHTML = h;
 }
 
@@ -3961,24 +4051,48 @@ function _goalAttentionHtml(g) {
   const norm = (s) => String(s || 'todo').toLowerCase().replace(/^accept/, '');
   const acc = g.acceptance || [];
   const f = goalFaithfulnessV(g);
-  const residuals = (traceData?.residuals || []).filter((r) => !r.status || r.status === 'open');
+  // WHICH gaps belong to THIS goal. `gap_residual_ids` is written by `ponens trace enrich`, and the
+  // line above read every open residual in the trace regardless of `g` - so with two goals both
+  // cards showed the same seven items, and a goal about refunds in billing.py was headed by seven
+  // findings about `allowed_cents`. Repeating a list under each card does not read as "these are
+  // trace-wide"; it reads as "these belong to this goal".
+  //
+  // The enrichment was already half-consumed here: `open_gaps`, the COUNT from the same pass, is
+  // read a few lines up. The ids next to it were not.
+  const allOpen = (traceData?.residuals || []).filter((r) => !r.status || r.status === 'open');
+  const rids = Array.isArray(g.gap_residual_ids) ? new Set(g.gap_residual_ids.map(String)) : null;
+  // Unattributed and more than one goal: say nothing here rather than something false. The goals
+  // view puts those gaps under their own heading instead (see `_unattributedGapsHtml`).
+  const residuals = rids ? allOpen.filter((r) => rids.has(String(r.residual_id)))
+    : ((traceData?.goals || []).length > 1 ? [] : allOpen);
   const labelOf = (a) => a.statement || a.label || (a.component && (a.component.function || a.component.symbol)) || a.id;
   const attn = [];
   for (const it of acc) if (norm(it.status) === 'blocked') {
     const ev = it.evidence_ref || (typeof it.evidence === 'string' ? it.evidence : null);
     attn.push({ tone: 'issue', glyph: '⚠', text: `Issue: ${labelOf(it)}`, ev });
   }
-  for (const r of residuals) { const s = (r.severity || '').toLowerCase(); if (['critical', 'high', 'error'].includes(s)) attn.push({ tone: 'issue', glyph: '⚠', text: r.statement || r.suggested_check || r.kind || 'open item', rid: r.residual_id }); }
-  for (const r of residuals) { const s = (r.severity || '').toLowerCase(); if (['critical', 'high', 'error'].includes(s)) continue; attn.push({ tone: 'rec', glyph: '○', text: 'Recommended: ' + (r.suggested_check || r.statement || r.kind || 'open item'), rid: r.residual_id }); }
+  // `summary` first, then `statement`: the same order the gap cards use. Leading with
+  // `suggested_check` put the ADVICE in the headline, and advice is generic - three different
+  // bounded goals all rendered as the identical row "Recommended: prove the property unbounded, or
+  // accept the bound as the scope of the claim", which tells a reader nothing about which three.
+  const _attnText = (r) => r.summary || r.statement || r.suggested_check || r.kind || 'open item';
+  for (const r of residuals) { const s = (r.severity || '').toLowerCase(); if (['critical', 'high', 'error'].includes(s)) attn.push({ tone: 'issue', glyph: '⚠', text: _attnText(r), rid: r.residual_id }); }
+  for (const r of residuals) { const s = (r.severity || '').toLowerCase(); if (['critical', 'high', 'error'].includes(s)) continue; attn.push({ tone: 'rec', glyph: '○', text: 'Recommended: ' + _attnText(r), rid: r.residual_id }); }
   for (const it of acc) if (norm(it.status) === 'todo') attn.push({ tone: 'rec', glyph: '○', text: 'Recommended: verify ' + labelOf(it) });
   for (const c of (f.uncovered || [])) attn.push({ tone: 'issue', glyph: '⚠', text: `Intent not covered by any requirement: "${c}"` });
   if (!attn.length) return '';
-  const shown = attn.slice(0, 5);
-  const rows = shown.map((a) => {
+  // Every row is rendered; the ones past the fifth start collapsed. They used to be sliced away
+  // entirely behind a "+N more" that carried `cursor:pointer` and an accent colour but no handler -
+  // an affordance that looked live and did nothing, on the one list whose whole job is to tell a
+  // reader what still needs doing.
+  const CUT = 5;
+  const rows = attn.map((a, i) => {
     const click = a.ev ? `onclick="switchView('dag');selectDAGNode('${esc(a.ev)}')"` : a.rid ? `onclick="openModal('residuals')"` : '';
-    return `<li class="gh-attn-item tone-${a.tone}${(a.ev || a.rid) ? ' clickable' : ''}" ${click}><span class="gh-attn-glyph">${a.glyph}</span><span class="gh-attn-text">${esc(a.text)}</span></li>`;
+    return `<li class="gh-attn-item tone-${a.tone}${(a.ev || a.rid) ? ' clickable' : ''}"${i >= CUT ? ' hidden' : ''} ${click}><span class="gh-attn-glyph">${a.glyph}</span><span class="gh-attn-text">${esc(a.text)}</span></li>`;
   }).join('');
-  const more = attn.length > shown.length ? `<li class="gh-attn-more">+${attn.length - shown.length} more</li>` : '';
+  const more = attn.length > CUT
+    ? `<li><button type="button" class="gh-attn-more" aria-expanded="false" onclick="toggleGoalAttention(this)">+${attn.length - CUT} more</button></li>`
+    : '';
   return `<div class="gh-attn-title">Needs your attention <span class="gh-count">${attn.length}</span></div><ul class="gh-attn">${rows}${more}</ul>`;
 }
 
@@ -4043,8 +4157,22 @@ function renderGoalsView() {
     return;
   }
   const norm = (s) => String(s || 'todo').toLowerCase().replace(/^accept/, '');
-  const glyph = { done: '✓', doing: '◐', blocked: '✗', todo: '○' };
+  const glyph = { done: '\u2713', doing: '\u25D0', blocked: '\u2717', todo: '\u25CB', unresolved: '?' };
+  // Has the resolver run over this goal? Resolved status is `ponens trace enrich`'s projection, never
+  // authored - so a goal with criteria but no resolution is UNKNOWN, not unmet. Rendering it as `todo`
+  // made an enrichment that never ran look exactly like work that was checked and found wanting: a
+  // false negative on the one pane a reviewer reads, and silent. `progress` is the reliable signal -
+  // enrich always writes it, authoring never does.
+  const resolved = (g) => g.progress != null
+    || (g.acceptance || []).some((a) => a.status != null && a.status !== '');
   let html = '<div class="goals-wrap">';
+  // With one goal the card IS the page and a header would be noise. With several, a reader needs to
+  // know that up front - the cards stack, so the second one is below the fold and nothing on screen
+  // said it was there.
+  if (goals.length > 1) {
+    const met = goals.filter((x) => (x.progress != null ? x.progress : 0) >= 1).length;
+    html += `<div class="goals-count">${goals.length} goals<span>${met} met</span></div>`;
+  }
   for (const g of goals) {
     const acc = g.acceptance || [];
     const doneN = acc.filter((a) => norm(a.status) === 'done').length;
@@ -4053,8 +4181,10 @@ function renderGoalsView() {
     const gaps = g.open_gaps || 0;
     const coneN = Array.isArray(g.cone) ? g.cone.length : null;
     const f = goalFaithfulnessV(g);
+    const isResolved = resolved(g);
     const accHtml = acc.map((a) => {
-      const st = norm(a.status);
+      // `unresolved` is not a status a producer writes - it is the ABSENCE of one, said out loud.
+      const st = isResolved ? norm(a.status) : 'unresolved';
       // Typed Goal-Contract criterion: component + evidence:{artifact}. Legacy: kind + label + evidence(id).
       const comp = a.component && (a.component.function || a.component.function_ || a.component.symbol);
       const artType = a.evidence && typeof a.evidence === 'object' && (a.evidence.artifact || a.evidence.artifact_type || a.evidence.type);
@@ -4104,13 +4234,81 @@ function renderGoalsView() {
       + faithHtml
       + _goalAttentionHtml(g)
       + `<div class="goal-section-t">What must be true</div>`
-      + `<ul class="goal-acc">${accHtml}</ul>`
+      // Say it once, above the list, rather than leaving a reader to wonder why every line is a `?`.
+      + (acc.length && !isResolved
+        ? `<div class="goal-empty">Not yet checked against the record - these are the criteria as `
+          + `authored, with no verdict resolved against them. Run <code>ponens trace enrich</code>. `
+          + `Until then <b>unresolved is not unmet</b>: the work may well be done.</div>`
+        : '')
+      // An empty `<ul>` under a heading reads as a rendering failure. It is not: it means nobody
+      // stated what would settle this goal, which is the more important thing to say - a goal with
+      // no criteria cannot be met, and its 0% is a measure of nothing rather than of no progress.
+      + (acc.length
+        ? `<ul class="goal-acc">${accHtml}</ul>`
+        : `<div class="goal-empty">No criteria yet - nothing here states what would settle this `
+          + `goal, so it cannot be met and the ${pct}% above measures nothing. Add what must be `
+          + `true of the code for this to count as done.</div>`)
       + (acc.length ? `<details class="goal-graph-wrap"><summary>How this was checked — goal graph</summary>${renderGoalGraphHtml(g)}</details>` : '')
       + `</div>`;
   }
+  html += _unattributedGapsHtml(goals);
   html += '</div>';
   el.innerHTML = html;
 }
+
+// Open gaps that no goal claims. Only reachable when a trace has SEVERAL goals and has not been
+// enriched with `gap_residual_ids` - the per-goal cards then say nothing about them, so without this
+// they would vanish from the Goals view entirely. Unattributed is a fact about the record worth
+// showing, and it is not the same fact as "this goal has these gaps".
+function _unattributedGapsHtml(goals) {
+  if (goals.length < 2) return '';
+  if (goals.some((g) => Array.isArray(g.gap_residual_ids))) return '';
+  const open = (traceData?.residuals || []).filter((r) => !r.status || r.status === 'open');
+  if (!open.length) return '';
+  const rows = open.slice(0, 6).map((r) =>
+    `<li class="gh-attn-item tone-rec"><span class="gh-attn-glyph">\u25CB</span>`
+    + `<span class="gh-attn-text">${esc(r.summary || r.statement || r.kind || 'open item')}</span></li>`).join('');
+  const more = open.length > 6 ? `<li class="gh-attn-more" style="cursor:default;">+${open.length - 6} more in Gaps</li>` : '';
+  return `<div class="goal-block"><div class="gh-attn-title">Open gaps not attributed to a goal `
+    + `<span class="gh-count">${open.length}</span></div>`
+    + `<div class="goal-block-meta" style="margin:0 0 8px;">This trace has not been enriched, so the `
+    + `record does not say which goal these belong to. Run <code>ponens trace enrich</code> to attribute them.</div>`
+    + `<ul class="gh-attn">${rows}${more}</ul></div>`;
+}
+
+// Reveal the attention rows past the fifth, and fold them back. A button, not a styled <li>: it is
+// a control, so it should be reachable by keyboard and announce its state.
+function toggleGoalAttention(btn) {
+  const ul = btn.closest('ul');
+  if (!ul) return;
+  const extra = ul.querySelectorAll('.gh-attn-item[hidden], .gh-attn-item[data-folded]');
+  const open = btn.getAttribute('aria-expanded') === 'true';
+  for (const li of extra) {
+    if (open) { li.hidden = true; li.removeAttribute('data-folded'); }
+    else { li.hidden = false; li.setAttribute('data-folded', '1'); }
+  }
+  btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+  btn.textContent = open ? `+${extra.length} more` : 'Show less';
+}
+window.toggleGoalAttention = toggleGoalAttention;
+
+// "2026-09-25T13:13:00.527Z" reads like a machine field. The seconds and milliseconds are noise for
+// "when was this run", and the `T`/`Z` are the part a person has to decode.
+//
+// Trimmed IN PLACE rather than converted to local time. Converting is friendlier for "was this
+// recent", but it silently changes the number: a trace stamped 13:13Z would head the page as 08:13
+// for a reader in Chicago, and the first thing anyone does with a disputed record is compare the
+// header against the file. A timestamp is evidence, so it keeps its own zone and says which.
+//
+// The full instant stays on the `title` - the display may round, the record may not.
+function _fmtStamp(ts) {
+  if (!ts) return '';
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?\s*(Z|[+-]\d{2}:?\d{2})?$/.exec(String(ts).trim());
+  if (!m) return String(ts);               // a shape we do not recognise - show it unchanged
+  const zone = m[3] === 'Z' ? ' UTC' : m[3] ? ' ' + m[3] : '';
+  return `${m[1]} ${m[2]}${zone}`;
+}
+window._fmtStamp = _fmtStamp;
 
 // Expand + scroll to a specific policy card in the policy dashboard (host embedding: select()).
 function selectPolicy(policyId) {

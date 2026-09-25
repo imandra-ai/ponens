@@ -1007,7 +1007,9 @@ RESIDUAL_KINDS = {'assumption', 'unverified', 'out_of_scope', 'limitation', 'ope
                   # Merge-derived open obligations (materialized by `ponens trace merge --combine`):
                   # a standing result whose closure the merge touched, and a goal whose covered surface
                   # the merge changed. Genuine open-obligation kinds, hence first-class residual kinds.
-                  'needs_rereasoning', 'coverage_regression'}
+                  # and a goal whose AUTHORED definition the two branches changed differently - the
+                  # merge deliberately does not choose, so the obligation is on a person.
+                  'needs_rereasoning', 'coverage_regression', 'goal_divergence'}
 DEFEATER_KINDS = {'rebuts', 'undermines', 'undercuts'}  # what a Defeater attacks (§13.1)
 RESIDUAL_SEVERITIES = {'info', 'low', 'medium', 'high', 'critical'}
 RESIDUAL_STATUSES = {'open', 'acknowledged', 'addressed', 'waived'}
@@ -1361,7 +1363,13 @@ def _grade_dimensions(trace):
     # 4. Reproducibility — can a reviewer re-run / re-derive it?
     cmdish = [a for a in actions if a.get("type") in
               ("RunCommand", "RunTests", "GitDiff", "GitStatus", "GitCommit")]
-    repro_acts = [a for a in actions if a.get("reproducibility")]
+    # A command, not merely a reproducibility OBJECT. `_repro_command` is what `trace reproduce`
+    # reads, so counting anything looser lets this axis report "N replayable action(s)" for actions
+    # the replayer will not find. Measured: one agent-produced trace scored Reproducibility 75% with
+    # "2 replayable action(s)" while `trace reproduce` on the same file printed "No reproducible
+    # actions (no recorded commands) in this trace". Grading a record on an auditability nobody can
+    # exercise is the failure this axis exists to detect, so the axis must read the same field.
+    repro_acts = [a for a in actions if _repro_command(a)]
     repro_frac = (len(repro_acts) / len(cmdish)) if cmdish else 0.0
     has_vgoals = any(a.get("artifact_type") in ("VerificationGoal", "VerificationResult") for a in artifacts)
     base = max(repro_frac, 0.6 if has_vgoals else 0.0)
@@ -1569,6 +1577,57 @@ def _repro_safe(cmd):
     return any(p in c for p in _REPRO_SAFE)
 
 
+def _json_path(doc, path):
+    """Resolve a dotted path with numeric indices: ``vg_res_list.0.vg_res.proved``."""
+    cur = doc
+    for seg in [x for x in (path or "").split(".") if x != ""]:
+        if isinstance(cur, list):
+            if not seg.lstrip("-").isdigit() or int(seg) >= len(cur):
+                return None
+            cur = cur[int(seg)]
+        elif isinstance(cur, dict):
+            if seg not in cur:
+                return None
+            cur = cur[seg]
+        else:
+            return None
+    return cur
+
+
+def _replay_ok(expected_output, stdout, combined):
+    """Did the replay agree? Returns (ok, detail).
+
+    A record may carry its OWN check. That keeps ponens engine-agnostic - it should not have to
+    parse ImandraX, or Lean, or a test runner - while still making the comparison real:
+
+        "expected_output": {
+          "result_summary": "proved",
+          "check": {"kind": "json_path", "path": "vg_res_list.0.vg_res.proved", "present": true}
+        }
+
+    Without one, fall back to the substring match older records rely on. Measured on a real engine
+    run, that fallback CANNOT succeed for an ImandraX command: none of `proved`, `refuted`,
+    `unknown` or `bounded` appears anywhere in the engine's prose output, so every replay reported
+    DIVERGED on a verdict that had reproduced exactly. Switching the recorded command to the JSON
+    form does not rescue it either - every verdict key is present with a `null` value, so a
+    substring match would then succeed always, which is worse than failing always.
+    """
+    chk = (expected_output or {}).get("check")
+    if isinstance(chk, dict) and chk.get("kind") == "json_path":
+        try:
+            doc = json.loads(stdout)
+        except Exception:
+            return False, "expected JSON output, could not parse it"
+        val = _json_path(doc, chk.get("path"))
+        if "equals" in chk:
+            return val == chk["equals"], f"{chk.get('path')} = {val!r}, expected {chk['equals']!r}"
+        want = bool(chk.get("present", True))
+        got = val is not None
+        return got == want, f"{chk.get('path')} is {'present' if got else 'absent'}"
+    exp = (expected_output or {}).get("result_summary", "").replace("ERROR: ", "").strip().strip("\u2026")
+    return (bool(exp) and exp[:60] in combined), None
+
+
 def cmd_reproduce(args):
     """Replay a trace's reproducible commands and report where the result diverges
     from what the trace recorded — the feedback a reviewing agent gives by reproducing.
@@ -1594,18 +1653,23 @@ def cmd_reproduce(args):
     for a in safe:
         cmd = _repro_command(a)
         expected = ((a.get("reproducibility") or {}).get("expected_output") or {}).get("result_summary", "")
+        raw = ""
         try:
             r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+            raw = r.stdout                              # JSON checks need the stream unmangled
             actual = " ".join((r.stdout + r.stderr).split())
         except Exception as e:
             actual = f"(execution failed: {e})"
-        exp = expected.replace("ERROR: ", "").strip().strip("…")
-        ok = bool(exp) and exp[:60] in actual
+        eo = (a.get("reproducibility") or {}).get("expected_output") or {}
+        ok, detail = _replay_ok(eo, raw, actual)
         print(f"  {'✓ reproduced' if ok else '✗ DIVERGED '} #{a['id']}: {cmd[:64]}")
+        if detail:
+            print(f"      check:    {detail}")
         if not ok:
             diverged += 1
-            print(f"      expected: {expected[:80]}")
-            print(f"      actual:   {actual[:80]}")
+            if not detail:
+                print(f"      expected: {expected[:80]}")
+                print(f"      actual:   {actual[:80]}")
     print(f"\n{len(safe)} replayed · {diverged} diverged.")
     return 1 if diverged else 0
 
@@ -2906,6 +2970,61 @@ def cmd_goal_rm(args):
     return 0
 
 
+def cmd_goal_resolve(args):
+    """Settle a goal whose definition the two branches changed differently.
+
+    `ponens trace merge --combine` deliberately does not choose here (see merge.py, goal divergence):
+    a goal states what the work is FOR, so the merge records both versions, marks the goal contested
+    and opens a `goal_divergence` residual. This is the command that residual points at.
+
+    Choosing is an AMENDMENT like any other - it goes through `_record_amendment`, so the version not
+    taken stays in the record rather than disappearing behind the one that won."""
+    trace = load_trace(args.trace_file)
+    goal = _find_goal(trace, args.goal)
+    if goal is None:
+        print(f"Error: no goal '{args.goal}'", file=sys.stderr)
+        return 1
+    contested = goal.get("contested") or []
+    if not contested:
+        print(f"Goal '{args.goal}' has nothing contested.")
+        return 0
+    picked = [c for c in contested if args.field is None or c.get("field") == args.field]
+    if not picked:
+        fields = ", ".join(sorted(c.get("field", "?") for c in contested))
+        print(f"Error: '{args.field}' is not contested on '{args.goal}' (contested: {fields})", file=sys.stderr)
+        return 1
+
+    resolved_ids, fields_done = [], []
+    for c in picked:
+        f = c.get("field")
+        was = copy.deepcopy(goal.get(f))
+        goal[f] = copy.deepcopy(c.get(args.take))
+        fields_done.append(f)
+        if c.get("residual_id"):
+            resolved_ids.append(c["residual_id"])
+        contested.remove(c)
+    if not contested:
+        goal.pop("contested", None)
+
+    aid = _record_amendment(
+        trace, goal.get("id"), "goal_replaced", args.reason or f"merge divergence settled in favour of {args.take}",
+        f"Settle contested {', '.join(fields_done)} on '{goal.get('id')}' - took {args.take}",
+        was=was, by=args.by)
+
+    # The residual is ADDRESSED, not deleted: the record should still show that the branches
+    # disagreed and who settled it.
+    for r in trace.get("residuals") or []:
+        if r.get("residual_id") in resolved_ids:
+            r["status"] = "addressed"
+            r["resolution"] = {"status": "addressed", "by": args.by or "human",
+                               "why": f"took {args.take}", "action_id": aid}
+    _save_trace_fmt(args.trace_file, trace)
+    print(f"Settled {', '.join(fields_done)} on '{goal.get('id')}' - took {args.take} (action #{aid})")
+    if contested:
+        print(f"  still contested: {', '.join(sorted(c.get('field', '?') for c in contested))}")
+    return 0
+
+
 def cmd_goal_ls(args):
     """Show goals with resolved status on the three axes (met / governed / certified) + uncovered clauses."""
     trace = load_trace(args.trace_file)
@@ -3234,6 +3353,15 @@ def register(subparsers):
     q.add_argument("--reason", required=True, help="Why this goal is no longer being pursued")
     q.add_argument("--by", help="Who decided")
     q.set_defaults(func=cmd_goal_rm)
+
+    q = gp_sub.add_parser("resolve", help="Settle a goal the merge found contested (the merge does not choose)")
+    q.add_argument("trace_file")
+    q.add_argument("goal", nargs="?", default="session-goal", help="Goal id (default: session-goal)")
+    q.add_argument("--take", required=True, choices=["ours", "theirs"], help="Which side's wording to adopt")
+    q.add_argument("--field", help="Settle just this field (default: every contested field on the goal)")
+    q.add_argument("--reason", help="Why this side. The record keeps the version not taken either way")
+    q.add_argument("--by", help="Who decided")
+    q.set_defaults(func=cmd_goal_resolve)
 
     q = gp_sub.add_parser("ls", help="Show goals with resolved status + faithfulness (met vs certified)")
     q.add_argument("trace_file")

@@ -406,6 +406,10 @@ def merge(ours, theirs, base=None):
     # scoped goals (or no in-scope membership change) is byte-for-byte its pre-coverage output.
     if coverage_regressions:
         report["coverage_regressions"] = coverage_regressions
+    # The objective is the one thing a merge must not settle on a person's behalf.
+    goal_divergences = _goal_divergences(ours, theirs, base)
+    if goal_divergences:
+        report["goal_divergences"] = goal_divergences
     return report
 
 
@@ -568,6 +572,47 @@ def combine(ours, theirs, base=None):
             "goal_id": cr.get("goal_id"),
         })
 
+    # 3d. Goals. `merged` is a deepcopy of ours, so without this the incoming branch's goals - and
+    # any tightening of a shared one - are simply gone. Nothing below picks a winner on a contested
+    # field; it records both and opens a residual.
+    divs = report.get("goal_divergences", [])
+    if divs:
+        goals = merged.setdefault("goals", [])
+        by_id = {g_id: g for g in goals if (g_id := _goal_key(g))}
+        theirs_by_id = _goals_by_id(theirs)
+        for d in divs:
+            gid = d["goal_id"]
+            if d["kind"] == "added_theirs":
+                goals.append(_copy.deepcopy(theirs_by_id[gid]))
+                by_id[gid] = goals[-1]
+                continue
+            g = by_id.get(gid)
+            if g is None:
+                continue
+            if d["kind"] == "take_theirs":
+                g[d["field"]] = _copy.deepcopy(d["theirs"])
+                continue
+            # conflict: keep ours as the placeholder and say so, loudly, on the goal itself - the
+            # resolver and every view read this, so a contested goal cannot be reported met.
+            rid = f"r-goaldiv-{gid}-{d['field']}"
+            d["residual_id"] = rid
+            g.setdefault("contested", []).append({
+                "field": d["field"], "ours": _copy.deepcopy(d["ours"]),
+                "theirs": _copy.deepcopy(d["theirs"]), "residual_id": rid,
+            })
+            residuals.append({
+                "residual_id": rid,
+                "kind": "goal_divergence",
+                "status": "open",
+                "severity": d.get("severity", "high"),
+                "statement": d["statement"],
+                "suggested_check": f"ponens trace goal resolve {gid} --take ours|theirs"
+                                   + ("" if d["field"] == "intent" else f" --field {d['field']}"),
+                "derived": True,
+                "introduced_by_action_id": merge_action_id,
+                "goal_id": gid,
+            })
+
     # 5. Totality: every standing result is represented exactly once (CarriedForward OR needs_rereasoning).
     standing_ids = {r["result_id"] for r in _standing_results(ours)}
     carried_ids = {c["result_id"] for c in report["carried_forward"]}
@@ -577,6 +622,81 @@ def combine(ours, theirs, base=None):
     assert report["totality_ok"], "combine: merge report totality invariant failed"
 
     return merged
+
+
+# ---------------------------------------------------------------------------------------------
+# Goal divergence
+#
+# `combine()` deep-copies OURS and overlays only model artifacts, so before this a branch that
+# TIGHTENED a goal - broadened the intent, added a required criterion - had the tightening silently
+# discarded on merge, and a goal the other branch introduced vanished. No residual, no report line.
+# The totality invariant below covers `result_id` only, so nothing caught it.
+#
+# A goal is the one thing in the record a machine must not settle on a person's behalf: it is the
+# statement of what the work is FOR. So the rule here is deliberately narrow.
+#
+#   - a field only ONE side moved (the other still equals base)  -> take the moved side. Not a
+#     decision; that is what a three-way merge IS.
+#   - a goal only THEIRS has                                     -> take it. Adding an obligation is
+#     the safe direction, and dropping it is the data loss this whole change is about. Reported, so
+#     `ponens trace goal rm` remains one command away.
+#   - BOTH sides moved the same field differently                -> CONFLICT. Pick nothing. Keep
+#     ours as the placeholder, record both versions on the goal, and open a residual.
+#
+# On a conflict the goal is marked `contested`, which is what stops the rest of the system from
+# claiming it: a goal whose definition of done is in dispute cannot honestly be called met.
+# ---------------------------------------------------------------------------------------------
+
+# The fields a person authors. Resolved fields (status/progress/evidence/freshness) are the
+# resolver's projection and are recomputed by `enrich`, so they never conflict.
+GOAL_AUTHORED_FIELDS = ("intent", "scope", "acceptance", "policies", "intent_clauses", "criteria_review")
+
+
+def _goal_key(g):
+    return g.get("id") or g.get("goal_id")
+
+
+def _goals_by_id(trace):
+    return {k: g for g in (trace or {}).get("goals") or [] if (k := _goal_key(g))}
+
+
+def _goal_divergences(ours, theirs, base=None):
+    """Per-goal, per-authored-field three-way comparison. Returns entries the report and `combine`
+    both consume; `resolution_required` marks the ones a person must settle."""
+    o, t = _goals_by_id(ours), _goals_by_id(theirs)
+    b = _goals_by_id(base) if base is not None else {}
+    out = []
+    for gid in sorted(set(o) | set(t)):
+        og, tg, bg = o.get(gid), t.get(gid), b.get(gid)
+        if og is None:
+            out.append({"goal_id": gid, "kind": "added_theirs", "resolution_required": False,
+                        "statement": f"`{gid}` is a goal the incoming branch declares and this one does not: "
+                                     f"\"{tg.get('intent', '')}\". Taken, so the merge does not quietly drop an "
+                                     f"objective; `ponens trace goal rm {gid}` removes it."})
+            continue
+        if tg is None:
+            continue                                   # ours only - nothing incoming to reconcile
+        for f in GOAL_AUTHORED_FIELDS:
+            ov, tv = og.get(f), tg.get(f)
+            if ov == tv:
+                continue
+            bv = (bg or {}).get(f) if bg is not None else None
+            if bg is not None and ov == bv:            # only theirs moved - a normal three-way take
+                out.append({"goal_id": gid, "field": f, "kind": "take_theirs", "resolution_required": False,
+                            "ours": ov, "theirs": tv,
+                            "statement": f"`{gid}`.{f} was changed by the incoming branch only; taken."})
+                continue
+            if bg is not None and tv == bv:            # only ours moved - keep ours, nothing to say
+                continue
+            # Both moved, or there is no base to attribute the change to. Not the merge's call.
+            out.append({"goal_id": gid, "field": f, "kind": "conflict", "resolution_required": True,
+                        "ours": ov, "theirs": tv, "base": bv,
+                        "severity": "high",
+                        "statement": f"`{gid}`.{f} was changed on BOTH sides and the merge did not choose. "
+                                     f"Until it is settled this goal is contested and cannot be reported met. "
+                                     f"Choose with `ponens trace goal resolve {gid} --take ours|theirs`"
+                                     f"{'' if f == 'intent' else f' --field {f}'}."})
+    return out
 
 
 def _coverage_regressions(ours, theirs, delta):

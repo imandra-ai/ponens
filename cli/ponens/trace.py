@@ -1306,6 +1306,50 @@ def soundness_errors(trace, strict=False):
     return errs
 
 
+def parse_spec_version(v) -> tuple[int, ...]:
+    """`"1.14"` -> `(1, 14)`. Numeric, because the obvious thing is wrong.
+
+    These versions were compared as STRINGS, and lexicographic order is not version order once a
+    component reaches two digits: `"1.14" < "1.8"` is True, because `"1"` sorts before `"8"` at the
+    third character. Measured on a real trace - `ponens trace residual add` on a spec-1.14 record
+    rewrote it to 1.8, because the guard meant to RAISE the version saw 1.14 as older than 1.8 and
+    "raised" it downward. The same comparison also refused to upgrade a 1.6 or 1.9 trace to 1.14,
+    so the guard did the opposite of its purpose in both directions.
+
+    Unparseable parts sort as 0, and a missing version is `(1, 1)` - the value the callers defaulted
+    to when this was a string compare."""
+    parts = []
+    text = str(v or "").strip()
+    if text[:1] in ("v", "V"):
+        text = text[1:]            # `v1.14` is how a release tag writes it
+    for chunk in text.split("."):
+        # LEADING digits only. Collecting every digit in the chunk turned `1.14-rc1` into (1, 141) -
+        # a pre-release sorting above every real release, which is the wrong direction for a guard
+        # that raises.
+        lead = ""
+        for c in chunk.strip():
+            if not c.isdigit():
+                break
+            lead += c
+        parts.append(int(lead) if lead else 0)
+    # Nothing numeric anywhere - whitespace, a word, a dict. `1.1` is what every caller defaulted to
+    # when this was a string compare, so an unreadable version behaves exactly as a missing one.
+    if not any(parts):
+        return (1, 1)
+    return tuple(parts)
+
+
+def raise_spec_version(trace: dict, minimum: str) -> bool:
+    """Ensure `trace` claims at least `minimum`. Returns whether it changed.
+
+    RAISE, never lower: a trace that already describes a newer shape must not be relabelled as older
+    because something from an earlier spec was just written into it."""
+    if parse_spec_version(trace.get("spec_version")) < parse_spec_version(minimum):
+        trace["spec_version"] = minimum
+        return True
+    return False
+
+
 def cmd_validate(args):
     trace = load_trace(args.trace_file, warn_invalid=False)
     errors, warnings = validate_trace(trace)
@@ -1823,8 +1867,7 @@ def cmd_residual_add(args):
     if getattr(args, "tag", None):
         r["tags"] = args.tag
     arts.append(lineage.residual_to_artifact(r))
-    if trace.get("spec_version", "1.1") < "1.8":
-        trace["spec_version"] = "1.8"
+    raise_spec_version(trace, "1.8")
     _save_trace_fmt(args.trace_file, trace)
     print(f"Declared residual {rid} ({args.severity} {args.kind}) as a Residual artifact in {args.trace_file}")
     if intro is None and (trace.get("actions") or []):
@@ -1905,8 +1948,7 @@ def cmd_residual_resolve(args):
         "derived_from": [args.residual_id] + evidence,
         "payload": payload,
     })
-    if str(trace.get("spec_version", "1.1")) < "1.14":
-        trace["spec_version"] = "1.14"
+    raise_spec_version(trace, "1.14")
     _save_trace_fmt(args.trace_file, trace)
     print(f"{args.residual_id} is now {args.status} - recorded as {res_id} at action #{action_id} "
           f"in {args.trace_file}")
@@ -1965,8 +2007,7 @@ def cmd_residual_contest(args):
     if args.by:
         r["tags"] = [f"by:{args.by}"]
     arts.append(lineage.residual_to_artifact(r))
-    if str(trace.get("spec_version", "1.1")) < "1.14":
-        trace["spec_version"] = "1.14"
+    raise_spec_version(trace, "1.14")
     _save_trace_fmt(args.trace_file, trace)
     print(f"{args.resolution_id} is contested by {rid} ({args.defeater_kind}) - "
           f"{target} reads open again while it stands")
@@ -2838,8 +2879,7 @@ def cmd_goal_set(args):
                           was=copy.deepcopy(existing), by=args.by)
     else:
         goals.append(goal)
-    if trace.get("spec_version", "1.1") < "1.7":
-        trace["spec_version"] = "1.7"
+    raise_spec_version(trace, "1.7")
     _save_trace_fmt(args.trace_file, trace)
     print(f"Set goal '{goal['id']}' ({len(goal['acceptance'])} acceptance items) in {args.trace_file}")
     return 0
@@ -2921,8 +2961,7 @@ def _record_amendment(trace, goal_id, change, reason, label, was=None, item_id=N
     arts.append(lineage.amendment_artifact(
         goal_id, change, reason, action_id, seq, was=was, item_id=item_id, by=by,
         at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
-    if str(trace.get("spec_version", "1.1")) < "1.14":
-        trace["spec_version"] = "1.14"
+    raise_spec_version(trace, "1.14")
     return action_id
 
 

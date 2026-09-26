@@ -7,6 +7,20 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.15.5] — 2026-09-26
+
+A patch release with one fix, found by pushing real records to a hub instead of fixtures.
+
+### Fixed
+- **`push` now sends the trace, not just a row about it.** `POST /traces/{id}/content` was served
+  from the beginning and nothing ever called it, so a pushed trace arrived as a title, a commit and a
+  content hash with nothing behind them - the viewer had no artifacts to render, the goal and gap
+  summary had nothing to count, and a policy run over the record had no record. Nothing failed:
+  `push` reported success, and the hub showed a trace whose every number was zero. The `summary`
+  field sent alongside was `trace.get("summary")`, and a ponens trace has no top-level `summary`, so
+  that was always `None` too; a hub is better served deriving it from the content it now receives.
+  Two tests assert the upload happens and that it follows the create call whose id addresses it.
+
 ## [1.15.4] — 2026-09-25
 
 A patch release about **checking the record against reality**, from a week spent handing published

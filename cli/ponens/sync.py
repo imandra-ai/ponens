@@ -282,6 +282,16 @@ def cmd_push(args):
     t = api("POST", "/traces", body)
     hub_id = t["trace_id"]
 
+    # The TRACE ITSELF. Without this the hub holds a pointer to a record it has never seen: metadata,
+    # a content hash, and nothing to read - so every content-dependent surface (the viewer, the goal
+    # and gap summary, policy runs over the artifacts) has nothing to work with, and a pushed trace
+    # renders as a title and a row of zeros.
+    #
+    # `POST /traces/{id}/content` has been served the whole time and nothing called it. The metadata
+    # `summary` sent above is `trace.get("summary")`, and a ponens trace has no top-level `summary`
+    # field, so that was always None too - the hub now derives it from the content instead.
+    api("POST", f"/traces/{hub_id}/content", trace)
+
     # 1 trace : 1 commit — if content changed from a prior push, link the successor
     superseded = None
     if side and side.get("hub_trace_id") and side.get("content_hash") != cur:

@@ -74,3 +74,42 @@ assert.equal(latestHighlight("no versions here"), null);
 assert.equal(plain("**a** *b* `c` [d](e)"), "a b c d");
 
 console.log("changelog.test.mjs: ok");
+
+// 3. A release that only FIXES things still yields a banner.
+//    Requiring `### Added` meant a patch release produced none, and the front page went on
+//    advertising the previous version - so a reader checking whether their fix had shipped was
+//    told it had not.
+{
+  const fixOnly = `# Changelog
+
+## [2.0.1] — 2026-10-01
+
+### Fixed
+- **push now sends the trace.** the endpoint was served and never called.
+
+## [2.0.0] — 2026-09-01
+
+### Added
+- **Something older.** should not win.
+`;
+  const h = latestHighlight(fixOnly);
+  assert.ok(h, "a fix-only release still produces a banner");
+  assert.equal(h.version, "2.0.1");
+  assert.equal(h.headline, "push now sends the trace");
+  assert.ok(!/Something older/.test(h.headline + h.tail), "does not reach back to an older release");
+}
+
+// 4. Added still WINS when a release has both.
+{
+  const both = `# Changelog
+
+## [2.1.0] — 2026-10-02
+
+### Fixed
+- **A fix.** not the headline.
+
+### Added
+- **The new thing.** this is the headline.
+`;
+  assert.equal(latestHighlight(both).headline, "The new thing");
+}

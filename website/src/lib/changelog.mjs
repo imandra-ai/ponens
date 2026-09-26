@@ -32,16 +32,27 @@ export function plain(s) {
     .trim();
 }
 
-/** The first `- **…**` bullet under the first `### Added` of a version body, joined across its
- *  continuation lines (two-space indented). */
+/**
+ * The first `- **…**` bullet of a version body, joined across its continuation lines (two-space
+ * indented).
+ *
+ * `### Added` is preferred, and a release that only FIXES things falls back to whatever section it
+ * does have. Requiring Added meant a patch release produced no banner at all: the front page then
+ * kept advertising the previous version, which is worse than announcing a fix - a reader checking
+ * whether the thing that bit them is released would have been told it was not.
+ */
 function firstAddedBullet(body) {
+  return sectionBullet(body, (h) => /^### Added\b/.test(h)) ?? sectionBullet(body, () => true);
+}
+
+function sectionBullet(body, wanted) {
   const lines = body.split("\n");
   let inAdded = false;
   let bullet = null;
   for (const line of lines) {
     if (/^### /.test(line)) {
       if (bullet) break;
-      inAdded = /^### Added\b/.test(line);
+      inAdded = wanted(line);
       continue;
     }
     if (!inAdded) continue;

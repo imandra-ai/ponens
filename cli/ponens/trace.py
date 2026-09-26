@@ -1336,6 +1336,12 @@ def parse_spec_version(v) -> tuple[int, ...]:
     # when this was a string compare, so an unreadable version behaves exactly as a missing one.
     if not any(parts):
         return (1, 1)
+    # Trailing zeros carry no version information: `1.15` and `1.15.0` are the same release, and a
+    # tuple compare would otherwise call the shorter one OLDER. The agent's `compareVersions` (TS)
+    # pads to three components and reports them equal; two implementations of one comparison that
+    # disagree is the defect this whole fix is about, so they agree here.
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
     return tuple(parts)
 
 

@@ -27,7 +27,7 @@ from ponens.trace import parse_spec_version as P, raise_spec_version
     ("1.8", (1, 8)),
     ("1.14", (1, 14)),
     ("1.15.4", (1, 15, 4)),
-    ("2.0", (2, 0)),
+    ("2.0", (2,)),              # trailing zeros are dropped - see the normalisation test below
     ("v1.14", (1, 14)),          # a stray prefix is still a version
     ("1.14-rc1", (1, 14)),       # ... and so is a suffix
 ])
@@ -70,6 +70,40 @@ def test_the_specific_comparisons_the_guards_make():
     assert P("1.14") > P("1.7"), "a 1.14 trace must not look older than 1.7"
     assert P("1.9") < P("1.14"), "a 1.9 trace must be raised to 1.14"
     assert P("1.6") < P("1.14")
+
+
+@pytest.mark.parametrize("a,b", [
+    ("1.15", "1.15.0"),      # the same release written two ways
+    ("1.15.0.0", "1.15"),
+    ("1", "1.0"),
+    ("2.0", "2"),
+])
+def test_trailing_zeros_carry_no_version_information(a, b):
+    # `1.15` and `1.15.0` are one release. A plain tuple compare calls the shorter one OLDER, which
+    # would make `raise_spec_version` rewrite the field for no reason - and would disagree with the
+    # agent's TS `compareVersions`, which pads to three and reports them equal. Two implementations
+    # of one comparison that disagree is the defect this whole fix is about.
+    assert P(a) == P(b)
+
+
+@pytest.mark.parametrize("lower,higher", [
+    ("1.15.3", "1.15.4"),     # the release we shipped today
+    ("1.15.4", "1.15.10"),    # the two-digit trap, one component further down
+    ("1.15.9", "1.15.10"),
+    ("1.15.4", "1.16"),
+    ("1.15.4", "2.0"),
+    ("1.15", "1.15.1"),
+])
+def test_three_component_versions_order_numerically(lower, higher):
+    assert P(lower) < P(higher)
+    assert not P(higher) < P(lower)
+
+
+def test_a_patch_release_does_not_lower_a_trace_at_its_minor(tmp_path=None):
+    # If `spec_version` ever carries the PACKAGE version, this is the case that decides it.
+    t = {"spec_version": "1.15.4"}
+    assert raise_spec_version(t, "1.15") is False
+    assert t["spec_version"] == "1.15.4"
 
 
 def test_equal_versions_are_not_less_than_each_other():

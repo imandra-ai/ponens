@@ -3085,6 +3085,20 @@ def cmd_goal_ls(args):
         flags += " · CERTIFIED" if f.get("certified") else " · uncertified"
         print(f"\n{g.get('id')}: {g.get('intent', '')}")
         print(f"  {flags}  ({int(round(g.get('progress', 0) * 100))}% done)")
+        # What was DONE under this goal, next to what the goal is ABOUT. These are different relations
+        # and the gap between them is the point: a goal with thirty artifacts under it and two rooted in
+        # criteria is a goal whose definition of done covers two things. Reported, never scored -
+        # unrooted work is normal (reading the config is real work and evidences nothing), and scoring it
+        # would push an author to invent criteria the evidence trivially satisfies.
+        cov = g.get("coverage") or {}
+        if cov.get("recorded"):
+            kinds = ", ".join(f"{k} {n}" for k, n in (cov.get("unrooted_by_type") or {}).items())
+            print(f"  work recorded under it: {cov['recorded']}"
+                  f" - {cov.get('rooted', 0)} evidence a criterion,"
+                  f" {cov.get('unrooted', 0)} evidence none" + (f" ({kinds})" if kinds else ""))
+        for cid in (cov.get("criteria_unevidenced") or []):
+            # UNKNOWN, not unmet. A criterion with nothing rooted in it has not failed; nothing answered it.
+            print(f"  ? nothing in the record answers criterion {cid}")
         _print_amendments(trace, g.get("id"))
         for c in f.get("uncovered_clauses", []):
             print(f"  ! uncovered intent clause: {c}")

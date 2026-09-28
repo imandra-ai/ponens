@@ -9,6 +9,29 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+### Added
+- **Criteria about a file or a named subject.** `component` may name a `file` (a path or a glob) or any
+  subject - `endpoint`, `table`, `config`, `dependency`, `module` - as well as a function. "The
+  migration is tested" or "the endpoint still conforms" was not a typed criterion at all before, and
+  read as "no evidence yet" with the evidence in the record.
+- **One table of typed-criteria use cases** (`tests/unit/test_typed_criteria_matrix.py`, 31 rows): proofs,
+  decompositions, tests, a person's review, conformance, files, subjects, searches, observations,
+  project-level criteria - each held to the state `trace overview` should give.
+
+### Fixed
+- **A property narrows evidence that says what it checked - not only proofs.** Narrowing had been
+  limited to verdict types, so a test run of "stays within the ceiling" satisfied "is never negative".
+  Evidence that names a property is now judged by it; evidence that names none (a decomposition, a
+  diff) still answers any property of its subject.
+- **A goal whose criterion asks for a decomposition resolves.** `Decomposition` criteria with a
+  `property` never resolved, because the narrowing demanded a property a decomposition cannot state.
+- **A rejected review is not a met review.** `rejected`, `changes_requested` and `denied` are evidence
+  against; `approved` and `accepted` establish. An unrecognized status had counted as "a review exists".
+- **A search nobody could reproduce establishes nothing.** Evidence with `confirmed: false` is
+  inconclusive, not met.
+- **`next` and goal coverage read components the way resolution does**, including files and subjects,
+  and compare evidence types across spellings (`Decomposition` / `StateSpaceAnalysisResult`).
+
 ## [1.16.0] — 2026-09-28
 
 Goals, provenance and an organization's own vocabulary become things a policy can say - found by a

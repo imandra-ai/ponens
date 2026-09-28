@@ -103,6 +103,16 @@ def _canon_art_type(s):
 _PROPERTY_BEARING = {"verificationresult", "conformanceresult"}
 
 
+def _states_property(art, trace):
+    """Does this evidence say what property it checked - a goal it discharged, a description, or the
+    properties it reports? A decomposition, a diff or an undescribed test run does not."""
+    p = _payload(art)
+    if p.get("goal_artifact_id") or p.get("description") or p.get("property") or p.get("properties"):
+        return True
+    res = p.get("result") or {}
+    return any(isinstance(res.get(k), dict) and res[k].get("properties") for k in ("proved", "refuted", "unknown"))
+
+
 def _asserts_property(art, prop, trace):
     """Is this evidence about the named property? Matched against the goal the verdict came from (its
     `description`) and against the properties the verdict itself reports. Substring, case-insensitive:
@@ -123,8 +133,74 @@ def _asserts_property(art, prop, trace):
         v = res.get(k)
         if isinstance(v, dict):
             hay += [str(x) for x in (v.get("properties") or [])]
-    hay += [p.get("description") or ""]
+    hay += [p.get("description") or "", p.get("property") or ""]
+    hay += [str(x) for x in (p.get("properties") or []) if isinstance(x, str)]
     return any(want in " ".join(str(h).lower().split()) for h in hay if h)
+
+
+# What a criterion can be ABOUT. A function (or the symbol a formalization gave it) is the original case,
+# resolved by lineage. But "the migration is tested", "the endpoint still conforms to its contract" and
+# "the dependency was license-checked" are criteria too, about a FILE or a named SUBJECT that no symbol
+# stands for. Without these, such a criterion was silently not typed at all - it fell through to the
+# legacy path and read as "no evidence yet" with the evidence sitting in the record.
+_SYMBOL_KEYS = ("function", "function_", "symbol")
+_FILE_KEYS = ("file", "path")
+
+
+def _component_parts(compd):
+    """(symbols, files, subjects) a criterion's component names. `subjects` is every other key - an
+    `endpoint`, `table`, `config`, `dependency`, `module` - kept as {kind: value}."""
+    compd = compd if isinstance(compd, dict) else {}
+    symbols, seen = [], set()
+    for k in _SYMBOL_KEYS:
+        c = compd.get(k)
+        if c and c not in seen:
+            seen.add(c)
+            symbols.append(c)
+    files = [compd[k] for k in _FILE_KEYS if isinstance(compd.get(k), str) and compd.get(k)]
+    subjects = {k: v for k, v in compd.items() if k not in _SYMBOL_KEYS + _FILE_KEYS and isinstance(v, str) and v}
+    return symbols, files, subjects
+
+
+def _component_label(compd):
+    symbols, files, subjects = _component_parts(compd)
+    if symbols:
+        return symbols[0]
+    if files:
+        return files[0]
+    if subjects:
+        k, v = next(iter(subjects.items()))
+        return f"{k} {v}"
+    return None
+
+
+def _file_matches(want, got):
+    import fnmatch
+    return fnmatch.fnmatch(got, want) if any(ch in want for ch in "*?[") else got == want
+
+
+def _about_component(a, compd, trace):
+    """Does artifact `a` rest on the component? Symbols by lineage (renames and module-qualified names
+    included); a file or a subject by what the artifact - or anything it derives from - names:
+    `payload.file` / `path` / `files`, and `payload.<kind>`, its plural, or `subject` for a subject."""
+    symbols, files, subjects = _component_parts(compd)
+    aid = a.get("artifact_id")
+    if symbols and any(lineage.roots_in_component(aid, c, trace) for c in symbols):
+        return True
+    if not files and not subjects:
+        return False
+    for x in lineage.lineage_artifacts(aid, trace):
+        p = _payload(x)
+        named = [v for v in (p.get("file"), p.get("path")) if isinstance(v, str)]
+        named += [v for v in (p.get("files") or []) if isinstance(v, str)]
+        if any(_file_matches(f, n) for f in files for n in named):
+            return True
+        for kind, value in subjects.items():
+            plural = kind[:-1] + "ies" if kind.endswith("y") else kind + "s"      # dependency -> dependencies
+            many = p.get(plural)
+            if p.get(kind) == value or (isinstance(many, list) and value in many) or p.get("subject") == value:
+                return True
+    return False
 
 
 def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
@@ -137,25 +213,21 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     compd = item.get("component") or {}
     # A criterion may name the source `function` (for display / authoring) AND a formal `symbol` — the
     # name the engine actually gave the formalization (e.g. source `clamp` -> IML `clamp_decomp`). The
-    # two can differ, so accept evidence rooting in EITHER: deduped, order-preserving. Only `function`
-    # is ever set by deterministic authoring, so this is a no-op there; `symbol` is stamped by the
-    # attribution reconciler when the engine renamed the symbol out from under the source name.
-    cands, seen = [], set()
-    for c in (compd.get("function"), compd.get("function_"), compd.get("symbol")):
-        if c and c not in seen:
-            seen.add(c)
-            cands.append(c)
+    # two can differ, so accept evidence rooting in EITHER (see `_about_component`). Or it may name a
+    # file or a subject instead of a symbol.
+    symbols, files, subjects = _component_parts(compd)
+    has_component = bool(symbols or files or subjects)
     art_type = _artifact_type(item.get("evidence") or {})
     reference = item.get("reference")
     # A PROJECT-level criterion (TRACE_SPEC §11.2) names a reference but no component: it is met by any
     # evidence of the required type judged against that reference, whatever symbols the producer mapped.
-    if not art_type or (not cands and not reference):
+    if not art_type or (not has_component and not reference):
         return None
     keep = {"status": item.get("status", "todo"), "from_trace": False, "evidence": None}
     want_type = _canon_art_type(art_type)
     matches = [a for a in trace.get("artifacts", [])
                if _canon_art_type(a.get("artifact_type")) == want_type
-               and (not cands or any(lineage.roots_in_component(a.get("artifact_id"), c, trace) for c in cands))]
+               and (not has_component or _about_component(a, compd, trace))]
     # A criterion that names a REFERENCE (TRACE_SPEC §11.2: a binding's catalogue entry) is met only by
     # evidence judged AGAINST that reference — `payload.reference_artifact_id` must match. A proof of some
     # other property of the same component is not conformance to the entry.
@@ -187,8 +259,16 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     # and that is correct rather than a leak: a decomposition is exhaustive over that function's cases,
     # so it evidences every question about them equally. What it does NOT do is prove any of them, which
     # is the difference the evidence TYPE already carries.
-    if prop and _canon_art_type(art_type) in _PROPERTY_BEARING:
-        matches = [a for a in matches if _asserts_property(a, prop, trace)]
+    #
+    # Generalized: evidence is judged by the property it SAYS it checked. A verdict type always can (a
+    # proof of an unnamed goal does not answer a named one); any other evidence is narrowed exactly when
+    # it names a property - a test run described as "stays within the ceiling" is not evidence that the
+    # function "is never negative". Evidence that names none (a decomposition, a diff) is about its
+    # subject, and matches whatever property is asked of that subject.
+    if prop:
+        matches = [a for a in matches
+                   if not (_canon_art_type(art_type) in _PROPERTY_BEARING or _states_property(a, trace))
+                   or _asserts_property(a, prop, trace)]
     if not matches:
         return keep
     a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact
@@ -224,13 +304,19 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
 # What an evidence artifact's own `status` says about the claim it is offered for. Only recognized
 # values are judged: an artifact with no status (a Diff, a decomposition, generated tests) is evidence
 # by existing, and an unrecognized one is not second-guessed here.
-_POSITIVE_VERDICTS = {"proved", "sat", "passed", "matched"}
-_NEGATIVE_VERDICTS = {"refuted", "failed", "mismatched"}
+# A person's review is a verdict too: an approval establishes, a refusal is evidence AGAINST - it must
+# never read as "a review exists, so the criterion is met".
+_POSITIVE_VERDICTS = {"proved", "sat", "passed", "matched", "approved", "accepted"}
+_NEGATIVE_VERDICTS = {"refuted", "failed", "mismatched", "rejected", "changes_requested", "denied"}
 _INCONCLUSIVE_VERDICTS = {"unknown", "partial", "pending", "error"}
 
 
 def _evidence_verdict(a):
     """"positive" | "negative" | "inconclusive" | None (no verdict of its own)."""
+    # Evidence someone else was asked to reproduce and could not - a negative claim ("nothing else calls
+    # this") whose search did not come back the same - establishes nothing yet.
+    if _payload(a).get("confirmed") is False:
+        return "inconclusive"
     st = _lc(_payload(a).get("status"))
     if not st:
         return None
@@ -959,13 +1045,11 @@ def _seed_artifacts(goal, trace):
         # in the component — so the goal's cone carries the whole evidence history (e.g. both a refuted
         # and a later proved result), which the GOVERNED policies then judge.
         if isinstance(item.get("component"), dict) and isinstance(item.get("evidence"), dict):
-            comp = (item["component"].get("function") or item["component"].get("function_")
-                    or item["component"].get("symbol"))
             art_type = _artifact_type(item["evidence"])
-            if comp and art_type:
+            if art_type and any(_component_parts(item["component"])):
                 for a in arts:
-                    if (_lc(a.get("artifact_type")) == _lc(art_type)
-                            and lineage.roots_in_component(a.get("artifact_id"), comp, trace)):
+                    if (_canon_art_type(a.get("artifact_type")) == _canon_art_type(art_type)
+                            and _about_component(a, item["component"], trace)):
                         seeds.add(a.get("artifact_id"))
             continue
         # Resolved evidence id (set by resolve_item during enrich) — seeds the cone for legacy items.
@@ -1502,19 +1586,18 @@ def _unattached_of_type(enriched, art_type, item):
         return []
     want = _canon_art_type(art_type)
     comp = item.get("component") or {}
-    names = [c for c in (comp.get("function"), comp.get("function_"), comp.get("symbol")) if c]
     # ONLY for a criterion that names a component. A project-level criterion (§11.2) names a REFERENCE
     # and joins on `reference_artifact_id` instead, so "roots in nothing it names" has nothing to test
     # against - and an unguarded version matched every artifact of the type, turning a plain `establish`
     # into a bogus `connect` on three binding goals that had no evidence at all.
-    if not names:
+    if not any(_component_parts(comp)):
         return []
     out = []
     for a in enriched.get("artifacts", []):
         if _canon_art_type(a.get("artifact_type")) != want:
             continue
-        if any(lineage.roots_in_component(a.get("artifact_id"), c, enriched) for c in names):
-            continue                      # it DOES root here; the criterion is simply unresolved
+        if _about_component(a, comp, enriched):
+            continue                      # it DOES rest on it; the criterion is simply unresolved
         out.append(a.get("artifact_id"))
     return out
 
@@ -1541,7 +1624,7 @@ def next_steps(trace, limit=None):
                     "evidence_ref": _resolved_evidence_ref(it)}
             ref = it.get("reference")
             comp = it.get("component") or {}
-            what = comp.get("function") or comp.get("symbol") or "the component"
+            what = _component_label(comp) or "the component"
             # Same two shapes. On a TYPED criterion `evidence` is the requirement - `{"artifact":
             # "VerificationResult"}` - and names what to produce. On an untyped one it is a plain
             # artifact id, either authored that way or written there by `enrich`, which stores the

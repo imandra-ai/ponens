@@ -137,3 +137,46 @@ def test_an_exact_match_still_wins_over_the_tail_fallback():
                         "payload": {"target_symbol": "pricing.apply_discount"}}],
          "outcome": {"type": "ProcessCompleted"}}
     assert lineage.roots_in_component("d1", "pricing.apply_discount", t)
+
+
+def _unconnected_trace():
+    """A record holding the answer, and a criterion nothing joins to it.
+
+    `config-driven`: the run proved `code_matches_spec` over a model of exactly the thing the criterion
+    asks about, and `next` told the reader to go and produce a VerificationResult for `allowed` - work
+    that had already been done. 18 of 73 corpus records are in this state, and `next` is the surface
+    whose whole job is to say what to do about it.
+    """
+    return {
+        "goals": [{"id": "g", "intent": "i", "scope": [], "status": "active", "acceptance": [
+            {"id": "s1", "kind": "property", "label": "code matches spec", "required": True,
+             "component": {"function": "allowed"}, "evidence": {"artifact": "VerificationResult"}}]}],
+        "artifacts": [
+            {"artifact_id": "v-1", "artifact_type": "VerificationResult", "name": "v1",
+             "derived_from": [], "payload": {"target_symbol": "code_matches_spec", "status": "proved"}},
+        ],
+    }
+
+
+def test_next_says_connect_when_the_answer_may_already_be_here():
+    steps = G.next_steps(_unconnected_trace())
+    s = [x for x in steps if x["kind"] == "connect"]
+    assert s, "a result of the required type exists and roots in nothing the criterion names"
+    assert "v-1" in s[0]["suggested"]
+    # Not "done": whether that result IS the answer is a judgement nobody here can make. What the
+    # record can say is that the two exist and nothing joins them.
+    assert "if not, the work is still to do" in s[0]["suggested"]
+
+
+def test_next_still_says_establish_when_there_is_genuinely_nothing():
+    t = _unconnected_trace()
+    t["artifacts"] = []
+    steps = G.next_steps(t)
+    assert [x["kind"] for x in steps] == ["establish"]
+
+
+def test_next_says_establish_when_the_evidence_is_the_wrong_KIND():
+    # A decomposition must not be offered as the answer to a criterion that asked for a proof.
+    t = _unconnected_trace()
+    t["artifacts"][0]["artifact_type"] = "StateSpaceAnalysisResult"
+    assert [x["kind"] for x in G.next_steps(t)] == ["establish"]

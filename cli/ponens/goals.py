@@ -1449,7 +1449,7 @@ def enrich(trace):
 # Pure over the trace; `ponens trace next` prints it.
 
 _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-_KIND_TAG = {"fix": "FIX", "establish": "ESTABLISH", "refresh": "REFRESH", "gap": "GAP", "optional": "OPTIONAL"}
+_KIND_TAG = {"fix": "FIX", "establish": "ESTABLISH", "connect": "CONNECT", "refresh": "REFRESH", "gap": "GAP", "optional": "OPTIONAL"}
 
 
 def _resolved_evidence_ref(item):
@@ -1466,6 +1466,35 @@ def _resolved_evidence_ref(item):
         return ref
     ev = item.get("evidence")
     return ev if isinstance(ev, str) else None
+
+
+def _unattached_of_type(enriched, art_type, item):
+    """Artifact ids of the required TYPE that root in nothing this criterion names.
+
+    The precise statement is "evidence of the kind you asked for exists, and is about something else" -
+    which is different from "no evidence" and from "it is met", and is what a reader needs to tell those
+    apart. Deliberately narrow: only the required type counts, so a decomposition does not get offered
+    as the answer to a criterion that asked for a proof.
+    """
+    if not art_type or art_type == "the required evidence":
+        return []
+    want = _canon_art_type(art_type)
+    comp = item.get("component") or {}
+    names = [c for c in (comp.get("function"), comp.get("function_"), comp.get("symbol")) if c]
+    # ONLY for a criterion that names a component. A project-level criterion (§11.2) names a REFERENCE
+    # and joins on `reference_artifact_id` instead, so "roots in nothing it names" has nothing to test
+    # against - and an unguarded version matched every artifact of the type, turning a plain `establish`
+    # into a bogus `connect` on three binding goals that had no evidence at all.
+    if not names:
+        return []
+    out = []
+    for a in enriched.get("artifacts", []):
+        if _canon_art_type(a.get("artifact_type")) != want:
+            continue
+        if any(lineage.roots_in_component(a.get("artifact_id"), c, enriched) for c in names):
+            continue                      # it DOES root here; the criterion is simply unresolved
+        out.append(a.get("artifact_id"))
+    return out
 
 
 def next_steps(trace, limit=None):
@@ -1505,9 +1534,32 @@ def next_steps(trace, limit=None):
                                   suggested=("fix the code or the mapping, then re-establish conformance against " + ref) if ref
                                   else "resolve the defeater, then re-run the evidence"))
             elif st in ("todo", "doing") and required:
-                steps.append(dict(base, kind="establish", priority=2, why="required, nothing established yet",
-                                  suggested=("establish conformance against " + ref + " (check_conformance / formal_conform)") if ref
-                                  else "produce " + art + " for " + what))
+                # EVIDENCE OF THE RIGHT TYPE IS ALREADY HERE, and roots in nothing this criterion names.
+                #
+                # "Produce a VerificationResult for `allowed`" is wrong advice when the record holds two
+                # of them: `config-driven` proved `code_matches_spec` over a model of exactly that, and
+                # `next` told a reader to go and do the work again. Measured across 73 records - 18 of
+                # them hold verdicts that answer no stated requirement - and this is the surface whose
+                # whole job is to say what to do about it, so it was the one giving the worst answer.
+                #
+                # Reported as a CONNECTION step, not as "done": whether that result is the answer is a
+                # judgement nobody here can make. What the record can say is that the two exist and
+                # nothing joins them, which is the thing a person can act on.
+                loose = _unattached_of_type(e, art, it) if isinstance(ev, dict) else []
+                if loose:
+                    many = len(loose) > 1
+                    shown = ", ".join(loose[:3]) + (" and %d more" % (len(loose) - 3) if len(loose) > 3 else "")
+                    steps.append(dict(base, kind="connect", priority=2,
+                                      why=("%d results already in the record answer nothing that was asked for"
+                                           % len(loose)) if many
+                                          else "a result already in the record answers nothing that was asked for",
+                                      suggested="check whether %s %s about `%s`; if so, say so and the two connect "
+                                                "- if not, the work is still to do"
+                                                % (shown, "are" if many else "is", what)))
+                else:
+                    steps.append(dict(base, kind="establish", priority=2, why="required, nothing established yet",
+                                      suggested=("establish conformance against " + ref + " (check_conformance / formal_conform)") if ref
+                                      else "produce " + art + " for " + what))
             elif st == "done" and _resolved_evidence_ref(it) in stale:
                 r = stale[_resolved_evidence_ref(it)]
                 steps.append(dict(base, kind="refresh", priority=3, why=r.get("statement") or "the evidence is stale",

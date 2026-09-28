@@ -14,6 +14,10 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
   subject - `endpoint`, `table`, `config`, `dependency`, `module` - as well as a function. "The
   migration is tested" or "the endpoint still conforms" was not a typed criterion at all before, and
   read as "no evidence yet" with the evidence in the record.
+- **`named_by_goal` and the `criteria` collection understand files and subjects.** An edit is named when
+  every file it changes is named by a file criterion (a path or a glob) - a migration has no symbols to
+  name. Each criterion in `∀ c ∈ criteria` gains `file`, `subject` and `about` (whichever names it), so
+  "every criterion says what it is about" is `c.about ≠ ∅` rather than a rule only function criteria pass.
 - **One table of typed-criteria use cases** (`tests/unit/test_typed_criteria_matrix.py`, 31 rows): proofs,
   decompositions, tests, a person's review, conformance, files, subjects, searches, observations,
   project-level criteria - each held to the state `trace overview` should give.

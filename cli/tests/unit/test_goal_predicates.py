@@ -137,3 +137,29 @@ def test_labeled_lints_clean():
     from ponens.policy_compiler import check_policy
     _, errors, warnings = check_policy(pol("G(EditFile ∧ labeled(ledger-core) → P(Verify))"))
     assert not errors and not warnings
+
+
+# ---- criteria about files and subjects (Goal Contract §4.1) ---------------------------------------
+
+def file_goal(path):
+    return {"id": "g1", "intent": "Migration 0042 is safe", "intent_author": "human", "status": "active", "scope": [],
+            "acceptance": [{"id": "c1", "label": "tested", "component": {"file": path}, "required": True}]}
+
+
+def test_an_edit_to_a_file_a_criterion_names_is_named():
+    a, d = edit(1, None)
+    d["payload"] = {"file": "db/migrations/0042.sql"}
+    p = pol("G(EditFile → named_by_goal)")
+    assert status(p, record([file_goal("db/migrations/0042.sql")], [a], [d])) == "passed"
+    assert status(p, record([file_goal("db/migrations/*.sql")], [a], [d])) == "passed"
+    assert status(p, record([file_goal("db/migrations/0041.sql")], [a], [d])) == "failed"
+
+
+def test_criteria_say_what_they_are_about():
+    p = pol("∀ c ∈ criteria . c.about ≠ ∅")
+    assert status(p, record([file_goal("db/migrations/0042.sql")])) == "passed"
+    subject = {**file_goal("x"), "acceptance": [{"id": "c1", "label": "conforms", "component": {"endpoint": "POST /v1/charge"}}]}
+    assert status(p, record([subject])) == "passed"
+    assert status(p, record([goal("refund_fee")])) == "passed"
+    nothing = {**file_goal("x"), "acceptance": [{"id": "c1", "label": "vague"}]}
+    assert status(p, record([nothing])) == "failed"

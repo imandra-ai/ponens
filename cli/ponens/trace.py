@@ -335,8 +335,16 @@ def _criteria(trace):
                 continue
             comp = c.get('component') if isinstance(c.get('component'), dict) else {}
             ev = c.get('evidence') if isinstance(c.get('evidence'), dict) else {}
+            symbol = comp.get('function') or comp.get('symbol') or ''
+            file = comp.get('file') or comp.get('path') or ''
+            # Any other key names a SUBJECT (endpoint, table, dependency, ...) - Goal Contract §4.1.
+            subject = next((f"{k} {v}" for k, v in comp.items()
+                            if k not in ('function', 'function_', 'symbol', 'file', 'path') and isinstance(v, str) and v), '')
             out.append({'id': c.get('id'), 'goal_id': g.get('id'), 'label': c.get('label') or c.get('statement'),
-                        'required': c.get('required') is not False, 'symbol': comp.get('function') or '',
+                        'required': c.get('required') is not False, 'symbol': symbol,
+                        # What the criterion is ABOUT, whichever kind of component names it: `c.about ≠ ∅`
+                        # holds for a criterion over a function, a file or a subject alike.
+                        'file': file, 'subject': subject, 'about': symbol or file or subject,
                         'evidence': ev.get('artifact') or '', 'author': c.get('author') or '',
                         'intent_author': g.get('intent_author') or ''})
     return out
@@ -348,6 +356,24 @@ DERIVED_COLLECTIONS = {'criteria': _criteria}
 
 def _named_symbols(trace):
     return {c['symbol'] for c in _criteria(trace) if c['symbol']}
+
+
+def _named_files(trace):
+    return [c['file'] for c in _criteria(trace) if c['file']]
+
+
+def _edited_files(action, trace):
+    files = set()
+    for _a, p in _output_payloads(action, trace):
+        for k in ('file', 'path'):
+            if isinstance(p.get(k), str) and p[k]:
+                files.add(p[k])
+        files.update(f for f in p.get('files') or [] if isinstance(f, str))
+    return files
+
+
+def _file_named(path, patterns):
+    return any(fnmatch.fnmatch(path, pat) if any(ch in pat for ch in '*?[') else path == pat for pat in patterns)
 
 
 def _output_payloads(action, trace):
@@ -559,7 +585,13 @@ def evaluate_formula(node, trace, ctx=None):
             # Every symbol this action changes is some criterion's component. An action that names no
             # symbol cannot be shown to be named, so it is not.
             syms = _edited_symbols(a, trace)
-            return bool(syms) and syms <= _named_symbols(trace)
+            if syms and syms <= _named_symbols(trace):
+                return True
+            # Or every file it changes is named by a FILE criterion ("the migration is tested"): the
+            # criterion covers the whole file, whatever symbols it contains - and a migration has none.
+            files = _edited_files(a, trace)
+            named = _named_files(trace)
+            return bool(files) and bool(named) and all(_file_named(f, named) for f in files)
         if name == 'signature_change':
             return any(p.get('signature_changed') is True for _a, p in _output_payloads(a, trace))
         if name == 'search_confirmed':

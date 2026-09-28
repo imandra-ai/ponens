@@ -9,6 +9,11 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+## [1.16.1] — 2026-09-28
+
+Typed criteria that hold up across real use cases - files and subjects as well as functions, reviews
+and searches read for what they say - and an `overview` and `next` that say what their silence hid.
+
 ### Added
 - **Criteria about a file or a named subject.** `component` may name a `file` (a path or a glob) or any
   subject - `endpoint`, `table`, `config`, `dependency`, `module` - as well as a function. "The

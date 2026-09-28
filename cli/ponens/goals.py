@@ -1074,31 +1074,52 @@ def governance_of(goal, trace, policies):
 # Process-lifetime memo: a resolved ref's evaluable policy dicts. Registry content is stable within a
 # session, and enrich runs on every turn — so resolve each ref once. Keyed "pack:<name>"/"policy:<ref>".
 _POLICY_CACHE = {}
+# Why a ref resolved to nothing, same keys. Resolution stays guarded (enrich must not crash on a
+# missing source) but it must not be SILENT: a declared pack that expands to nothing used to leave the
+# goal looking ungoverned-by-choice, when the author had asked for governance and got none.
+_UNRESOLVED = {}
 
 
 def _load_ref_policies(ref, is_pack):
     """Resolve a pack NAME (→ all its policies) or a single policy ref (→ one) to evaluable dicts via
-    the registry. GUARDED and memoized: a missing/uncached source, a registry `SystemExit`, or any
-    error yields [] rather than breaking or slowing the enrich hot path."""
+    the registry. GUARDED and memoized: a missing/uncached source, an unknown or ambiguous ref, or any
+    error yields [] rather than breaking or slowing the enrich hot path - and records why in
+    `_UNRESOLVED`, which `unresolved_refs` reports."""
     key = ("pack:" if is_pack else "policy:") + ref
     if key in _POLICY_CACHE:
         return _POLICY_CACHE[key]
     out = []
+    _UNRESOLVED.pop(key, None)
     try:
         from . import registry
-        if is_pack:
-            src = registry.get_source(ref)
-            for entry in registry.source_catalog(src).get("policies", []):
-                gp = registry.fetch_policy_from(src, entry["id"], entry.get("hash"), refresh=False)
-                out.append(registry.gallery_to_trace_policy(gp, src.get("name"), entry))
-        else:
-            src, entry = registry.resolve(ref)
+        found = registry.find_pack(ref) if is_pack else [registry.find_policy(ref)]
+        for src, entry in found:
             gp = registry.fetch_policy_from(src, entry["id"], entry.get("hash"), refresh=False)
             out.append(registry.gallery_to_trace_policy(gp, src.get("name"), entry))
-    except (Exception, SystemExit):
-        out = []  # registry unavailable/uncached/ambiguous — governance simply has nothing from this ref
+    except LookupError as e:
+        out = []
+        _UNRESOLVED[key] = str(e)
+    except (Exception, SystemExit) as e:  # registry unavailable, fetch failed, ...
+        out = []
+        _UNRESOLVED[key] = f"could not load '{ref}': {e}" if str(e) else f"could not load '{ref}'"
     out = [p for p in out if isinstance(p, dict) and p.get("formula")]
     _POLICY_CACHE[key] = out
+    return out
+
+
+def unresolved_refs(goal):
+    """The goal's declared policy refs that resolved to nothing, with why: ``[{ref, kind, reason}]``.
+    Call after `_effective_policies(goal)` (which does the resolving)."""
+    gp = goal.get("policies")
+    if not isinstance(gp, dict):
+        return []
+    out = []
+    for kind, refs in (("policy", gp.get("policies")), ("pack", gp.get("packs"))):
+        for ref in refs or []:
+            if isinstance(ref, str):
+                reason = _UNRESOLVED.get(f"{kind}:{ref}")
+                if reason:
+                    out.append({"ref": ref, "kind": kind, "reason": reason})
     return out
 
 
@@ -1371,10 +1392,18 @@ def enrich(trace):
         # GOVERNED axis (Goal Contract §5-6): evaluate the goal's effective policies over its cone.
         # Only attached when the goal declares evaluable policies — absent means "no governance declared".
         eff = _effective_policies(g)
+        unresolved = unresolved_refs(g)
         if eff:
             gov = governance_of(g, t, eff)
             g["governed"] = gov["governed"]
             g["governance"] = gov["evaluations"]
+        if unresolved:
+            # The author declared governance that could not be evaluated. That is not "governed",
+            # whatever the refs that did resolve say - block by default (Goal Contract §6).
+            g["governance_unresolved"] = unresolved
+            g["governed"] = False
+        else:
+            g.pop("governance_unresolved", None)
 
     t["exploration_actions"] = sorted(unattributed_actions(t))
     # Artifacts belonging to no goal at all. Empty for a current record; a non-empty list says the

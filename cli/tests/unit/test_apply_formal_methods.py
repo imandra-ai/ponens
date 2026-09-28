@@ -138,6 +138,29 @@ def test_cmd_check_json_emits_policy_evaluations(capsys):
         assert ev["status"] in ("passed", "failed", "unknown", "not_applicable")
 
 
+def test_cmd_check_json_report_carries_each_policys_name_and_severity(capsys):
+    # Whether a failure BLOCKS depends on its severity; a consumer of the report should not have to
+    # re-resolve every policy to find out. Goal governance evaluations already carry both.
+    policies = {p["policy_id"]: p for p in json.loads(open(STRIPE).read())["policies"]}
+    cmd_check(check_args(STRIPE, json=True))
+    out = json.loads(capsys.readouterr().out)
+    for ev in out:
+        assert ev["severity"] == policies[ev["policy_id"]].get("severity", "error")
+        assert ev["name"] == policies[ev["policy_id"]].get("name", ev["policy_id"])
+
+
+def test_cmd_check_write_stamps_only_schema_fields(tmp_path):
+    # The stamped `policy_evaluations` follow Policy Spec §7.1 (a closed object in the trace schema):
+    # the report's name/severity are for the reader, not written into the record.
+    dst = tmp_path / "t.json"
+    shutil.copy(STRIPE, dst)
+    cmd_check(check_args(str(dst), write=True))
+    allowed = {"policy_id", "status", "checked_at_action_id", "evidence_action_ids", "evidence_artifact_ids",
+               "violating_action_ids", "violating_artifact_ids", "note"}
+    for e in json.loads(dst.read_text())["policy_evaluations"]:
+        assert set(e) <= allowed, f"stamped a non-schema field: {set(e) - allowed}"
+
+
 def test_cmd_check_write_stamps_trace_in_place(tmp_path):
     dst = tmp_path / "t.json"
     shutil.copy(STRIPE, dst)

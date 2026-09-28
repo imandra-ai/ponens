@@ -556,7 +556,44 @@ def overview(trace, reqs=None, cwd=None):
         "requirements": req["requirements"], "summary": req["summary"],
         "gaps": gp, "gate": g, "next": next_steps(trace),
         "evidence": evidence_summary(blame_out), "record": record_health(trace),
+        "standing": standing_of(enriched),
         "counts": {"gaps": {s: sum(1 for x in gp if x["state"] == s) for s in ("missing", "assumed", "failed", "out_of_date")}},
+    }
+
+
+def standing_of(enriched):
+    """Where this record stands BEFORE any requirement is read - the two things silence cannot say.
+
+    Measured over a 73-record corpus. 62 carried real formal evidence; 12 could tell a reader anything
+    was established. The other 61 failed in two different ways that the surface rendered identically:
+
+      44  no definition of done was ever stated, so nothing could resolve. The requirements section is
+          simply omitted, and a reader cannot tell that from a clean run.
+      17  a definition WAS stated and the record holds verdicts, and none of them is about any stated
+          requirement - so the surface says "no evidence yet" while the evidence sits in the file.
+
+    Both are reported, neither is scored. "Nobody said what done means" is not a defect - a question
+    ("does this hold?") is a legitimate thing to ask an agent, and inventing criteria for it would
+    manufacture a bar nobody agreed. It is simply a fact a reader needs, because asking for a definition
+    is the one thing they can do about it.
+    """
+    goals = enriched.get("goals") or []
+    stated = [g for g in goals if (g.get("acceptance") or [])]
+    cov = [g.get("coverage") or {} for g in goals]
+    criteria = sum(c.get("criteria", 0) for c in cov)
+    unevidenced = sum(len(c.get("criteria_unevidenced") or []) for c in cov)
+    return {
+        "goals": len(goals),
+        "with_criteria": len(stated),
+        # Work recorded under a goal, whether or not it answers a criterion. Reading a config is real
+        # work and evidences nothing, so this alone says little - it is the DENOMINATOR for the line
+        # below.
+        "recorded": sum(c.get("recorded", 0) for c in cov),
+        "criteria": criteria,
+        # Criteria nothing in the record answers. Keyed on this rather than on rooted/unrooted counts,
+        # which was the first attempt and did not fire: a goal's cone pulls in artifacts by lineage, so
+        # `rooted` can be six while the single criterion is still answered by nothing at all.
+        "unevidenced": unevidenced,
     }
 
 
@@ -665,9 +702,24 @@ def _by_cause(gaps):
 
 def render_overview(o):
     out = []
+    st = o.get("standing") or {}
     if o["requirements"]:
         out.append("Requirements")
         out.append(render_requirements({"requirements": o["requirements"], "summary": o["summary"]}))
+        # Evidence in the record that no stated requirement is about. The reader is otherwise told
+        # "no evidence yet" while verdicts sit in the file - not unhelpful, but the opposite of true.
+        if st.get("criteria") and st["unevidenced"] == st["criteria"] and st.get("recorded"):
+            out.append("  ! %d result(s) are recorded here and none of them answers a requirement above "
+                       "- the work and what was asked for are not connected." % st["recorded"])
+        out.append("")
+    elif st.get("goals"):
+        # SAY THE SILENCE. Omitting the section made "nobody stated what done means" look exactly like a
+        # clean run, across 44 of 73 corpus records.
+        out.append("Requirements")
+        out.append("  none stated - nothing here says what \"done\" means, so nothing can be met or unmet.")
+        if st.get("recorded"):
+            out.append("  %d result(s) are recorded; ask for a definition of done if you need to know "
+                       "whether they are enough." % st["recorded"])
         out.append("")
     # Findings first, standing assumptions collapsed to one line beneath them. Nothing is dropped:
     # `trace residuals` still prints every one in full, with its check.

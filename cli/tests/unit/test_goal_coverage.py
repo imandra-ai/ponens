@@ -115,3 +115,48 @@ def test_coverage_says_nothing_about_whether_the_goal_is_met():
     g = enriched["goals"][0]
     assert g["coverage"]["recorded"] == 3
     assert g["faithfulness"]["met"] is False
+
+
+def enriched_with(goals, artifacts):
+    import copy
+    return goalops.enrich(copy.deepcopy({"goals": goals, "artifacts": artifacts}))
+
+
+def test_a_record_with_no_criteria_says_so_rather_than_nothing():
+    """44 of 73 corpus records printed NOTHING in the requirements section.
+
+    The section is omitted when there are no requirements, which made "nobody stated what done means"
+    look exactly like a clean run. Those are completely different situations and a reader could not tell
+    them apart. Saying it is true, invents nothing, and is actionable - asking for a definition is the
+    one thing a reviewer can do about it.
+    """
+    from ponens import overview as ov
+    o = ov.overview({"goals": [goal("session-goal", [])],
+                     "artifacts": [artifact("v-1", "VerificationResult", "session-goal", symbol="s")]})
+    text = ov.render_overview(o)
+    assert "none stated" in text
+    assert "what \"done\" means" in text
+
+
+def test_evidence_that_answers_no_requirement_is_reported():
+    """18 corpus records hold verdicts while the surface says "no evidence yet".
+
+    Not merely unhelpful - the opposite of true. `config-driven` holds a refutation, the fix, and a proof
+    of the fix, and reads as though nothing happened.
+    """
+    from ponens import overview as ov
+    g = goal("g", [criterion("a1", "settles", "VerificationResult")])
+    # A result about a DIFFERENT symbol: real evidence, answering none of what was asked.
+    o = ov.overview({"goals": [g],
+                     "artifacts": [artifact("v-1", "VerificationResult", "g", symbol="unrelated", status="proved")]})
+    assert "none of them answers a requirement" in ov.render_overview(o)
+
+
+def test_a_met_requirement_says_none_of_that():
+    from ponens import overview as ov
+    g = goal("g", [criterion("a1", "settles", "VerificationResult")])
+    o = ov.overview({"goals": [g],
+                     "artifacts": [artifact("v-1", "VerificationResult", "g", symbol="settles", status="proved")]})
+    text = ov.render_overview(o)
+    assert "none stated" not in text
+    assert "none of them answers a requirement" not in text

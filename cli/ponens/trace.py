@@ -1453,6 +1453,12 @@ def soundness_errors(trace, strict=False):
     return errs
 
 
+# The newest TRACE_SPEC this ponens reads. A record declaring a later `spec_version` was written by a
+# newer producer: its new fields are invisible here, so a consumer must not treat this ponens's silence
+# about them as a pass. `ponens version --json` publishes it for exactly that check.
+TRACE_SPEC_VERSION = "1.14"
+
+
 def parse_spec_version(v) -> tuple[int, ...]:
     """`"1.14"` -> `(1, 14)`. Numeric, because the obvious thing is wrong.
 

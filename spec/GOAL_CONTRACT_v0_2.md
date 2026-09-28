@@ -66,7 +66,8 @@ type evidence_req = {
 type acceptance_criterion = {
   id        : string;
   statement : string;                       (* human "what must be true" — for reading + certification *)
-  component : { function_ : string; file : string option };
+  component : component;                    (* §4.1: a function / symbol, a file, or a named subject *)
+  property  : string option;                (* §4.1: the property the evidence must say it checked *)
   evidence  : evidence_req;
   required  : bool;                         (* Faithfulness v0.1 *)
   covers    : string list;                  (* intent clauses it covers — Faithfulness v0.1 §5 *)
@@ -95,6 +96,42 @@ derivation lives in exactly one place.
 Diff) is about *that* component — not every symbol the shared `IMLModel` happens to formalize. Only when
 nothing in the lineage names a target do we fall back to the model's symbol list. (Without this, a
 decomposition of `fee_tier` would look like it roots in every symbol of the shared model.)
+
+### 4.1 What a criterion can be about, and what its evidence must say
+
+**Components.** Not every criterion is about a function. "The migration is tested", "the endpoint still
+conforms to its contract" and "the new dependency was license-checked" name a FILE or a SUBJECT that no
+symbol stands for:
+
+```ocaml
+type component = {
+  function_ : string option;   (* by lineage, as above - renames and module-qualified names included *)
+  symbol    : string option;   (* the name a formalization gave it *)
+  file      : string option;   (* a path, or a glob: "db/migrations/*.sql" *)
+  (* any other key names a SUBJECT: endpoint | table | config | dependency | module | ... *)
+}
+```
+
+A file criterion is met by evidence whose lineage names the file (`payload.file` / `path` / `files`); a
+subject criterion by evidence whose lineage names it (`payload.<kind>`, its plural, or `payload.subject`).
+Before this, such a criterion was not typed at all and read as "no evidence yet" with the evidence in
+the record.
+
+**Properties.** `property` narrows by what the evidence SAYS it checked: its VerificationGoal's
+`description`, its own `description` / `property` / `properties`, or the properties its verdict reports.
+A verdict type (`VerificationResult`, `ConformanceResult`) is always narrowed - a proof of an unnamed
+goal does not answer a named property. Any other evidence is narrowed exactly when it names a property:
+a test run described as "stays within the ceiling" does not answer "is never negative". Evidence that
+names none - a decomposition, a diff, an undescribed test run - is about its subject, and answers any
+property asked of it.
+
+**Verdicts.** Evidence with a verdict of its own is read by it: `proved` / `sat` / `passed` / `matched` /
+`approved` / `accepted` establish; `refuted` / `failed` / `mismatched` / `rejected` / `changes_requested` /
+`denied` are evidence AGAINST (the criterion reads failed, never met); `unknown` / `partial` / `pending` /
+`error` - and a result someone was asked to reproduce and could not (`confirmed: false`) - establish
+nothing yet. A person's refusal is not "a review exists".
+
+The use cases are held to one table: `cli/tests/unit/test_typed_criteria_matrix.py`.
 
 *Recommended (airtight):* the verify/decompose/gen-test tools may stamp each produced artifact with
 `satisfies: <criterion_id>` — a back-reference — so resolution is by exact id with no matching at all.

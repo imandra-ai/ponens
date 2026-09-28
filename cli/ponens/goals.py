@@ -1074,31 +1074,52 @@ def governance_of(goal, trace, policies):
 # Process-lifetime memo: a resolved ref's evaluable policy dicts. Registry content is stable within a
 # session, and enrich runs on every turn — so resolve each ref once. Keyed "pack:<name>"/"policy:<ref>".
 _POLICY_CACHE = {}
+# Why a ref resolved to nothing, same keys. Resolution stays guarded (enrich must not crash on a
+# missing source) but it must not be SILENT: a declared pack that expands to nothing used to leave the
+# goal looking ungoverned-by-choice, when the author had asked for governance and got none.
+_UNRESOLVED = {}
 
 
 def _load_ref_policies(ref, is_pack):
     """Resolve a pack NAME (→ all its policies) or a single policy ref (→ one) to evaluable dicts via
-    the registry. GUARDED and memoized: a missing/uncached source, a registry `SystemExit`, or any
-    error yields [] rather than breaking or slowing the enrich hot path."""
+    the registry. GUARDED and memoized: a missing/uncached source, an unknown or ambiguous ref, or any
+    error yields [] rather than breaking or slowing the enrich hot path - and records why in
+    `_UNRESOLVED`, which `unresolved_refs` reports."""
     key = ("pack:" if is_pack else "policy:") + ref
     if key in _POLICY_CACHE:
         return _POLICY_CACHE[key]
     out = []
+    _UNRESOLVED.pop(key, None)
     try:
         from . import registry
-        if is_pack:
-            src = registry.get_source(ref)
-            for entry in registry.source_catalog(src).get("policies", []):
-                gp = registry.fetch_policy_from(src, entry["id"], entry.get("hash"), refresh=False)
-                out.append(registry.gallery_to_trace_policy(gp, src.get("name"), entry))
-        else:
-            src, entry = registry.resolve(ref)
+        found = registry.find_pack(ref) if is_pack else [registry.find_policy(ref)]
+        for src, entry in found:
             gp = registry.fetch_policy_from(src, entry["id"], entry.get("hash"), refresh=False)
             out.append(registry.gallery_to_trace_policy(gp, src.get("name"), entry))
-    except (Exception, SystemExit):
-        out = []  # registry unavailable/uncached/ambiguous — governance simply has nothing from this ref
+    except LookupError as e:
+        out = []
+        _UNRESOLVED[key] = str(e)
+    except (Exception, SystemExit) as e:  # registry unavailable, fetch failed, ...
+        out = []
+        _UNRESOLVED[key] = f"could not load '{ref}': {e}" if str(e) else f"could not load '{ref}'"
     out = [p for p in out if isinstance(p, dict) and p.get("formula")]
     _POLICY_CACHE[key] = out
+    return out
+
+
+def unresolved_refs(goal):
+    """The goal's declared policy refs that resolved to nothing, with why: ``[{ref, kind, reason}]``.
+    Call after `_effective_policies(goal)` (which does the resolving)."""
+    gp = goal.get("policies")
+    if not isinstance(gp, dict):
+        return []
+    out = []
+    for kind, refs in (("policy", gp.get("policies")), ("pack", gp.get("packs"))):
+        for ref in refs or []:
+            if isinstance(ref, str):
+                reason = _UNRESOLVED.get(f"{kind}:{ref}")
+                if reason:
+                    out.append({"ref": ref, "kind": kind, "reason": reason})
     return out
 
 
@@ -1131,6 +1152,60 @@ def _effective_policies(goal):
             for rp in _load_ref_policies(pack, is_pack=True):
                 add(rp)                              # every policy in the pack
     return out
+
+
+def goal_coverage(goal, trace):
+    """How much of the work RECORDED under a goal is actually evidence for one of its criteria.
+
+    Two different relations were one edge until artifacts carried a `goal_id`. MEMBERSHIP is which goal
+    the work was done under - bookkeeping, total, stamped when the work happened. EVIDENCE is whether an
+    artifact discharges a criterion - typed, lineage-rooted, and allowed to be absent. Because only the
+    second existed, a goal with no criteria absorbed nothing, and a read, a triage verdict or a test run
+    sat outside the goal even in a session that had declared one.
+
+    The number this exists to surface is `unrooted`: work under the goal that no criterion is about. It
+    should be VISIBLE, not zero. A goal with thirty artifacts under it and two rooted in criteria is a
+    goal whose definition of done covers two things - which is exactly what a reviewer needs to see, and
+    what nothing showed before. It is deliberately NOT a score: unrooted work is normal (reading the
+    config is real work and evidences nothing), and treating it as a defect would push an author to
+    invent criteria that the evidence trivially satisfies.
+
+    `criteria_unevidenced` is the same question from the other side: criteria with nothing rooted in them
+    at all. Unknown, not unmet - a criterion with no evidence has not failed, it has not been answered.
+    """
+    gid = goal.get("id")
+    in_cone, _ = _cone_scope(goal, trace)
+    recorded = [a for a in trace.get("artifacts", []) if a.get("goal_id") == gid]
+    rooted = [a for a in recorded if a.get("artifact_id") in in_cone]
+    unrooted = [a for a in recorded if a.get("artifact_id") not in in_cone]
+    by_type = {}
+    for a in unrooted:
+        k = a.get("artifact_type") or "unknown"
+        by_type[k] = by_type.get(k, 0) + 1
+    items = goal.get("acceptance") or []
+    # A criterion counts as evidenced when resolution found something for it - `evidence` is the id
+    # `resolve_item` settled on. Absent means nothing in the trace answers it.
+    unevidenced = [i.get("id") for i in items
+                   if not (i.get("evidence_ref") or (isinstance(i.get("evidence"), str) and i.get("evidence")))]
+    return {
+        "recorded": len(recorded),
+        "rooted": len(rooted),
+        "unrooted": len(unrooted),
+        "unrooted_by_type": dict(sorted(by_type.items(), key=lambda kv: -kv[1])),
+        "criteria": len(items),
+        "criteria_unevidenced": unevidenced,
+    }
+
+
+def unstamped_artifacts(trace):
+    """Artifacts carrying no `goal_id` at all - work that belongs to no goal, not even the default one.
+
+    Should be empty for anything recorded by a current build: the store opens a default goal before it
+    records, so the stamp is total by construction. A non-empty list means either a record written by an
+    older build, or a producer that got around `record()` - worth knowing which, because the second is a
+    hole in the bookkeeping and the first is just history.
+    """
+    return [a.get("artifact_id") for a in trace.get("artifacts", []) if not a.get("goal_id")]
 
 
 def unattributed_actions(trace):
@@ -1303,6 +1378,9 @@ def enrich(trace):
         # Count of criteria that are met-but-stale, so a card can read "met, N at risk" at a glance.
         g["at_risk"] = sum(1 for it in resolved if it.get("at_risk"))
         g["cone"] = sorted(goal_relevant_actions(g, t))
+        # Work recorded UNDER this goal vs work that is evidence FOR one of its criteria. See
+        # `goal_coverage`: computed after resolution, because `evidence_ref` is what resolution settled.
+        g["coverage"] = goal_coverage(g, t)
         # The residuals that QUALIFY this goal (bound to a gap item or touching its scope) — the ids so a
         # viewer can scope "needs attention" to THIS goal instead of the whole trace's negative space.
         gr = goal_residuals(g, t, derived)
@@ -1314,12 +1392,25 @@ def enrich(trace):
         # GOVERNED axis (Goal Contract §5-6): evaluate the goal's effective policies over its cone.
         # Only attached when the goal declares evaluable policies — absent means "no governance declared".
         eff = _effective_policies(g)
+        unresolved = unresolved_refs(g)
         if eff:
             gov = governance_of(g, t, eff)
             g["governed"] = gov["governed"]
             g["governance"] = gov["evaluations"]
+        if unresolved:
+            # The author declared governance that could not be evaluated. That is not "governed",
+            # whatever the refs that did resolve say - block by default (Goal Contract §6).
+            g["governance_unresolved"] = unresolved
+            g["governed"] = False
+        else:
+            g.pop("governance_unresolved", None)
 
     t["exploration_actions"] = sorted(unattributed_actions(t))
+    # Artifacts belonging to no goal at all. Empty for a current record; a non-empty list says the
+    # bookkeeping has a hole (or the record predates it).
+    unstamped = unstamped_artifacts(t)
+    if unstamped:
+        t["unstamped_artifacts"] = unstamped
 
     # At-a-glance summary, computed here so the viewer never re-derives it.
     evals = t.get("policy_evaluations", [])

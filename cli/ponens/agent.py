@@ -51,7 +51,7 @@ Workflow — after you finish the work:
                     {"id": "c3", "component": {"function": "<h>"},
                      "evidence": {"artifact": "Diff"}}
                   ],
-                  "policies": {"packs": ["apply_formal_methods"], "policies": ["research_before_edit"]}
+                  "policies": {"packs": ["apply-formal-methods"], "policies": ["research_before_edit"]}
                 }
               ponens trace goal set trace.json --json contract.json
               # A criterion just names the ARTIFACT that must exist in the component's lineage

@@ -275,6 +275,10 @@ PREDICATES = {
     'start_event', 'end_event', 'high_stakes_path',
     # Conformance (model<->code fidelity) and co-simulation result statuses.
     'passed', 'partial', 'matched', 'mismatched',
+    # Goals and provenance (goal contract): the record declares what the work is for, and each change
+    # is named by it. `signature_change` is stamped on a Diff by whoever computed it (the hub, from the
+    # code host); `search_confirmed` on a SearchResults artifact that was re-run and matched.
+    'goal_declared', 'named_by_goal', 'signature_change', 'search_confirmed',
 }
 FIELDS = {
     'rationale', 'target_artifact_id', 'files_modified',
@@ -287,6 +291,11 @@ EVIDENCE_PREDICATES = {'strength_at_least', 'oracle_type', 'produced_by', 'confo
 # Predicates whose argument is an opaque id (a reference artifact id may carry ':', '@', '/', spaces):
 # the tokenizer captures everything up to the closing paren as ONE identifier token.
 RAW_ARG_PREDICATES = ('conforms_to',)
+# An organization's own vocabulary over paths: `labeled(migrations)` holds for an action that changed a
+# file matching one of the patterns the record's `path_labels` gives that label. The labels are stamped
+# by whoever knows the organization (a hub, from its bindings) - the policy names them, it does not
+# hard-code paths, so one rule serves every repository that defines the label.
+LABEL_PREDICATES = {'labeled'}
 
 # Unicode to ASCII mapping for tokenizer
 UNICODE_MAP = {
@@ -709,7 +718,7 @@ class Parser:
 
         # evidence predicate: strength_at_least(proof) / oracle_type(monitor) / produced_by(some-id).
         # The argument runs to the closing paren (an oracle id may contain '-' or '.').
-        if self.at('LPAREN') and name in EVIDENCE_PREDICATES:
+        if self.at('LPAREN') and (name in EVIDENCE_PREDICATES or name in LABEL_PREDICATES):
             self.advance()
             parts = []
             while not self.at('RPAREN') and not self.at('EOF'):
@@ -1022,7 +1031,7 @@ class CheckWarning:
     path: str
 
 
-VALID_ATOMS = ACTION_TYPES | ARTIFACT_TYPES | PREDICATES | FIELDS | EVIDENCE_PREDICATES | {
+VALID_ATOMS = ACTION_TYPES | ARTIFACT_TYPES | PREDICATES | FIELDS | EVIDENCE_PREDICATES | LABEL_PREDICATES | {
     'action', 'gateway', 'reasoning', 'activity',
     'start_event', 'end_event', 'high_stakes_path',
     'completed', 'failed', 'proved', 'refuted', 'sat', 'unknown',

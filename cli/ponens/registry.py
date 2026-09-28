@@ -133,6 +133,9 @@ def _entry_from_policy(p):
         "severity": p.get("severity"), "domain": p.get("domain"),
         "tags": sorted(p.get("tags", [])), "language_level": p.get("language_level"),
         "description": p.get("description"), "version": p.get("version", "1.0.0"),
+        # Pack membership travels with the entry, as it does in a gallery catalog - without it a
+        # local source's packs could be listed (`_packs_of` derives them from it) but never resolved.
+        "pack": p.get("pack"),
         "hash": _policy_hash(p),
     }
 
@@ -203,18 +206,23 @@ def split_ref(ref):
     return None, ref
 
 
-def resolve(ref):
-    """Resolve a policy reference to ``(source, catalog_entry)``."""
+def find_policy(ref):
+    """``(source, catalog_entry)`` for a policy reference, or ``LookupError`` saying why not.
+
+    The quiet form of :func:`resolve`: callers that must not print or exit (goal resolution runs
+    inside ``enrich``) get the reason as an exception instead."""
     name, pid = split_ref(ref)
     if name:
-        src = get_source(name)
+        src = next((s for s in load_sources() if s.get("name") == name), None)
+        if src is None:
+            raise LookupError(f"unknown source '{name}' — see `ponens sources list`")
         try:
             cat = source_catalog(src)
         except FileNotFoundError:
-            _err(f"source '{name}' not available — run: ponens registry update --source {name}")
+            raise LookupError(f"source '{name}' not available — run: ponens registry update --source {name}")
         entry = next((e for e in cat["policies"] if e["id"] == pid), None)
         if not entry:
-            _err(f"policy '{pid}' not found in source '{name}'")
+            raise LookupError(f"policy '{pid}' not found in source '{name}'")
         return src, entry
 
     hits = []
@@ -227,11 +235,60 @@ def resolve(ref):
         if entry:
             hits.append((s, entry))
     if not hits:
-        _err(f"policy '{pid}' not found in any configured source")
+        raise LookupError(f"policy '{pid}' not found in any configured source")
     if len(hits) > 1:
         opts = ", ".join(f"{s['name']}/{pid}" for s, _ in hits)
-        _err(f"'{pid}' is ambiguous across sources — qualify it: {opts}")
+        raise LookupError(f"'{pid}' is ambiguous across sources — qualify it: {opts}")
     return hits[0]
+
+
+def resolve(ref):
+    """Resolve a policy reference to ``(source, catalog_entry)``."""
+    try:
+        return find_policy(ref)
+    except LookupError as e:
+        _err(str(e))
+
+
+def _pack_key(name):
+    """Pack ids are kebab-case in the gallery (`apply-formal-methods`); authors write them snake_case
+    too (`apply_formal_methods`, as the agent guide once did). Both name the same pack."""
+    return (name or "").strip().lower().replace("_", "-")
+
+
+def find_pack(ref):
+    """The policies in a PACK: ``[(source, catalog_entry), ...]``, or ``LookupError`` saying why not.
+
+    A pack is the set of policies whose ``pack`` is that id - a gallery grouping, not a source. The
+    goal contract's ``policies.packs`` used to resolve each name as a SOURCE, so a real pack id found
+    no source and expanded to nothing, silently. ``source/pack`` qualifies it; a bare id is searched
+    across every configured source and must be unambiguous."""
+    name, pack = split_ref(ref)
+    key = _pack_key(pack)
+    sources = load_sources()
+    if name:
+        sources = [s for s in sources if s.get("name") == name]
+        if not sources:
+            raise LookupError(f"unknown source '{name}' — see `ponens sources list`")
+    found = {}
+    for s in sources:
+        try:
+            cat = source_catalog(s)
+        except (FileNotFoundError, RuntimeError):
+            if name:
+                raise LookupError(f"source '{name}' not available — run: ponens registry update --source {name}")
+            continue
+        members = [e for e in cat.get("policies", []) if _pack_key(e.get("pack")) == key]
+        if members:
+            found[s["name"]] = (s, members)
+    if not found:
+        where = f"source '{name}'" if name else "any configured source"
+        raise LookupError(f"pack '{pack}' not found in {where} — see `ponens search --type pack`")
+    if len(found) > 1:
+        opts = ", ".join(f"{n}/{pack}" for n in found)
+        raise LookupError(f"pack '{pack}' is in more than one source — qualify it: {opts}")
+    src, members = next(iter(found.values()))
+    return [(src, e) for e in members]
 
 
 # ----------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import fnmatch
 import json
 import os
 import sys
@@ -322,9 +323,54 @@ def _is_type(art, *names):
     return any(t == _canon_type(n) for n in names)
 
 
+def _criteria(trace):
+    """Every acceptance criterion of every goal, flattened, so a policy can quantify over them:
+    `∀ c ∈ criteria . c.symbol ≠ ∅`. Each carries its goal's id and intent author."""
+    out = []
+    for g in trace.get('goals') or []:
+        if not isinstance(g, dict):
+            continue
+        for c in g.get('acceptance') or []:
+            if not isinstance(c, dict):
+                continue
+            comp = c.get('component') if isinstance(c.get('component'), dict) else {}
+            ev = c.get('evidence') if isinstance(c.get('evidence'), dict) else {}
+            out.append({'id': c.get('id'), 'goal_id': g.get('id'), 'label': c.get('label') or c.get('statement'),
+                        'required': c.get('required') is not False, 'symbol': comp.get('function') or '',
+                        'evidence': ev.get('artifact') or '', 'author': c.get('author') or '',
+                        'intent_author': g.get('intent_author') or ''})
+    return out
+
+
+# Collections a quantifier may range over that are not top-level record fields.
+DERIVED_COLLECTIONS = {'criteria': _criteria}
+
+
+def _named_symbols(trace):
+    return {c['symbol'] for c in _criteria(trace) if c['symbol']}
+
+
+def _output_payloads(action, trace):
+    ids = set(action.get('_original_outputs', action.get('outputs', [])))
+    return [(a, a.get('payload') if isinstance(a.get('payload'), dict) else {})
+            for a in trace.get('artifacts', []) if a.get('artifact_id') in ids]
+
+
+def _edited_symbols(action, trace):
+    syms = set()
+    for _a, p in _output_payloads(action, trace):
+        if p.get('target_symbol'):
+            syms.add(p['target_symbol'])
+        syms.update(s for s in p.get('symbols') or [] if isinstance(s, str))
+    return syms
+
+
 def evaluate_formula(node, trace, ctx=None):
     if isinstance(node, (ForAll, Exists, ExistsUnique)):
-        coll = trace.get(node.set_name, []) if node.set_name else []
+        if node.set_name in DERIVED_COLLECTIONS and node.set_name not in trace:
+            coll = DERIVED_COLLECTIONS[node.set_name](trace)
+        else:
+            coll = trace.get(node.set_name, []) if node.set_name else []
         base = dict(ctx) if ctx else {}
         results = [evaluate_formula(node.body, trace, {**base, node.var: item}) for item in coll]
         if isinstance(node, ForAll):
@@ -505,6 +551,22 @@ def evaluate_formula(node, trace, ctx=None):
         if name in ('matched', 'mismatched'):
             # Co-simulation (model-vs-implementation replay) status.
             return a.get('cosimulation', {}).get('status') == name
+        if name == 'goal_declared':
+            # Record-level: some goal says what the work is for.
+            return any(isinstance(g, dict) and str(g.get('intent') or '').strip()
+                       for g in trace.get('goals') or [])
+        if name == 'named_by_goal':
+            # Every symbol this action changes is some criterion's component. An action that names no
+            # symbol cannot be shown to be named, so it is not.
+            syms = _edited_symbols(a, trace)
+            return bool(syms) and syms <= _named_symbols(trace)
+        if name == 'signature_change':
+            return any(p.get('signature_changed') is True for _a, p in _output_payloads(a, trace))
+        if name == 'search_confirmed':
+            # A search whose result someone re-ran against the same tree and got again - a negative
+            # ("nothing else calls this") that is a fact, not a claim.
+            return any(_canon_type(art.get('artifact_type')) == 'SearchResults' and p.get('confirmed') is True
+                       for art, p in _output_payloads(a, trace))
         if name == 'high_stakes_path':
             # "Where it makes sense": data-driven high-stakes surface. A producer (e.g. a
             # formalization-target scan) sets trace['high_stakes_paths'] to the path fragments that
@@ -581,6 +643,16 @@ def evaluate_formula(node, trace, ctx=None):
         if not ctx:
             return False
         a = ctx['action']
+        if node.func == 'labeled':
+            # trace['path_labels'] = {label: [pattern, ...]}; a pattern with a wildcard is a glob, one
+            # without is a path fragment (as `high_stakes_paths` matches). An undefined label holds nowhere.
+            pats = (trace.get('path_labels') or {}).get(node.arg) or []
+            files = {p.get('file') for _a, p in _output_payloads(a, trace) if isinstance(p.get('file'), str)}
+            files.add(get_action_target(a, trace))
+            files.discard('')
+            files.discard(None)
+            return any(fnmatch.fnmatch(f, pat) if any(c in pat for c in '*?[') else pat in f
+                       for pat in pats for f in files)
         if node.func in EVIDENCE_PREDICATES:
             # ORACLE_SPEC v0.2 §6: holds when ANY evidence artifact this action produced satisfies the
             # predicate over its attribution block (derived from `engine` on pre-1.12 payloads).
@@ -855,6 +927,49 @@ def evaluate_policy_full(policy, trace):
         return ('passed' if result else 'failed'), None, ev, vi, [], []
     except Exception as e:
         return 'unknown', f'Evaluation error: {e}', [], [], [], []
+
+
+def policy_applicability(policy, trace):
+    """Did the situation the policy is about ever occur in this record?
+
+    A policy shaped `G(φ → ψ)` says nothing about a record in which φ never held; `∀ x ∈ S . φ → ψ`
+    says nothing when S is empty or φ held for no x. Such a policy PASSES - vacuously - and reporting
+    that pass as compliance is how a rule appears to protect code it never looked at. True when the
+    trigger occurred (or the shape has no trigger to test); False when the pass was vacuous; None when
+    it could not be told (structural policies, parse failures)."""
+    formula_str = effective_formula(policy)
+    if not formula_str or policy.get('name', '') in STRUCTURAL_POLICIES:
+        return None
+    try:
+        ast = Parser(tokenize(formula_str), formula_str, policy.get('name', '')).parse()
+    except Exception:
+        return None
+
+    def app(node, ctx=None):
+        if isinstance(node, Globally):
+            if isinstance(node.body, Implies):
+                return any(evaluate_formula(node.body.left, trace, {**(ctx or {}), 'action': a}) for a in trace.get('actions', []))
+            return True
+        if isinstance(node, (ForAll, Exists, ExistsUnique)):
+            if node.set_name in DERIVED_COLLECTIONS and node.set_name not in trace:
+                coll = DERIVED_COLLECTIONS[node.set_name](trace)
+            else:
+                coll = trace.get(node.set_name, []) if node.set_name else []
+            if not coll:
+                return False
+            if isinstance(node.body, Implies):
+                return any(evaluate_formula(node.body.left, trace, {**(ctx or {}), node.var: x}) for x in coll)
+            return True
+        if isinstance(node, Implies):
+            return bool(evaluate_formula(node.left, trace, ctx)) and app(node.right, ctx)
+        if isinstance(node, And):
+            return app(node.left, ctx) or app(node.right, ctx)
+        return True
+
+    try:
+        return bool(app(ast))
+    except Exception:
+        return None
 
 
 def evaluate_policy(policy, trace):
@@ -1304,6 +1419,56 @@ def soundness_errors(trace, strict=False):
             if isinstance(a, dict) and a.get('type') in _GROUPED_ACTION_TYPES and a.get('meta_action_id') is None:
                 errs.append(f"action {a.get('id')} ({a.get('type')}): not grouped into any phase meta-action")
     return errs
+
+
+def parse_spec_version(v) -> tuple[int, ...]:
+    """`"1.14"` -> `(1, 14)`. Numeric, because the obvious thing is wrong.
+
+    These versions were compared as STRINGS, and lexicographic order is not version order once a
+    component reaches two digits: `"1.14" < "1.8"` is True, because `"1"` sorts before `"8"` at the
+    third character. Measured on a real trace - `ponens trace residual add` on a spec-1.14 record
+    rewrote it to 1.8, because the guard meant to RAISE the version saw 1.14 as older than 1.8 and
+    "raised" it downward. The same comparison also refused to upgrade a 1.6 or 1.9 trace to 1.14,
+    so the guard did the opposite of its purpose in both directions.
+
+    Unparseable parts sort as 0, and a missing version is `(1, 1)` - the value the callers defaulted
+    to when this was a string compare."""
+    parts = []
+    text = str(v or "").strip()
+    if text[:1] in ("v", "V"):
+        text = text[1:]            # `v1.14` is how a release tag writes it
+    for chunk in text.split("."):
+        # LEADING digits only. Collecting every digit in the chunk turned `1.14-rc1` into (1, 141) -
+        # a pre-release sorting above every real release, which is the wrong direction for a guard
+        # that raises.
+        lead = ""
+        for c in chunk.strip():
+            if not c.isdigit():
+                break
+            lead += c
+        parts.append(int(lead) if lead else 0)
+    # Nothing numeric anywhere - whitespace, a word, a dict. `1.1` is what every caller defaulted to
+    # when this was a string compare, so an unreadable version behaves exactly as a missing one.
+    if not any(parts):
+        return (1, 1)
+    # Trailing zeros carry no version information: `1.15` and `1.15.0` are the same release, and a
+    # tuple compare would otherwise call the shorter one OLDER. The agent's `compareVersions` (TS)
+    # pads to three components and reports them equal; two implementations of one comparison that
+    # disagree is the defect this whole fix is about, so they agree here.
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
+
+
+def raise_spec_version(trace: dict, minimum: str) -> bool:
+    """Ensure `trace` claims at least `minimum`. Returns whether it changed.
+
+    RAISE, never lower: a trace that already describes a newer shape must not be relabelled as older
+    because something from an earlier spec was just written into it."""
+    if parse_spec_version(trace.get("spec_version")) < parse_spec_version(minimum):
+        trace["spec_version"] = minimum
+        return True
+    return False
 
 
 def cmd_validate(args):
@@ -1823,8 +1988,7 @@ def cmd_residual_add(args):
     if getattr(args, "tag", None):
         r["tags"] = args.tag
     arts.append(lineage.residual_to_artifact(r))
-    if trace.get("spec_version", "1.1") < "1.8":
-        trace["spec_version"] = "1.8"
+    raise_spec_version(trace, "1.8")
     _save_trace_fmt(args.trace_file, trace)
     print(f"Declared residual {rid} ({args.severity} {args.kind}) as a Residual artifact in {args.trace_file}")
     if intro is None and (trace.get("actions") or []):
@@ -1905,8 +2069,7 @@ def cmd_residual_resolve(args):
         "derived_from": [args.residual_id] + evidence,
         "payload": payload,
     })
-    if str(trace.get("spec_version", "1.1")) < "1.14":
-        trace["spec_version"] = "1.14"
+    raise_spec_version(trace, "1.14")
     _save_trace_fmt(args.trace_file, trace)
     print(f"{args.residual_id} is now {args.status} - recorded as {res_id} at action #{action_id} "
           f"in {args.trace_file}")
@@ -1965,8 +2128,7 @@ def cmd_residual_contest(args):
     if args.by:
         r["tags"] = [f"by:{args.by}"]
     arts.append(lineage.residual_to_artifact(r))
-    if str(trace.get("spec_version", "1.1")) < "1.14":
-        trace["spec_version"] = "1.14"
+    raise_spec_version(trace, "1.14")
     _save_trace_fmt(args.trace_file, trace)
     print(f"{args.resolution_id} is contested by {rid} ({args.defeater_kind}) - "
           f"{target} reads open again while it stands")
@@ -2233,7 +2395,10 @@ def _faithfulness_findings(trace):
         gov_txt = 'governed' if governed is True else 'ungoverned' if governed is False else 'no policy'
         rows.append(f"    {gid}: {'met' if f.get('met') else 'not met'}, {gov_txt}, "
                     f"{'certified' if f.get('certified') else 'uncertified'}")
-        if governed is False:
+        unresolved = g.get('governance_unresolved') or []
+        for u in unresolved:
+            fails.append(f"goal '{gid}': declared {u['kind']} '{u['ref']}' could not be resolved — {u['reason']}")
+        if governed is False and not unresolved:
             fails.append(f"goal '{gid}': governed axis failed — a declared policy did not hold")
         for c in f.get('uncovered_clauses', []):
             fails.append(f"goal '{gid}': intent clause uncovered by any criterion — \"{c}\"")
@@ -2263,8 +2428,13 @@ def cmd_check(args):
     else:
         policies = trace.get('policies', [])
     if not policies:
-        print("[]" if getattr(args, 'json', False) else "No policies to check.")
-        return 0
+        # No trace-level policies is not "nothing to check" when the record has goals: their
+        # governance (the goal contract's packs/policies) and faithfulness still gate under --strict.
+        # Returning here skipped both, so a goal whose declared pack did not resolve - or whose
+        # governed axis failed - passed `check --strict` whenever the record carried no policies.
+        if getattr(args, 'json', False) or not trace.get('goals'):
+            print("[]" if getattr(args, 'json', False) else "No policies to check.")
+            return 0
     total = len(policies)
     passed = 0
     failed = 0
@@ -2279,6 +2449,11 @@ def cmd_check(args):
     not_evaluated = 0       # disabled, or the evaluator could not decide
     # policy_evaluation records (Trace Spec §7) accumulated for --json / --write.
     evaluations = []
+    # (name, severity) per policy id - for the --json REPORT. Kept out of the stamped
+    # `policy_evaluations`, whose schema (Policy Spec §7.1; trace v1.4 schema, closed object) has no
+    # such fields; a consumer of the report should not have to re-resolve every policy to learn
+    # whether a failure blocks. Goal governance evaluations already carry both.
+    meta = {}
     as_json = getattr(args, 'json', False)
     emit = (lambda *a, **k: None) if as_json else print  # suppress human output in machine mode
     last_action_id = max((a['id'] for a in trace.get('actions', [])), default=None)
@@ -2327,6 +2502,7 @@ def cmd_check(args):
         pid = p.get('policy_id', p.get('name', '?'))
         name = p.get('name', pid)
         severity = p.get('severity', 'error')
+        meta[pid] = (name, severity)
         # A policy the user turned off: record it as `disabled` (neutral — never passed/failed, never
         # blocking) so it stays visible and re-enableable, but does not gate. Mirrors the goal policy
         # bar's `disabled` handling (governance_of).
@@ -2346,9 +2522,12 @@ def cmd_check(args):
             continue
         status, note, ev_actions, vi_actions, ev_arts, vi_arts = evaluate_policy_full(p, trace)
         record_eval(pid, status, note, ev_actions, vi_actions, ev_arts, vi_arts)
+        applicable = policy_applicability(p, trace) if status == 'passed' else True
+        meta[pid] = (name, severity, applicable)
         if status == 'passed':
             passed += 1
-            emit(f"  PASS    {name}")
+            # A vacuous pass is still a pass - but said as what it is.
+            emit(f"  PASS    {name}" + ("  (n/a: its trigger never occurred)" if applicable is False else ""))
         elif status == 'failed':
             failed += 1
             icon = 'FAIL' if severity == 'error' else 'WARN'
@@ -2372,13 +2551,21 @@ def cmd_check(args):
             print(f"  wrote {len(evaluations)} policy_evaluations to {args.trace_file}")
 
     if as_json:
-        print(json.dumps(evaluations, indent=2, ensure_ascii=False))
+        report = []
+        for ev in evaluations:
+            m = meta.get(ev['policy_id'], (None, None, None))
+            row = {**ev, 'name': m[0], 'severity': m[1]}
+            # `applicable: false` - passed only because the situation it governs never occurred.
+            if len(m) > 2 and m[2] is not None and ev.get('status') == 'passed':
+                row['applicable'] = m[2]
+            report.append(row)
+        print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
 
     faith_fail, faith_warn, faith_rows = _faithfulness_findings(trace)
 
     emit(f"\n{'='*50}")
-    emit(f"  {total} policies checked")
+    emit(f"  {total} policies checked" if total else "  No trace-level policies to check.")
     # Counts that PARTITION, and that agree with the rows above. `failed` tallies every violation
     # regardless of severity, so a run whose worst row was a WARN - and which therefore exits 0 -
     # still announced "1 failed, 1 warnings", double-reporting one violation as both and showing a
@@ -2389,7 +2576,8 @@ def cmd_check(args):
         parts.append(f"{advisory} advisory")
     if not_evaluated:
         parts.append(f"{not_evaluated} not evaluated")
-    emit("  " + ", ".join(parts))
+    if total:
+        emit("  " + ", ".join(parts))
     if faith_rows:
         emit(f"\n  Goal faithfulness (is \"done\" right, not just met?):")
         for row in faith_rows:
@@ -2838,8 +3026,7 @@ def cmd_goal_set(args):
                           was=copy.deepcopy(existing), by=args.by)
     else:
         goals.append(goal)
-    if trace.get("spec_version", "1.1") < "1.7":
-        trace["spec_version"] = "1.7"
+    raise_spec_version(trace, "1.7")
     _save_trace_fmt(args.trace_file, trace)
     print(f"Set goal '{goal['id']}' ({len(goal['acceptance'])} acceptance items) in {args.trace_file}")
     return 0
@@ -2921,8 +3108,7 @@ def _record_amendment(trace, goal_id, change, reason, label, was=None, item_id=N
     arts.append(lineage.amendment_artifact(
         goal_id, change, reason, action_id, seq, was=was, item_id=item_id, by=by,
         at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
-    if str(trace.get("spec_version", "1.1")) < "1.14":
-        trace["spec_version"] = "1.14"
+    raise_spec_version(trace, "1.14")
     return action_id
 
 
@@ -3040,6 +3226,20 @@ def cmd_goal_ls(args):
         flags += " · CERTIFIED" if f.get("certified") else " · uncertified"
         print(f"\n{g.get('id')}: {g.get('intent', '')}")
         print(f"  {flags}  ({int(round(g.get('progress', 0) * 100))}% done)")
+        # What was DONE under this goal, next to what the goal is ABOUT. These are different relations
+        # and the gap between them is the point: a goal with thirty artifacts under it and two rooted in
+        # criteria is a goal whose definition of done covers two things. Reported, never scored -
+        # unrooted work is normal (reading the config is real work and evidences nothing), and scoring it
+        # would push an author to invent criteria the evidence trivially satisfies.
+        cov = g.get("coverage") or {}
+        if cov.get("recorded"):
+            kinds = ", ".join(f"{k} {n}" for k, n in (cov.get("unrooted_by_type") or {}).items())
+            print(f"  work recorded under it: {cov['recorded']}"
+                  f" - {cov.get('rooted', 0)} evidence a criterion,"
+                  f" {cov.get('unrooted', 0)} evidence none" + (f" ({kinds})" if kinds else ""))
+        for cid in (cov.get("criteria_unevidenced") or []):
+            # UNKNOWN, not unmet. A criterion with nothing rooted in it has not failed; nothing answered it.
+            print(f"  ? nothing in the record answers criterion {cid}")
         _print_amendments(trace, g.get("id"))
         for c in f.get("uncovered_clauses", []):
             print(f"  ! uncovered intent clause: {c}")
@@ -3172,7 +3372,7 @@ def register(subparsers):
     p.add_argument("trace_file")
     p.add_argument("--policy-file", default=None, help="External policy JSON file")
     p.add_argument("--strict", action="store_true", help="Treat warnings as errors")
-    p.add_argument("--json", action="store_true", help="Emit policy_evaluations as JSON (machine-readable; suppresses human output)")
+    p.add_argument("--json", action="store_true", help="Emit policy_evaluations as JSON, each with the policy's name and severity (machine-readable; suppresses human output)")
     p.add_argument("--write", action="store_true", help="Stamp policy_evaluations into the trace file in place")
     p.set_defaults(func=cmd_check)
 

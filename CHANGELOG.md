@@ -7,6 +7,72 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [Unreleased]
+
+## [1.16.0] — 2026-09-28
+
+Goals, provenance and an organization's own vocabulary become things a policy can say - found by a
+hub that evaluates records with `ponens` instead of re-deriving the answers.
+
+### Added
+- **Goal coverage: the work recorded under a goal, against the work that evidences it.**
+  `goal_coverage(goal, trace)` reports recorded / rooted / unrooted artifacts per goal (with a
+  breakdown by type, and the criteria nothing answers); `enrich` attaches it as `coverage` and
+  `trace goal ls` renders it. A report, not a score: unrooted work is normal, and a criterion with
+  nothing rooted in it reads as unknown, not unmet.
+- **Goals and provenance in the policy language.** `∀ c ∈ criteria . …` quantifies over every
+  acceptance criterion of every goal (with `symbol`, `evidence`, `required`, `author`,
+  `intent_author`); new action predicates `goal_declared`, `named_by_goal` (every symbol an edit
+  changes is some criterion's component), `signature_change` and `search_confirmed` (facts stamped
+  on a Diff / SearchResults by whoever computed them). So "every changed symbol is named by a goal"
+  or "a signature change is preceded by a confirmed caller search" is a policy, not hub code.
+- **`labeled(<name>)`: an organization's own vocabulary in a formula.** A record's `path_labels`
+  (`{"migrations": ["db/migrations/**"]}`) names parts of the code; `labeled(migrations)` holds for an
+  action that changed a file in one. A pattern with a wildcard is a glob, one without a path fragment.
+  So "a migration is preceded by tests" is written once, and each repository says where its
+  migrations are. An undefined label holds nowhere, and the policy reads as not applicable.
+- **`check --json` says when a pass was vacuous.** Each passed policy carries `applicable`: `false`
+  when the situation it governs never occurred (`G(φ → ψ)` where φ never held, a quantifier over an
+  empty collection). The human output marks it `(n/a: its trigger never occurred)`. A policy that
+  passes on every record because it never applies protects nothing, and now reads that way.
+
+### Fixed
+- **A goal's `policies.packs` resolves the pack you named.** The resolver looked each pack name up as
+  a policy SOURCE, so a real pack id (`apply-formal-methods`) matched no source and expanded to
+  nothing - silently: the goal read as having no governance at all, and the Goal Contract's own
+  example (`apply_formal_methods`) never governed anything. A pack is now the set of policies whose
+  `pack` is that id, across configured sources; `source/pack` qualifies it, snake_case names the
+  same pack as kebab-case, and a pack in more than one source must be qualified. The resolution
+  tests had pinned the old behaviour by mocking `get_source` to accept any name; they now exercise
+  real pack membership.
+- **A policy or pack ref that does not resolve is reported, not dropped.** Enrich records it on the
+  goal as `governance_unresolved` (ref, kind, reason) and the goal is not `governed` - governance the
+  author declared but that could not be evaluated is not governance. `check --strict` fails on it.
+- **`check` gates goals even when the record carries no trace-level policies.** It returned "No
+  policies to check." before looking at goals, so `--strict` passed a goal whose governed axis
+  failed whenever the record itself attached no policy - the documented gate did not run.
+- **Local policy sources' packs resolve.** Catalog entries built from a local source dropped each
+  policy's `pack`, so its packs could be listed but not used.
+- **`check --json` reports each policy's `name` and `severity`.** Whether a failure blocks depends on
+  its severity, and a consumer had to re-resolve every policy to find out; goal governance
+  evaluations already carried both. The evaluations `--write` stamps into the record are unchanged,
+  as Policy Spec §7.1 defines them.
+- **The agent guide names the pack as the gallery does** (`apply-formal-methods`).
+
+## [1.15.5] — 2026-09-26
+
+A patch release with one fix, found by pushing real records to a hub instead of fixtures.
+
+### Fixed
+- **`push` now sends the trace, not just a row about it.** `POST /traces/{id}/content` was served
+  from the beginning and nothing ever called it, so a pushed trace arrived as a title, a commit and a
+  content hash with nothing behind them - the viewer had no artifacts to render, the goal and gap
+  summary had nothing to count, and a policy run over the record had no record. Nothing failed:
+  `push` reported success, and the hub showed a trace whose every number was zero. The `summary`
+  field sent alongside was `trace.get("summary")`, and a ponens trace has no top-level `summary`, so
+  that was always `None` too; a hub is better served deriving it from the content it now receives.
+  Two tests assert the upload happens and that it follows the create call whose id addresses it.
+
 ## [1.15.4] — 2026-09-25
 
 A patch release about **checking the record against reality**, from a week spent handing published

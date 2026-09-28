@@ -481,6 +481,18 @@ def _pkg_version() -> str:
         return "0+unknown"
 
 
+def cmd_version(args):
+    """What this ponens is, for a consumer deciding whether to trust its answers: the package version
+    and the newest trace spec it reads (`--version` prints only the former, for people)."""
+    from .trace import TRACE_SPEC_VERSION
+    info = {"version": _pkg_version(), "trace_spec": TRACE_SPEC_VERSION}
+    if getattr(args, "json", False):
+        print(json.dumps(info))
+    else:
+        print(f"ponens {info['version']} (reads trace spec up to {info['trace_spec']})")
+    return 0
+
+
 def build_parser():
     """Build the full argument parser (every subcommand). Split out from main() so tests can
     introspect the command surface (e.g. that every command the `ponens agent` guide names exists)."""
@@ -490,6 +502,10 @@ def build_parser():
     )
     parser.add_argument("--version", action="version", version=f"ponens {_pkg_version()}")
     subparsers = parser.add_subparsers(dest="command")
+
+    p = subparsers.add_parser("version", help="Show the ponens version and the newest trace spec it reads")
+    p.add_argument("--json", action="store_true", help="Machine-readable: {version, trace_spec}")
+    p.set_defaults(func=cmd_version)
 
     # ── auth ────────────────────────────────────────────────────
     auth = subparsers.add_parser("auth", help="Authentication and user management")

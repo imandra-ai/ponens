@@ -26,6 +26,10 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 - **`trace overview` says the two things its silence could not.** "No definition of done" when a goal
   states no requirements (it used to look exactly like a clean run), and "recorded but unconnected" when
   a goal's criteria are answered by none of the verdicts in the record. Reported, never scored.
+- **`ponens version --json`: which trace spec this ponens reads.** A consumer (a hub, a CI gate) can
+  now refuse to judge a record written for a newer spec, whose new fields this ponens cannot see,
+  instead of reading its silence as a pass. Prints `{"version": …, "trace_spec": "1.14"}`;
+  `--version` is unchanged.
 - **One table of typed-criteria use cases** (`tests/unit/test_typed_criteria_matrix.py`, 31 rows): proofs,
   decompositions, tests, a person's review, conformance, files, subjects, searches, observations,
   project-level criteria - each held to the state `trace overview` should give.

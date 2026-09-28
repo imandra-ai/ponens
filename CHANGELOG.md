@@ -42,12 +42,8 @@ Goals, provenance and an organization's own vocabulary become things a policy ca
 hub that evaluates records with `ponens` instead of re-deriving the answers.
 
 ### Added
-- **Goal coverage: the work recorded under a goal, against the work that evidences it.**
-  `goal_coverage(goal, trace)` reports recorded / rooted / unrooted artifacts per goal (with a
-  breakdown by type, and the criteria nothing answers); `enrich` attaches it as `coverage` and
-  `trace goal ls` renders it. A report, not a score: unrooted work is normal, and a criterion with
-  nothing rooted in it reads as unknown, not unmet.
-- **Goals and provenance in the policy language.** `∀ c ∈ criteria . …` quantifies over every
+- **Goals and provenance in the policy language.** A policy can require that every change serves a
+  declared goal: `∀ c ∈ criteria . …` quantifies over every
   acceptance criterion of every goal (with `symbol`, `evidence`, `required`, `author`,
   `intent_author`); new action predicates `goal_declared`, `named_by_goal` (every symbol an edit
   changes is some criterion's component), `signature_change` and `search_confirmed` (facts stamped
@@ -58,6 +54,11 @@ hub that evaluates records with `ponens` instead of re-deriving the answers.
   action that changed a file in one. A pattern with a wildcard is a glob, one without a path fragment.
   So "a migration is preceded by tests" is written once, and each repository says where its
   migrations are. An undefined label holds nowhere, and the policy reads as not applicable.
+- **Goal coverage.** The work recorded under a goal, against the work that evidences it:
+  `goal_coverage(goal, trace)` reports recorded / rooted / unrooted artifacts per goal (with a
+  breakdown by type, and the criteria nothing answers); `enrich` attaches it as `coverage` and
+  `trace goal ls` renders it. A report, not a score: unrooted work is normal, and a criterion with
+  nothing rooted in it reads as unknown, not unmet.
 - **`check --json` says when a pass was vacuous.** Each passed policy carries `applicable`: `false`
   when the situation it governs never occurred (`G(φ → ψ)` where φ never held, a quantifier over an
   empty collection). The human output marks it `(n/a: its trigger never occurred)`. A policy that

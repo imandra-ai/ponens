@@ -195,3 +195,54 @@ def test_addressed_defeater_does_not_block_a_typed_criterion():
                            "derived_from": ["model"], "producer_action_id": 10, "payload": {"status": "passed"}})
     t["artifacts"].append(_open_defeater("conf1", status="addressed"))
     assert resolve_item(crit("settle", "ConformanceResult"), t)["status"] == "done"  # resolved → no longer blocks
+
+
+def test_a_property_narrowing_does_not_block_a_decomposition():
+    """A decomposition asserts no property - it enumerates the cases a function has.
+
+    Measured: `contradiction` declared `component: should_retry, evidence: Decomposition, property:
+    "should_retry returns False for 4xx responses"`. The record held three decompositions of
+    `should_retry` that rooted in it exactly, and the criterion stayed `todo` - because
+    `_asserts_property` is false for every decomposition ever produced. The agent writes `property`
+    because the tool description tells it to, so this was reachable by following the instructions, and
+    Decomposition is the most-requested evidence type in the corpus.
+    """
+    from ponens import goals as G
+    trace = {
+        "goals": [{"id": "g", "intent": "i", "scope": [], "status": "active", "acceptance": [
+            {"id": "s1", "kind": "property", "label": "no retry on 4xx", "required": True,
+             "component": {"function": "should_retry"}, "evidence": {"artifact": "Decomposition"},
+             "property": "should_retry returns False for 4xx responses"}]}],
+        "artifacts": [{"artifact_id": "r-1", "artifact_type": "StateSpaceAnalysisResult", "name": "regions",
+                       "derived_from": [], "payload": {"target_symbol": "should_retry"}}],
+    }
+    import copy
+    e = G.enrich(copy.deepcopy(trace))
+    item = e["goals"][0]["acceptance"][0]
+    assert item["status"] == "done", "the decomposition of that very function evidences the criterion"
+    assert item.get("evidence_ref") == "r-1"
+
+
+def test_a_property_narrowing_STILL_applies_to_a_verdict():
+    """The narrowing is what makes a two-property goal statable, and must keep working where it can.
+
+    A VerificationResult names the goal it discharged, so 'stays within the ceiling' and 'is never
+    negative' remain different criteria over one component.
+    """
+    from ponens import goals as G
+    import copy
+    trace = {
+        "goals": [{"id": "g", "intent": "i", "scope": [], "status": "active", "acceptance": [
+            {"id": "s1", "kind": "property", "label": "ceiling", "required": True,
+             "component": {"function": "allowed"}, "evidence": {"artifact": "VerificationResult"},
+             "property": "stays within the ceiling"}]}],
+        "artifacts": [
+            {"artifact_id": "vg-1", "artifact_type": "VerificationGoal", "name": "g1", "derived_from": [],
+             "payload": {"target_symbol": "allowed", "description": "is never negative"}},
+            {"artifact_id": "v-1", "artifact_type": "VerificationResult", "name": "v1",
+             "derived_from": ["vg-1"], "payload": {"target_symbol": "allowed", "status": "proved",
+                                                    "goal_artifact_id": "vg-1"}},
+        ],
+    }
+    item = G.enrich(copy.deepcopy(trace))["goals"][0]["acceptance"][0]
+    assert item["status"] != "done", "a proof of a DIFFERENT property must not satisfy this criterion"

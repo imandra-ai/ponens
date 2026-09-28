@@ -97,6 +97,12 @@ def _canon_art_type(s):
     return _ART_TYPE_ALIASES.get(k, k)
 
 
+# Evidence that names the property it settled. A verdict carries its VerificationGoal's description; a
+# conformance result names the reference entry it was judged against. Everything else - a decomposition,
+# generated tests, a model, a diff - evidences a SUBJECT, not a claim about it.
+_PROPERTY_BEARING = {"verificationresult", "conformanceresult"}
+
+
 def _asserts_property(art, prop, trace):
     """Is this evidence about the named property? Matched against the goal the verdict came from (its
     `description`) and against the properties the verdict itself reports. Substring, case-insensitive:
@@ -165,7 +171,23 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     # The join is already in the trace: a VerificationResult names its `goal_artifact_id`, and the goal
     # carries the property text as its `description`. Same shape as the `reference` narrowing above.
     prop = item.get("property")
-    if prop:
+    # ONLY for evidence that can assert a property. A VerificationResult names the goal it discharged,
+    # so narrowing by property is exactly right there - it is what makes a two-property goal statable at
+    # all. A DECOMPOSITION asserts nothing: it enumerates the cases a function has, and there is one per
+    # function rather than one per property, so `_asserts_property` is false for every decomposition
+    # ever produced and the criterion could never resolve.
+    #
+    # Measured: `contradiction` declared `component: should_retry, evidence: Decomposition, property:
+    # "should_retry returns False for 4xx responses"`, the record held three decompositions of
+    # `should_retry` that `roots_in_component` matched exactly, and the criterion stayed `todo`. Drop the
+    # narrowing and the same record resolves `done` off `fr6-regions`. The agent writes `property`
+    # because the tool description tells it to, so this was reachable by following the instructions.
+    #
+    # Two property-narrowed Decomposition criteria over one function then both resolve off one artifact,
+    # and that is correct rather than a leak: a decomposition is exhaustive over that function's cases,
+    # so it evidences every question about them equally. What it does NOT do is prove any of them, which
+    # is the difference the evidence TYPE already carries.
+    if prop and _canon_art_type(art_type) in _PROPERTY_BEARING:
         matches = [a for a in matches if _asserts_property(a, prop, trace)]
     if not matches:
         return keep

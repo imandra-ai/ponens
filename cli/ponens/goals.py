@@ -1542,9 +1542,12 @@ def next_steps(trace, limit=None):
                 # them hold verdicts that answer no stated requirement - and this is the surface whose
                 # whole job is to say what to do about it, so it was the one giving the worst answer.
                 #
-                # Reported as a CONNECTION step, not as "done": whether that result is the answer is a
-                # judgement nobody here can make. What the record can say is that the two exist and
-                # nothing joins them, which is the thing a person can act on.
+                # A CONNECTION step, not "done" and not an escalation. Whether that result IS the
+                # answer is a judgement, and it is the AGENT'S to make - the attribution reconciler
+                # exists for exactly this and asks a model which produced symbol is the formalization of
+                # an unresolved component. It could not fire here because the verification carried no
+                # symbol at all, so there was nothing to offer it; with one, it does. So this step names
+                # a decision to be taken, not a question to pass upward.
                 loose = _unattached_of_type(e, art, it) if isinstance(ev, dict) else []
                 if loose:
                     many = len(loose) > 1
@@ -1553,8 +1556,8 @@ def next_steps(trace, limit=None):
                                       why=("%d results already in the record answer nothing that was asked for"
                                            % len(loose)) if many
                                           else "a result already in the record answers nothing that was asked for",
-                                      suggested="check whether %s %s about `%s`; if so, say so and the two connect "
-                                                "- if not, the work is still to do"
+                                      suggested="decide whether %s %s about `%s` - if so, record that and "
+                                                "the two connect; if not, the work is still to do"
                                                 % (shown, "are" if many else "is", what)))
                 else:
                     steps.append(dict(base, kind="establish", priority=2, why="required, nothing established yet",

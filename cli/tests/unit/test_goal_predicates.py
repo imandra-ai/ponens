@@ -163,3 +163,44 @@ def test_criteria_say_what_they_are_about():
     assert status(p, record([goal("refund_fee")])) == "passed"
     nothing = {**file_goal("x"), "acceptance": [{"id": "c1", "label": "vague"}]}
     assert status(p, record([nothing])) == "failed"
+
+
+def subject_goal(**component):
+    return {"id": "g1", "intent": "Keep dependencies current", "intent_author": "human", "status": "active", "scope": [],
+            "acceptance": [{"id": "c1", "label": "at the new version", "component": component, "required": True}]}
+
+
+def manifest_edit(aid, *subjects):
+    """An edit to a manifest that names what it changed - a Diff for the file, and one per subject."""
+    outs = [f"d{aid}"] + [f"d{aid}s{i}" for i in range(len(subjects))]
+    act = {"id": aid, "type": "EditFile", "category": "activity", "label": "bump", "rationale": "why",
+           "inputs": [], "outputs": outs, "result_summary": "completed"}
+    arts = [{"artifact_id": f"d{aid}", "artifact_type": "Diff", "name": "package.json", "producer_action_id": aid,
+             "derived_from": [], "payload": {"file": "package.json"}}]
+    arts += [{"artifact_id": f"d{aid}s{i}", "artifact_type": "Diff", "name": f"{k} {n}", "producer_action_id": aid,
+              "derived_from": [], "payload": {"file": "package.json", k: n, "subject": {"kind": k, "name": n}}}
+             for i, (k, n) in enumerate(subjects)]
+    return act, arts
+
+
+def test_an_edit_named_by_the_subject_it_changed():
+    p = pol("G(EditFile → named_by_goal)")
+    act, arts = manifest_edit(1, ("dependency", "@heroicons/react"))
+    ok = record(goals=[subject_goal(dependency="@heroicons/react")], actions=[act], artifacts=arts)
+    assert status(p, ok) == "passed"
+    # The goal names another dependency: this edit's is not named.
+    other = record(goals=[subject_goal(dependency="left-pad")], actions=[act], artifacts=arts)
+    assert status(p, other) == "failed"
+    # Two subjects changed, one named: not every change is named.
+    act2, arts2 = manifest_edit(1, ("dependency", "@heroicons/react"), ("dependency", "left-pad"))
+    both = record(goals=[subject_goal(dependency="@heroicons/react")], actions=[act2], artifacts=arts2)
+    assert status(p, both) == "failed"
+
+
+def test_a_subject_is_read_only_where_it_is_stated():
+    # A payload's other string fields - a grade, a status - are not subjects.
+    p = pol("G(EditFile → named_by_goal)")
+    act, arts = manifest_edit(1)
+    arts[0]["payload"]["evidence_strength"] = "static_analysis"
+    bare = record(goals=[subject_goal(dependency="@heroicons/react")], actions=[act], artifacts=arts)
+    assert status(p, bare) == "failed"          # names nothing: still needs a file criterion

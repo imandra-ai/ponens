@@ -198,7 +198,10 @@ def _about_component(a, compd, trace):
         for kind, value in subjects.items():
             plural = kind[:-1] + "ies" if kind.endswith("y") else kind + "s"      # dependency -> dependencies
             many = p.get(plural)
-            if p.get(kind) == value or (isinstance(many, list) and value in many) or p.get("subject") == value:
+            # `subject` as a plain name, or stated in full - {kind, name} - as an edit states what it changed.
+            sub = p.get("subject")
+            if p.get(kind) == value or (isinstance(many, list) and value in many) or sub == value \
+                    or (isinstance(sub, dict) and str(sub.get("kind", "")).lower() == kind.lower() and sub.get("name") == value):
                 return True
     return False
 

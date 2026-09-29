@@ -358,6 +358,32 @@ def _named_symbols(trace):
     return {c['symbol'] for c in _criteria(trace) if c['symbol']}
 
 
+_COMPONENT_NON_SUBJECT = ('function', 'function_', 'symbol', 'file', 'path')
+
+
+def _named_subjects(trace):
+    """(kind, name) of every subject a criterion is about - `{"dependency": "left-pad"}` (Goal Contract §4.1)."""
+    out = set()
+    for g in trace.get('goals') or []:
+        for c in (g.get('acceptance') or []) if isinstance(g, dict) else []:
+            comp = c.get('component') if isinstance(c, dict) and isinstance(c.get('component'), dict) else {}
+            for k, v in comp.items():
+                if k not in _COMPONENT_NON_SUBJECT and isinstance(v, str) and v:
+                    out.add((k.lower(), v))
+    return out
+
+
+def _edited_subjects(action, trace):
+    """(kind, name) of every subject an edit says it changed: its output Diffs' `payload.subject`
+    ({kind, name}) or `payload.subjects` - stated explicitly, never guessed from other payload keys."""
+    subs = set()
+    for _a, p in _output_payloads(action, trace):
+        for s in [p.get('subject')] + list(p.get('subjects') or []):
+            if isinstance(s, dict) and s.get('kind') and s.get('name'):
+                subs.add((str(s['kind']).lower(), str(s['name'])))
+    return subs
+
+
 def _named_files(trace):
     return [c['file'] for c in _criteria(trace) if c['file']]
 
@@ -583,9 +609,12 @@ def evaluate_formula(node, trace, ctx=None):
                        for g in trace.get('goals') or [])
         if name == 'named_by_goal':
             # Every symbol this action changes is some criterion's component. An action that names no
-            # symbol cannot be shown to be named, so it is not.
+            # symbol (or subject) cannot be shown to be named, so it is not.
             syms = _edited_symbols(a, trace)
-            if syms and syms <= _named_symbols(trace):
+            # ... and every SUBJECT it says it changed (a dependency bumped, a table migrated) is some
+            # criterion's subject: a manifest edit whose dependency the goal names is named.
+            subs = _edited_subjects(a, trace)
+            if (syms or subs) and syms <= _named_symbols(trace) and subs <= _named_subjects(trace):
                 return True
             # Or every file it changes is named by a FILE criterion ("the migration is tested"): the
             # criterion covers the whole file, whatever symbols it contains - and a migration has none.

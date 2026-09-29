@@ -9,6 +9,16 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+### Changed
+- **`named_by_goal` counts subjects.** An edit is named by the goal when every symbol *and every
+  subject* it says it changed is some criterion's component - so an edit to `package.json` whose
+  `Diff` states `subject: {kind: "dependency", name: "left-pad"}` is named by a criterion about
+  `{"dependency": "left-pad"}`, with no file criterion needed. A subject is read only where it is
+  stated (`payload.subject` or `payload.subjects`), never guessed from other payload fields; an edit
+  that names neither a symbol nor a subject still needs its file named.
+- A criterion about a subject is met by an artifact stating that subject in full
+  (`payload.subject: {kind, name}`), as well as by `payload.<kind>`.
+
 ## [1.16.1] — 2026-09-28
 
 Typed criteria that hold up across real use cases - files and subjects as well as functions, reviews

@@ -1,0 +1,42 @@
+(* Policy: the governed axis, a query over the action timeline
+   =========================================================== *)
+
+(* The met axis (goals) ranges over the ARTIFACT sort — what was established. The
+   governed axis (policies) ranges over the ACTION sort — the finite timeline of what
+   the agent DID. A policy is an LTLf formula evaluated over that timeline. Because the
+   two axes read DISJOINT projections of the state (artifacts vs timeline), they are
+   orthogonal: how the work was done cannot change what was established, and vice versa. *)
+type act = Edit | Test | Commit | Verify | Approve | Research
+
+type timeline = act list
+
+(* G p : p holds at every position (globally). F p : p holds at some position (finally). *)
+let rec g_all (p : act -> bool) (tl : timeline) : bool =
+  match tl with [] -> true | a :: r -> p a && g_all p r
+
+let rec f_some (p : act -> bool) (tl : timeline) : bool =
+  match tl with [] -> false | a :: r -> p a || f_some p r
+
+(* the response pattern G(trigger -> F response): at every position where [trig] holds,
+   [resp] holds somewhere in the suffix from that position (finally). *)
+let rec responds (trig : act -> bool) (resp : act -> bool) (tl : timeline) : bool =
+  match tl with
+  | [] -> true
+  | a :: r -> (trig a ==> f_some resp (a :: r)) && responds trig resp r
+
+(* P1 temporal semantics — worked example (mirrors policy/temporal's G(refuted->F proved)):
+   "every Verify is eventually followed by an Approve" FAILS with no later Approve ... *)
+theorem policy_example_fails =
+  not (responds (fun a -> a = Verify) (fun a -> a = Approve) [Verify; Edit])
+[@@by auto]
+
+(* ... and PASSES when the Approve is present in the suffix. *)
+theorem policy_example_passes =
+  responds (fun a -> a = Verify) (fun a -> a = Approve) [Verify; Approve]
+[@@by auto]
+
+(* P2 G is conjunctive over the timeline: globally-p on a cons is p-here and globally-p
+   on the tail (the LTLf unfolding of G). *)
+theorem g_all_unfold (p : act -> bool) (a : act) (r : timeline) =
+  g_all p (a :: r) = (p a && g_all p r)
+[@@by auto]

@@ -1,0 +1,62 @@
+(* Rename ambiguity: rename recovery, never guess
+   ==============================================
+
+   Migrated from the retired rename/ambiguity model. findRenameTarget: take a rename only
+   on a unique exact match or a clear similarity win; refuse (NoMatch) when ambiguous.
+   Reuses sim_min/sim_margin from the component-identity section above. *)
+
+[@@@import Identity, "identity.iml"]
+
+type result = Match | NoMatch
+
+(* Tier 1: EXACT (findRenameTarget, exact[] handling).
+   A rename is taken only when there is exactly ONE byte-identical candidate.
+   0 matches = nothing to recover; >1 = copies exist, so refuse to guess. *)
+let exact_tier (exact_count : int) : result =
+  if exact_count = 1 then Match else NoMatch
+
+(* Tier 2: SIMILARITY (findRenameTarget, best/second handling).
+   Accept the single best candidate only if it clears the minimum AND beats the
+   runner-up by the margin; a near-tie (small margin) is ambiguous and rejected. *)
+let similarity_tier (best : int) (second : int) : result =
+  if best >= Identity.sim_min && best - second >= Identity.sim_margin then Match else NoMatch
+
+(* The combined decision: exact tier first; fall to similarity only if it did not fire. *)
+let find_rename (exact_count : int) (best : int) (second : int) : result =
+  match exact_tier exact_count with
+  | Match -> Match
+  | NoMatch -> similarity_tier best second
+
+(* Invariants (the "don't guess" safety property)
+   ---------------------------------------------- *)
+
+(* T1 - Ambiguous exact copies are never guessed: more than one byte-identical
+   candidate ⇒ the exact tier refuses. *)
+theorem no_guess_on_ambiguous_exact (exact_count : int) =
+  exact_count > 1 ==> exact_tier exact_count = NoMatch
+
+
+(* T2 - Below the similarity floor there is no rename. *)
+theorem no_guess_below_threshold (best : int) (second : int) =
+  best < Identity.sim_min ==> similarity_tier best second = NoMatch
+
+
+(* T3 - A near-tie is ambiguous: too small a lead over the runner-up ⇒ refuse. *)
+theorem no_guess_on_close_runnerup (best : int) (second : int) =
+  best - second < Identity.sim_margin ==> similarity_tier best second = NoMatch
+
+
+(* T4 - Converse: any similarity Match is ALWAYS unambiguous (clears floor AND margin). *)
+theorem similarity_accepts_only_clear (best : int) (second : int) =
+  similarity_tier best second = Match ==> best >= Identity.sim_min && best - second >= Identity.sim_margin
+
+
+(* T5 - A byte-identical single move is taken regardless of similarity scores. *)
+theorem exact_wins (exact_count : int) (best : int) (second : int) =
+  exact_count = 1 ==> find_rename exact_count best second = Match
+
+
+(* T6 - Soundness of the whole decision: any accepted rename is either an exact single
+   match or a clear similarity win - never a guess. *)
+theorem find_match_is_justified (ec : int) (b : int) (s : int) =
+  find_rename ec b s = Match ==> (ec = 1) || (b >= Identity.sim_min && b - s >= Identity.sim_margin)

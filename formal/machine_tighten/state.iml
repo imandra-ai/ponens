@@ -1,0 +1,180 @@
+(* State: actions + artifacts (events first-class)
+   ===============================================
+
+   The trace state of the paper's §2 has TWO parts: the ordered ACTION log (ground
+   truth — one entry per tool call) and the ARTIFACT lineage DAG (the evidence). The
+   invariants above are proved over the artifact DAG and the policies over the action
+   timeline; here we make the pairing explicit. The state is (actions, artifacts); every
+   artifact is PRODUCED BY an action recorded in the log that lists it among its outputs
+   (no orphan evidence — evidence enters the trace only via a recorded action); and the
+   transitions grow both together, preserving that link. *)
+
+[@@@import Machine, "machine.iml"]
+[@@@import Policy, "policy.iml"]
+[@@@import Merge, "merge.iml"]
+
+open Machine
+
+type action = { aid : int; atype : Policy.act; produces : int list }
+
+type state = { actions : action list; artifacts : trace }
+
+(* the log has an action [aid] that lists [id] among what it produced *)
+let rec lists (aid : int) (id : int) (acts : action list) : bool =
+  match acts with
+  | [] -> false
+  | ac :: r -> (ac.aid = aid && mem_id id ac.produces) || lists aid id r
+
+(* every artifact's producer action is in the log and lists the artifact: the link
+   holds in both directions *)
+let rec artifacts_have_producers (arts : trace) (acts : action list) : bool =
+  match arts with
+  | [] -> true
+  | a :: r -> lists a.producer_action a.id acts && artifacts_have_producers r acts
+
+(* full-state well-formedness: the artifact DAG is wf AND every artifact has a producer *)
+let wf_state (s : state) : bool =
+  wf s.artifacts && artifacts_have_producers s.artifacts s.actions
+
+let empty_state : state = { actions = []; artifacts = [] }
+
+(* Transitions on the full state (grow actions and artifacts together)
+   ------------------------------------------------------------------- *)
+
+let extend_state (s : state) (act0 : action) (a : artifact) : state =
+  { actions = s.actions @ [act0]; artifacts = extend s.artifacts a }
+
+let admissible_state (s : state) (act0 : action) (a : artifact) : bool =
+  admissible s.artifacts a
+  && a.producer_action = act0.aid           (* the artifact points at THIS action ... *)
+  && mem_id a.id act0.produces              (* ... and the action declares it as output *)
+
+let supersede_state (s : state) (tgt : int) : state =
+  { s with artifacts = supersede s.artifacts tgt }
+
+(* A branch is a base state plus what the branch added on top of it. *)
+let on_top (b : state) (n : state) : state =
+  { actions = b.actions @ n.actions; artifacts = b.artifacts @ n.artifacts }
+
+(* MERGE_STATE: ours = on_top b o and theirs = on_top b th. The artifacts merge as in
+   Merge.merge; theirs' new actions come after ours, with their [produces] lists
+   renumbered by the same shift as theirs' new artifacts. *)
+let shift_action (mb : int) (k : int) (ac : action) : action =
+  { ac with produces = Merge.shift_ids mb k ac.produces }
+
+let rec shift_actions (mb : int) (k : int) (acts : action list) : action list =
+  match acts with
+  | [] -> []
+  | ac :: r -> shift_action mb k ac :: shift_actions mb k r
+
+let merge_state (b : state) (o : state) (th : state) : state =
+  { actions =
+      (b.actions @ o.actions)
+      @ shift_actions (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.actions;
+    artifacts = Merge.merge b.artifacts o.artifacts th.artifacts }
+
+(* The producer link distributes over the appends
+   ---------------------------------------------- *)
+
+theorem lists_left (aid : int) (id : int) (xs : action list) (ys : action list) =
+  lists aid id xs ==> lists aid id (xs @ ys)
+[@@by induct ()] [@@fc]
+
+theorem lists_right (aid : int) (id : int) (xs : action list) (ys : action list) =
+  lists aid id ys ==> lists aid id (xs @ ys)
+[@@by induct ()] [@@fc]
+
+theorem lists_self_append (acts : action list) (act0 : action) (id : int) =
+  mem_id id act0.produces ==> lists act0.aid id (acts @ [act0])
+[@@by induct ()]
+
+theorem producers_artifact_append (arts : trace) (acts : action list) (a : artifact) =
+  artifacts_have_producers (extend arts a) acts
+  = (artifacts_have_producers arts acts && lists a.producer_action a.id acts)
+[@@by induct ()] [@@rw]
+
+theorem producers_concat (xs : trace) (ys : trace) (acts : action list) =
+  artifacts_have_producers (xs @ ys) acts
+  = (artifacts_have_producers xs acts && artifacts_have_producers ys acts)
+[@@by induct ()] [@@rw]
+
+theorem producers_grow_left (arts : trace) (xs : action list) (ys : action list) =
+  artifacts_have_producers arts xs ==> artifacts_have_producers arts (xs @ ys)
+[@@by induct ()]
+
+theorem producers_grow_right (arts : trace) (xs : action list) (ys : action list) =
+  artifacts_have_producers arts ys ==> artifacts_have_producers arts (xs @ ys)
+[@@by induct ()]
+
+(* supersede changes no id and no producer, so the link is untouched *)
+theorem producers_supersede (arts : trace) (acts : action list) (tgt : int) =
+  artifacts_have_producers (supersede arts tgt) acts = artifacts_have_producers arts acts
+[@@by induct ()] [@@rw]
+
+(* renumbering an artifact and its producer's [produces] list together keeps the link *)
+theorem shift_mem_id (mb : int) (k : int) (x : int) (ids : int list) =
+  mem_id x ids ==> mem_id (Merge.shift_id mb k x) (Merge.shift_ids mb k ids)
+[@@by induct ()]
+
+theorem shift_lists (mb : int) (k : int) (aid : int) (id : int) (acts : action list) =
+  lists aid id acts ==> lists aid (Merge.shift_id mb k id) (shift_actions mb k acts)
+[@@by induct ()]
+
+theorem producers_shift (mb : int) (k : int) (arts : trace) (acts : action list) =
+  artifacts_have_producers arts acts
+  ==> artifacts_have_producers (Merge.shift_trace mb k arts) (shift_actions mb k acts)
+[@@by induction ~id:[%id artifacts_have_producers] ()
+   @>| [auto;
+        (* step: the head artifact's producer still lists its (shifted) id *)
+        [%use shift_lists mb k (List.hd arts).producer_action (List.hd arts).id acts]
+        @> auto]]
+
+(* State-level safety: every transition preserves wf_state
+   ------------------------------------------------------- *)
+
+theorem wf_state_empty =
+  wf_state empty_state
+[@@by auto]
+
+(* EXTEND_STATE: recording an action and the admissible artifact it produces keeps the
+   artifact DAG well-formed AND the new artifact is listed by the just-recorded action. *)
+theorem extend_state_preserves_wf (s : state) (act0 : action) (a : artifact) =
+  wf_state s && admissible_state s act0 a ==> wf_state (extend_state s act0 a)
+[@@by [%use extend_preserves_wf s.artifacts a]
+   @> [%use producers_grow_left s.artifacts s.actions [act0]]
+   @> [%use lists_self_append s.actions act0 a.id]
+   @> auto]
+
+theorem supersede_state_preserves_wf (s : state) (tgt : int) =
+  wf_state s ==> wf_state (supersede_state s tgt)
+[@@by [%use supersede_preserves_wf s.artifacts tgt] @> auto]
+
+(* MERGE_STATE: merging two branches of a common base keeps the artifact DAG
+   well-formed, and every artifact of either branch is still listed by its producer
+   in the merged log. The extra premise: theirs' new artifacts were produced by
+   theirs' new actions. *)
+theorem merge_state_preserves_wf (b : state) (o : state) (th : state) =
+  wf_state (on_top b o) && wf_state (on_top b th)
+  && artifacts_have_producers th.artifacts th.actions
+  ==> wf_state (merge_state b o th)
+[@@by [%use Merge.merge_preserves_wf b.artifacts o.artifacts th.artifacts]
+   @> [%use producers_grow_left (b.artifacts @ o.artifacts) (b.actions @ o.actions)
+             (shift_actions (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.actions)]
+   @> [%use producers_shift (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts))
+             th.artifacts th.actions]
+   @> [%use producers_grow_right
+             (Merge.shift_trace (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.artifacts)
+             (b.actions @ o.actions)
+             (shift_actions (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.actions)]
+   @> auto]
+
+(* the append-only view of the state transitions (I1): extend keeps the prior
+   artifacts as a prefix and appends to the log; supersede leaves the log alone *)
+theorem extend_state_is_prefix (s : state) (act0 : action) (a : artifact) =
+  is_prefix s.artifacts (extend_state s act0 a).artifacts
+  && (extend_state s act0 a).actions = s.actions @ [act0]
+[@@by [%use extend_is_prefix s.artifacts a] @> auto]
+
+theorem supersede_state_keeps_log (s : state) (tgt : int) =
+  (supersede_state s tgt).actions = s.actions
+[@@by auto]

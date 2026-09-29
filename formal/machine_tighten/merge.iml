@@ -1,0 +1,207 @@
+(* Merge: composition across traces, the two-parent transition
+   =========================================================== *)
+
+[@@@import Machine, "machine.iml"]
+[@@@import Freshness, "freshness.iml"]
+
+open Machine
+
+(* A merge combines two branches that grew from a common base; the sharp question is
+   which carried-over results survive. The change set [delta] is the set of code
+   components the merge changed. A result is CARRIED FORWARD iff neither its own
+   target nor any target in its dependency closure is in delta, or every touched
+   component is a discharged (uninterpreted) contract; otherwise it must be
+   RE-REASONED. This is the affected-set classifier of §7.1. *)
+type merge_class = CarriedForward | NeedsRereasoning
+
+let rec intersect (xs : int list) (ys : int list) : int list =
+  match xs with
+  | [] -> []
+  | x :: r -> if mem_id x ys then x :: intersect r ys else intersect r ys
+
+let rec all_uninterp (u : int -> bool) (ids : int list) : bool =
+  match ids with [] -> true | i :: r -> u i && all_uninterp u r
+
+(* the components a result rests on: its own target and its closure's targets *)
+let dep_targets (t : trace) (a : artifact) : int list = a.target :: targets (closure t a)
+
+(* the touched dependencies: the components the result rests on that the merge changed *)
+let touched (t : trace) (a : artifact) (delta : int list) : int list =
+  intersect (dep_targets t a) delta
+
+let classify (t : trace) (a : artifact) (delta : int list) (u : int -> bool) : merge_class =
+  if touched t a delta = [] then CarriedForward
+  else if all_uninterp u (touched t a delta) then CarriedForward
+  else NeedsRereasoning
+
+(* The merge changed nothing outside delta, at least for components [cs]: each
+   component of [cs] is in delta or has the same presence and content before
+   (present, cur) and after (present2, cur2). *)
+let rec agree_outside (delta : int list) (cs : int list)
+    (present : int -> bool) (cur : int -> int)
+    (present2 : int -> bool) (cur2 : int -> int) : bool =
+  match cs with
+  | [] -> true
+  | c :: r ->
+    (mem_id c delta || (present2 c = present c && cur2 c = cur c))
+    && agree_outside delta r present cur present2 cur2
+
+(* The two-parent combine transition
+   --------------------------------- *)
+
+(* Both branches grew from [base]: ours is base @ ours_new and theirs is
+   base @ theirs_new. Both minted their new ids above max_id base, so the new ids
+   collide. The merge keeps base @ ours_new as it is and renumbers theirs_new: every
+   id above max_id base (a theirs_new id) moves up by max_id (base @ ours_new), in the
+   artifacts' own ids and in their lineage edges; edges into the base stay. *)
+let shift_id (mb : int) (k : int) (x : int) : int = if x > mb then x + k else x
+
+let rec shift_ids (mb : int) (k : int) (ids : int list) : int list =
+  match ids with
+  | [] -> []
+  | x :: r -> shift_id mb k x :: shift_ids mb k r
+
+let shift_art (mb : int) (k : int) (a : artifact) : artifact =
+  { a with id = shift_id mb k a.id; derived_from = shift_ids mb k a.derived_from }
+
+let rec shift_trace (mb : int) (k : int) (t : trace) : trace =
+  match t with
+  | [] -> []
+  | a :: r -> shift_art mb k a :: shift_trace mb k r
+
+let merge (base : trace) (ours_new : trace) (theirs_new : trace) : trace =
+  (base @ ours_new) @ shift_trace (max_id base) (max_id (base @ ours_new)) theirs_new
+
+(* M1 totality: every carried-over result lands in exactly one bucket. *)
+theorem merge_totality (t : trace) (a : artifact) (delta : int list) (u : int -> bool) =
+  classify t a delta u = CarriedForward || classify t a delta u = NeedsRereasoning
+[@@by auto]
+
+(* M2 a CarriedForward result is provably unaffected: nothing it rests on, through its
+   whole closure, was changed, or every touched component is a discharged contract. *)
+theorem merge_no_false_fresh (t : trace) (a : artifact) (delta : int list) (u : int -> bool) =
+  classify t a delta u = CarriedForward
+  ==> touched t a delta = [] || all_uninterp u (touched t a delta)
+[@@by auto]
+
+(* M3 never-guess: if any touched dependency is not a discharged contract, the result
+   is flagged for re-reasoning (the merge does not guess it safe). *)
+theorem merge_never_guess (t : trace) (a : artifact) (delta : int list) (u : int -> bool) =
+  touched t a delta <> [] && not (all_uninterp u (touched t a delta))
+  ==> classify t a delta u = NeedsRereasoning
+[@@by auto]
+
+(* M2b carried forward stays fresh: freshness is recomputed after the merge, and for a
+   result the classifier carries forward with no touched component, the recomputed
+   verdict over the whole closure is still fresh, provided the merge changed nothing
+   outside delta. The skip is sound, not just recorded. *)
+theorem deps_fresh_transfer (ds : trace) (delta : int list)
+    (present : int -> bool) (cur : int -> int)
+    (present2 : int -> bool) (cur2 : int -> int) =
+  intersect (targets ds) delta = []
+  && agree_outside delta (targets ds) present cur present2 cur2
+  && Freshness.deps_fresh ds present cur
+  ==> Freshness.deps_fresh ds present2 cur2
+[@@by induct ()]
+
+theorem carried_forward_stays_fresh (t : trace) (a : artifact) (delta : int list)
+    (present : int -> bool) (cur : int -> int)
+    (present2 : int -> bool) (cur2 : int -> int) =
+  touched t a delta = []
+  && agree_outside delta (dep_targets t a) present cur present2 cur2
+  && Freshness.fresh_closure t a present cur
+  ==> Freshness.fresh_closure t a present2 cur2
+[@@by [%use deps_fresh_transfer (closure t a) delta present cur present2 cur2] @> auto]
+
+(* Structure of the merged trace
+   ----------------------------- *)
+
+theorem lineage_ordered_concat (xs : trace) (ys : trace) =
+  lineage_ordered (xs @ ys) = (lineage_ordered xs && lineage_ordered ys)
+[@@by induct ()] [@@rw]
+
+theorem grounded_concat (xs : trace) (ys : trace) =
+  grounded (xs @ ys) = (grounded xs && grounded ys)
+[@@by induct ()] [@@rw]
+
+(* shift is strictly monotone, so parents stay earlier than their children *)
+theorem shift_all_earlier (mb : int) (k : int) (x : int) (ids : int list) =
+  0 <= k && all_earlier x ids ==> all_earlier (shift_id mb k x) (shift_ids mb k ids)
+[@@by induct ()]
+
+theorem shift_lineage_ordered (mb : int) (k : int) (t : trace) =
+  0 <= k && lineage_ordered t ==> lineage_ordered (shift_trace mb k t)
+[@@by induct ()]
+
+theorem shift_grounded (mb : int) (k : int) (t : trace) =
+  grounded (shift_trace mb k t) = grounded t
+[@@by induct ()] [@@rw]
+
+(* ids above mb all move up by k, so the order is kept and starts above lo + k *)
+theorem shift_ids_above (mb : int) (k : int) (lo : int) (t : trace) =
+  ids_above lo t && mb <= lo ==> ids_above (lo + k) (shift_trace mb k t)
+[@@by induct ()]
+
+theorem shift_has_id (mb : int) (k : int) (x : int) (t : trace) =
+  has_id x t ==> has_id (shift_id mb k x) (shift_trace mb k t)
+[@@by induct ()]
+
+(* A parent of a theirs_new artifact is in the base (id at most max_id base, which the
+   shift leaves alone) or in theirs_new (which the shift renumbers consistently), so
+   after the merge it is still present. *)
+theorem shift_parent_present (base : trace) (ours_new : trace) (theirs_new : trace)
+    (k : int) (p : int) =
+  has_id p (base @ theirs_new)
+  ==> has_id (shift_id (max_id base) k p)
+             ((base @ ours_new) @ shift_trace (max_id base) k theirs_new)
+[@@by [%use max_id_is_bound base p]              (* a base parent is not moved *)
+   @> [%use shift_has_id (max_id base) k p theirs_new]  (* a theirs_new parent is found shifted *)
+   @> auto]
+
+theorem shift_parents_present (base : trace) (ours_new : trace) (theirs_new : trace)
+    (k : int) (ids : int list) =
+  parents_present ids (base @ theirs_new)
+  ==> parents_present (shift_ids (max_id base) k ids)
+                      ((base @ ours_new) @ shift_trace (max_id base) k theirs_new)
+[@@by induction ~id:[%id parents_present] ()
+   @>| [auto;
+        (* step: the head parent is still present after the shift *)
+        [%use shift_parent_present base ours_new theirs_new k (List.hd ids)] @> auto]]
+
+theorem shift_closed_in (base : trace) (ours_new : trace) (theirs_new : trace)
+    (k : int) (t : trace) =
+  closed_in (base @ theirs_new) t
+  ==> closed_in ((base @ ours_new) @ shift_trace (max_id base) k theirs_new)
+                (shift_trace (max_id base) k t)
+[@@by induction ~id:[%id closed_in] ()
+   @>| [auto;
+        (* step: the head artifact's parents are still present after the shift *)
+        [%use shift_parents_present base ours_new theirs_new k (List.hd t).derived_from]
+        @> auto]]
+
+(* M4 composition preserves the invariant: merging two well-formed branches of a
+   common base yields a well-formed trace. (Re-reasoning the affected results,
+   classify above, restores freshness; wf itself is preserved structurally.) *)
+theorem merge_preserves_wf (base : trace) (ours_new : trace) (theirs_new : trace) =
+  wf (base @ ours_new) && wf (base @ theirs_new)
+  ==> wf (merge base ours_new theirs_new)
+[@@by [%use max_id_nonneg base]
+   @> [%use max_id_nonneg (base @ ours_new)]
+   @> [%use top_ge_max_id 0 base]
+   @> [%use top_le_max_id (base @ ours_new)]
+   @> [%use ids_above_mono (top 0 base) (max_id base) theirs_new]
+   @> [%use shift_ids_above (max_id base) (max_id (base @ ours_new)) (max_id base) theirs_new]
+   @> [%use ids_above_mono (max_id base + max_id (base @ ours_new)) (top 0 (base @ ours_new))
+             (shift_trace (max_id base) (max_id (base @ ours_new)) theirs_new)]
+   @> [%use shift_lineage_ordered (max_id base) (max_id (base @ ours_new)) theirs_new]
+   @> [%use closed_in_grow_right (base @ ours_new) (base @ ours_new)
+             (shift_trace (max_id base) (max_id (base @ ours_new)) theirs_new)]
+   @> [%use shift_closed_in base ours_new theirs_new (max_id (base @ ours_new)) theirs_new]
+   @> auto]
+
+(* the merge keeps ours exactly: base @ ours_new is a prefix of the merged trace *)
+theorem merge_keeps_ours (base : trace) (ours_new : trace) (theirs_new : trace) =
+  is_prefix (base @ ours_new) (merge base ours_new theirs_new)
+[@@by [%use is_prefix_append (base @ ours_new)
+             (shift_trace (max_id base) (max_id (base @ ours_new)) theirs_new)]
+   @> auto]

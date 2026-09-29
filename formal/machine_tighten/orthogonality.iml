@@ -1,0 +1,31 @@
+(* Orthogonality: governed _|_ met
+   ===============================
+
+   The full state is (artifacts, timeline); the two axes project disjoint parts. *)
+
+[@@@import Machine, "machine.iml"]
+[@@@import Goals, "goals.iml"]
+[@@@import Policy, "policy.iml"]
+
+open Machine
+
+type gstate = { arts : trace; tl : Policy.timeline }
+
+let met_of (s : gstate) (g : Goals.gitem list) : bool = Goals.goal_met s.arts g
+
+let governed_of (s : gstate) (trig : Policy.act -> bool) (resp : Policy.act -> bool) : bool =
+  Policy.responds trig resp s.tl
+
+(* P3 governed ⊥ met (orthogonality), half 1: the met verdict is invariant under ANY
+   change to the action timeline — how the work was sequenced cannot change what was
+   established. *)
+theorem met_ignores_timeline (s : gstate) (g : Goals.gitem list) (new_tl : Policy.timeline) =
+  met_of s g = met_of { s with tl = new_tl } g
+[@@by auto]
+
+(* P4 governed ⊥ met, half 2: the governed verdict is invariant under ANY change to the
+   artifacts — the process constraint reads only the timeline. Together with P3 this is
+   the machine-checked "governed is orthogonal to met" the evidence logic claims. *)
+theorem governed_ignores_arts (s : gstate) (trig : Policy.act -> bool) (resp : Policy.act -> bool) (new_arts : trace) =
+  governed_of s trig resp = governed_of { s with arts = new_arts } trig resp
+[@@by auto]

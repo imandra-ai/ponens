@@ -6,10 +6,10 @@
 
 open Machine
 
-(* An acceptance item targets a code component; its resolved status is a QUERY over the
+(* An acceptance item targets a code component; its resolved status is a query over the
    trace's evidence. Done = a live (current) verification result roots in the component;
    the honesty overlay flags a Done item whose evidence has drifted (no longer fresh)
-   as at_risk WITHOUT demoting its status. `met` = every item Done (all-done). This is
+   as at_risk without demoting its status. `met` = every item Done (all-done). This is
    the "met" axis of the evidence logic, built directly on the freshness query (I4). *)
 type gstatus = GTodo | GDoing | GDone | GBlocked
 
@@ -28,8 +28,8 @@ let rec has_live_result_for (t : trace) (comp : int) : bool =
 let resolve_item (t : trace) (it : gitem) : gstatus =
   if has_live_result_for t it.comp then GDone else GTodo
 
-(* the honesty overlay: a Done item whose live evidence is no longer FRESH is flagged
-   at_risk — it composes the resolved status with the freshness query (I4). *)
+(* the honesty overlay: a Done item whose live evidence is no longer fresh is flagged
+   at_risk. It composes the resolved status with the freshness query (I4). *)
 let item_at_risk (t : trace) (it : gitem) (present : int -> bool) (cur : int -> int) : bool =
   resolve_item t it = GDone
   && not (Freshness.has_fresh_result t it.comp present cur)
@@ -42,9 +42,9 @@ let rec goal_met (t : trace) (g : gitem list) : bool =
 (* Progress is a real ratio in [0,1]
    --------------------------------- *)
 
-(* progress = resolved / total, a bona-fide real fraction (goals.py progress_of). Migrated
-   from the retired goals/resolution model — the flagship "progress in [0,1]" result,
-   discharged via RCF by abstracting the quotient (integer a*100/b would not go through). *)
+(* progress = resolved / total as a real fraction (goals.py progress_of). The bound
+   "progress in [0,1]" is discharged via RCF by abstracting the quotient; integer
+   a*100/b would not go through. *)
 let rec g_resolved (t : trace) (g : gitem list) : int =
   match g with
   | [] -> 0
@@ -63,7 +63,7 @@ theorem met_all_done (t : trace) (g : gitem list) (it : gitem) =
 [@@by induct ()]
 
 (* G2 Done is evidence-grounded: an item resolves Done only when a live result really
-   roots in its component — never from prose (this is I3 at the goal layer). *)
+   roots in its component, never from prose (this is I3 at the goal layer). *)
 theorem done_needs_evidence (t : trace) (it : gitem) =
   resolve_item t it = GDone ==> has_live_result_for t it.comp
 [@@by auto]
@@ -74,8 +74,8 @@ theorem at_risk_never_demotes (t : trace) (it : gitem) (present : int -> bool) (
   item_at_risk t it present cur ==> resolve_item t it = GDone
 [@@by auto]
 
-(* G4 honesty (composition with freshness): a Done item that is NOT at_risk genuinely
-   has FRESH evidence — "green and not-at-risk" can never hide stale evidence. This is
+(* G4 honesty (composition with freshness): a Done item that is not at_risk has fresh
+   evidence, so "green and not at risk" can never hide stale evidence. This is
    no-false-fresh lifted to the met axis. *)
 theorem done_not_at_risk_is_fresh (t : trace) (it : gitem) (present : int -> bool) (cur : int -> int) =
   resolve_item t it = GDone && not (item_at_risk t it present cur)
@@ -115,7 +115,7 @@ theorem of_int_mono (a : int) (b : int) = a <= b ==> Real.( of_int a <= of_int b
 theorem of_int_pos (b : int) = 0 < b ==> Real.( of_int b > 0. )
 [@@by auto]
 
-(* progress lands in [0.,1.] on a non-empty goal — the faithful real bound. *)
+(* progress lands in [0.,1.] on a non-empty goal. *)
 theorem g_progress_bounded (t : trace) (g : gitem list) =
   g_total g > 0 ==> Real.( 0. <= g_progress t g && g_progress t g <= 1. )
 [@@by [%use g_resolved_nonneg t g] @> [%use g_resolved_le_total t g]

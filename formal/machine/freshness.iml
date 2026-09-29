@@ -5,12 +5,12 @@
 
 open Machine
 
-(* Freshness is never stored; it is RECOMPUTED against the current model, which we
+(* Freshness is never stored; it is recomputed against the current model, which we
    supply at query time as two functions: [present tgt] says the target still exists,
    and [cur tgt] is its current task fingerprint (a hash of the target plus its
    dependency closure). Each result stored its fingerprint as [frozen] when produced.
-   Because the verdict is a function of the CURRENT model, the state can never
-   silently disagree with reality — the whole point of I4. *)
+   Because the verdict is a function of the current model, the state can never
+   silently disagree with reality. That is the point of I4. *)
 type fresh_verdict = Fresh | Stale | Detached
 
 let freshness_of (a : artifact) (present : int -> bool) (cur : int -> int) : fresh_verdict =
@@ -51,7 +51,7 @@ let rec has_fresh_result (t : trace) (tgt : int) (present : int -> bool) (cur : 
     (is_live_result a && a.target = tgt && freshness_of a present cur = Fresh)
     || has_fresh_result r tgt present cur
 
-(* I4a fresh_is_sound: a result never reads Fresh unless its target exists AND the
+(* I4a fresh_is_sound: a result never reads Fresh unless its target exists and the
    current content matches what was reasoned about. No false Fresh at the atom. *)
 theorem fresh_is_sound (a : artifact) (present : int -> bool) (cur : int -> int) =
   freshness_of a present cur = Fresh
@@ -70,10 +70,10 @@ theorem detached_iff_absent (a : artifact) (present : int -> bool) (cur : int ->
   (freshness_of a present cur = Detached) = (not (present a.target))
 [@@by auto]
 
-(* I4d no-false-fresh (aggregate): if the trace's evidence is fresh, then EVERY live
-   result really does match the current model — no drifted or vanished contributor
-   hides behind a green aggregate. This is the property goal resolution (§5) and the
-   merge affected-set (§7.1) inherit. *)
+(* I4d no-false-fresh (aggregate): if the trace's evidence is fresh, then every live
+   result matches the current model: no drifted or vanished contributor hides behind
+   a green aggregate. Goal resolution (paper section 5) and the merge affected set
+   (section 7.1) rely on this property. *)
 theorem no_false_fresh (t : trace) (present : int -> bool) (cur : int -> int) (a : artifact) =
   evidence_fresh t present cur && mem_art a t && is_live_result a
   ==> present a.target && a.frozen = cur a.target

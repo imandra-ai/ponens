@@ -1,56 +1,53 @@
-(* Trace state machine: the trace IS the state
+(* Trace state machine: the Ponens trace as a state machine whose state is the trace
    ============================================
 
-   MODEL:    Trace state machine — the trace IS the state
-   PROVES:   the structural invariants I1 (append-only), I2 (lineage-ordered /
-             acyclic), I3 (evidence-grounded) are PRESERVED by every transition;
-             freshness I4 as a derived query (fresh-is-sound, no-false-fresh); and
-             reuse I5 as a state-reading decision + safe transition (never-reuse-stale,
-             conditional growth); and the goal "met" axis as a query (met=all-done,
-             at_risk-never-demotes); the policy governed axis (LTLf G/F, governed _|_ met);
-             and merge (classify soundness + two-parent combine preserves wf) — the
-             whole evidence logic over one state
-   SPEC:     technical paper §2 (state), §4 (freshness), §5 (goals), §6 (policies), §7 (composition), §8
-   CONFORMS: the ponens trace (store + lineage + grounding), unified
-   RECHECK:  imandrax-cli check formal/machine/trace_machine.iml
-   Spec-first: author the model in IML and conform the implementation to it,
-   do not translate the code. Self-application: Ponens verifying its own logic.
+   Proves: 
+   - I1: append-only structural invariant
+   - I2: lineage-ordered and acyclic
+   - I3: evidence-grounded hold after every transition;
+   - I4: freshness as a derived query (fresh-is-sound, no-false-fresh)
+   - I5: reuse as a decision that reads the state plus a safe transition (never-reuse-stale, conditional growth)
+   - the goal "met" axis as a query (met = all-done, at_risk never demotes)
+   - the policy "governed" axis (LTLf G and F, independent of met)
+   - merge (classify is sound, and a merge with a shared base preserves wf)
 
-   This is the consolidation of store/supersession (I1), trace/well_founded (I2),
-   and trace/grounding (I3) into ONE state-transition machine. The state is a
-   `trace` (a list of typed artifacts); the transitions are `extend` (append a new
-   artifact) and `supersede` (retire the current revision of a target). The
-   well-formedness predicate `wf` is the conjunction of the structural invariants,
-   and the top theorems say `wf` is an INDUCTIVE INVARIANT: it holds of the initial
-   (empty) state and is preserved by every transition. Freshness (I4) is folded in as
-   a derived QUERY over this same state (recomputed against the current model), and
-   reuse (I5) is folded in as a state-reading decision plus a safe transition, and the
-   goal "met" axis as a query, the policy "governed" axis over the action timeline
-   (with governed _|_ met), and merge as a two-parent `combine` transition that
-   preserves the invariant. The whole evidence logic now lives over one state.
+   All of it is stated over one state.
 
-   EVENTS ARE FIRST-CLASS (see the STATE section at the end): the full state is
-   `state = { actions; artifacts }` --- the ordered action log AND the artifact DAG ---
-   with every artifact grounded in a recorded producer action; `wf_state` lifts `wf`
-   to the pair, and `extend_state`/`supersede_state`/`combine_state` preserve it.
+   Spec:     technical paper sections 2 (state), 4 (freshness), 5 (goals),
+             6 (policies), 7 (composition) and 8.
 
-   LAYOUT. One file per concern, each checked on its own. machine.iml holds the
-   artifact trace, wf, extend and supersede. Every other file imports what it uses,
-   opens Machine, and names anything from another concern file in full
-   (Freshness.has_fresh_result). A file only imports files listed above it:
+   The state is a `trace`, a list of typed artifacts. 
+   The transitions are `extend` (append a new artifact) and `supersede` (retire the current revision of a target).
+
+   The predicate `wf` is the conjunction of the structural invariants, and the main
+   theorems say `wf` is an inductive invariant: it holds of the empty trace and every
+   transition preserves it. 
+   
+   Freshness (I4) is a query over this state, recomputed against the current model. 
+   Reuse (I5) is a decision that reads the state plus a transition that preserves wf. 
+   
+   The goal "met" axis is a query, the policy "governed" axis reads the action 
+   timeline and is independent of met, and merge joins two branches of a shared base and preserves wf.
+
+   Actions are part of the state too (state.iml): 
+   - the full state is `state = { actions; artifacts }`, the ordered action log and 
+   the artifact DAG, and every artifact names the recorded action that produced it. 
+   - `wf_state` lifts `wf` to the pair, and `extend_state`, `supersede_state` and `merge_state` preserve it.
+
+   Files:
 
      machine.iml
      freshness.iml      I4, a derived query            (Machine)
-     reuse.iml          I5, decision + transition      (Machine, Freshness)
+     reuse.iml          I5, decision and transition    (Machine, Freshness)
      goals.iml          the met axis, progress         (Machine, Freshness)
-     policy.iml         LTLf G / F over the timeline
-     orthogonality.iml  governed _|_ met               (Machine, Goals, Policy)
-     merge.iml          classify, combine              (Machine)
+     policy.iml         LTLf G and F over the timeline
+     orthogonality.iml  governed and met are independent (Machine, Goals, Policy)
+     merge.iml          classify, merge                (Machine, Freshness)
      identity.iml       durable component id, aliases  (Machine)
      escalation.iml     the verify ladder
      rename.iml         rename recovery, never guess   (Identity)
      verdict.iml        every terminal verdict lands somewhere
-     state.iml          actions + artifacts, wf_state  (Machine, Policy, Merge)
+     state.iml          actions and artifacts, wf_state (Machine, Policy, Merge)
 
    Check every file: an import is trusted, so checking one file proves nothing about
    the files it imports. *)
@@ -65,20 +62,20 @@ type kind = Source | ModelArtifact | VResult | Residual | GoalArtifact
 
 type artifact = {
   id : int;                 (* producer order: strictly increasing along the trace *)
-  derived_from : int list;  (* lineage edges — ids of earlier artifacts *)
+  derived_from : int list;  (* lineage edges: ids of earlier artifacts *)
   target : int;             (* the code component this is about (for supersession) *)
   superseded : bool;        (* retired by a later revision of the same target *)
   akind : kind;
   engine_backed : bool;     (* a VResult must be produced by an engine (I3) *)
   frozen : int;             (* the task fingerprint captured when produced (for I4) *)
-  producer_action : int;    (* the aid of the ACTION that produced this artifact *)
+  producer_action : int;    (* the aid of the action that produced this artifact *)
 }
 
-type trace = artifact list  (* THE STATE — newest artifact appended at the end *)
+(** the state; the newest artifact is at the end *)
+type trace = artifact list  
 
 (* Id and lineage helpers
    ---------------------- *)
-
 let rec has_id (x : int) (t : trace) : bool =
   match t with [] -> false | a :: r -> a.id = x || has_id x r
 
@@ -99,7 +96,7 @@ let rec length (t : trace) : int =
 (* The well-formedness predicate = I2 & I3 (I1 is about the transition)
    -------------------------------------------------------------------- *)
 
-(* I2 : every artifact's every parent has a STRICTLY SMALLER id — an edge points at
+(* I2: each parent of each artifact has a strictly smaller id, so an edge points at
    an earlier producer. This ordering condition alone forbids cycles (no node can
    reach itself), the well-foundedness the "trace is a context" argument needs. *)
 let rec lineage_ordered (t : trace) : bool =
@@ -107,7 +104,7 @@ let rec lineage_ordered (t : trace) : bool =
   | [] -> true
   | a :: r -> all_earlier a.id a.derived_from && lineage_ordered r
 
-(* I3 : prose is inert — a verification result only counts if an engine backs it. *)
+(* I3: prose is inert. A verification result only counts if an engine backs it. *)
 let rec grounded (t : trace) : bool =
   match t with
   | [] -> true
@@ -158,12 +155,12 @@ let admissible (t : trace) (a : artifact) : bool =
   && max_id t < a.id
   && parents_present a.derived_from t
 
-(* EXTEND — the append transition (record a new artifact). Append-only: the prior
-   state is a prefix, unchanged. *)
+(* extend: the append transition (record a new artifact). Append-only: the prior
+   state is an unchanged prefix. *)
 let extend (t : trace) (a : artifact) : trace = t @ [a]
 
-(* SUPERSEDE — retire the current revision(s) of a target: flip flags only, never
-   remove or reorder history (this is the append-only supersession of I1). *)
+(* supersede: retire the current revision(s) of a target. It only flips flags and
+   never removes or reorders history (the append-only supersession of I1). *)
 let rec supersede (t : trace) (tgt : int) : trace =
   match t with
   | [] -> []
@@ -196,8 +193,8 @@ theorem grounded_append (t : trace) (a : artifact) =
   = (grounded t && (a.akind = VResult ==> a.engine_backed))
 [@@by induct ()] [@@rw]
 
-(* supersede changes no id / derived_from / akind / engine_backed — only the
-   [superseded] flag — so the ordering and grounding predicates are invariant. *)
+(* supersede changes no id, derived_from, akind or engine_backed, only the
+   [superseded] flag, so the ordering and grounding predicates are invariant. *)
 theorem supersede_preserves_ordered (t : trace) (tgt : int) =
   lineage_ordered t ==> lineage_ordered (supersede t tgt)
 [@@by induct ()]
@@ -285,7 +282,7 @@ theorem supersede_max_id (t : trace) (tgt : int) =
 theorem wf_empty = wf []
 [@@by auto]
 
-(* EXTEND preserves wf: appending an admissible artifact keeps I2 (its parents are
+(* extend preserves wf: appending an admissible artifact keeps I2 (its parents are
    earlier) and I3 (it is grounded); the prefix is untouched. *)
 theorem extend_preserves_wf (t : trace) (a : artifact) =
   wf t && admissible t a ==> wf (extend t a)
@@ -295,7 +292,7 @@ theorem extend_preserves_wf (t : trace) (a : artifact) =
    @> [%use parents_present_grow_right a.derived_from t [a]]
    @> auto]
 
-(* SUPERSEDE preserves wf: flipping retirement flags changes no id / edge / kind /
+(* supersede preserves wf: flipping retirement flags changes no id, edge, kind or
    engine flag, so neither ordering nor grounding can break. *)
 theorem supersede_preserves_wf (t : trace) (tgt : int) =
   wf t ==> wf (supersede t tgt)
@@ -412,7 +409,7 @@ theorem is_prefix_append (p : trace) (u : trace) =
   is_prefix p (p @ u)
 [@@by induct ()]
 
-(* EXTEND keeps the whole prior trace as a prefix *)
+(* extend keeps the whole prior trace as a prefix *)
 theorem extend_is_prefix (t : trace) (a : artifact) =
   is_prefix t (extend t a)
 [@@by [%use is_prefix_append t [a]] @> auto]
@@ -427,7 +424,7 @@ let rec pointwise_same_but_flag (t : trace) (t2 : trace) : bool =
   | x :: r, y :: r2 -> same_but_flag x y && pointwise_same_but_flag r r2
   | _, _ -> false
 
-(* SUPERSEDE changes nothing but the superseded flag, never lowers it, and keeps
+(* supersede changes nothing but the superseded flag, never lowers it, and keeps
    the order and the length *)
 theorem supersede_only_raises_flags (t : trace) (tgt : int) =
   pointwise_same_but_flag t (supersede t tgt)

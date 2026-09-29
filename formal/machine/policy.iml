@@ -1,11 +1,10 @@
 (* Policy: the governed axis, a query over the action timeline
    =========================================================== *)
 
-(* The met axis (goals) ranges over the ARTIFACT sort — what was established. The
-   governed axis (policies) ranges over the ACTION sort — the finite timeline of what
-   the agent DID. A policy is an LTLf formula evaluated over that timeline. Because the
-   two axes read DISJOINT projections of the state (artifacts vs timeline), they are
-   orthogonal: how the work was done cannot change what was established, and vice versa. *)
+(* The met axis (goals) ranges over artifacts: what was established. The governed
+   axis (policies) ranges over actions: the finite timeline of what the agent did. A
+   policy is an LTLf formula evaluated over that timeline. Because the two axes read
+   disjoint parts of the state (artifacts and the timeline), they are independent: how the work was done cannot change what was established, and vice versa. *)
 type act = Edit | Test | Commit | Verify | Approve | Research
 
 type timeline = act list
@@ -24,13 +23,13 @@ let rec responds (trig : act -> bool) (resp : act -> bool) (tl : timeline) : boo
   | [] -> true
   | a :: r -> (trig a ==> f_some resp (a :: r)) && responds trig resp r
 
-(* P1 temporal semantics — worked example (mirrors policy/temporal's G(refuted->F proved)):
-   "every Verify is eventually followed by an Approve" FAILS with no later Approve ... *)
+(* P1 temporal semantics, a worked example: "every Verify is eventually followed by an
+   Approve" fails when no Approve comes later ... *)
 theorem policy_example_fails =
   not (responds (fun a -> a = Verify) (fun a -> a = Approve) [Verify; Edit])
 [@@by auto]
 
-(* ... and PASSES when the Approve is present in the suffix. *)
+(* ... and passes when the Approve is present in the suffix. *)
 theorem policy_example_passes =
   responds (fun a -> a = Verify) (fun a -> a = Approve) [Verify; Approve]
 [@@by auto]

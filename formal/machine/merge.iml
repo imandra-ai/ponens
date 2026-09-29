@@ -1,17 +1,17 @@
-(* Merge: composition across traces, the two-parent transition
-   =========================================================== *)
+(* Merge: composition across traces
+   ================================= *)
 
 [@@@import Machine, "machine.iml"]
 [@@@import Freshness, "freshness.iml"]
 
 open Machine
 
-(* A merge combines two branches that grew from a common base; the sharp question is
-   which carried-over results survive. The change set [delta] is the set of code
-   components the merge changed. A result is CARRIED FORWARD iff neither its own
+(* A merge joins two branches that grew from a common base. The question is which
+   carried-over results survive. The change set [delta] is the set of code
+   components the merge changed. A result is carried forward iff neither its own
    target nor any target in its dependency closure is in delta, or every touched
    component is a discharged (uninterpreted) contract; otherwise it must be
-   RE-REASONED. This is the affected-set classifier of §7.1. *)
+   re-reasoned. This is the affected-set classifier of paper section 7.1. *)
 type merge_class = CarriedForward | NeedsRereasoning
 
 let rec intersect (xs : int list) (ys : int list) : int list =
@@ -46,8 +46,8 @@ let rec agree_outside (delta : int list) (cs : int list)
     (mem_id c delta || (present2 c = present c && cur2 c = cur c))
     && agree_outside delta r present cur present2 cur2
 
-(* The two-parent combine transition
-   --------------------------------- *)
+(* The merge transition
+   -------------------- *)
 
 (* Both branches grew from [base]: ours is base @ ours_new and theirs is
    base @ theirs_new. Both minted their new ids above max_id base, so the new ids

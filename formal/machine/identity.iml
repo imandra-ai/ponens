@@ -1,9 +1,10 @@
 (* Component identity: the durable-id resolver (never conflate)
    ============================================================
 
-   Migrated from the retired component/identity model. The resolver stamps a durable component id at
-   record time; the unsound error is CONFLATION, so the safe fallback is MintNew. Plus the
-   append-only alias equivalence over the correction log. *)
+   The resolver stamps a durable component id at record time. The unsound error is
+   conflation (reusing the id of a different component), so the safe fallback is
+   MintNew. The file also defines the append-only alias equivalence over the
+   correction log. *)
 
 [@@@import Machine, "machine.iml"]
 
@@ -15,18 +16,18 @@ let sim_min    = 80
 
 let sim_margin = 15
 
-(* The confident-similarity predicate (ambiguity.iml's floor + margin): the best
-   candidate clears the minimum AND beats the runner-up by the margin. *)
+(* The confident-similarity predicate: the best candidate clears the minimum and
+   beats the runner-up by the margin. rename.iml uses the same floor and margin. *)
 let confident_sim (best : int) (second : int) : bool =
   best >= sim_min && best - second >= sim_margin
 
 (* The resolver, 4 tiers in order.
    lineage_id : a producer-declared same-model-line link (Some id) if present.
-   exact_count: # priors with an identical fingerprint.
+   exact_count: the number of priors with an identical fingerprint.
    exact_id   : the sole exact match's id (meaningful only when exact_count = 1).
    best,second: top-two similarity percentages (0..100).
    sim_id     : the best similarity candidate's id.
-   Returns MintNew when unsure - the CALLER allocates the fresh id. *)
+   Returns MintNew when unsure; the caller allocates the fresh id. *)
 let resolve_component (lineage_id : int option) (exact_count : int) (exact_id : int)
             (best : int) (second : int) (sim_id : int) : id_decision =
   match lineage_id with
@@ -42,7 +43,7 @@ let resolve_component (lineage_id : int option) (exact_count : int) (exact_id : 
 (* The caller allocates a fresh id on MintNew. We model freshness abstractly: `fresh_id`
    is chosen distinct from every candidate id. This predicate says a MintNew with such a
    fresh_id collides with no candidate. It is trivially provable because `resolve_component`'s
-   MintNew carries no id - the freshness lives entirely in the caller's choice - so we
+   MintNew carries no id (the freshness lives entirely in the caller's choice), so we
    state it over the caller's contract: if fresh_id differs from all candidate ids,
    then the newly-stamped id differs from all candidate ids. *)
 let mint_stamp (fresh_id : int) : int = fresh_id
@@ -50,9 +51,9 @@ let mint_stamp (fresh_id : int) : int = fresh_id
 (* Append-only alias equivalence
    ----------------------------- *)
 
-(* Append-only corrections link two component ids that denote the SAME component.
+(* Append-only corrections link two component ids that denote the same component.
    `same_component a b aliases` is the reflexive-symmetric closure over the alias
-   list, PLUS explicit one-step transitivity via a shared neighbour. We keep the
+   list, plus explicit one-step transitivity via a shared neighbour. We keep the
    relation bounded/relational so ImandraX reasons about it directly. *)
 type alias = (int * int)
 
@@ -71,7 +72,7 @@ let rec endpoints (aliases : alias list) : int list =
   | (x, y) :: rest -> x :: y :: endpoints rest
 
 (* Is there a shared neighbour n (drawn from `ns`) linking a to b in the full log?
-   For each candidate id n: a linked-or-equal to n AND n linked-or-equal to b. This
+   For each candidate id n: a linked-or-equal to n and n linked-or-equal to b. This
    provides the one-step transitive closure over the append-only log. Scanning a flat
    id list (not pairs) keeps this a single, clean recursion. *)
 let rec via_neighbour (a : int) (b : int) (ns : int list) (aliases : alias list) : bool =
@@ -94,8 +95,8 @@ let al2 : alias list = [(1, 2); (2, 3)]
 (* Soundness invariants (never conflate)
    ------------------------------------- *)
 
-(* THE soundness prop. A reuse NEVER happens without a confident, UNIQUE signal:
-   the reused id is the lineage id, OR the sole exact match, OR the clear
+(* The main soundness property. A reuse never happens without a confident, unique
+   signal: the reused id is the lineage id, the sole exact match, or the clear
    similarity winner. Conflation-by-guessing is impossible. *)
 theorem reuse_is_justified (lin : int option) (ec : int) (eid : int)
                            (b : int) (s : int) (sid : int) (id : int) =
@@ -106,7 +107,7 @@ theorem reuse_is_justified (lin : int option) (ec : int) (eid : int)
 
 
 (* Multiple identical fingerprints, no lineage, no confident similarity: don't guess
-   WHICH prior it is -> mint, never conflate. *)
+   which prior it is; mint, never conflate. *)
 theorem ambiguous_exact_mints (ec : int) (eid : int) (b : int) (s : int) (sid : int) =
   ec > 1 && not (confident_sim b s)
   ==> resolve_component None ec eid b s sid = MintNew
@@ -187,7 +188,7 @@ theorem ex_edge_zero_exact_confident_sim =
   resolve_component None 0 0 95 20 33 = ReuseId 33
 
 
-(* Edge: many exacts but a confident similarity - similarity still fires (Tier 3
+(* Edge: many exacts but a confident similarity: similarity still fires (Tier 3
    only requires exact_count <> 1, and a confident unique similarity is trusted). *)
 theorem ex_edge_many_exact_confident_sim =
   resolve_component None 3 0 95 20 33 = ReuseId 33
@@ -214,12 +215,12 @@ theorem same_component_symmetric_direct (a : int) (b : int) (aliases : alias lis
 [@@by [%use linked_symmetric a b aliases] @> auto]
 
 (* If b is directly linked to something (here: to c), then b is one of the endpoints
-   mentioned in the log - so it is a candidate shared neighbour. *)
+   mentioned in the log, so it is a candidate shared neighbour. *)
 theorem linked_left_is_endpoint (b : int) (c : int) (aliases : alias list) =
   linked b c aliases ==> mem_id b (endpoints aliases)
 [@@by induct ()]
 
-(* via_neighbour discovers ANY candidate n in its scan list that satisfies the
+(* via_neighbour discovers any candidate n in its scan list that satisfies the
    link-or-equal conditions on both sides. Induct on the candidate list `ns`. *)
 theorem via_neighbour_finds (a : int) (n : int) (b : int)
                             (ns : int list) (aliases : alias list) =
@@ -229,7 +230,7 @@ theorem via_neighbour_finds (a : int) (n : int) (b : int)
   ==> via_neighbour a b ns aliases
 [@@by induct ()]
 
-(* One-step transitivity (GENERAL): a direct link a-b and a direct link b-c give
+(* One-step transitivity, in general: a direct link a-b and a direct link b-c give
    same_component a c, for an arbitrary append-only alias log. b is the shared
    neighbour: it is an endpoint (linked_left_is_endpoint) and via_neighbour_finds
    discovers it. *)
@@ -261,7 +262,7 @@ theorem ex8_alias_transitive =
   same_component 1 3 al2
 [@@by unroll 40]
 
-(* Unrelated ids are NOT conflated. *)
+(* Unrelated ids are not conflated. *)
 theorem ex8_alias_unrelated =
   not (same_component 1 9 al2)
 [@@by unroll 40]

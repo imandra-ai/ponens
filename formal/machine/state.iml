@@ -1,13 +1,14 @@
-(* State: actions + artifacts (events first-class)
-   ===============================================
+(* State: actions and artifacts
+   =============================
 
-   The trace state of the paper's §2 has TWO parts: the ordered ACTION log (ground
-   truth — one entry per tool call) and the ARTIFACT lineage DAG (the evidence). The
-   invariants above are proved over the artifact DAG and the policies over the action
-   timeline; here we make the pairing explicit. The state is (actions, artifacts); every
-   artifact is PRODUCED BY an action recorded in the log that lists it among its outputs
-   (no orphan evidence — evidence enters the trace only via a recorded action); and the
-   transitions grow both together, preserving that link. *)
+   The trace state in section 2 of the paper has two parts: the ordered action log
+   (the ground truth, one entry per tool call) and the artifact lineage DAG (the
+   evidence). The other files prove the invariants over the artifact DAG and the
+   policies over the action timeline; this file pairs the two. The state is
+   (actions, artifacts). Every artifact was produced by an action recorded in the log,
+   and that action lists it among its outputs, so evidence enters the trace only
+   through a recorded action. The transitions grow both parts together and keep
+   that link. *)
 
 [@@@import Machine, "machine.iml"]
 [@@@import Policy, "policy.iml"]
@@ -32,7 +33,7 @@ let rec artifacts_have_producers (arts : trace) (acts : action list) : bool =
   | [] -> true
   | a :: r -> lists a.producer_action a.id acts && artifacts_have_producers r acts
 
-(* full-state well-formedness: the artifact DAG is wf AND every artifact has a producer *)
+(* full-state well-formedness: the artifact DAG is wf and every artifact has a producer *)
 let wf_state (s : state) : bool =
   wf s.artifacts && artifacts_have_producers s.artifacts s.actions
 
@@ -46,7 +47,7 @@ let extend_state (s : state) (act0 : action) (a : artifact) : state =
 
 let admissible_state (s : state) (act0 : action) (a : artifact) : bool =
   admissible s.artifacts a
-  && a.producer_action = act0.aid           (* the artifact points at THIS action ... *)
+  && a.producer_action = act0.aid           (* the artifact points at this action ... *)
   && mem_id a.id act0.produces              (* ... and the action declares it as output *)
 
 let supersede_state (s : state) (tgt : int) : state =
@@ -56,7 +57,7 @@ let supersede_state (s : state) (tgt : int) : state =
 let on_top (b : state) (n : state) : state =
   { actions = b.actions @ n.actions; artifacts = b.artifacts @ n.artifacts }
 
-(* MERGE_STATE: ours = on_top b o and theirs = on_top b th. The artifacts merge as in
+(* merge_state: ours = on_top b o and theirs = on_top b th. The artifacts merge as in
    Merge.merge; theirs' new actions come after ours, with their [produces] lists
    renumbered by the same shift as theirs' new artifacts. *)
 let shift_action (mb : int) (k : int) (ac : action) : action =
@@ -136,8 +137,8 @@ theorem wf_state_empty =
   wf_state empty_state
 [@@by auto]
 
-(* EXTEND_STATE: recording an action and the admissible artifact it produces keeps the
-   artifact DAG well-formed AND the new artifact is listed by the just-recorded action. *)
+(* extend_state: recording an action and the admissible artifact it produces keeps the
+   artifact DAG well-formed, and the new artifact is listed by the just-recorded action. *)
 theorem extend_state_preserves_wf (s : state) (act0 : action) (a : artifact) =
   wf_state s && admissible_state s act0 a ==> wf_state (extend_state s act0 a)
 [@@by [%use extend_preserves_wf s.artifacts a]
@@ -149,7 +150,7 @@ theorem supersede_state_preserves_wf (s : state) (tgt : int) =
   wf_state s ==> wf_state (supersede_state s tgt)
 [@@by [%use supersede_preserves_wf s.artifacts tgt] @> auto]
 
-(* MERGE_STATE: merging two branches of a common base keeps the artifact DAG
+(* merge_state: merging two branches of a common base keeps the artifact DAG
    well-formed, and every artifact of either branch is still listed by its producer
    in the merged log. The extra premise: theirs' new artifacts were produced by
    theirs' new actions. *)

@@ -6,10 +6,10 @@
 
 open Machine
 
-(* The reuse decision (formalization-cache `planFormalization`) reads the STATE: is
+(* The reuse decision (formalization-cache `planFormalization`) reads the state: is
    there already a live (current, non-superseded) verification result for the target
-   that is FRESH against the current model? If so, REUSE it (a cache hit); otherwise,
-   if the target is in scope, FORMALIZE (a miss); otherwise SKIP. This composes the
+   that is fresh against the current model? If so, Reuse it (a cache hit); otherwise,
+   if the target is in scope, Formalize (a miss); otherwise Skip. This composes the
    freshness query (I4) above with the append transition (I1). *)
 type reuse_action = Reuse | Formalize | Skip
 
@@ -19,7 +19,7 @@ let plan_reuse (t : trace) (tgt : int) (in_scope : bool)
   else if Freshness.has_fresh_result t tgt present cur then Reuse
   else Formalize
 
-(* applying the plan: a miss appends the freshly-produced result; a hit / skip leave
+(* applying the plan: a miss appends the freshly-produced result; a hit or a skip leaves
    the state untouched. [a_new] is the artifact a Formalize would produce. *)
 let apply_reuse (t : trace) (a_new : artifact) (act : reuse_action) : trace =
   match act with
@@ -27,7 +27,7 @@ let apply_reuse (t : trace) (a_new : artifact) (act : reuse_action) : trace =
   | Reuse -> t
   | Skip -> t
 
-(* I5a never-reuse-stale: the plan says Reuse only when a live FRESH result exists —
+(* I5a never-reuse-stale: the plan says Reuse only when a live fresh result exists, so
    drifted evidence is never trusted. *)
 theorem never_reuse_stale (t : trace) (tgt : int) (in_scope : bool)
                           (present : int -> bool) (cur : int -> int) =
@@ -35,27 +35,27 @@ theorem never_reuse_stale (t : trace) (tgt : int) (in_scope : bool)
   ==> Freshness.has_fresh_result t tgt present cur
 [@@by auto]
 
-(* I5b conditional growth: applying the plan grows the trace by AT MOST ONE. *)
+(* I5b conditional growth: applying the plan grows the trace by at most one. *)
 theorem conditional_growth (t : trace) (a_new : artifact) (act : reuse_action) =
   length (apply_reuse t a_new act) = length t
   || length (apply_reuse t a_new act) = length t + 1
 [@@by [%use length_append_one t a_new] @> auto]
 
-(* I5c only a miss appends: the trace grows IFF the decision was Formalize; Reuse and
+(* I5c only a miss appends: the trace grows exactly when the decision was Formalize; Reuse and
    Skip are exact no-ops on the state. *)
 theorem only_miss_appends (t : trace) (a_new : artifact) (act : reuse_action) =
   (length (apply_reuse t a_new act) = length t + 1) = (act = Formalize)
 [@@by [%use length_append_one t a_new] @> auto]
 
-(* I5d the reuse transition is SAFE: it preserves the machine invariant. A miss
-   appends an admissible artifact (extend preserves wf); a hit / skip change nothing. *)
+(* I5d the reuse transition is safe: it preserves the machine invariant. A miss
+   appends an admissible artifact (extend preserves wf); a hit or a skip changes nothing. *)
 theorem apply_reuse_preserves_wf (t : trace) (a_new : artifact) (act : reuse_action) =
   wf t && (act = Formalize ==> admissible t a_new) ==> wf (apply_reuse t a_new act)
 [@@by [%use extend_preserves_wf t a_new] @> auto]
 
 (* I5e composition with freshness (revert-reuses): if a live result for [tgt] is fresh
    against the current model (e.g. an edit was reverted, so the fingerprint matches
-   again), the in-scope plan is Reuse — and Reuse does not grow the trace. Free work. *)
+   again), the in-scope plan is Reuse, and Reuse does not grow the trace. *)
 theorem revert_reuses (t : trace) (tgt : int) (present : int -> bool) (cur : int -> int) =
   Freshness.has_fresh_result t tgt present cur
   ==> plan_reuse t tgt true present cur = Reuse

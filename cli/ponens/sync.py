@@ -290,7 +290,16 @@ def cmd_push(args):
     # `POST /traces/{id}/content` has been served the whole time and nothing called it. The metadata
     # `summary` sent above is `trace.get("summary")`, and a ponens trace has no top-level `summary`
     # field, so that was always None too - the hub now derives it from the content instead.
-    api("POST", f"/traces/{hub_id}/content", trace)
+    sent = api("POST", f"/traces/{hub_id}/content", trace)
+
+    # The hub may already hold this work: the same content, or this record pushed before. It keeps
+    # the new row as a pointer and says which record holds it - that record is the one to remember.
+    held = sent.get("duplicate_of") if isinstance(sent, dict) else None
+    if held:
+        save_sidecar(tf, {"hub_trace_id": held, "content_hash": cur, "commit_sha": commit, "pushed_at": _now()})
+        print(f"{green('Already on the hub')} as {cyan(held)}  - {sent.get('note') or 'the same work is held there'}")
+        print(f"  viewer: {underline(hub_url() + '/traces/' + held)}")
+        return
 
     # 1 trace : 1 commit — if content changed from a prior push, link the successor
     superseded = None

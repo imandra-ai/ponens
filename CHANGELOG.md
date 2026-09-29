@@ -9,6 +9,33 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-09-29
+
+What an edit says it changed now counts toward naming it, and `ponens push` works with a hub that
+requires sign-in. Minor, not patch: `named_by_goal` - and every policy built on it - can now hold for
+a record it failed before.
+
+### Added
+- **`ponens push` signs in.** `PONENS_HUB_TOKEN` is sent to the hub as `Authorization: Bearer`
+  (`WARRANT_URL` and `WARRANT_TOKEN` are read too, so one pair of settings serves Imandra Warrant's
+  agent integrations and the CLI). A refusal (401) says which setting to fix; the token is never
+  printed. A hub that requires sign-in refused every push before.
+
+### Fixed
+- **A push the hub already holds is said as such.** When the hub keeps a push as a pointer to the
+  record that already holds the same work (`duplicate_of`), `ponens push` reports that record and
+  remembers its id - it printed the pointer as a new record before.
+
+### Changed
+- **`named_by_goal` counts subjects.** An edit is named by the goal when every symbol *and every
+  subject* it says it changed is some criterion's component - so an edit to `package.json` whose
+  `Diff` states `subject: {kind: "dependency", name: "left-pad"}` is named by a criterion about
+  `{"dependency": "left-pad"}`, with no file criterion needed. A subject is read only where it is
+  stated (`payload.subject` or `payload.subjects`), never guessed from other payload fields; an edit
+  that names neither a symbol nor a subject still needs its file named.
+- A criterion about a subject is met by an artifact stating that subject in full
+  (`payload.subject: {kind, name}`), as well as by `payload.<kind>`.
+
 ## [1.16.1] — 2026-09-28
 
 Typed criteria that hold up across real use cases - files and subjects as well as functions, reviews

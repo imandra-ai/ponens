@@ -217,6 +217,15 @@ audit, but the hub is just one backend: the trace format, the policies, and the 
 backend-agnostic. See [`spec/CLI_SYNC_MODEL_v0_1.md`](spec/CLI_SYNC_MODEL_v0_1.md) for the git/hub
 sync model and [`AGENT_PROMPT.md`](AGENT_PROMPT.md) for driving the whole workflow from an agent.
 
+Point the CLI at a hub with `PONENS_HUB_URL`, and sign in with `PONENS_HUB_TOKEN` (sent as
+`Authorization: Bearer`; the hub issues it). `WARRANT_URL` and `WARRANT_TOKEN` are read too, so one
+pair of settings serves Imandra Warrant's agent integrations and `ponens push` alike:
+
+```bash
+export PONENS_HUB_URL=https://warrant.example.com PONENS_HUB_TOKEN=th_…
+ponens bind && ponens push      # "Already on the hub as tr_…" when the hub holds this work already
+```
+
 ## The name
 
 From *modus ponens* — the rule of inference that derives a conclusion from its premises

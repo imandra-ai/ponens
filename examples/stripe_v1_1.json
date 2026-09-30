@@ -1591,7 +1591,22 @@
           "exit_code": 0
         }
       ],
-      "meta_action_id": "m7"
+      "meta_action_id": "m7",
+      "execution": {
+        "tool": "shell",
+        "determinism": "deterministic"
+      },
+      "reproducibility": {
+        "status": "reproducible",
+        "reproduction_kind": "tool_reexecution",
+        "procedure": {
+          "kind": "command",
+          "command": "pytest stripe_flow_tests_generated.py"
+        },
+        "expected_output": {
+          "result_summary": "84/84 passed"
+        }
+      }
     },
     {
       "id": 42,
@@ -1624,6 +1639,10 @@
     "stripe_flow_updated.iml",
     "stripe_payment_flow_updated.py"
   ],
+  "reproducibility": {
+    "status": "partially_reproducible",
+    "notes": "The generated tests are tool-reexecutable (action 41); every ImandraX result carries its model and goal and can be re-checked by CodeLogician; this sample is not bound to a commit - its source is illustrative, not in a repository."
+  },
   "policies": [
     {
       "policy_id": "p1",

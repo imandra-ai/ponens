@@ -13,7 +13,7 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 Evidence freshness follows what a result rests on, as TRACE_SPEC §10.4a says: more model admitted after
 a proof no longer makes it stale, a changed type does, and results from `CodeLogicianOracle` can read as
-fresh.
+fresh. The scorecard's reproducibility counts what can actually be run again.
 
 ### Fixed
 - **Evidence no longer goes stale when more model is admitted after it.** A definition's text ran on
@@ -28,6 +28,19 @@ fresh.
   the whole model text as `task_checksum`, which freshness compares with the closure checksum. It now
   stamps the closure checksum of the symbol it verified; a stored checksum that is not a closure
   checksum is set aside and the closure recomputed.
+- **Reproducibility no longer counts a commit as a command to re-run.** `GitCommit` was in the
+  denominator of replayable actions, though a commit is reproduced by binding the trace to it (the
+  axis's other term) and `git commit` is never replayed - so any trace that committed fell short of
+  full marks however much it recorded.
+- **A command the replayer will not run counts half.** The axis counted any recorded command in full
+  while `trace reproduce` replayed none of them ("2 reproducible command(s); 0 safe to replay"); its
+  note now says how many are safe to replay.
+- **JavaScript and TypeScript test runners replay.** `node --test`, `vitest`, `jest`, `npm run test`,
+  `pnpm test`, `yarn test`, `bun test` and `deno test` join `pytest`, `go test` and `cargo test` as
+  safe to replay.
+- **The flagship sample says how it is re-run.** `stripe_v1_1.json` records the command of its test run
+  and what of it is reproducible; it stays unbound - its source is illustrative, not in a repository.
+  Reproducibility 30% to 75%, grade B (84) to A (92).
 
 ## [1.17.0] — 2026-09-29
 

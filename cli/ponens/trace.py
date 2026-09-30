@@ -1595,15 +1595,18 @@ def _grade_dimensions(trace):
     # 4. Reproducibility — can a reviewer re-run / re-derive it?
     # A commit is not a command to run again - it is reproduced by the trace being bound to it (below);
     # counting it here left every trace that commits short of full marks however much it recorded.
+    # A run of region tests against the code (`ConformanceCheck`) is a test run like any other: a record
+    # whose only tests are its region tests is not one with nothing to re-run.
     cmdish = [a for a in actions if a.get("type") in
-              ("RunCommand", "RunTests", "GitDiff", "GitStatus")]
+              ("RunCommand", "RunTests", "GitDiff", "GitStatus", "ConformanceCheck")]
     # A command, not merely a reproducibility OBJECT. `_repro_command` is what `trace reproduce`
     # reads, so counting anything looser lets this axis report "N replayable action(s)" for actions
     # the replayer will not find. Measured: one agent-produced trace scored Reproducibility 75% with
     # "2 replayable action(s)" while `trace reproduce` on the same file printed "No reproducible
     # actions (no recorded commands) in this trace". Grading a record on an auditability nobody can
     # exercise is the failure this axis exists to detect, so the axis must read the same field.
-    repro_acts = [a for a in actions if _repro_command(a)]
+    # Counted over the same steps as the denominator: a command recorded on some other step is not one of these.
+    repro_acts = [a for a in cmdish if _repro_command(a)]
     # One the replayer will run counts in full; one it will not (a runner it does not know, a danger
     # token) is recorded but not re-checkable here, and counts half.
     safe_acts = [a for a in repro_acts if _repro_safe(_repro_command(a))]
@@ -1801,6 +1804,8 @@ _REPRO_SAFE = ("pytest", "npm test", "npm run test", "npm run build", "npm run l
                "git log", "ls ", "cat ", "grep ",
                # JavaScript and TypeScript test runners - the same kind of re-run as pytest
                "node --test", "vitest", "jest", "pnpm test", "yarn test", "bun test", "deno test",
+               # and the other mainstream ones
+               "unittest", "mvn test", "gradle test", "gradlew test", "dotnet test", "swift test",
                # read-only formal-verification re-execution (ImandraX replay of a ReproductionBundle)
                "codelogician")
 _REPRO_DANGER = ("rm ", "git push", "git commit", "sudo", " > ", ">>", "mv ", "dd ",

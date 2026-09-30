@@ -38,6 +38,11 @@ fresh. The scorecard's reproducibility counts what can actually be run again.
 - **JavaScript and TypeScript test runners replay.** `node --test`, `vitest`, `jest`, `npm run test`,
   `pnpm test`, `yarn test`, `bun test` and `deno test` join `pytest`, `go test` and `cargo test` as
   safe to replay.
+- **Region-test runs count as test runs.** A `ConformanceCheck` (the model's region tests run against
+  the code) is re-runnable like `RunTests`; a record whose only tests were its region tests scored as
+  having nothing to re-run. A command on any other step is no longer counted toward the runs.
+- **More runners replay:** `python -m unittest`, `mvn test`, `gradle test` / `./gradlew test`,
+  `dotnet test`, `swift test`.
 - **The flagship sample says how it is re-run.** `stripe_v1_1.json` records the command of its test run
   and what of it is reproducible; it stays unbound - its source is illustrative, not in a repository.
   Reproducibility 30% to 75%, grade B (84) to A (92).

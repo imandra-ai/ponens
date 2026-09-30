@@ -16,7 +16,8 @@ def test_repro_safe_classification():
     assert not _repro_safe("echo hi")            # not a recognized safe verb
     assert not _repro_safe("pytest && rm x")     # safe verb but a danger token present
     # JavaScript and TypeScript test runners are re-runs like pytest; running an arbitrary script is not.
-    for c in ("node --test", "npx vitest run", "npx jest --ci", "pnpm test", "yarn test", "npm run test", "bun test", "deno test"):
+    for c in ("node --test", "npx vitest run", "npx jest --ci", "pnpm test", "yarn test", "npm run test", "bun test", "deno test",
+              "python -m unittest discover", "mvn test", "gradle test", "./gradlew test", "dotnet test", "swift test"):
         assert _repro_safe(c), c
     assert not _repro_safe("node scripts/migrate.js")
 

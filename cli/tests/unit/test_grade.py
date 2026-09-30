@@ -159,3 +159,13 @@ def test_stripe_is_reproducible_as_far_as_an_unbound_sample_can_be():
     stripe = json.load(open(os.path.join(REPO, "examples", "stripe_v1_1.json")))
     d = _dim(grade_trace(stripe), "Reproducibility")
     assert d["score"] == 0.75 and "not bound to a commit" in d["note"]
+
+
+def test_reproducibility_region_tests_are_test_runs():
+    # A record whose only test run is its region tests (a ConformanceCheck) has something to re-run.
+    t = {"trace_id": "t", "commit_sha": "abc123", "reproducibility": {"status": "partially_reproducible"},
+         "actions": [_run(1, "ConformanceCheck", "node --test region.test.mjs")]}
+    assert _dim(grade_trace(t), "Reproducibility")["score"] == 1.0
+    # A command on a step that is not a run is not counted as one.
+    t["actions"] = [_run(1, "RunTests", "pytest -q"), _run(2, "Analyze", "pytest -q")]
+    assert "1 replayable action(s)" in _dim(grade_trace(t), "Reproducibility")["note"]

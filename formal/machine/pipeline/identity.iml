@@ -6,9 +6,8 @@
    MintNew. The file also defines the append-only alias equivalence over the
    correction log. *)
 
-[@@@import Machine, "machine.iml"]
-
-open Machine
+let rec mem_id (x : int) (ids : int list) : bool =
+  match ids with [] -> false | i :: r -> i = x || mem_id x r
 
 type id_decision = ReuseId of int | MintNew
 

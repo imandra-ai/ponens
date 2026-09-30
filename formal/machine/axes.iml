@@ -3,17 +3,19 @@
 
    The full state is (artifacts, timeline); the two axes read disjoint parts. *)
 
-[@@@import Machine, "machine.iml"]
+[@@@import Core, "core.iml"]
 [@@@import Goals, "goals.iml"]
 [@@@import Policy, "policy.iml"]
 
-open Machine
+open Core
+open Artifact
+open Trace
 
 type gstate = { arts : trace; tl : Policy.timeline }
 
 let met_of (s : gstate) (g : Goals.gitem list) : bool = Goals.goal_met s.arts g
 
-let governed_of (s : gstate) (trig : Policy.act -> bool) (resp : Policy.act -> bool) : bool =
+let governed_of (s : gstate) (trig : Core.State.act -> bool) (resp : Core.State.act -> bool) : bool =
   Policy.responds trig resp s.tl
 
 (* P3 orthogonality, half 1: no change to the action timeline changes the met verdict.
@@ -25,6 +27,6 @@ theorem met_ignores_timeline (s : gstate) (g : Goals.gitem list) (new_tl : Polic
 (* P4 orthogonality, half 2: no change to the artifacts changes the governed verdict,
    because the process constraint reads only the timeline. With P3 this proves the
    claim that governed is independent of met. *)
-theorem governed_ignores_arts (s : gstate) (trig : Policy.act -> bool) (resp : Policy.act -> bool) (new_arts : trace) =
+theorem governed_ignores_arts (s : gstate) (trig : Core.State.act -> bool) (resp : Core.State.act -> bool) (new_arts : trace) =
   governed_of s trig resp = governed_of { s with arts = new_arts } trig resp
 [@@by auto]

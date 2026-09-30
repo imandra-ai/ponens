@@ -1,10 +1,12 @@
 (* Merge: composition across traces
    ================================= *)
 
-[@@@import Machine, "machine.iml"]
+[@@@import Core, "core.iml"]
 [@@@import Freshness, "freshness.iml"]
 
-open Machine
+open Core
+open Artifact
+open Trace
 
 (* A merge joins two branches that grew from a common base. The question is which
    carried-over results survive. The change set [delta] is the set of code
@@ -168,12 +170,12 @@ lemma shift_parents_present (base : trace) (ours_new : trace) (theirs_new : trac
         (* step: the head parent is still present after the shift *)
         [%use shift_parent_present base ours_new theirs_new k (List.hd ids)] @> auto]]
 
-lemma shift_closed_in (base : trace) (ours_new : trace) (theirs_new : trace)
+lemma shift_edges_in (base : trace) (ours_new : trace) (theirs_new : trace)
     (k : int) (t : trace) =
-  closed_in (base @ theirs_new) t
-  ==> closed_in ((base @ ours_new) @ shift_trace (max_id base) k theirs_new)
+  edges_in (base @ theirs_new) t
+  ==> edges_in ((base @ ours_new) @ shift_trace (max_id base) k theirs_new)
                 (shift_trace (max_id base) k t)
-[@@by induction ~id:[%id closed_in] ()
+[@@by induction ~id:[%id edges_in] ()
    @>| [auto;
         (* step: the head artifact's parents are still present after the shift *)
         [%use shift_parents_present base ours_new theirs_new k (List.hd t).derived_from]
@@ -194,9 +196,9 @@ theorem merge_preserves_wf (base : trace) (ours_new : trace) (theirs_new : trace
    @> [%use ids_above_mono (max_id base + max_id (base @ ours_new)) (top 0 (base @ ours_new))
              (shift_trace (max_id base) (max_id (base @ ours_new)) theirs_new)]
    @> [%use shift_lineage_ordered (max_id base) (max_id (base @ ours_new)) theirs_new]
-   @> [%use closed_in_grow_right (base @ ours_new) (base @ ours_new)
+   @> [%use edges_in_grow_right (base @ ours_new) (base @ ours_new)
              (shift_trace (max_id base) (max_id (base @ ours_new)) theirs_new)]
-   @> [%use shift_closed_in base ours_new theirs_new (max_id (base @ ours_new)) theirs_new]
+   @> [%use shift_edges_in base ours_new theirs_new (max_id (base @ ours_new)) theirs_new]
    @> auto]
 
 (* the merge keeps ours exactly: base @ ours_new is a prefix of the merged trace *)
@@ -205,3 +207,70 @@ theorem merge_keeps_ours (base : trace) (ours_new : trace) (theirs_new : trace) 
 [@@by [%use is_prefix_append (base @ ours_new)
              (shift_trace (max_id base) (max_id (base @ ours_new)) theirs_new)]
    @> auto]
+
+(* Merge on the full state
+   ------------------------
+
+   The same merge with the action log: theirs' new actions come after ours, and their
+   [produces] lists are renumbered by the same shift as theirs' new artifacts. *)
+
+open State
+
+(* A branch is a base state plus what the branch added on top of it. *)
+let on_top (b : state) (n : state) : state =
+  { actions = b.actions @ n.actions; artifacts = b.artifacts @ n.artifacts }
+
+(* merge_state: ours = on_top b o and theirs = on_top b th. The artifacts merge as in
+   merge; theirs' new actions come after ours, with their [produces] lists
+   renumbered by the same shift as theirs' new artifacts. *)
+let shift_action (mb : int) (k : int) (ac : action) : action =
+  { ac with produces = shift_ids mb k ac.produces }
+
+let rec shift_actions (mb : int) (k : int) (acts : action list) : action list =
+  match acts with
+  | [] -> []
+  | ac :: r -> shift_action mb k ac :: shift_actions mb k r
+
+let merge_state (b : state) (o : state) (th : state) : state =
+  { actions =
+      (b.actions @ o.actions)
+      @ shift_actions (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.actions;
+    artifacts = merge b.artifacts o.artifacts th.artifacts }
+
+(* renumbering an artifact and its producer's [produces] list together keeps the link *)
+lemma shift_mem_id (mb : int) (k : int) (x : int) (ids : int list) =
+  mem_id x ids ==> mem_id (shift_id mb k x) (shift_ids mb k ids)
+[@@by induct ()]
+
+lemma shift_lists (mb : int) (k : int) (aid : int) (id : int) (acts : action list) =
+  lists aid id acts ==> lists aid (shift_id mb k id) (shift_actions mb k acts)
+[@@by induct ()]
+
+lemma producers_shift (mb : int) (k : int) (arts : trace) (acts : action list) =
+  artifacts_have_producers arts acts
+  ==> artifacts_have_producers (shift_trace mb k arts) (shift_actions mb k acts)
+[@@by induction ~id:[%id artifacts_have_producers] ()
+   @>| [auto;
+        (* step: the head artifact's producer still lists its (shifted) id *)
+        [%use shift_lists mb k (List.hd arts).producer_action (List.hd arts).id acts]
+        @> auto]]
+
+(* merge_state: merging two branches of a common base keeps the artifact DAG
+   well-formed, and every artifact of either branch is still listed by its producer
+   in the merged log. The extra premise: theirs' new artifacts were produced by
+   theirs' new actions. *)
+theorem merge_state_preserves_wf (b : state) (o : state) (th : state) =
+  wf_state (on_top b o) && wf_state (on_top b th)
+  && artifacts_have_producers th.artifacts th.actions
+  ==> wf_state (merge_state b o th)
+[@@by [%use merge_preserves_wf b.artifacts o.artifacts th.artifacts]
+   @> [%use producers_grow_left (b.artifacts @ o.artifacts) (b.actions @ o.actions)
+             (shift_actions (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.actions)]
+   @> [%use producers_shift (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts))
+             th.artifacts th.actions]
+   @> [%use producers_grow_right
+             (shift_trace (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.artifacts)
+             (b.actions @ o.actions)
+             (shift_actions (max_id b.artifacts) (max_id (b.artifacts @ o.artifacts)) th.actions)]
+   @> auto]
+[@@timeout 300]

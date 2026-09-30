@@ -1,10 +1,12 @@
 (* Reuse (I5): a decision that reads the state, a transition that grows it
    ======================================================================= *)
 
-[@@@import Machine, "machine.iml"]
+[@@@import Core, "core.iml"]
 [@@@import Freshness, "freshness.iml"]
 
-open Machine
+open Core
+open Artifact
+open Trace
 
 (* The reuse decision (formalization-cache `planFormalization`) reads the state: is
    there already a live (current, non-superseded) verification result for the target

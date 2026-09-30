@@ -1,0 +1,408 @@
+(* Examples: concrete test cases for the trace state machine
+   =========================================================
+
+   The scenario is a small tea-making program under verification, with two
+   functions: `boil` heats water to 100 degrees, and `make_tea` calls `boil` and then
+   pours. Ponens formalized `make_tea` and an engine proved "tea is never made with
+   cold water", so the trace is
+
+     1 src_boil         Source         boil      (action 1)
+     2 src_make_tea     Source         make_tea  (action 1)  derived_from [1]
+     3 model_make_tea   ModelArtifact  make_tea  (action 2)  derived_from [2]
+     4 result_make_tea  VResult        make_tea  (action 3)  derived_from [3], engine-backed
+
+   Each artifact froze the fingerprint of its target when it was produced: `boil` 100,
+   `make_tea` 200. The "current model" views describe the code as it is now, which the
+   freshness queries compare against. *)
+
+[@@@import Core, "core.iml"]
+[@@@import Freshness, "freshness.iml"]
+[@@@import Reuse, "reuse.iml"]
+[@@@import Goals, "goals.iml"]
+[@@@import Policy, "policy.iml"]
+[@@@import Axes, "axes.iml"]
+[@@@import Merge, "merge.iml"]
+
+open Core
+open Artifact
+open Trace
+
+(* Fixtures
+   ======== *)
+
+let mk (id : int) 
+       (parents : int list) 
+       (target : int) 
+       (k : kind) 
+       (engine : bool)
+       (frozen : int) 
+       (aid : int) 
+       : artifact =
+  { id; derived_from = parents; target; superseded = false; akind = k;
+    engine_backed = engine; frozen; producer_action = aid }
+
+(* the two functions of the tea-making program, as component ids *)
+let boil = 1
+
+let make_tea = 2
+
+let src_boil        = mk 1 [] boil Source false 100 1
+let src_make_tea    = mk 2 [1] make_tea Source false 200 1
+let model_make_tea  = mk 3 [2] make_tea ModelArtifact false 200 2
+let result_make_tea = mk 4 [3] make_tea VResult true 200 3
+
+let t_demo : trace = [src_boil; src_make_tea; model_make_tea; result_make_tea]
+
+(* candidate next artifacts, one good and several bad *)
+let good_next     = mk 5 [4] make_tea Residual false 200 4       (* admissible *)
+let prose_result  = mk 5 [3] make_tea VResult false 200 4        (* no engine: breaks I3 *)
+let forward_edge  = mk 5 [6] make_tea ModelArtifact false 200 4  (* edge to a later id: breaks I2 *)
+let dangling      = mk 6 [5] make_tea ModelArtifact false 200 4  (* parent 5 is not in the trace *)
+let reused_id     = mk 4 [3] make_tea Residual false 200 4       (* id 4 is taken *)
+
+(* views of the current model: which components exist, and their fingerprints *)
+let present_all (c : int) : bool = c = boil || c = make_tea
+
+let present_no_make_tea (c : int) : bool = c = boil
+
+let cur_orig (c : int) : int =
+  if c = boil then 100 else if c = make_tea then 200 else 0
+
+let cur_make_tea_edited (c : int) : int =
+  if c = boil then 100 else if c = make_tea then 201 else 0
+
+(* `boil` was edited (say it now stops at 60 degrees); `make_tea`'s own text is
+   unchanged, but the proof about it can no longer be trusted *)
+let cur_boil_edited (c : int) : int =
+  if c = boil then 101 else if c = make_tea then 200 else 0
+
+(* Core: wf, extend, supersede, closure
+   ==================================== *)
+
+verify (wf []) [@@by ground_eval ()]
+
+verify (wf t_demo) [@@by ground_eval ()]
+
+verify (max_id t_demo = 4) [@@by ground_eval ()]
+
+(* ids that go down are not wf, even though every edge points at a smaller id *)
+verify (not (wf [src_boil; model_make_tea; src_make_tea])) [@@by ground_eval ()]
+
+(* extend and admissible
+   --------------------- *)
+
+verify (admissible t_demo good_next) [@@by ground_eval ()]
+
+verify (wf (extend t_demo good_next)) [@@by ground_eval ()]
+
+verify (length (extend t_demo good_next) = 5) [@@by ground_eval ()]
+
+verify (is_prefix t_demo (extend t_demo good_next)) [@@by ground_eval ()]
+
+(* I3: a verification result with no engine behind it is refused, and appending it
+   anyway breaks wf *)
+verify (not (admissible t_demo prose_result)) [@@by ground_eval ()]
+
+verify (not (wf (extend t_demo prose_result))) [@@by ground_eval ()]
+
+(* I2: an edge to a later artifact is refused *)
+verify (not (admissible t_demo forward_edge)) [@@by ground_eval ()]
+
+(* no dangling edges: an edge to an artifact that does not exist is refused *)
+verify (not (admissible t_demo dangling)) [@@by ground_eval ()]
+
+verify (not (wf (extend t_demo dangling))) [@@by ground_eval ()]
+
+(* a reused id is refused *)
+verify (not (admissible t_demo reused_id)) [@@by ground_eval ()]
+
+(* supersede
+   --------- *)
+
+(* retiring `make_tea` flips the flag on the three `make_tea` artifacts only *)
+verify (List.map (fun a -> a.superseded) (supersede t_demo make_tea)
+        = [false; true; true; true])
+[@@by ground_eval ()]
+
+verify (length (supersede t_demo make_tea) = length t_demo) [@@by ground_eval ()]
+
+verify (wf (supersede t_demo make_tea)) [@@by ground_eval ()]
+
+verify (pointwise_same_but_flag t_demo (supersede t_demo make_tea)) [@@by ground_eval ()]
+
+(* a component with no artifacts: nothing changes *)
+verify (supersede t_demo 99 = t_demo) [@@by ground_eval ()]
+
+(* the dependency closure
+   ---------------------- *)
+
+(* the result rests on the model, the source of `make_tea` and, through it, the
+   source of `boil` *)
+verify (closure t_demo result_make_tea = [model_make_tea; src_make_tea; src_boil])
+[@@by ground_eval ()]
+
+verify (targets (closure t_demo result_make_tea) = [make_tea; make_tea; boil])
+[@@by ground_eval ()]
+
+verify (closure t_demo src_boil = []) [@@by ground_eval ()]
+
+(* Freshness (I4)
+   ============== *)
+
+verify (Freshness.freshness_of result_make_tea present_all cur_orig = Freshness.Fresh)
+[@@by ground_eval ()]
+
+verify (Freshness.freshness_of result_make_tea present_all cur_make_tea_edited = Freshness.Stale)
+[@@by ground_eval ()]
+
+verify (Freshness.freshness_of result_make_tea present_no_make_tea cur_orig = Freshness.Detached)
+[@@by ground_eval ()]
+
+(* `boil` was edited. The result's own target is unchanged, so the one-artifact
+   check still says Fresh, but the closure check catches the change to `boil`,
+   which `make_tea` depends on. *)
+verify (Freshness.freshness_of result_make_tea present_all cur_boil_edited = Freshness.Fresh)
+[@@by ground_eval ()]
+
+verify (not (Freshness.fresh_closure t_demo result_make_tea present_all cur_boil_edited))
+[@@by ground_eval ()]
+
+verify (Freshness.fresh_closure t_demo result_make_tea present_all cur_orig)
+[@@by ground_eval ()]
+
+verify (Freshness.evidence_fresh t_demo present_all cur_orig) [@@by ground_eval ()]
+
+verify (not (Freshness.evidence_fresh t_demo present_all cur_make_tea_edited))
+[@@by ground_eval ()]
+
+(* only live results count: once the stale result is superseded, nothing live claims
+   anything about the edited `make_tea` *)
+verify (Freshness.evidence_fresh (supersede t_demo make_tea) present_all cur_make_tea_edited)
+[@@by ground_eval ()]
+
+verify (Freshness.has_fresh_result t_demo make_tea present_all cur_orig) [@@by ground_eval ()]
+
+verify (not (Freshness.has_fresh_result t_demo make_tea present_all cur_make_tea_edited))
+[@@by ground_eval ()]
+
+(* `boil` has sources but no verification result *)
+verify (not (Freshness.has_fresh_result t_demo boil present_all cur_orig))
+[@@by ground_eval ()]
+
+(* Reuse (I5)
+   ========== *)
+
+(* a live, fresh result: cache hit *)
+verify (Reuse.plan_reuse t_demo make_tea true present_all cur_orig = Reuse.Reuse)
+[@@by ground_eval ()]
+
+(* `make_tea` was edited: re-formalize *)
+verify (Reuse.plan_reuse t_demo make_tea true present_all cur_make_tea_edited = Reuse.Formalize)
+[@@by ground_eval ()]
+
+(* out of scope wins over everything *)
+verify (Reuse.plan_reuse t_demo make_tea false present_all cur_orig = Reuse.Skip)
+[@@by ground_eval ()]
+
+(* a superseded result is not live, even when its fingerprint still matches *)
+verify (Reuse.plan_reuse (supersede t_demo make_tea) make_tea true present_all cur_orig
+        = Reuse.Formalize)
+[@@by ground_eval ()]
+
+verify (Reuse.plan_reuse t_demo boil true present_all cur_orig = Reuse.Formalize)
+[@@by ground_eval ()]
+
+verify (Reuse.apply_reuse t_demo good_next Reuse.Formalize = t_demo @ [good_next])
+[@@by ground_eval ()]
+
+verify (Reuse.apply_reuse t_demo good_next Reuse.Reuse = t_demo) [@@by ground_eval ()]
+
+verify (Reuse.apply_reuse t_demo good_next Reuse.Skip = t_demo) [@@by ground_eval ()]
+
+(* Goals: the met axis
+   =================== *)
+
+let g_make_tea : Goals.gitem list = [{ Goals.comp = make_tea }]
+
+let g_both : Goals.gitem list = [{ Goals.comp = make_tea }; { Goals.comp = boil }]
+
+verify (Goals.resolve_item t_demo { Goals.comp = make_tea } = Goals.GDone) [@@by ground_eval ()]
+
+verify (Goals.resolve_item t_demo { Goals.comp = boil } = Goals.GTodo) [@@by ground_eval ()]
+
+verify (Goals.goal_met t_demo g_make_tea) [@@by ground_eval ()]
+
+verify (not (Goals.goal_met t_demo g_both)) [@@by ground_eval ()]
+
+verify (Goals.goal_met t_demo []) [@@by ground_eval ()]
+
+(* a superseded result no longer counts as evidence *)
+verify (Goals.resolve_item (supersede t_demo make_tea) { Goals.comp = make_tea } = Goals.GTodo)
+[@@by ground_eval ()]
+
+(* `make_tea` was edited: the item stays Done but is flagged at risk *)
+verify (Goals.item_at_risk t_demo { Goals.comp = make_tea } present_all cur_make_tea_edited)
+[@@by ground_eval ()]
+
+verify (not (Goals.item_at_risk t_demo { Goals.comp = make_tea } present_all cur_orig))
+[@@by ground_eval ()]
+
+(* a Todo item is never at risk *)
+verify (not (Goals.item_at_risk t_demo { Goals.comp = boil } present_all cur_make_tea_edited))
+[@@by ground_eval ()]
+
+verify (Real.(Goals.g_progress t_demo g_both = 0.5)) [@@by ground_eval ()]
+
+verify (Real.(Goals.g_progress t_demo g_make_tea = 1.0)) [@@by ground_eval ()]
+
+verify (Real.(Goals.g_progress t_demo [] = 0.0)) [@@by ground_eval ()]
+
+(* Policy: the governed axis
+   ========================= *)
+
+let is_verify (a : State.act) : bool = a = State.Verify
+
+let is_approve (a : State.act) : bool = a = State.Approve
+
+let is_edit (a : State.act) : bool = a = State.Edit
+
+let is_test (a : State.act) : bool = a = State.Test
+
+(* "every Verify is eventually followed by an Approve" *)
+verify (Policy.responds is_verify is_approve [State.Edit; State.Verify; State.Test; State.Approve])
+[@@by ground_eval ()]
+
+(* the second Verify is never approved *)
+verify (not (Policy.responds is_verify is_approve [State.Verify; State.Approve; State.Verify]))
+[@@by ground_eval ()]
+
+(* "every Edit is eventually tested": the last Edit is not *)
+verify (not (Policy.responds is_edit is_test [State.Edit; State.Test; State.Edit]))
+[@@by ground_eval ()]
+
+(* the empty timeline satisfies every G and no F *)
+verify (Policy.responds is_verify is_approve []) [@@by ground_eval ()]
+
+verify (not (Policy.f_some is_approve [])) [@@by ground_eval ()]
+
+verify (not (Policy.g_all is_test [State.Test; State.Edit])) [@@by ground_eval ()]
+
+(* Axes: governed and met are independent
+   ================================================ *)
+
+(* the goal is met, but the process skipped the approval *)
+let s_met_ungoverned : Axes.gstate =
+  { Axes.arts = t_demo; tl = [State.Verify; State.Edit] }
+
+(* the process was followed, but nothing was established *)
+let s_governed_unmet : Axes.gstate =
+  { Axes.arts = []; tl = [State.Verify; State.Approve] }
+
+verify (Axes.met_of s_met_ungoverned g_make_tea
+        && not (Axes.governed_of s_met_ungoverned is_verify is_approve))
+[@@by ground_eval ()]
+
+verify (not (Axes.met_of s_governed_unmet g_make_tea)
+        && Axes.governed_of s_governed_unmet is_verify is_approve)
+[@@by ground_eval ()]
+
+(* Merge
+   ===== *)
+
+(* Both branches grew from the two sources. Ours formalized and proved `make_tea` (ids
+   3, 4). Theirs formalized and proved `boil` and also minted ids 3, 4, so the
+   merge renumbers theirs to 7, 8. *)
+let m_base : trace = [src_boil; src_make_tea]
+
+let m_ours : trace = [model_make_tea; result_make_tea]
+
+let th_model  = mk 3 [1] boil ModelArtifact false 100 5
+let th_result = mk 4 [3] boil VResult true 100 6
+
+let m_theirs : trace = [th_model; th_result]
+
+let merged : trace = Merge.merge m_base m_ours m_theirs
+
+let no_uninterp (_ : int) : bool = false
+
+let boil_uninterp (c : int) : bool = c = boil
+
+verify (List.map (fun a -> a.id) merged = [1; 2; 3; 4; 7; 8]) [@@by ground_eval ()]
+
+(* theirs' edge into their own model is renumbered, the edge into the base is kept *)
+verify (List.map (fun a -> a.derived_from) merged = [[]; [1]; [2]; [3]; [1]; [7]])
+[@@by ground_eval ()]
+
+verify (wf merged) [@@by ground_eval ()]
+
+verify (is_prefix (m_base @ m_ours) merged) [@@by ground_eval ()]
+
+(* The merge changed `boil`. The `make_tea` result rests on `boil` through its
+   closure, so it must be re-reasoned, unless `boil` is a discharged contract. *)
+verify (Merge.touched merged result_make_tea [boil; 99] = [boil]) [@@by ground_eval ()]
+
+verify (Merge.classify merged result_make_tea [boil] no_uninterp = Merge.NeedsRereasoning)
+[@@by ground_eval ()]
+
+verify (Merge.classify merged result_make_tea [boil] boil_uninterp = Merge.CarriedForward)
+[@@by ground_eval ()]
+
+verify (Merge.classify merged result_make_tea [] no_uninterp = Merge.CarriedForward)
+[@@by ground_eval ()]
+
+(* theirs' `boil` result does not rest on `make_tea` *)
+verify (Merge.classify merged (Merge.shift_art 2 4 th_result) [make_tea] no_uninterp
+        = Merge.CarriedForward)
+[@@by ground_eval ()]
+
+verify (Merge.classify merged (Merge.shift_art 2 4 th_result) [boil] no_uninterp
+        = Merge.NeedsRereasoning)
+[@@by ground_eval ()]
+
+(* State: actions and artifacts
+   ============================ *)
+
+let act1 : State.action = { State.aid = 1; atype = State.Edit; produces = [1; 2] }
+let act2 : State.action = { State.aid = 2; atype = State.Research; produces = [3] }
+let act3 : State.action = { State.aid = 3; atype = State.Verify; produces = [4] }
+
+let s_demo : State.state = { State.actions = [act1; act2; act3]; artifacts = t_demo }
+
+verify (State.wf_state State.empty_state) [@@by ground_eval ()]
+
+verify (State.wf_state s_demo) [@@by ground_eval ()]
+
+(* the result's producer, action 3, is missing from the log *)
+verify (not (State.wf_state { State.actions = [act1; act2]; artifacts = t_demo }))
+[@@by ground_eval ()]
+
+(* action 3 is in the log but does not list the result among its outputs *)
+verify (not (State.wf_state
+               { State.actions = [act1; act2; { act3 with State.produces = [] }];
+                 artifacts = t_demo }))
+[@@by ground_eval ()]
+
+let act4 : State.action = { State.aid = 4; atype = State.Verify; produces = [5] }
+
+verify (State.admissible_state s_demo act4 good_next) [@@by ground_eval ()]
+
+verify (State.wf_state (State.extend_state s_demo act4 good_next)) [@@by ground_eval ()]
+
+(* the artifact points at action 4, but action 4 does not declare it *)
+verify (not (State.admissible_state s_demo { act4 with State.produces = [] } good_next))
+[@@by ground_eval ()]
+
+(* the same merge as above, with the actions: theirs' produces lists move with the ids *)
+let th_act5 : State.action = { State.aid = 5; atype = State.Research; produces = [3] }
+let th_act6 : State.action = { State.aid = 6; atype = State.Verify; produces = [4] }
+
+let sb  : State.state = { State.actions = [act1]; artifacts = m_base }
+let so  : State.state = { State.actions = [act2; act3]; artifacts = m_ours }
+let sth : State.state = { State.actions = [th_act5; th_act6]; artifacts = m_theirs }
+
+verify (State.wf_state (Merge.merge_state sb so sth)) [@@by ground_eval ()]
+
+verify (List.map (fun (ac : State.action) -> ac.State.produces)
+          (Merge.merge_state sb so sth).State.actions
+        = [[1; 2]; [3]; [4]; [7]; [8]])
+[@@by ground_eval ()]

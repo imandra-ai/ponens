@@ -1,0 +1,91 @@
+(* Examples: concrete test cases for the pipeline models
+   =====================================================
+
+   These models do not read or write the trace, so the cases are plain values. *)
+
+[@@@import Identity, "identity.iml"]
+[@@@import Rename, "rename.iml"]
+[@@@import Escalation, "escalation.iml"]
+[@@@import Verdict, "verdict.iml"]
+
+(* Identity: the durable-id resolver
+   ================================= *)
+
+(* lineage beats a unique exact match *)
+verify (Identity.resolve_component (Some 7) 1 3 90 10 5 = Identity.ReuseId 7)
+[@@by ground_eval ()]
+
+(* two exact copies, but a clear similarity winner *)
+verify (Identity.resolve_component None 2 3 90 40 5 = Identity.ReuseId 5)
+[@@by ground_eval ()]
+
+(* two exact copies and weak similarity: mint *)
+verify (Identity.resolve_component None 2 3 70 0 5 = Identity.MintNew) [@@by ground_eval ()]
+
+(* aliases close under one shared-neighbour step only *)
+let chain : Identity.alias list = [(1, 2); (2, 3); (3, 4)]
+
+verify (Identity.same_component 1 3 chain) [@@by ground_eval ()]
+
+verify (Identity.same_component 3 1 chain) [@@by ground_eval ()]
+
+verify (not (Identity.same_component 1 4 chain)) [@@by ground_eval ()]
+
+verify (not (Identity.same_component 5 1 chain)) [@@by ground_eval ()]
+
+(* Rename: never guess
+   =================== *)
+
+verify (Rename.find_rename 1 0 0 = Rename.Match) [@@by ground_eval ()]
+
+(* exact copies are ambiguous, so the similarity tier decides *)
+verify (Rename.find_rename 2 90 40 = Rename.Match) [@@by ground_eval ()]
+
+verify (Rename.find_rename 2 50 0 = Rename.NoMatch) [@@by ground_eval ()]
+
+(* the floor is 80 and the margin 15, both inclusive *)
+verify (Rename.find_rename 0 80 65 = Rename.Match) [@@by ground_eval ()]
+
+verify (Rename.find_rename 0 80 66 = Rename.NoMatch) [@@by ground_eval ()]
+
+verify (Rename.find_rename 0 79 0 = Rename.NoMatch) [@@by ground_eval ()]
+
+(* Escalation: the verify ladder
+   ============================= *)
+
+verify (Escalation.walk [] = Escalation.VUnknown) [@@by ground_eval ()]
+
+verify (Escalation.walk [Escalation.EFailed; Escalation.EFailed] = Escalation.VUnknown)
+[@@by ground_eval ()]
+
+(* failed rungs are skipped; the first decider wins and later rungs are ignored *)
+verify (Escalation.walk [Escalation.EFailed; Escalation.ERefuted; Escalation.EProved]
+        = Escalation.VRefuted)
+[@@by ground_eval ()]
+
+verify (Escalation.walk [Escalation.EProved; Escalation.ERefuted] = Escalation.VProved)
+[@@by ground_eval ()]
+
+(* Verdict: every terminal verdict lands somewhere
+   =============================================== *)
+
+let all_status : Verdict.status list =
+  [Verdict.Proved; Verdict.Refuted; Verdict.Unknown;
+   Verdict.Instance; Verdict.NoInstance; Verdict.Bounded]
+
+verify (List.for_all (fun s -> Verdict.lands_somewhere (Verdict.emit s)) all_status)
+[@@by ground_eval ()]
+
+(* bounded is a proof on the wire, but carries a limitation residual *)
+verify (Verdict.wire_verdict Verdict.Bounded = Verdict.WProved
+        && (Verdict.emit Verdict.Bounded).Verdict.has_residual)
+[@@by ground_eval ()]
+
+verify (not (Verdict.emit Verdict.Proved).Verdict.has_residual) [@@by ground_eval ()]
+
+verify (Verdict.wire_verdict Verdict.NoInstance = Verdict.WProved) [@@by ground_eval ()]
+
+(* exactly three statuses carry a residual *)
+verify (List.filter (fun s -> (Verdict.emit s).Verdict.has_residual) all_status
+        = [Verdict.Refuted; Verdict.Unknown; Verdict.Bounded])
+[@@by ground_eval ()]

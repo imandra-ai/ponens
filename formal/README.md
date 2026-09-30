@@ -20,37 +20,54 @@ It needs `codelogician-lite` (`uv tool install codelogician`) and `jq` on `PATH`
 `CODELOGICIAN_TIMEOUT=600` unless you set it yourself. Set `VERBOSE=1` to print the full
 output of a failing file.
 
-To check one file, run it from `machine/` so that `[@@@import ...]` paths resolve:
+To check one file, run it from its own directory so that `[@@@import ...]` paths resolve:
 
 ```
-cd machine && codelogician-lite check goals.iml
+cd core && codelogician-lite check goals.iml
 ```
 
-An import is trusted: checking `goals.iml` does not re-check `machine.iml`. Check each
-file on its own, which is what `check.sh` does.
+Checking a file also checks the files it imports, and a failure in an import fails the
+file. `check.sh` counts only a file's own POs (a PO from an import is named after the
+import alias, such as `Core.Trace.wf_empty`), so the per-file counts add up to the total.
 
-## The state machine (`machine/`)
+## The state machine (`core/`)
 
 The state is `{ actions; artifacts }`: the ordered action log and the artifact lineage
 DAG. Every artifact is produced by a recorded action. The transitions are `extend`
 (record an action and the artifact it produces), `supersede` (retire a target's current
-revision) and `merge` (join two branches of a shared base). The model is split into one
-file per concern, 192 POs in total, all proved:
+revision) and `merge` (join two branches of a shared base). `core.iml` defines the state
+in three modules: `Artifact` (ids, kinds, the artifact record), `Trace` (the artifact DAG
+and its transitions) and `State` (actions and artifacts together). The other files are
+queries over the state, the theorem that two of them are independent, and the two
+operations that combine a query with a transition. Start with `core.iml`;
+`examples.iml` evaluates each part on a small trace.
 
 | File | POs | What it proves |
 |---|---|---|
-| `machine.iml` | 57 | `wf` (I2 lineage-ordered, I3 grounded, increasing ids, closed lineage) holds of `[]` and is preserved by `extend` and `supersede`; I1 append-only; ids are unique; the dependency closure |
+| `core.iml` | 72 | `wf` (I2 lineage-ordered, I3 grounded, increasing ids, closed lineage) holds of `[]` and is preserved by `extend` and `supersede`; I1 append-only; ids are unique; the dependency closure; `wf_state` (every artifact listed by its producer action) is preserved by `extend_state` and `supersede_state` |
 | `freshness.iml` | 9 | I4: `fresh_is_sound`, `no_false_fresh`, and no-false-fresh over the dependency closure |
-| `reuse.iml` | 5 | I5: never reuse stale evidence; the trace grows by at most one; the reuse step preserves `wf` |
 | `goals.iml` | 20 | the met axis: met is all-done, at_risk never demotes, progress is in [0,1], done and not at risk means fresh |
 | `policy.iml` | 6 | the governed axis: LTLf `G` and `F` over the action timeline |
-| `orthogonality.iml` | 2 | governed and met are independent |
-| `merge.iml` | 22 | `classify` totality, no-false-fresh and never-guess; `merge_preserves_wf`; carried-forward results stay fresh |
-| `identity.iml` | 30 | `resolve_component` never conflates; append-only alias equivalence |
-| `escalation.iml` | 9 | the verify ladder always decides, a verdict has a witness, the first decider wins |
+| `axes.iml` | 2 | governed and met are independent |
+| `reuse.iml` | 5 | I5: never reuse stale evidence; the trace grows by at most one; the reuse step preserves `wf` |
+| `merge.iml` | 27 | `classify` totality, no-false-fresh and never-guess; `merge_preserves_wf`; carried-forward results stay fresh; `merge_state` preserves `wf_state` |
+
+The paper names a third axis, `certified` (the definition of done was reviewed by
+someone other than the doer). It is not modelled yet.
+
+## The pipeline (`pipeline/`)
+
+Models of the procedures that produce what goes into the state. They do not read or
+write the state, and no file here imports `core/`.
+
+| File | POs | What it proves |
+|---|---|---|
+| `identity.iml` | 31 | `resolve_component` never conflates two components; append-only alias equivalence |
 | `rename.iml` | 6 | `find_rename` never guesses when ambiguous; every accepted rename is justified |
+| `escalation.iml` | 9 | the verify ladder always decides, a verdict has a witness, the first decider wins |
 | `verdict.iml` | 6 | every terminal verdict lands somewhere; a defect always carries a residual |
-| `state.iml` | 20 | `wf_state` (artifact DAG well-formed, every artifact listed by its producer action) is preserved by `extend_state`, `supersede_state` and `merge_state` |
+
+The two directories hold 193 POs in total, all proved.
 
 `manifest.toml` is the single source of truth and drives `check.sh`.
 

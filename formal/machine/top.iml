@@ -1,0 +1,17 @@
+(* Ponens
+   ======
+
+   Spec: technical paper sections 2 (state), 4 (freshness), 5 (goals), 6 (policies),
+   7 (composition) and 8.
+
+   ../pipeline/ holds models of the procedures that produce artifacts (identity,
+   rename, the verify ladder, verdicts). They do not read or write the state. *)
+  
+[@@@import Core, "core.iml"]
+[@@@import Freshness, "freshness.iml"]
+[@@@import Goals, "goals.iml"]
+[@@@import Policy, "policy.iml"]
+[@@@import Axes, "axes.iml"]
+[@@@import Reuse, "reuse.iml"]
+[@@@import Merge, "merge.iml"]
+[@@@import Examples, "examples.iml"]

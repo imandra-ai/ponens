@@ -1,9 +1,11 @@
 (* Freshness (I4): a derived query over the state
    ============================================== *)
 
-[@@@import Machine, "machine.iml"]
+[@@@import Core, "core.iml"]
 
-open Machine
+open Core
+open Artifact
+open Trace
 
 (* Freshness is never stored; it is recomputed against the current model, which we
    supply at query time as two functions: [present tgt] says the target still exists,

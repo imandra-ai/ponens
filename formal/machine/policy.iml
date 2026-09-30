@@ -1,12 +1,18 @@
 (* Policy: the governed axis, a query over the action timeline
    =========================================================== *)
 
+[@@@import Core, "core.iml"]
+
+open Core
+open State
+
 (* The met axis (goals) ranges over artifacts: what was established. The governed
    axis (policies) ranges over actions: the finite timeline of what the agent did. A
    policy is an LTLf formula evaluated over that timeline. Because the two axes read
    disjoint parts of the state (artifacts and the timeline), they are independent: how the work was done cannot change what was established, and vice versa. *)
-type act = Edit | Test | Commit | Verify | Approve | Research
 
+(* the action vocabulary [act] is Core.State.act; a timeline is the sequence of action
+   types, in order *)
 type timeline = act list
 
 (* G p : p holds at every position (globally). F p : p holds at some position (finally). *)

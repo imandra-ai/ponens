@@ -1,10 +1,12 @@
 (* Goals: the met axis, a query over the state
    =========================================== *)
 
-[@@@import Machine, "machine.iml"]
+[@@@import Core, "core.iml"]
 [@@@import Freshness, "freshness.iml"]
 
-open Machine
+open Core
+open Artifact
+open Trace
 
 (* An acceptance item targets a code component; its resolved status is a query over the
    trace's evidence. Done = a live (current) verification result roots in the component;

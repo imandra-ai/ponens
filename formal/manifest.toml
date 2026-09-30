@@ -3,29 +3,25 @@
 # `check.sh` reads this, runs `codelogician-lite check` on each [[model]] file, and
 # compares the proof obligation count with `pos`. The README is kept in sync with it.
 #
-# The framework is one state machine whose state is the trace, split into one file per
-# concern under machine/. Each file is checked on its own: an import is trusted, so a
-# file's POs cover only its own definitions.
+# The framework is one state machine whose state is the trace. machine/ holds the state,
+# its transitions and the queries over it; machine/pipeline/ holds models of the procedures
+# that produce artifacts. Checking a file also checks what it imports, but `pos` counts
+# only the file's own POs, so the counts add up to `total_pos`.
 #
 # Fields: path, title, pos (expected POs, all proved).
 
-version = 4
-total_pos = 192
+version = 5
+total_pos = 193
 
 [[model]]
-path = "machine/machine.iml"
-title = "Artifact trace, wf, extend, supersede, closure"
-pos = 57
+path = "machine/core.iml"
+title = "Core: Artifact, Trace (wf, extend, supersede, closure), State (wf_state)"
+pos = 72
 
 [[model]]
 path = "machine/freshness.iml"
 title = "Freshness (I4), a derived query"
 pos = 9
-
-[[model]]
-path = "machine/reuse.iml"
-title = "Reuse (I5), decision and transition"
-pos = 5
 
 [[model]]
 path = "machine/goals.iml"
@@ -38,39 +34,39 @@ title = "Policy: the governed axis, LTLf G and F"
 pos = 6
 
 [[model]]
-path = "machine/orthogonality.iml"
+path = "machine/axes.iml"
 title = "Governed and met are independent"
 pos = 2
 
 [[model]]
+path = "machine/reuse.iml"
+title = "Reuse (I5), decision and transition"
+pos = 5
+
+[[model]]
 path = "machine/merge.iml"
-title = "Merge: classify, merge with a shared base"
-pos = 22
+title = "Merge: classify, merge with a shared base, merge_state"
+pos = 27
 
 [[model]]
-path = "machine/identity.iml"
+path = "machine/pipeline/identity.iml"
 title = "Component identity: never conflate, aliases"
-pos = 30
+pos = 31
 
 [[model]]
-path = "machine/escalation.iml"
-title = "Verify escalation ladder"
-pos = 9
-
-[[model]]
-path = "machine/rename.iml"
+path = "machine/pipeline/rename.iml"
 title = "Rename recovery: never guess"
 pos = 6
 
 [[model]]
-path = "machine/verdict.iml"
-title = "Verdict totality"
-pos = 6
+path = "machine/pipeline/escalation.iml"
+title = "Verify escalation ladder"
+pos = 9
 
 [[model]]
-path = "machine/state.iml"
-title = "State: actions and artifacts, wf_state"
-pos = 20
+path = "machine/pipeline/verdict.iml"
+title = "Verdict totality"
+pos = 6
 
 # Reference model: the trace and policy vocabulary. A layered, executable IML model of
 # the trace/policy types and evaluator (read 01 to 09); the vocabulary the specs project

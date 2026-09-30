@@ -9,6 +9,12 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+## [1.17.1] — 2026-09-30
+
+Evidence freshness follows what a result rests on, as TRACE_SPEC §10.4a says: more model admitted after
+a proof no longer makes it stale, a changed type does, and results from `CodeLogicianOracle` can read as
+fresh.
+
 ### Fixed
 - **Evidence no longer goes stale when more model is admitted after it.** A definition's text ran on
   to the next top-level `let`, so a comment above the next definition, the blank lines between them,

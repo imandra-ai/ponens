@@ -203,7 +203,7 @@ theorem alias_reflexive (a : int) (aliases : alias list) =
 
 
 (* `linked` is symmetric by construction. *)
-theorem linked_symmetric (a : int) (b : int) (aliases : alias list) =
+lemma linked_symmetric (a : int) (b : int) (aliases : alias list) =
   linked a b aliases = linked b a aliases
 [@@by induct ()]
 
@@ -216,13 +216,13 @@ theorem same_component_symmetric_direct (a : int) (b : int) (aliases : alias lis
 
 (* If b is directly linked to something (here: to c), then b is one of the endpoints
    mentioned in the log, so it is a candidate shared neighbour. *)
-theorem linked_left_is_endpoint (b : int) (c : int) (aliases : alias list) =
+lemma linked_left_is_endpoint (b : int) (c : int) (aliases : alias list) =
   linked b c aliases ==> mem_id b (endpoints aliases)
 [@@by induct ()]
 
 (* via_neighbour discovers any candidate n in its scan list that satisfies the
    link-or-equal conditions on both sides. Induct on the candidate list `ns`. *)
-theorem via_neighbour_finds (a : int) (n : int) (b : int)
+lemma via_neighbour_finds (a : int) (n : int) (b : int)
                             (ns : int list) (aliases : alias list) =
   mem_id n ns
   && (linked a n aliases || a = n)

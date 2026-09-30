@@ -79,7 +79,7 @@ theorem no_false_fresh (t : trace) (present : int -> bool) (cur : int -> int) (a
   ==> present a.target && a.frozen = cur a.target
 [@@by [%use fresh_is_sound a present cur] @> induct ()]
 
-theorem deps_fresh_mem (ds : trace) (present : int -> bool) (cur : int -> int) (x : artifact) =
+lemma deps_fresh_mem (ds : trace) (present : int -> bool) (cur : int -> int) (x : artifact) =
   deps_fresh ds present cur && mem_art x ds ==> present x.target && x.frozen = cur x.target
 [@@by induct ()]
 

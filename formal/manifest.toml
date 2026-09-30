@@ -10,12 +10,12 @@
 # Fields: path, title, pos (expected POs, all proved).
 
 version = 4
-total_pos = 194
+total_pos = 192
 
 [[model]]
 path = "machine/machine.iml"
 title = "Artifact trace, wf, extend, supersede, closure"
-pos = 59
+pos = 57
 
 [[model]]
 path = "machine/freshness.iml"

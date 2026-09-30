@@ -95,7 +95,7 @@ theorem merge_never_guess (t : trace) (a : artifact) (delta : int list) (u : int
    result the classifier carries forward with no touched component, the recomputed
    verdict over the whole closure is still fresh, provided the merge changed nothing
    outside delta. The skip is sound, not just recorded. *)
-theorem deps_fresh_transfer (ds : trace) (delta : int list)
+lemma deps_fresh_transfer (ds : trace) (delta : int list)
     (present : int -> bool) (cur : int -> int)
     (present2 : int -> bool) (cur2 : int -> int) =
   intersect (targets ds) delta = []
@@ -116,40 +116,40 @@ theorem carried_forward_stays_fresh (t : trace) (a : artifact) (delta : int list
 (* Structure of the merged trace
    ----------------------------- *)
 
-theorem lineage_ordered_concat (xs : trace) (ys : trace) =
+lemma lineage_ordered_concat (xs : trace) (ys : trace) =
   lineage_ordered (xs @ ys) = (lineage_ordered xs && lineage_ordered ys)
 [@@by induct ()] [@@rw]
 
-theorem grounded_concat (xs : trace) (ys : trace) =
+lemma grounded_concat (xs : trace) (ys : trace) =
   grounded (xs @ ys) = (grounded xs && grounded ys)
 [@@by induct ()] [@@rw]
 
 (* shift is strictly monotone, so parents stay earlier than their children *)
-theorem shift_all_earlier (mb : int) (k : int) (x : int) (ids : int list) =
+lemma shift_all_earlier (mb : int) (k : int) (x : int) (ids : int list) =
   0 <= k && all_earlier x ids ==> all_earlier (shift_id mb k x) (shift_ids mb k ids)
 [@@by induct ()]
 
-theorem shift_lineage_ordered (mb : int) (k : int) (t : trace) =
+lemma shift_lineage_ordered (mb : int) (k : int) (t : trace) =
   0 <= k && lineage_ordered t ==> lineage_ordered (shift_trace mb k t)
 [@@by induct ()]
 
-theorem shift_grounded (mb : int) (k : int) (t : trace) =
+lemma shift_grounded (mb : int) (k : int) (t : trace) =
   grounded (shift_trace mb k t) = grounded t
 [@@by induct ()] [@@rw]
 
 (* ids above mb all move up by k, so the order is kept and starts above lo + k *)
-theorem shift_ids_above (mb : int) (k : int) (lo : int) (t : trace) =
+lemma shift_ids_above (mb : int) (k : int) (lo : int) (t : trace) =
   ids_above lo t && mb <= lo ==> ids_above (lo + k) (shift_trace mb k t)
 [@@by induct ()]
 
-theorem shift_has_id (mb : int) (k : int) (x : int) (t : trace) =
+lemma shift_has_id (mb : int) (k : int) (x : int) (t : trace) =
   has_id x t ==> has_id (shift_id mb k x) (shift_trace mb k t)
 [@@by induct ()]
 
 (* A parent of a theirs_new artifact is in the base (id at most max_id base, which the
    shift leaves alone) or in theirs_new (which the shift renumbers consistently), so
    after the merge it is still present. *)
-theorem shift_parent_present (base : trace) (ours_new : trace) (theirs_new : trace)
+lemma shift_parent_present (base : trace) (ours_new : trace) (theirs_new : trace)
     (k : int) (p : int) =
   has_id p (base @ theirs_new)
   ==> has_id (shift_id (max_id base) k p)
@@ -158,7 +158,7 @@ theorem shift_parent_present (base : trace) (ours_new : trace) (theirs_new : tra
    @> [%use shift_has_id (max_id base) k p theirs_new]  (* a theirs_new parent is found shifted *)
    @> auto]
 
-theorem shift_parents_present (base : trace) (ours_new : trace) (theirs_new : trace)
+lemma shift_parents_present (base : trace) (ours_new : trace) (theirs_new : trace)
     (k : int) (ids : int list) =
   parents_present ids (base @ theirs_new)
   ==> parents_present (shift_ids (max_id base) k ids)
@@ -168,7 +168,7 @@ theorem shift_parents_present (base : trace) (ours_new : trace) (theirs_new : tr
         (* step: the head parent is still present after the shift *)
         [%use shift_parent_present base ours_new theirs_new k (List.hd ids)] @> auto]]
 
-theorem shift_closed_in (base : trace) (ours_new : trace) (theirs_new : trace)
+lemma shift_closed_in (base : trace) (ours_new : trace) (theirs_new : trace)
     (k : int) (t : trace) =
   closed_in (base @ theirs_new) t
   ==> closed_in ((base @ ours_new) @ shift_trace (max_id base) k theirs_new)

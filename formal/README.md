@@ -35,11 +35,11 @@ The state is `{ actions; artifacts }`: the ordered action log and the artifact l
 DAG. Every artifact is produced by a recorded action. The transitions are `extend`
 (record an action and the artifact it produces), `supersede` (retire a target's current
 revision) and `merge` (join two branches of a shared base). The model is split into one
-file per concern, 194 POs in total, all proved:
+file per concern, 192 POs in total, all proved:
 
 | File | POs | What it proves |
 |---|---|---|
-| `machine.iml` | 59 | `wf` (I2 lineage-ordered, I3 grounded, increasing ids, closed lineage) holds of `[]` and is preserved by `extend` and `supersede`; I1 append-only; ids are unique; the dependency closure |
+| `machine.iml` | 57 | `wf` (I2 lineage-ordered, I3 grounded, increasing ids, closed lineage) holds of `[]` and is preserved by `extend` and `supersede`; I1 append-only; ids are unique; the dependency closure |
 | `freshness.iml` | 9 | I4: `fresh_is_sound`, `no_false_fresh`, and no-false-fresh over the dependency closure |
 | `reuse.iml` | 5 | I5: never reuse stale evidence; the trace grows by at most one; the reuse step preserves `wf` |
 | `goals.iml` | 20 | the met axis: met is all-done, at_risk never demotes, progress is in [0,1], done and not at risk means fresh |

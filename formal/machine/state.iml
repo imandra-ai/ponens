@@ -77,51 +77,51 @@ let merge_state (b : state) (o : state) (th : state) : state =
 (* The producer link distributes over the appends
    ---------------------------------------------- *)
 
-theorem lists_left (aid : int) (id : int) (xs : action list) (ys : action list) =
+lemma lists_left (aid : int) (id : int) (xs : action list) (ys : action list) =
   lists aid id xs ==> lists aid id (xs @ ys)
 [@@by induct ()] [@@fc]
 
-theorem lists_right (aid : int) (id : int) (xs : action list) (ys : action list) =
+lemma lists_right (aid : int) (id : int) (xs : action list) (ys : action list) =
   lists aid id ys ==> lists aid id (xs @ ys)
 [@@by induct ()] [@@fc]
 
-theorem lists_self_append (acts : action list) (act0 : action) (id : int) =
+lemma lists_self_append (acts : action list) (act0 : action) (id : int) =
   mem_id id act0.produces ==> lists act0.aid id (acts @ [act0])
 [@@by induct ()]
 
-theorem producers_artifact_append (arts : trace) (acts : action list) (a : artifact) =
+lemma producers_artifact_append (arts : trace) (acts : action list) (a : artifact) =
   artifacts_have_producers (extend arts a) acts
   = (artifacts_have_producers arts acts && lists a.producer_action a.id acts)
 [@@by induct ()] [@@rw]
 
-theorem producers_concat (xs : trace) (ys : trace) (acts : action list) =
+lemma producers_concat (xs : trace) (ys : trace) (acts : action list) =
   artifacts_have_producers (xs @ ys) acts
   = (artifacts_have_producers xs acts && artifacts_have_producers ys acts)
 [@@by induct ()] [@@rw]
 
-theorem producers_grow_left (arts : trace) (xs : action list) (ys : action list) =
+lemma producers_grow_left (arts : trace) (xs : action list) (ys : action list) =
   artifacts_have_producers arts xs ==> artifacts_have_producers arts (xs @ ys)
 [@@by induct ()]
 
-theorem producers_grow_right (arts : trace) (xs : action list) (ys : action list) =
+lemma producers_grow_right (arts : trace) (xs : action list) (ys : action list) =
   artifacts_have_producers arts ys ==> artifacts_have_producers arts (xs @ ys)
 [@@by induct ()]
 
 (* supersede changes no id and no producer, so the link is untouched *)
-theorem producers_supersede (arts : trace) (acts : action list) (tgt : int) =
+lemma producers_supersede (arts : trace) (acts : action list) (tgt : int) =
   artifacts_have_producers (supersede arts tgt) acts = artifacts_have_producers arts acts
 [@@by induct ()] [@@rw]
 
 (* renumbering an artifact and its producer's [produces] list together keeps the link *)
-theorem shift_mem_id (mb : int) (k : int) (x : int) (ids : int list) =
+lemma shift_mem_id (mb : int) (k : int) (x : int) (ids : int list) =
   mem_id x ids ==> mem_id (Merge.shift_id mb k x) (Merge.shift_ids mb k ids)
 [@@by induct ()]
 
-theorem shift_lists (mb : int) (k : int) (aid : int) (id : int) (acts : action list) =
+lemma shift_lists (mb : int) (k : int) (aid : int) (id : int) (acts : action list) =
   lists aid id acts ==> lists aid (Merge.shift_id mb k id) (shift_actions mb k acts)
 [@@by induct ()]
 
-theorem producers_shift (mb : int) (k : int) (arts : trace) (acts : action list) =
+lemma producers_shift (mb : int) (k : int) (arts : trace) (acts : action list) =
   artifacts_have_producers arts acts
   ==> artifacts_have_producers (Merge.shift_trace mb k arts) (shift_actions mb k acts)
 [@@by induction ~id:[%id artifacts_have_producers] ()

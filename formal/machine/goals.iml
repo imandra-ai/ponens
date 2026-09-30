@@ -82,37 +82,37 @@ theorem done_not_at_risk_is_fresh (t : trace) (it : gitem) (present : int -> boo
   ==> Freshness.has_fresh_result t it.comp present cur
 [@@by auto]
 
-theorem g_resolved_nonneg (t : trace) (g : gitem list) =
+lemma g_resolved_nonneg (t : trace) (g : gitem list) =
   0 <= g_resolved t g
 [@@by induct ()]
 
-theorem g_total_nonneg (g : gitem list) =
+lemma g_total_nonneg (g : gitem list) =
   0 <= g_total g
 [@@by induct ()]
 
-theorem g_resolved_le_total (t : trace) (g : gitem list) =
+lemma g_resolved_le_total (t : trace) (g : gitem list) =
   g_resolved t g <= g_total g
 [@@by induct ()]
 
-theorem div_recip (x : real) (y : real) =
+lemma div_recip (x : real) (y : real) =
   Real.( y <> 0. ) ==> Real.( y * (x / y) = x )
 [@@by auto]
 
-theorem ratio_from_prod (x : real) (y : real) (q : real) =
+lemma ratio_from_prod (x : real) (y : real) (q : real) =
   Real.( 0. <= x && x <= y && y > 0. && y * q = x ) ==> Real.( 0. <= q && q <= 1. )
 [@@by auto]
 
-theorem real_ratio_bounded (x : real) (y : real) =
+lemma real_ratio_bounded (x : real) (y : real) =
   Real.( 0. <= x && x <= y && y > 0. ) ==> Real.( 0. <= x / y && x / y <= 1. )
 [@@by [%use div_recip x y] @> [%use ratio_from_prod x y Real.(x / y)] @> auto]
 
-theorem of_int_nonneg (a : int) = 0 <= a ==> Real.( of_int a >= 0. )
+lemma of_int_nonneg (a : int) = 0 <= a ==> Real.( of_int a >= 0. )
 [@@by auto]
 
-theorem of_int_mono (a : int) (b : int) = a <= b ==> Real.( of_int a <= of_int b )
+lemma of_int_mono (a : int) (b : int) = a <= b ==> Real.( of_int a <= of_int b )
 [@@by auto]
 
-theorem of_int_pos (b : int) = 0 < b ==> Real.( of_int b > 0. )
+lemma of_int_pos (b : int) = 0 < b ==> Real.( of_int b > 0. )
 [@@by auto]
 
 (* progress lands in [0.,1.] on a non-empty goal. *)

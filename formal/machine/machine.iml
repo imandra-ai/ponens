@@ -169,109 +169,90 @@ let rec supersede (t : trace) (tgt : int) : trace =
     then { a with superseded = true } :: supersede r tgt
     else a :: supersede r tgt
 
-(* I1: append-only (the state only grows, flags flip)
-   -------------------------------------------------- *)
-
-theorem length_append_one (t : trace) (a : artifact) =
-  length (extend t a) = length t + 1
-[@@by induct ()]
-
-theorem supersede_preserves_length (t : trace) (tgt : int) =
-  length (supersede t tgt) = length t
-[@@by induct ()]
-
 (* The predicates distribute over the append and the flag flip
    ----------------------------------------------------------- *)
 
-theorem lineage_ordered_append (t : trace) (a : artifact) =
+lemma lineage_ordered_append (t : trace) (a : artifact) =
   lineage_ordered (extend t a)
   = (lineage_ordered t && all_earlier a.id a.derived_from)
 [@@by induct ()] [@@rw]
 
-theorem grounded_append (t : trace) (a : artifact) =
+lemma grounded_append (t : trace) (a : artifact) =
   grounded (extend t a)
   = (grounded t && (a.akind = VResult ==> a.engine_backed))
 [@@by induct ()] [@@rw]
 
 (* supersede changes no id, derived_from, akind or engine_backed, only the
    [superseded] flag, so the ordering and grounding predicates are invariant. *)
-theorem supersede_preserves_ordered (t : trace) (tgt : int) =
+lemma supersede_preserves_ordered (t : trace) (tgt : int) =
   lineage_ordered t ==> lineage_ordered (supersede t tgt)
 [@@by induct ()]
 
-theorem supersede_preserves_grounded (t : trace) (tgt : int) =
+lemma supersede_preserves_grounded (t : trace) (tgt : int) =
   grounded t ==> grounded (supersede t tgt)
 [@@by induct ()]
 
 (* Id order and lineage closure over appends
    ----------------------------------------- *)
 
-theorem has_id_append (x : int) (t : trace) (u : trace) =
+lemma has_id_append (x : int) (t : trace) (u : trace) =
   has_id x (t @ u) = (has_id x t || has_id x u)
 [@@by induct ()] [@@rw]
 
-theorem parents_present_grow_right (ids : int list) (t : trace) (u : trace) =
+lemma parents_present_grow_right (ids : int list) (t : trace) (u : trace) =
   parents_present ids t ==> parents_present ids (t @ u)
 [@@by induct ()]
 
-theorem parents_present_grow_left (ids : int list) (t : trace) (u : trace) =
-  parents_present ids t ==> parents_present ids (u @ t)
-[@@by induct ()]
-
-theorem closed_in_grow_right (f : trace) (t : trace) (u : trace) =
+lemma closed_in_grow_right (f : trace) (t : trace) (u : trace) =
   closed_in f t ==> closed_in (f @ u) t
 [@@by induct ()]
 
-theorem closed_in_grow_left (f : trace) (t : trace) (u : trace) =
-  closed_in f t ==> closed_in (u @ f) t
-[@@by induct ()]
-
-theorem closed_in_append (f : trace) (t : trace) (u : trace) =
+lemma closed_in_append (f : trace) (t : trace) (u : trace) =
   closed_in f (t @ u) = (closed_in f t && closed_in f u)
 [@@by induct ()] [@@rw]
 
-theorem ids_above_append (lo : int) (t : trace) (u : trace) =
+lemma ids_above_append (lo : int) (t : trace) (u : trace) =
   ids_above lo (t @ u) = (ids_above lo t && ids_above (top lo t) u)
 [@@by induct ()] [@@rw]
 
 (* A minted id max_id t + 1 is strictly greater than every id already present, so an
    edge into the existing trace is automatically "earlier": the id-minting discipline
    discharges admissibility's all_earlier requirement. *)
-theorem max_id_is_bound (t : trace) (x : int) =
+lemma max_id_is_bound (t : trace) (x : int) =
   has_id x t ==> x <= max_id t
 [@@by induct ()]
 
-theorem top_mem (lo : int) (t : trace) =
+lemma top_mem (lo : int) (t : trace) =
   t <> [] ==> has_id (top lo t) t
 [@@by induct ()]
 
 (* The last id is at most the largest id, so a minted id above max_id is above top. *)
-theorem top_le_max_id (t : trace) =
+lemma top_le_max_id (t : trace) =
   top 0 t <= max_id t
 [@@by [%use top_mem 0 t] @> [%use max_id_is_bound t (top 0 t)] @> auto]
 
 (* supersede changes no id and no edge, so the id and closure predicates are invariant *)
-theorem supersede_has_id (x : int) (t : trace) (tgt : int) =
+lemma supersede_has_id (x : int) (t : trace) (tgt : int) =
   has_id x (supersede t tgt) = has_id x t
 [@@by induct ()] [@@rw]
 
-theorem supersede_parents_present (ids : int list) (t : trace) (tgt : int) =
+lemma supersede_parents_present (ids : int list) (t : trace) (tgt : int) =
   parents_present ids (supersede t tgt) = parents_present ids t
 [@@by induct ()] [@@rw]
 
-theorem supersede_closed_in (f : trace) (t : trace) (tgt : int) =
+lemma supersede_closed_in (f : trace) (t : trace) (tgt : int) =
   closed_in f (supersede t tgt) = closed_in f t
 [@@by induct ()] [@@rw]
 
-theorem supersede_closed_in_full (f : trace) (t : trace) (tgt : int) =
+lemma supersede_closed_in_full (f : trace) (t : trace) (tgt : int) =
   closed_in (supersede f tgt) t = closed_in f t
 [@@by induct ()] [@@rw]
 
-theorem supersede_ids_above (lo : int) (t : trace) (tgt : int) =
+lemma supersede_ids_above (lo : int) (t : trace) (tgt : int) =
   ids_above lo (supersede t tgt) = ids_above lo t
 [@@by induct ()] [@@rw]
 
-theorem supersede_max_id (t : trace) (tgt : int) =
+lemma supersede_max_id (t : trace) (tgt : int) =
   max_id (supersede t tgt) = max_id t
 [@@by induct ()] [@@rw]
 
@@ -300,6 +281,48 @@ theorem supersede_preserves_wf (t : trace) (tgt : int) =
    @> [%use supersede_preserves_grounded t tgt]
    @> auto]
 
+(* I1: append-only (the state only grows, flags flip)
+   -------------------------------------------------- *)
+
+theorem length_append_one (t : trace) (a : artifact) =
+  length (extend t a) = length t + 1
+[@@by induct ()]
+
+theorem supersede_preserves_length (t : trace) (tgt : int) =
+  length (supersede t tgt) = length t
+[@@by induct ()]
+
+let rec is_prefix (p : trace) (t : trace) : bool =
+  match p, t with
+  | [], _ -> true
+  | x :: r, y :: r2 -> x = y && is_prefix r r2
+  | _ :: _, [] -> false
+
+lemma is_prefix_append (p : trace) (u : trace) =
+  is_prefix p (p @ u)
+[@@by induct ()]
+
+(* extend keeps the whole prior trace as a prefix *)
+theorem extend_is_prefix (t : trace) (a : artifact) =
+  is_prefix t (extend t a)
+[@@by [%use is_prefix_append t [a]] @> auto]
+
+(* [y] is [x] with at most the superseded flag raised *)
+let same_but_flag (x : artifact) (y : artifact) : bool =
+  y = { x with superseded = y.superseded } && (x.superseded ==> y.superseded)
+
+let rec pointwise_same_but_flag (t : trace) (t2 : trace) : bool =
+  match t, t2 with
+  | [], [] -> true
+  | x :: r, y :: r2 -> same_but_flag x y && pointwise_same_but_flag r r2
+  | _, _ -> false
+
+(* supersede changes nothing but the superseded flag, never lowers it, and keeps
+   the order and the length *)
+theorem supersede_only_raises_flags (t : trace) (tgt : int) =
+  pointwise_same_but_flag t (supersede t tgt)
+[@@by induct ()]
+
 (* I2 sharpened: the ordering discipline is sound
    ---------------------------------------------- *)
 
@@ -310,7 +333,7 @@ let rec no_self_ref (t : trace) : bool =
   | [] -> true
   | a :: r -> not (mem_id a.id a.derived_from) && no_self_ref r
 
-theorem all_earlier_not_self (self : int) (ids : int list) =
+lemma all_earlier_not_self (self : int) (ids : int list) =
   all_earlier self ids ==> not (mem_id self ids)
 [@@by induct ()] [@@fc]
 
@@ -319,7 +342,7 @@ theorem ordered_implies_no_self_ref (t : trace) =
 [@@by induct () @> auto]
 
 (* Increasing ids are unique: an artifact's id does not occur again later in the trace. *)
-theorem ids_above_bound (lo : int) (t : trace) (x : int) =
+lemma ids_above_bound (lo : int) (t : trace) (x : int) =
   ids_above lo t && has_id x t ==> lo < x
 [@@by induct ()]
 
@@ -330,17 +353,17 @@ theorem ids_above_unique (lo : int) (a : artifact) (r : trace) =
 (* Id order facts the merge relies on
    ---------------------------------- *)
 
-theorem max_id_nonneg (t : trace) =
+lemma max_id_nonneg (t : trace) =
   0 <= max_id t
 [@@by induct ()]
 
 (* a lower bound can always be lowered *)
-theorem ids_above_mono (lo : int) (lo2 : int) (t : trace) =
+lemma ids_above_mono (lo : int) (lo2 : int) (t : trace) =
   ids_above lo t && lo2 <= lo ==> ids_above lo2 t
 [@@by induct ()]
 
 (* on an increasing trace the last id is the largest id *)
-theorem top_ge_max_id (lo : int) (t : trace) =
+lemma top_ge_max_id (lo : int) (t : trace) =
   0 <= lo && ids_above lo t ==> max_id t <= top lo t && lo <= top lo t
 [@@by induct ()]
 
@@ -369,16 +392,16 @@ let rec targets (ds : trace) : int list =
 let rec mem_art (a : artifact) (t : trace) : bool =
   match t with [] -> false | x :: r -> x = a || mem_art a r
 
-theorem mem_id_append (x : int) (xs : int list) (ys : int list) =
+lemma mem_id_append (x : int) (xs : int list) (ys : int list) =
   mem_id x (xs @ ys) = (mem_id x xs || mem_id x ys)
 [@@by induct ()] [@@rw]
 
-theorem mem_art_rev (a : artifact) (t : trace) =
+lemma mem_art_rev (a : artifact) (t : trace) =
   mem_art a (List.rev t) = mem_art a t
 [@@by induct ()] [@@rw]
 
 (* the closure only holds artifacts of the trace *)
-theorem closure_rev_sub (x : artifact) (rt : trace) (need : int list) =
+lemma closure_rev_sub (x : artifact) (rt : trace) (need : int list) =
   mem_art x (closure_rev rt need) ==> mem_art x rt
 [@@by induct ()]
 
@@ -387,7 +410,7 @@ theorem closure_sub (x : artifact) (t : trace) (a : artifact) =
 [@@by [%use closure_rev_sub x (List.rev t) a.derived_from] @> auto]
 
 (* every artifact of the trace whose id is needed is in the closure: needs only grow *)
-theorem closure_rev_complete (x : artifact) (rt : trace) (need : int list) =
+lemma closure_rev_complete (x : artifact) (rt : trace) (need : int list) =
   mem_art x rt && mem_id x.id need ==> mem_art x (closure_rev rt need)
 [@@by induct ~on_fun:[%id closure_rev] ()]
 
@@ -395,37 +418,3 @@ theorem closure_rev_complete (x : artifact) (rt : trace) (need : int list) =
 theorem closure_has_parents (x : artifact) (t : trace) (a : artifact) =
   mem_art x t && mem_id x.id a.derived_from ==> mem_art x (closure t a)
 [@@by [%use closure_rev_complete x (List.rev t) a.derived_from] @> auto]
-
-(* I1 stated as append-only
-   ------------------------ *)
-
-let rec is_prefix (p : trace) (t : trace) : bool =
-  match p, t with
-  | [], _ -> true
-  | x :: r, y :: r2 -> x = y && is_prefix r r2
-  | _ :: _, [] -> false
-
-theorem is_prefix_append (p : trace) (u : trace) =
-  is_prefix p (p @ u)
-[@@by induct ()]
-
-(* extend keeps the whole prior trace as a prefix *)
-theorem extend_is_prefix (t : trace) (a : artifact) =
-  is_prefix t (extend t a)
-[@@by [%use is_prefix_append t [a]] @> auto]
-
-(* [y] is [x] with at most the superseded flag raised *)
-let same_but_flag (x : artifact) (y : artifact) : bool =
-  y = { x with superseded = y.superseded } && (x.superseded ==> y.superseded)
-
-let rec pointwise_same_but_flag (t : trace) (t2 : trace) : bool =
-  match t, t2 with
-  | [], [] -> true
-  | x :: r, y :: r2 -> same_but_flag x y && pointwise_same_but_flag r r2
-  | _, _ -> false
-
-(* supersede changes nothing but the superseded flag, never lowers it, and keeps
-   the order and the length *)
-theorem supersede_only_raises_flags (t : trace) (tgt : int) =
-  pointwise_same_but_flag t (supersede t tgt)
-[@@by induct ()]

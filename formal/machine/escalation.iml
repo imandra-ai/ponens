@@ -40,27 +40,27 @@ let rec has_out (x : rung_out) (rungs : rung_out list) : bool =
 (* Invariants (the properties a silent bug would break)
    ---------------------------------------------------- *)
 
-(* I1, always_decides: the walk is total. `walk rungs` is always one of the three
+(* E1, always_decides: the walk is total. `walk rungs` is always one of the three
    verdicts and never gets stuck. With a finite rung list `walk` terminates (termination PO) and
    this totality theorem shows the result is always a definite verdict. *)
 theorem always_decides (rungs : rung_out list) =
   walk rungs = VProved || walk rungs = VRefuted || walk rungs = VUnknown
 [@@by induct ()]
 
-(* I2, unknown_iff_no_decider: the ladder ends VUnknown iff nothing decided (empty, or
+(* E2, unknown_iff_no_decider: the ladder ends VUnknown iff nothing decided (empty, or
    every rung EFailed). Unknown is never returned when a rung decided, and is always
    returned when none did, so no verdict is made up either way. *)
 theorem unknown_iff_no_decider (rungs : rung_out list) =
   (walk rungs = VUnknown) = (not (some_decider rungs))
 [@@by induct ()]
 
-(* I3a, decided_has_witness (proved): a positive verdict rests on a real deciding rung.
+(* E3a, decided_has_witness (proved): a positive verdict rests on a real deciding rung.
    VProved is returned only when some rung is EProved. *)
 theorem proved_has_witness (rungs : rung_out list) =
   walk rungs = VProved ==> has_out EProved rungs
 [@@by induct ()]
 
-(* I3b, decided_has_witness (refuted): symmetrically, VRefuted is grounded in a real
+(* E3b, decided_has_witness (refuted): symmetrically, VRefuted is grounded in a real
    ERefuted rung. *)
 theorem refuted_has_witness (rungs : rung_out list) =
   walk rungs = VRefuted ==> has_out ERefuted rungs
@@ -71,13 +71,13 @@ theorem refuted_has_witness (rungs : rung_out list) =
    EFailed rungs does not change the verdict), so the verdict is exactly that of the first
    non-EFailed rung. *)
 
-(* I4a: a leading EFailed rung is transparent: escalation past an inconclusive rung
+(* E4a: a leading EFailed rung is transparent: escalation past an inconclusive rung
    preserves the eventual verdict (this is the recursive step of the walk, stated as a law). *)
 theorem failed_prefix_transparent (rest : rung_out list) =
   walk (EFailed :: rest) = walk rest
 
 
-(* I4b, first_decider_wins: if the first rung already decides, the ladder returns exactly
+(* E4b, first_decider_wins: if the first rung already decides, the ladder returns exactly
    that rung's verdict. The earliest decider wins and later rungs are never consulted. *)
 theorem first_decider_wins (r : rung_out) (rest : rung_out list) =
   (r = EProved  ==> walk (r :: rest) = VProved)

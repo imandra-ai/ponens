@@ -315,6 +315,44 @@ def test_closure_fresh_on_unrelated_change():
     assert stale_evidence(t) == []
 
 
+def test_closure_fresh_when_later_admissions_append_to_the_model():
+    # A session admits more source after the proof: a commented contract after f. Nothing f rests on
+    # changed - the comment above the next definition, the blank lines, the next definition itself are
+    # not part of f. (It read as stale when a def's text ran on to the next `let`.)
+    base = "type tier = Bronze | Gold\nlet f (t : tier) = match t with Gold -> 0 | Bronze -> 1"
+    t = _fp_trace([
+        _model("m0", 1, base, ["f"]),
+        _model("m2", 3, base + "\n\n(* f's contract: one bit per clause *)\nlet f_contract (t : tier) = 1\nverify (fun t -> f t >= 0)", ["f", "f_contract"]),
+    ])
+    assert stale_evidence(t) == []
+
+
+def test_closure_fresh_on_comment_and_reformat():
+    # TRACE_SPEC §10.4a: a comment or formatting edit leaves the task unchanged.
+    t = _fp_trace([
+        _model("m0", 1, "let g x = x + 1\nlet f x = g x", ["f", "g"]),
+        _model("m2", 3, "let g x =\n  (* one more *)\n  x + 1\n\nlet f x =\n    g x", ["f", "g"]),
+    ])
+    assert stale_evidence(t) == []
+
+
+def test_closure_stale_when_a_type_it_uses_changes():
+    # A type is part of what a function rests on: a constructor added under f makes its proof stale.
+    t = _fp_trace([
+        _model("m0", 1, "type tier = Bronze | Gold\nlet f (t : tier) = match t with Gold -> 0 | _ -> 1", ["f"]),
+        _model("m2", 3, "type tier = Bronze | Silver | Gold\nlet f (t : tier) = match t with Gold -> 0 | _ -> 1", ["f"]),
+    ])
+    assert [r["residual_id"] for r in stale_evidence(t)] == ["stale-vr1"]
+
+
+def test_a_stored_checksum_that_is_not_a_closure_is_not_compared():
+    # A producer's hash of the whole model text is a different fingerprint: compared with the closure
+    # checksum it would read every result as stale. It is set aside and the closure recomputed.
+    t = _fp_trace([_model("m0", 1, "let g x = x + 1\nlet f x = g x", ["f", "g"])])
+    t["artifacts"][1]["payload"]["fingerprint"] = {"task_checksum": "0123456789abcdef"}
+    assert stale_evidence(t) == []
+
+
 def test_detached_when_symbol_removed_from_model():
     # The current model no longer declares f -> the proof is Detached, not merely stale.
     t = _fp_trace([

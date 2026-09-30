@@ -64,8 +64,10 @@ def test_codelogician_oracle_stamps_attribution_and_generic_fingerprint():
     assert p["oracle"] == {"id": "codelogician", "oracle_type": "reasoner", "engine": "imandrax", "evidence_strength": "proof", "version": "1.4"}
     fp = oc.fingerprint_of(p)
     assert fp["subject_checksum"] == "abc123" and fp["subject_ref"] == "f" and fp["oracle_id"] == "codelogician"
-    # The reasoner profile names ride along for pre-1.12 consumers.
-    assert p["fingerprint"]["task_checksum"] == "abc123" and p["fingerprint"]["target_symbol"] == "f"
+    # The reasoner profile names ride along for pre-1.12 consumers - with the task checksum freshness
+    # compares: the symbol's dependency closure, never the runner's hash of the whole model text.
+    from ponens.goals import _closure_checksum
+    assert p["fingerprint"]["task_checksum"] == _closure_checksum("let f x = x", "f") and p["fingerprint"]["target_symbol"] == "f"
 
 
 def test_honesty_rule_no_strength_on_unknown_and_never_stronger_than_capability():

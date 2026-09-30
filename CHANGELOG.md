@@ -9,6 +9,20 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+### Fixed
+- **Evidence no longer goes stale when more model is admitted after it.** A definition's text ran on
+  to the next top-level `let`, so a comment above the next definition, the blank lines between them,
+  or a `verify`/`type` after it counted as part of it: a session that admitted anything more (a
+  contract, a lemma) made every earlier proof and decomposition read as stale. Definitions now end
+  at the next top-level item, and the checksum ignores comments and formatting - as TRACE_SPEC §10.4a
+  already required.
+- **A change to a type now makes what uses it stale.** `type` declarations were never part of a
+  definition's dependency closure: adding a constructor under a function left its proofs fresh.
+- **Results from `CodeLogicianOracle` could never read as fresh.** It stamped the runner's hash of
+  the whole model text as `task_checksum`, which freshness compares with the closure checksum. It now
+  stamps the closure checksum of the symbol it verified; a stored checksum that is not a closure
+  checksum is set aside and the closure recomputed.
+
 ## [1.17.0] — 2026-09-29
 
 What an edit says it changed now counts toward naming it, and `ponens push` works with a hub that

@@ -46,14 +46,14 @@ small trace.
 
 | File | POs | What it proves |
 |---|---|---|
-| `core.iml` | 72 | `wf` (I2 lineage-ordered, I3 grounded, increasing ids, closed lineage) holds of `[]` and is preserved by `extend` and `supersede`; I1 append-only; ids are unique; the dependency closure; `wf_state` (every artifact listed by its producer action) is preserved by `extend_state` and `supersede_state` |
+| `core.iml` | 81 | `wf` (I2 lineage-ordered, I3 grounded, increasing ids, closed lineage) holds of `[]` and is preserved by `extend` and `supersede`; I1 append-only; ids are unique; the dependency closure; `wf_state` (every artifact listed by its producer action, increasing action ids) is preserved by `extend_state` and `supersede_state` |
 | `freshness.iml` | 9 | I4: `fresh_is_sound`, `no_false_fresh`, and no-false-fresh over the dependency closure |
 | `goals.iml` | 20 | the met axis: met is all-done, at_risk never demotes, progress is in [0,1], done and not at risk means fresh |
 | `policy.iml` | 6 | the governed axis: LTLf `G` and `F` over the action timeline |
 | `axes.iml` | 2 | governed and met are independent |
-| `reuse.iml` | 5 | I5: never reuse stale evidence; the trace grows by at most one; the reuse step preserves `wf` |
-| `merge.iml` | 27 | `classify` totality, no-false-fresh and never-guess; `merge_preserves_wf`; carried-forward results stay fresh; `merge_state` preserves `wf_state` |
-| `top.iml` | 9 | the `Machine` interface: `wf_state` holds of `empty` and is preserved by `extend`, `supersede` and `merge`; every run of steps from `empty` is well-formed (`reachable_wf`) |
+| `reuse.iml` | 7 | I5: never reuse stale evidence; the trace grows by at most one; the reuse step preserves `wf` on the trace and `wf_state` on the full state |
+| `merge.iml` | 58 | `classify` totality, no-false-fresh and never-guess; `merge_preserves_wf`; a result of ours keeps its closure through the merge, and one carried forward with nothing touched is still fresh against the merged trace; `merge_state` renumbers theirs' artifact and action ids and preserves `wf_state` |
+| `top.iml` | 11 | the `Machine` interface: `wf_state` holds of `empty` and is preserved by `extend`, `supersede`, `merge` and `reuse`; every run of steps from `empty` is well-formed (`reachable_wf`); a reuse is an `Extend` step or no step |
 
 The paper names a third axis, `certified` (the definition of done was reviewed by
 someone other than the doer). It is not modelled yet.
@@ -70,7 +70,7 @@ write the state, and no file here imports `core.iml`.
 | `escalation.iml` | 9 | the verify ladder always decides, a verdict has a witness, the first decider wins |
 | `verdict.iml` | 6 | every terminal verdict lands somewhere; a defect always carries a residual |
 
-The two directories hold 202 POs in total, all proved.
+The two directories hold 246 POs in total, all proved.
 
 `manifest.toml` is the single source of truth and drives `check.sh`.
 

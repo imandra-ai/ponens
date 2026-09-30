@@ -11,12 +11,12 @@
 # Fields: path, title, pos (expected POs, all proved).
 
 version = 5
-total_pos = 202
+total_pos = 246
 
 [[model]]
 path = "machine/core.iml"
 title = "Core: Artifact, Trace (wf, extend, supersede, closure), State (wf_state)"
-pos = 72
+pos = 81
 
 [[model]]
 path = "machine/freshness.iml"
@@ -41,17 +41,17 @@ pos = 2
 [[model]]
 path = "machine/reuse.iml"
 title = "Reuse (I5), decision and transition"
-pos = 5
+pos = 7
 
 [[model]]
 path = "machine/merge.iml"
 title = "Merge: classify, merge with a shared base, merge_state"
-pos = 27
+pos = 58
 
 [[model]]
 path = "machine/top.iml"
 title = "Top: the machine, its invariant, every run is well-formed"
-pos = 9
+pos = 11
 
 [[model]]
 path = "machine/pipeline/identity.iml"

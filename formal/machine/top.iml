@@ -23,7 +23,8 @@
    the action log plus the artifact trace (core.iml). extend records an action and the
    artifact it produces, if admissible. supersede retires a component's live evidence.
    merge combines two branches built on a common base (merge.iml). Reuse is not a
-   transition of its own: a miss is an extend, a hit or a skip changes nothing. *)
+   transition of its own: a miss is an extend, a hit or a skip changes nothing
+   (reuse_is_step below). *)
 
 module Machine = struct
   type state = Core.State.state
@@ -32,8 +33,8 @@ module Machine = struct
 
   let empty : state = Core.State.empty_state
 
-  (* the invariant: the artifact DAG is well-formed and every artifact is listed by
-     the action that produced it *)
+  (* the invariant: the artifact DAG is well-formed, every artifact is listed by the
+     action that produced it, and action ids are unique *)
   let wf (s : state) : bool = Core.State.wf_state s
 
   (* the guard on extend *)
@@ -54,6 +55,10 @@ module Machine = struct
 
   (* merge ours (on_top b o) with theirs (on_top b th) *)
   let merge (b : state) (o : state) (th : state) : state = Merge.merge_state b o th
+
+  (* the reuse step (reuse.iml): Formalize records act0 and a, Reuse and Skip do nothing *)
+  let reuse (s : state) (act0 : action) (a : artifact) (act : Reuse.reuse_action) : state =
+    Reuse.apply_reuse_state s act0 a act
 
   (* The invariant, one theorem per transition
      ----------------------------------------- *)
@@ -79,6 +84,11 @@ module Machine = struct
   [@@by [%use Merge.merge_state_preserves_wf b o th] @> auto]
   [@@disable Core.State.wf_state, Core.State.artifacts_have_producers,
              Merge.on_top, Merge.merge_state]
+
+  theorem reuse_wf (s : state) (act0 : action) (a : artifact) (act : Reuse.reuse_action) =
+    wf s && (act = Reuse.Formalize ==> admissible s act0 a) ==> wf (reuse s act0 a act)
+  [@@by [%use Reuse.apply_reuse_state_preserves_wf s act0 a act] @> auto]
+  [@@disable Core.State.wf_state, Core.State.admissible_state, Reuse.apply_reuse_state]
 
   (* The four together, for citing as one result. The parameters are the union of the
      four theorems' inputs: s, act0, a for extend; s, tgt for supersede; the base b and
@@ -128,4 +138,11 @@ module Machine = struct
     wf (run empty steps)
   [@@by [%use run_wf empty steps] @> [%use empty_wf] @> auto]
   [@@disable wf, run]
+
+  (* reuse is a step: an admissible miss is the Extend step, a hit or a skip is no step *)
+  theorem reuse_is_step (s : state) (act0 : action) (a : artifact) (act : Reuse.reuse_action) =
+    admissible s act0 a
+    ==> reuse s act0 a act = (if act = Reuse.Formalize then apply s (Extend (act0, a)) else s)
+  [@@by auto]
+  [@@disable admissible, extend]
 end

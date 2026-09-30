@@ -12,7 +12,8 @@
      the empty trace and every transition preserves it
    - I1: the transitions are append-only
    - the dependency closure is sound
-   - `wf_state` (`wf` plus every artifact listed by its producer) is preserved too
+   - `wf_state` (`wf`, every artifact listed by its producer, unique action ids) is
+     preserved too
 
    Modules:
    - Artifact: ids, kinds, the artifact record
@@ -438,7 +439,9 @@ end
    
    Every artifact was produced by an action recorded in the log, and
    that action lists it among its outputs, so evidence enters the state only through
-   a recorded action. The transitions grow both parts together and keep that link. *)
+   a recorded action. Action ids strictly increase along the log, as artifact ids do
+   along the trace, so no two actions share an id. The transitions grow both parts
+   together and keep the link and the id order. *)
 
 module State = struct
   open Artifact
@@ -464,9 +467,29 @@ module State = struct
     | [] -> true
     | a :: r -> lists a.producer_action a.id acts && artifacts_have_producers r acts
 
-  (* full-state well-formedness: the artifact DAG is wf and every artifact has a producer *)
+  (* Action ids strictly increase along the log, starting above [lo]; [atop] and
+     [max_aid] mirror [top] and [max_id] for artifacts. *)
+  let rec aids_above (lo : int) (acts : action list) : bool =
+    match acts with
+    | [] -> true
+    | ac :: r -> lo < ac.aid && aids_above ac.aid r
+  [@@adm acts]
+
+  let rec atop (lo : int) (acts : action list) : int =
+    match acts with
+    | [] -> lo
+    | ac :: r -> atop ac.aid r
+
+  let rec max_aid (acts : action list) : int =
+    match acts with
+    | [] -> 0
+    | ac :: r -> let m = max_aid r in if ac.aid > m then ac.aid else m
+
+  (* full-state well-formedness: the artifact DAG is wf, every artifact has a producer,
+     and action ids are unique (increasing) *)
   let wf_state (s : state) : bool =
     wf s.artifacts && artifacts_have_producers s.artifacts s.actions
+    && aids_above 0 s.actions
 
   let empty_state : state = { actions = []; artifacts = [] }
 
@@ -480,6 +503,7 @@ module State = struct
     admissible s.artifacts a
     && a.producer_action = act0.aid           (* the artifact points at this action ... *)
     && mem_id a.id act0.produces              (* ... and the action declares it as output *)
+    && max_aid s.actions < act0.aid           (* the action gets a fresh id *)
 
   let supersede_state (s : state) (tgt : int) : state =
     { s with artifacts = supersede s.artifacts tgt }
@@ -522,6 +546,34 @@ module State = struct
     artifacts_have_producers (supersede arts tgt) acts = artifacts_have_producers arts acts
   [@@by induct ()] [@@rw]
 
+  (* Action id facts, the counterparts of the artifact id facts in Trace
+     ------------------------------------------------------------------- *)
+
+  lemma aids_above_append (lo : int) (xs : action list) (ys : action list) =
+    aids_above lo (xs @ ys) = (aids_above lo xs && aids_above (atop lo xs) ys)
+  [@@by induct ()] [@@rw]
+
+  lemma atop_le_max_aid (lo : int) (acts : action list) =
+    acts <> [] ==> atop lo acts <= max_aid acts
+  [@@by induct ()]
+
+  lemma atop0_le_max_aid (acts : action list) =
+    atop 0 acts <= max_aid acts
+  [@@by [%use atop_le_max_aid 0 acts] @> auto]
+
+  lemma max_aid_nonneg (acts : action list) =
+    0 <= max_aid acts
+  [@@by induct ()]
+
+  lemma aids_above_mono (lo : int) (lo2 : int) (acts : action list) =
+    aids_above lo acts && lo2 <= lo ==> aids_above lo2 acts
+  [@@by induct ()]
+
+  (* on an increasing log the last id is the largest id *)
+  lemma atop_ge_max_aid (lo : int) (acts : action list) =
+    0 <= lo && aids_above lo acts ==> max_aid acts <= atop lo acts && lo <= atop lo acts
+  [@@by induct ()]
+
   (* State-level safety: every transition preserves wf_state
      ------------------------------------------------------- *)
 
@@ -536,6 +588,7 @@ module State = struct
   [@@by [%use extend_preserves_wf s.artifacts a]
      @> [%use producers_grow_left s.artifacts s.actions [act0]]
      @> [%use lists_self_append s.actions act0 a.id]
+     @> [%use atop_le_max_aid 0 s.actions]
      @> auto]
 
   theorem supersede_state_preserves_wf (s : state) (tgt : int) =

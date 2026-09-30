@@ -63,3 +63,37 @@ theorem revert_reuses (t : trace) (tgt : int) (present : int -> bool) (cur : int
   ==> plan_reuse t tgt true present cur = Reuse
       && length (apply_reuse t (List.hd t) Reuse) = length t
 [@@by auto]
+
+(* Reuse on the full state
+   -----------------------
+
+   The same decision and step with the action log. A miss records the formalizing
+   action and the result it produces (extend_state); a hit or a skip changes nothing. *)
+
+open State
+
+let plan_reuse_state (s : state) (tgt : int) (in_scope : bool)
+                     (present : int -> bool) (cur : int -> int) : reuse_action =
+  plan_reuse s.artifacts tgt in_scope present cur
+
+let apply_reuse_state (s : state) (act0 : action) (a_new : artifact) (act : reuse_action)
+    : state =
+  match act with
+  | Formalize -> extend_state s act0 a_new
+  | Reuse -> s
+  | Skip -> s
+
+(* the artifacts move exactly as in apply_reuse *)
+theorem apply_reuse_state_artifacts (s : state) (act0 : action) (a_new : artifact)
+    (act : reuse_action) =
+  (apply_reuse_state s act0 a_new act).artifacts = apply_reuse s.artifacts a_new act
+[@@by auto]
+
+(* I5f the reuse step on the full state preserves wf_state: a miss is an admissible
+   extend_state; a hit or a skip leaves the state as it is. *)
+theorem apply_reuse_state_preserves_wf (s : state) (act0 : action) (a_new : artifact)
+    (act : reuse_action) =
+  wf_state s && (act = Formalize ==> admissible_state s act0 a_new)
+  ==> wf_state (apply_reuse_state s act0 a_new act)
+[@@by [%use extend_state_preserves_wf s act0 a_new] @> auto]
+[@@disable wf_state, admissible_state, extend_state]

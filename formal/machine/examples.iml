@@ -316,8 +316,8 @@ let m_base : trace = [src_boil; src_make_tea]
 
 let m_ours : trace = [model_make_tea; result_make_tea]
 
-let th_model  = mk 3 [1] boil ModelArtifact false 100 5
-let th_result = mk 4 [3] boil VResult true 100 6
+let th_model  = mk 3 [1] boil ModelArtifact false 100 2
+let th_result = mk 4 [3] boil VResult true 100 3
 
 let m_theirs : trace = [th_model; th_result]
 
@@ -392,13 +392,44 @@ verify (State.wf_state (State.extend_state s_demo act4 good_next)) [@@by ground_
 verify (not (State.admissible_state s_demo { act4 with State.produces = [] } good_next))
 [@@by ground_eval ()]
 
-(* the same merge as above, with the actions: theirs' produces lists move with the ids *)
-let th_act5 : State.action = { State.aid = 5; atype = State.Research; produces = [3] }
-let th_act6 : State.action = { State.aid = 6; atype = State.Verify; produces = [4] }
+(* the same merge as above, with the actions. Theirs also numbered its actions 2 and
+   3, so the merge renumbers them to 5 and 6, together with the producer of each of
+   theirs' artifacts; theirs' produces lists move with the artifact ids. *)
+let th_act2 : State.action = { State.aid = 2; atype = State.Research; produces = [3] }
+let th_act3 : State.action = { State.aid = 3; atype = State.Verify; produces = [4] }
 
 let sb  : State.state = { State.actions = [act1]; artifacts = m_base }
 let so  : State.state = { State.actions = [act2; act3]; artifacts = m_ours }
-let sth : State.state = { State.actions = [th_act5; th_act6]; artifacts = m_theirs }
+let sth : State.state = { State.actions = [th_act2; th_act3]; artifacts = m_theirs }
+
+verify (List.map (fun (ac : State.action) -> ac.State.aid)
+          (Merge.merge_state sb so sth).State.actions
+        = [1; 2; 3; 5; 6])
+[@@by ground_eval ()]
+
+verify (List.map (fun a -> a.producer_action) (Merge.merge_state sb so sth).State.artifacts
+        = [1; 1; 2; 3; 5; 6])
+[@@by ground_eval ()]
+
+(* an action whose id is not fresh is refused *)
+verify (not (State.admissible_state s_demo { act4 with State.aid = 3 } good_next))
+[@@by ground_eval ()]
+
+(* a log whose action ids repeat is not wf *)
+verify (not (State.wf_state { s_demo with State.actions = [act1; act2; { act3 with State.aid = 2 }] }))
+[@@by ground_eval ()]
+
+(* ours' make_tea result keeps its closure through the merge *)
+verify (closure merged result_make_tea = closure (m_base @ m_ours) result_make_tea)
+[@@by ground_eval ()]
+
+(* Reuse on the state: a miss records the action and the result *)
+verify (Reuse.apply_reuse_state s_demo act4 good_next Reuse.Formalize
+        = State.extend_state s_demo act4 good_next)
+[@@by ground_eval ()]
+
+verify (Reuse.apply_reuse_state s_demo act4 good_next Reuse.Reuse = s_demo)
+[@@by ground_eval ()]
 
 verify (State.wf_state (Merge.merge_state sb so sth)) [@@by ground_eval ()]
 

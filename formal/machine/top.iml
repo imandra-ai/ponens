@@ -4,7 +4,7 @@
    Spec: technical paper sections 2 (state), 4 (freshness), 5 (goals), 6 (policies),
    7 (composition) and 8.
 
-   ../pipeline/ holds models of the procedures that produce artifacts (identity,
+   pipeline/ holds models of the procedures that produce artifacts (identity,
    rename, the verify ladder, verdicts). They do not read or write the state. *)
   
 [@@@import Core, "core.iml"]
@@ -15,3 +15,117 @@
 [@@@import Reuse, "reuse.iml"]
 [@@@import Merge, "merge.iml"]
 [@@@import Examples, "examples.iml"]
+
+(* Machine: the state and its three transitions
+   =============================================
+
+   The interface the rest of the model is about, gathered in one place. The state is
+   the action log plus the artifact trace (core.iml). extend records an action and the
+   artifact it produces, if admissible. supersede retires a component's live evidence.
+   merge combines two branches built on a common base (merge.iml). Reuse is not a
+   transition of its own: a miss is an extend, a hit or a skip changes nothing. *)
+
+module Machine = struct
+  type state = Core.State.state
+  type action = Core.State.action
+  type artifact = Core.Artifact.artifact
+
+  let empty : state = Core.State.empty_state
+
+  (* the invariant: the artifact DAG is well-formed and every artifact is listed by
+     the action that produced it *)
+  let wf (s : state) : bool = Core.State.wf_state s
+
+  (* the guard on extend *)
+  let admissible (s : state) (act0 : action) (a : artifact) : bool =
+    Core.State.admissible_state s act0 a
+
+  let extend (s : state) (act0 : action) (a : artifact) : state =
+    Core.State.extend_state s act0 a
+
+  let supersede (s : state) (tgt : int) : state = Core.State.supersede_state s tgt
+
+  (* a branch is a base plus what the branch added on top of it *)
+  let on_top (b : state) (n : state) : state = Merge.on_top b n
+
+  (* what a branch added was produced by the branch's own actions *)
+  let self_produced (n : state) : bool =
+    Core.State.artifacts_have_producers n.artifacts n.actions
+
+  (* merge ours (on_top b o) with theirs (on_top b th) *)
+  let merge (b : state) (o : state) (th : state) : state = Merge.merge_state b o th
+
+  (* The invariant, one theorem per transition
+     ----------------------------------------- *)
+
+  theorem empty_wf = wf empty
+  [@@by [%use Core.State.wf_state_empty] @> auto]
+  [@@disable Core.State.wf_state]
+
+  theorem extend_wf (s : state) (act0 : action) (a : artifact) =
+    wf s && admissible s act0 a ==> wf (extend s act0 a)
+  [@@by [%use Core.State.extend_state_preserves_wf s act0 a] @> auto]
+  [@@disable Core.State.wf_state, Core.State.admissible_state, Core.State.extend_state]
+  [@@rw]
+
+  theorem supersede_wf (s : state) (tgt : int) =
+    wf s ==> wf (supersede s tgt)
+  [@@by [%use Core.State.supersede_state_preserves_wf s tgt] @> auto]
+  [@@disable Core.State.wf_state, Core.State.supersede_state]
+  [@@rw]
+
+  theorem merge_wf (b : state) (o : state) (th : state) =
+    wf (on_top b o) && wf (on_top b th) && self_produced th ==> wf (merge b o th)
+  [@@by [%use Merge.merge_state_preserves_wf b o th] @> auto]
+  [@@disable Core.State.wf_state, Core.State.artifacts_have_producers,
+             Merge.on_top, Merge.merge_state]
+
+  (* The four together, for citing as one result. The parameters are the union of the
+     four theorems' inputs: s, act0, a for extend; s, tgt for supersede; the base b and
+     the two branch additions o, th for merge. *)
+  theorem wf_state_invariant (s : state) (act0 : action) (a : artifact) (tgt : int)
+                             (b : state) (o : state) (th : state) =
+    wf empty
+    && (wf s && admissible s act0 a ==> wf (extend s act0 a))
+    && (wf s ==> wf (supersede s tgt))
+    && (wf (on_top b o) && wf (on_top b th) && self_produced th ==> wf (merge b o th))
+  [@@by [%use empty_wf]
+     @> [%use extend_wf s act0 a]
+     @> [%use supersede_wf s tgt]
+     @> [%use merge_wf b o th]
+     @> auto]
+  [@@disable wf, admissible, extend, supersede, on_top, self_produced, merge]
+
+  (* Every run from the empty state is well-formed
+     --------------------------------------------- *)
+
+  (* A step of a single branch. An inadmissible Extend is refused: the state stays as it
+     is. Merge is not a step, because it takes two branches, not one state. *)
+  type step = Extend of action * artifact | Supersede of int
+
+  let apply (s : state) (st : step) : state =
+    match st with
+    | Extend (act0, a) -> if admissible s act0 a then extend s act0 a else s
+    | Supersede tgt -> supersede s tgt
+
+  let rec run (s : state) (steps : step list) : state =
+    match steps with
+    | [] -> s
+    | st :: r -> run (apply s st) r
+
+  lemma apply_wf (s : state) (st : step) =
+    wf s ==> wf (apply s st)
+  [@@by auto]
+  [@@disable wf, admissible, extend, supersede]
+  [@@rw]
+
+  lemma run_wf (s : state) (steps : step list) =
+    wf s ==> wf (run s steps)
+  [@@by induct ~on_fun:[%id run] ()]
+  [@@disable wf, apply]
+
+  theorem reachable_wf (steps : step list) =
+    wf (run empty steps)
+  [@@by [%use run_wf empty steps] @> [%use empty_wf] @> auto]
+  [@@disable wf, run]
+end

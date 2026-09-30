@@ -11,7 +11,7 @@
 # Fields: path, title, pos (expected POs, all proved).
 
 version = 5
-total_pos = 193
+total_pos = 202
 
 [[model]]
 path = "machine/core.iml"
@@ -47,6 +47,11 @@ pos = 5
 path = "machine/merge.iml"
 title = "Merge: classify, merge with a shared base, merge_state"
 pos = 27
+
+[[model]]
+path = "machine/top.iml"
+title = "Top: the machine, its invariant, every run is well-formed"
+pos = 9
 
 [[model]]
 path = "machine/pipeline/identity.iml"

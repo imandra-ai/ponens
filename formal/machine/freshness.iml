@@ -1,0 +1,98 @@
+(* Freshness (I4): a derived query over the state
+   ============================================== *)
+
+[@@@import Core, "core.iml"]
+
+open Core
+open Artifact
+open Trace
+
+(* Freshness is never stored; it is recomputed against the current model, which we
+   supply at query time as two functions: [present tgt] says the target still exists,
+   and [cur tgt] is its current task fingerprint (a hash of the target plus its
+   dependency closure). Each result stored its fingerprint as [frozen] when produced.
+   Because the verdict is a function of the current model, the state can never
+   silently disagree with reality. That is the point of I4. *)
+type fresh_verdict = Fresh | Stale | Detached
+
+let freshness_of (a : artifact) (present : int -> bool) (cur : int -> int) : fresh_verdict =
+  if not (present a.target) then Detached
+  else if a.frozen = cur a.target then Fresh
+  else Stale
+
+(* Aggregate over the state: the live evidence is fresh
+   ---------------------------------------------------- *)
+
+(* a live result is a current (non-superseded) verification result *)
+let is_live_result (a : artifact) : bool =
+  (a.akind = VResult) && not a.superseded
+
+let rec evidence_fresh (t : trace) (present : int -> bool) (cur : int -> int) : bool =
+  match t with
+  | [] -> true
+  | a :: r ->
+    (is_live_result a ==> freshness_of a present cur = Fresh)
+    && evidence_fresh r present cur
+
+(* Freshness over the dependency closure (I4 as the paper states it): a result is
+   fresh when its own target and every artifact it depends on, directly or not, still
+   match the current model. *)
+let rec deps_fresh (ds : trace) (present : int -> bool) (cur : int -> int) : bool =
+  match ds with
+  | [] -> true
+  | x :: r -> present x.target && x.frozen = cur x.target && deps_fresh r present cur
+
+let fresh_closure (t : trace) (a : artifact) (present : int -> bool) (cur : int -> int) : bool =
+  freshness_of a present cur = Fresh && deps_fresh (closure t a) present cur
+
+(* is there a live, fresh verification result for [tgt] in the state? *)
+let rec has_fresh_result (t : trace) (tgt : int) (present : int -> bool) (cur : int -> int) : bool =
+  match t with
+  | [] -> false
+  | a :: r ->
+    (is_live_result a && a.target = tgt && freshness_of a present cur = Fresh)
+    || has_fresh_result r tgt present cur
+
+(* I4a fresh_is_sound: a result never reads Fresh unless its target exists and the
+   current content matches what was reasoned about. No false Fresh at the atom. *)
+theorem fresh_is_sound (a : artifact) (present : int -> bool) (cur : int -> int) =
+  freshness_of a present cur = Fresh
+  ==> present a.target && a.frozen = cur a.target
+[@@by auto]
+
+(* I4b revert-refreshens: freshness is a pure function of content, not history; if the
+   current content equals what was reasoned about, the verdict is Fresh. *)
+theorem revert_refreshens (a : artifact) (present : int -> bool) (cur : int -> int) =
+  present a.target && cur a.target = a.frozen
+  ==> freshness_of a present cur = Fresh
+[@@by auto]
+
+(* I4c a result is Detached exactly when its target is gone (orphaned work). *)
+theorem detached_iff_absent (a : artifact) (present : int -> bool) (cur : int -> int) =
+  (freshness_of a present cur = Detached) = (not (present a.target))
+[@@by auto]
+
+(* I4d no-false-fresh (aggregate): if the trace's evidence is fresh, then every live
+   result matches the current model: no drifted or vanished contributor hides behind
+   a green aggregate. Goal resolution (paper section 5) and the merge affected set
+   (section 7.1) rely on this property. *)
+theorem no_false_fresh (t : trace) (present : int -> bool) (cur : int -> int) (a : artifact) =
+  evidence_fresh t present cur && mem_art a t && is_live_result a
+  ==> present a.target && a.frozen = cur a.target
+[@@by [%use fresh_is_sound a present cur] @> induct ()]
+
+lemma deps_fresh_mem (ds : trace) (present : int -> bool) (cur : int -> int) (x : artifact) =
+  deps_fresh ds present cur && mem_art x ds ==> present x.target && x.frozen = cur x.target
+[@@by induct ()]
+
+(* I4e no-false-fresh over the closure: a result that reads fresh has an unchanged
+   target, and so does every artifact in its dependency closure. *)
+theorem no_false_fresh_closure (t : trace) (a : artifact) (present : int -> bool)
+                               (cur : int -> int) (x : artifact) =
+  fresh_closure t a present cur && mem_art x (closure t a)
+  ==> present a.target && a.frozen = cur a.target
+      && present x.target && x.frozen = cur x.target
+[@@by [%use fresh_is_sound a present cur]
+   @> [%use deps_fresh_mem (closure t a) present cur x]
+   @> auto]
+

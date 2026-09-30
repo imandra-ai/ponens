@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # Regression gate for the ponens formal-model collection.
-# Reads manifest.toml, runs `imandrax-cli check` on every property model, and tallies
-# proof obligations against the expected counts. One command replaces the per-model
-# instructions that used to live in each area README.
+# Reads manifest.toml, runs `codelogician-lite check --json` on every model file, and
+# compares the proof obligations (POs) it reports with the expected counts.
 #
-#   IMANDRAX_API_KEY=$IMANDRA_UNI_KEY ./formal/check.sh
+#   IMANDRAX_ENV=prod ./formal/check.sh
 #
-# Exit 0 iff every model admits and every expected PO count matches.
+# codelogician-lite reads IMANDRA_UNI_KEY or IMANDRAX_API_KEY. It gives up waiting after
+# CODELOGICIAN_TIMEOUT seconds; this script raises the default to 600.
+#
+# Exit 0 iff every model is admitted, every PO is proved, and every PO count matches.
 set -u
 
 FORMAL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST="$FORMAL_DIR/manifest.toml"
+export CODELOGICIAN_TIMEOUT="${CODELOGICIAN_TIMEOUT:-600}"
 
-if ! command -v imandrax-cli >/dev/null 2>&1; then
-  echo "error: imandrax-cli not on PATH (try PATH=\"\$HOME/.local/bin:\$PATH\")" >&2; exit 2
-fi
-if [ -z "${IMANDRAX_API_KEY:-}" ]; then
-  echo "error: set IMANDRAX_API_KEY (e.g. IMANDRAX_API_KEY=\$IMANDRA_UNI_KEY)" >&2; exit 2
+for tool in codelogician-lite jq; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "error: $tool not on PATH" >&2; exit 2
+  fi
+done
+if [ -z "${IMANDRA_UNI_KEY:-}" ] && [ -z "${IMANDRAX_API_KEY:-}" ]; then
+  echo "error: set IMANDRA_UNI_KEY or IMANDRAX_API_KEY" >&2; exit 2
 fi
 
 # path<TAB>pos for each [[model]] block (reference_model excluded)
@@ -27,26 +32,48 @@ models="$(awk '
   m && /^pos *=/        {v=$0; gsub(/[^0-9]/,"",v); print p "\t" v}
 ' "$MANIFEST")"
 
+# every import alias used in the collection, as a JSON list
+ALIASES="$(grep -ho '^\[@@@import [A-Za-z_0-9]*' "$FORMAL_DIR"/*/*.iml "$FORMAL_DIR"/*/*/*.iml \
+           | awk '{print $2}' | sort -u | jq -R . | jq -sc .)"
+
 total_expected=0; total_seen=0; fails=0; n=0
-printf "%-40s %6s %6s  %s\n" "MODEL" "EXP" "GOT" "STATUS"
-printf -- "----------------------------------------------------------------------\n"
+printf "%-32s %5s %5s %5s  %s\n" "MODEL" "EXP" "GOT" "FAIL" "STATUS"
+printf -- "----------------------------------------------------------------\n"
 while IFS=$'\t' read -r path pos; do
   [ -n "$path" ] || continue
   n=$((n+1)); total_expected=$((total_expected+pos))
-  out="$(imandrax-cli check "$FORMAL_DIR/$path" 2>&1)"
+  # run from the file's directory so that [@@@import ...] paths resolve
+  out="$(cd "$FORMAL_DIR/$(dirname "$path")" && codelogician-lite check --json "$(basename "$path")" 2>&1)"
   rc=$?
-  # count discharged POs from the tool output (best-effort; falls back to rc)
-  got="$(printf '%s' "$out" | grep -oiE '[0-9]+ *(/ *[0-9]+)? *(POs?|proof obligations?|succeeded)' | grep -oE '^[0-9]+' | tail -1)"
-  got="${got:-0}"; total_seen=$((total_seen+got))
-  if [ $rc -eq 0 ] && { [ "$got" = "$pos" ] || [ "$got" = "0" ]; }; then
-    status="ok"
+  # a PO from an imported file is named after the import alias (Core.Trace.wf_empty);
+  # the file's own POs are the rest. A failure anywhere still fails the file.
+  if summary="$(printf '%s' "$out" | jq -r --argjson al "$ALIASES" '
+      .eval_res as $r
+      | [ ($r.success | tostring),
+          ($r.errors | length),
+          ([$r.po_results[] | select(((.origin.from_sym // "") | split(".")[0]) as $h
+                                     | $al | index([$h]) | not)] | length),
+          ([$r.po_results[] | select((.errors | length) > 0)] | length) ]
+      | @tsv' 2>/dev/null)"; then
+    IFS=$'\t' read -r ok eval_errs got po_fails <<< "$summary"
   else
-    status="FAIL (rc=$rc)"; fails=$((fails+1))
+    ok=false; eval_errs=1; got=0; po_fails=0
   fi
-  printf "%-40s %6s %6s  %s\n" "$path" "$pos" "$got" "$status"
+  total_seen=$((total_seen+got))
+  if [ $rc -ne 0 ] || [ "$ok" != "true" ] || [ "$eval_errs" -ne 0 ]; then
+    status="FAIL (not admitted, rc=$rc)"; fails=$((fails+1))
+  elif [ "$po_fails" -ne 0 ]; then
+    status="FAIL ($po_fails POs not proved)"; fails=$((fails+1))
+  elif [ "$got" != "$pos" ]; then
+    status="FAIL (PO count)"; fails=$((fails+1))
+  else
+    status="ok"
+  fi
+  printf "%-32s %5s %5s %5s  %s\n" "$path" "$pos" "$got" "$po_fails" "$status"
+  if [ "$status" != "ok" ] && [ -n "${VERBOSE:-}" ]; then printf '%s\n' "$out" >&2; fi
 done <<< "$models"
 
-printf -- "----------------------------------------------------------------------\n"
-printf "%-40s %6s %6s  %s\n" "TOTAL ($n models)" "$total_expected" "$total_seen" \
+printf -- "----------------------------------------------------------------\n"
+printf "%-32s %5s %5s %5s  %s\n" "TOTAL ($n models)" "$total_expected" "$total_seen" "" \
   "$([ $fails -eq 0 ] && echo 'all pass' || echo "$fails FAILED")"
 [ $fails -eq 0 ]

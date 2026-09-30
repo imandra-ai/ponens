@@ -1,0 +1,608 @@
+(* Core: the Ponens trace as a state machine
+   ==========================================
+
+   The state is `{ actions; artifacts }`: the ordered action log and the artifact
+   lineage DAG. Every artifact names the recorded action that produced it. The
+   transitions are `extend` (record an action and the artifact it produces) and
+   `supersede` (retire a component's current revision); merge.iml adds the third,
+   `merge`.
+
+   The invariant labels I1 to I5 are the paper's (section 2). This file proves:
+   - `wf` (I2 lineage-ordered, I3 grounded, increasing ids, no dangling edges) holds of
+     the empty trace and every transition preserves it
+   - I1: the transitions are append-only
+   - the dependency closure is sound
+   - `wf_state` (`wf`, every artifact listed by its producer, unique action ids) is
+     preserved too
+
+   Modules:
+   - Artifact: ids, kinds, the artifact record
+   - Trace: the artifact DAG
+      - wf, admissible, extend, supersede, closure
+   - State: actions and artifacts together
+      - wf_state and its transitions
+*)
+
+(* Artifact: the unit of evidence
+   ============================== *)
+
+type action_id = int   (* the id of a recorded action *)
+type component = int   (* a durable code-component id (pipeline/identity.iml) *)
+
+module Artifact = struct
+  type id = int          (* an artifact's id: its position in producer order *)
+
+  type kind = 
+  | Source 
+  | ModelArtifact 
+  | VResult 
+  | Residual 
+  | GoalArtifact
+
+  type artifact = {
+    id : id;                     (* producer order: strictly increasing along the trace *)
+    derived_from : id list;      (* lineage edges: ids of earlier artifacts *)
+    target : component;          (* the code component this is about (for supersession) *)
+    superseded : bool;           (* retired by a later revision of the same target *)
+    akind : kind;
+    engine_backed : bool;        (* a VResult must be produced by an engine (I3) *)
+    frozen : int;                (* the task fingerprint captured when produced (for I4) *)
+    producer_action : action_id; (* the action that produced this artifact *)
+  }
+end
+
+(* Trace: the artifact DAG, well-formedness, extend and supersede
+   =============================================================
+
+   wf = I2 & I3 (plus increasing ids and no dangling edges) is an inductive invariant;
+   I1 (append-only) is a property of the two transitions.
+
+   What the other files use:
+   - the machine: trace, wf, admissible, extend, supersede
+   - the dependency closure: closure, targets, mem_art
+   - safety: wf_empty, extend_preserves_wf, supersede_preserves_wf
+   - I1: extend_is_prefix, length_append_one, supersede_only_raises_flags
+   - what wf rules out: ordered_implies_no_self_ref, ids_above_unique
+   - closure soundness: closure_sub, closure_has_parents
+   - id facts for merge.iml: max_id_is_bound, top_le_max_id, max_id_nonneg,
+     ids_above_mono, top_ge_max_id, edges_in_grow_right, is_prefix_append
+
+   The rest is proof support. It sits before the theorems because their proofs use
+   its [@@rw] and [@@fc] rules. *)
+
+module Trace = struct
+  open Artifact
+
+  (** the evidence part of the state; the newest artifact is at the end *)
+  type trace = artifact list
+
+  (* Id and lineage helpers
+     ---------------------- *)
+  let rec has_id (x : int) (t : trace) : bool =
+    match t with [] -> false | a :: r -> a.id = x || has_id x r
+
+  let rec max_id (t : trace) : int =
+    match t with
+    | [] -> 0
+    | a :: r -> let m = max_id r in if a.id > m then a.id else m
+
+  let rec mem_id (x : int) (ids : int list) : bool =
+    match ids with [] -> false | i :: r -> i = x || mem_id x r
+
+  let rec all_earlier (self : int) (ids : int list) : bool =
+    match ids with [] -> true | i :: r -> i < self && all_earlier self r
+
+  let rec length (t : trace) : int =
+    match t with [] -> 0 | _ :: r -> 1 + length r
+
+  (* The well-formedness predicate = I2 & I3 (I1 is about the transition)
+     -------------------------------------------------------------------- *)
+
+  (** I2: lineage-ordered, parents are earlier
+
+     each parent of each artifact has a strictly smaller id, so an edge points at
+     an earlier producer.
+
+     This ordering condition alone forbids cycles (no node can
+     reach itself), the well-foundedness the "trace is a context" argument needs.
+  *)
+  let rec lineage_ordered (t : trace) : bool =
+    match t with
+    | [] -> true
+    | a :: r -> all_earlier a.id a.derived_from && lineage_ordered r
+
+  (** I3: prose is inert. A verification result only counts if an engine backs it. *)
+  let rec grounded (t : trace) : bool =
+    match t with
+    | [] -> true
+    | a :: r -> (a.akind = VResult ==> a.engine_backed) && grounded r
+
+  (* Ids strictly increase along the list, starting above [lo]. With lo = 0 every id is
+     positive, no id repeats, and "earlier id" means "earlier in the list". *)
+  let rec ids_above (lo : int) (t : trace) : bool =
+    match t with
+    | [] -> true
+    | a :: r -> lo < a.id && ids_above a.id r
+  [@@adm t]
+
+  (* The id of the last artifact, or [lo] for the empty trace. It follows the same
+     recursion as [ids_above], so ids_above splits over an append at [top]. *)
+  let rec top (lo : int) (t : trace) : int =
+    match t with
+    | [] -> lo
+    | a :: r -> top a.id r
+
+  (* No dangling edges: every parent id is the id of an artifact in the trace.
+     [edges_in full t] checks the edges of the artifacts of [t] against [full]. *)
+  let rec parents_present (ids : int list) (full : trace) : bool =
+    match ids with
+    | [] -> true
+    | p :: r -> has_id p full && parents_present r full
+
+  let rec edges_in (full : trace) (t : trace) : bool =
+    match t with
+    | [] -> true
+    | a :: r -> parents_present a.derived_from full && edges_in full r
+
+  let no_dangling (t : trace) : bool = edges_in t t
+
+  let wf (t : trace) : bool =
+    lineage_ordered t && grounded t && ids_above 0 t && no_dangling t
+
+  (* The transitions
+     --------------- *)
+
+  (* A candidate artifact is admissible in state [t] iff its parents are all earlier
+     than it (I2 at the boundary), it is engine-backed if it is a verification result
+     (I3 at the boundary), its id is above every id in [t] (a caller mints max_id t + 1),
+     and every parent is already in [t]. *)
+  let admissible (t : trace) (a : artifact) : bool =
+    all_earlier a.id a.derived_from
+    && (a.akind = VResult ==> a.engine_backed)
+    && max_id t < a.id
+    && parents_present a.derived_from t
+
+  (* extend: the append transition (record a new artifact). Append-only: the prior
+     state is an unchanged prefix. *)
+  let extend (t : trace) (a : artifact) : trace = t @ [a]
+
+  (* supersede: retire the current revision(s) of a target. It only flips flags and
+     never removes or reorders history (the append-only supersession of I1). *)
+  let rec supersede (t : trace) (tgt : int) : trace =
+    match t with
+    | [] -> []
+    | a :: r ->
+      if a.target = tgt && not a.superseded
+      then { a with superseded = true } :: supersede r tgt
+      else a :: supersede r tgt
+
+  (* Relations the theorems are stated with
+     -------------------------------------- *)
+
+  let rec is_prefix (p : trace) (t : trace) : bool =
+    match p, t with
+    | [], _ -> true
+    | x :: r, y :: r2 -> x = y && is_prefix r r2
+    | _ :: _, [] -> false
+
+  (* [y] is [x] with at most the superseded flag raised *)
+  let same_but_flag (x : artifact) (y : artifact) : bool =
+    y = { x with superseded = y.superseded } && (x.superseded ==> y.superseded)
+
+  let rec pointwise_same_but_flag (t : trace) (t2 : trace) : bool =
+    match t, t2 with
+    | [], [] -> true
+    | x :: r, y :: r2 -> same_but_flag x y && pointwise_same_but_flag r r2
+    | _, _ -> false
+
+  (* Ordering forbids self-reference (no length-1 cycle): a node's id is never among
+     its own parents. Whole-trace form via a recursive predicate. *)
+  let rec no_self_ref (t : trace) : bool =
+    match t with
+    | [] -> true
+    | a :: r -> not (mem_id a.id a.derived_from) && no_self_ref r
+
+  (* Proof support: the predicates over the append and the flag flip
+     --------------------------------------------------------------- *)
+
+  lemma lineage_ordered_append (t : trace) (a : artifact) =
+    lineage_ordered (extend t a)
+    = (lineage_ordered t && all_earlier a.id a.derived_from)
+  [@@by induct ()] [@@rw]
+
+  lemma grounded_append (t : trace) (a : artifact) =
+    grounded (extend t a)
+    = (grounded t && (a.akind = VResult ==> a.engine_backed))
+  [@@by induct ()] [@@rw]
+
+  (* supersede changes no id, derived_from, akind or engine_backed, only the
+     [superseded] flag, so the ordering and grounding predicates are invariant. *)
+  lemma supersede_preserves_ordered (t : trace) (tgt : int) =
+    lineage_ordered t ==> lineage_ordered (supersede t tgt)
+  [@@by induct ()]
+
+  lemma supersede_preserves_grounded (t : trace) (tgt : int) =
+    grounded t ==> grounded (supersede t tgt)
+  [@@by induct ()]
+
+  (* Proof support: ids and edges over appends and supersede
+     ------------------------------------------------------ *)
+
+  lemma has_id_append (x : int) (t : trace) (u : trace) =
+    has_id x (t @ u) = (has_id x t || has_id x u)
+  [@@by induct ()] [@@rw]
+
+  lemma parents_present_grow_right (ids : int list) (t : trace) (u : trace) =
+    parents_present ids t ==> parents_present ids (t @ u)
+  [@@by induct ()]
+
+  lemma edges_in_grow_right (f : trace) (t : trace) (u : trace) =
+    edges_in f t ==> edges_in (f @ u) t
+  [@@by induct ()]
+
+  lemma edges_in_append (f : trace) (t : trace) (u : trace) =
+    edges_in f (t @ u) = (edges_in f t && edges_in f u)
+  [@@by induct ()] [@@rw]
+
+  lemma ids_above_append (lo : int) (t : trace) (u : trace) =
+    ids_above lo (t @ u) = (ids_above lo t && ids_above (top lo t) u)
+  [@@by induct ()] [@@rw]
+
+  (* A minted id max_id t + 1 is strictly greater than every id already present, so an
+     edge into the existing trace is automatically "earlier": the id-minting discipline
+     discharges admissibility's all_earlier requirement. *)
+  lemma max_id_is_bound (t : trace) (x : int) =
+    has_id x t ==> x <= max_id t
+  [@@by induct ()]
+
+  lemma top_mem (lo : int) (t : trace) =
+    t <> [] ==> has_id (top lo t) t
+  [@@by induct ()]
+
+  (* The last id is at most the largest id, so a minted id above max_id is above top. *)
+  lemma top_le_max_id (t : trace) =
+    top 0 t <= max_id t
+  [@@by [%use top_mem 0 t] @> [%use max_id_is_bound t (top 0 t)] @> auto]
+
+  (* supersede changes no id and no edge, so the id and edge predicates are invariant *)
+  lemma supersede_has_id (x : int) (t : trace) (tgt : int) =
+    has_id x (supersede t tgt) = has_id x t
+  [@@by induct ()] [@@rw]
+
+  lemma supersede_parents_present (ids : int list) (t : trace) (tgt : int) =
+    parents_present ids (supersede t tgt) = parents_present ids t
+  [@@by induct ()] [@@rw]
+
+  lemma supersede_edges_in (f : trace) (t : trace) (tgt : int) =
+    edges_in f (supersede t tgt) = edges_in f t
+  [@@by induct ()] [@@rw]
+
+  lemma supersede_edges_in_full (f : trace) (t : trace) (tgt : int) =
+    edges_in (supersede f tgt) t = edges_in f t
+  [@@by induct ()] [@@rw]
+
+  lemma supersede_ids_above (lo : int) (t : trace) (tgt : int) =
+    ids_above lo (supersede t tgt) = ids_above lo t
+  [@@by induct ()] [@@rw]
+
+  lemma supersede_max_id (t : trace) (tgt : int) =
+    max_id (supersede t tgt) = max_id t
+  [@@by induct ()] [@@rw]
+
+  lemma is_prefix_append (p : trace) (u : trace) =
+    is_prefix p (p @ u)
+  [@@by induct ()]
+
+  lemma all_earlier_not_self (self : int) (ids : int list) =
+    all_earlier self ids ==> not (mem_id self ids)
+  [@@by induct ()] [@@fc]
+
+  lemma ids_above_bound (lo : int) (t : trace) (x : int) =
+    ids_above lo t && has_id x t ==> lo < x
+  [@@by induct ()]
+
+  (* Safety: wf holds initially and every transition preserves it
+     ------------------------------------------------------------ *)
+
+  (** Initial state: the empty trace is well-formed. *)
+  theorem wf_empty = wf []
+  [@@by auto]
+
+  (* extend preserves wf: appending an admissible artifact keeps I2 (its parents are
+     earlier) and I3 (it is grounded); the prefix is untouched. *)
+  theorem extend_preserves_wf (t : trace) (a : artifact) =
+    wf t && admissible t a ==> wf (extend t a)
+  [@@by [%use lineage_ordered_append t a] @> [%use grounded_append t a]
+     @> [%use top_le_max_id t]
+     @> [%use edges_in_grow_right t t [a]]
+     @> [%use parents_present_grow_right a.derived_from t [a]]
+     @> auto]
+
+  (* supersede preserves wf: flipping retirement flags changes no id, edge, kind or
+     engine flag, so neither ordering nor grounding can break. *)
+  theorem supersede_preserves_wf (t : trace) (tgt : int) =
+    wf t ==> wf (supersede t tgt)
+  [@@by [%use supersede_preserves_ordered t tgt]
+     @> [%use supersede_preserves_grounded t tgt]
+     @> auto]
+
+  (* I1: append-only (the state only grows, flags flip)
+     -------------------------------------------------- *)
+
+  (* extend keeps the whole prior trace as a prefix *)
+  theorem extend_is_prefix (t : trace) (a : artifact) =
+    is_prefix t (extend t a)
+  [@@by [%use is_prefix_append t [a]] @> auto]
+
+  theorem length_append_one (t : trace) (a : artifact) =
+    length (extend t a) = length t + 1
+  [@@by induct ()]
+
+  (* supersede changes nothing but the superseded flag, never lowers it, and keeps
+     the order and the length *)
+  theorem supersede_only_raises_flags (t : trace) (tgt : int) =
+    pointwise_same_but_flag t (supersede t tgt)
+  [@@by induct ()]
+
+  theorem supersede_preserves_length (t : trace) (tgt : int) =
+    length (supersede t tgt) = length t
+  [@@by induct ()]
+
+  (* What wf rules out
+     ----------------- *)
+
+  (* I2 sharpened: an ordered trace has no self-loop *)
+  theorem ordered_implies_no_self_ref (t : trace) =
+    lineage_ordered t ==> no_self_ref t
+  [@@by induct () @> auto]
+
+  (* Increasing ids are unique: an artifact's id does not occur again later in the trace. *)
+  theorem ids_above_unique (lo : int) (a : artifact) (r : trace) =
+    ids_above lo (a :: r) ==> not (has_id a.id r)
+  [@@by [%use ids_above_bound a.id r a.id] @> auto]
+
+  (* Id order facts the merge relies on
+     ---------------------------------- *)
+
+  lemma max_id_nonneg (t : trace) =
+    0 <= max_id t
+  [@@by induct ()]
+
+  (* a lower bound can always be lowered *)
+  lemma ids_above_mono (lo : int) (lo2 : int) (t : trace) =
+    ids_above lo t && lo2 <= lo ==> ids_above lo2 t
+  [@@by induct ()]
+
+  (* on an increasing trace the last id is the largest id *)
+  lemma top_ge_max_id (lo : int) (t : trace) =
+    0 <= lo && ids_above lo t ==> max_id t <= top lo t && lo <= top lo t
+  [@@by induct ()]
+
+  (* The dependency closure
+     ---------------------- *)
+
+  (* The artifacts an artifact depends on, directly or through other artifacts. One
+     pass over the trace newest-first: an artifact is taken when its id is needed, and
+     its own parents become needed. Parents have smaller ids, so on a well-formed trace
+     they come later in this pass. *)
+  let rec closure_rev (rt : trace) (need : int list) : trace =
+    match rt with
+    | [] -> []
+    | x :: r ->
+      if mem_id x.id need then x :: closure_rev r (x.derived_from @ need)
+      else closure_rev r need
+
+  let closure (t : trace) (a : artifact) : trace = closure_rev (List.rev t) a.derived_from
+
+  (* the code components a set of artifacts is about *)
+  let rec targets (ds : trace) : int list =
+    match ds with
+    | [] -> []
+    | x :: r -> x.target :: targets r
+
+  let rec mem_art (a : artifact) (t : trace) : bool =
+    match t with [] -> false | x :: r -> x = a || mem_art a r
+
+  lemma mem_id_append (x : int) (xs : int list) (ys : int list) =
+    mem_id x (xs @ ys) = (mem_id x xs || mem_id x ys)
+  [@@by induct ()] [@@rw]
+
+  lemma mem_art_rev (a : artifact) (t : trace) =
+    mem_art a (List.rev t) = mem_art a t
+  [@@by induct ()] [@@rw]
+
+  lemma closure_rev_sub (x : artifact) (rt : trace) (need : int list) =
+    mem_art x (closure_rev rt need) ==> mem_art x rt
+  [@@by induct ()]
+
+  (* every artifact of the trace whose id is needed is in the closure: needs only grow *)
+  lemma closure_rev_complete (x : artifact) (rt : trace) (need : int list) =
+    mem_art x rt && mem_id x.id need ==> mem_art x (closure_rev rt need)
+  [@@by induct ~on_fun:[%id closure_rev] ()]
+
+  (* the closure only holds artifacts of the trace *)
+  theorem closure_sub (x : artifact) (t : trace) (a : artifact) =
+    mem_art x (closure t a) ==> mem_art x t
+  [@@by [%use closure_rev_sub x (List.rev t) a.derived_from] @> auto]
+
+  (* every direct parent that is in the trace is in the closure *)
+  theorem closure_has_parents (x : artifact) (t : trace) (a : artifact) =
+    mem_art x t && mem_id x.id a.derived_from ==> mem_art x (closure t a)
+  [@@by [%use closure_rev_complete x (List.rev t) a.derived_from] @> auto]
+end
+
+(* State: actions and artifacts
+   =============================
+
+   The artifact DAG paired with the ordered action log (the ground truth, one entry
+   per tool call). 
+   
+   Every artifact was produced by an action recorded in the log, and
+   that action lists it among its outputs, so evidence enters the state only through
+   a recorded action. Action ids strictly increase along the log, as artifact ids do
+   along the trace, so no two actions share an id. The transitions grow both parts
+   together and keep the link and the id order. *)
+
+module State = struct
+  open Artifact
+  open Trace
+
+  (* the kinds of step an agent takes; policies (policy.iml) are formulas over them *)
+  type act = Edit | Test | Commit | Verify | Approve | Research
+
+  type action = { aid : action_id; atype : act; produces : id list }
+
+  type state = { actions : action list; artifacts : trace }
+
+  (* the log has an action [aid] that lists [id] among what it produced *)
+  let rec lists (aid : int) (id : id) (acts : action list) : bool =
+    match acts with
+    | [] -> false
+    | ac :: r -> (ac.aid = aid && mem_id id ac.produces) || lists aid id r
+
+  (* every artifact's producer action is in the log and lists the artifact: the link
+     holds in both directions *)
+  let rec artifacts_have_producers (arts : trace) (acts : action list) : bool =
+    match arts with
+    | [] -> true
+    | a :: r -> lists a.producer_action a.id acts && artifacts_have_producers r acts
+
+  (* Action ids strictly increase along the log, starting above [lo]; [atop] and
+     [max_aid] mirror [top] and [max_id] for artifacts. *)
+  let rec aids_above (lo : int) (acts : action list) : bool =
+    match acts with
+    | [] -> true
+    | ac :: r -> lo < ac.aid && aids_above ac.aid r
+  [@@adm acts]
+
+  let rec atop (lo : int) (acts : action list) : int =
+    match acts with
+    | [] -> lo
+    | ac :: r -> atop ac.aid r
+
+  let rec max_aid (acts : action list) : int =
+    match acts with
+    | [] -> 0
+    | ac :: r -> let m = max_aid r in if ac.aid > m then ac.aid else m
+
+  (* full-state well-formedness: the artifact DAG is wf, every artifact has a producer,
+     and action ids are unique (increasing) *)
+  let wf_state (s : state) : bool =
+    wf s.artifacts && artifacts_have_producers s.artifacts s.actions
+    && aids_above 0 s.actions
+
+  let empty_state : state = { actions = []; artifacts = [] }
+
+  (* Transitions on the full state (grow actions and artifacts together)
+     ------------------------------------------------------------------- *)
+
+  let extend_state (s : state) (act0 : action) (a : artifact) : state =
+    { actions = s.actions @ [act0]; artifacts = extend s.artifacts a }
+
+  let admissible_state (s : state) (act0 : action) (a : artifact) : bool =
+    admissible s.artifacts a
+    && a.producer_action = act0.aid           (* the artifact points at this action ... *)
+    && mem_id a.id act0.produces              (* ... and the action declares it as output *)
+    && max_aid s.actions < act0.aid           (* the action gets a fresh id *)
+
+  let supersede_state (s : state) (tgt : int) : state =
+    { s with artifacts = supersede s.artifacts tgt }
+
+  (* The producer link distributes over the appends
+     ---------------------------------------------- *)
+
+  lemma lists_left (aid : int) (id : id) (xs : action list) (ys : action list) =
+    lists aid id xs ==> lists aid id (xs @ ys)
+  [@@by induct ()] [@@fc]
+
+  lemma lists_right (aid : int) (id : id) (xs : action list) (ys : action list) =
+    lists aid id ys ==> lists aid id (xs @ ys)
+  [@@by induct ()] [@@fc]
+
+  lemma lists_self_append (acts : action list) (act0 : action) (id : id) =
+    mem_id id act0.produces ==> lists act0.aid id (acts @ [act0])
+  [@@by induct ()]
+
+  lemma producers_artifact_append (arts : trace) (acts : action list) (a : artifact) =
+    artifacts_have_producers (extend arts a) acts
+    = (artifacts_have_producers arts acts && lists a.producer_action a.id acts)
+  [@@by induct ()] [@@rw]
+
+  lemma producers_concat (xs : trace) (ys : trace) (acts : action list) =
+    artifacts_have_producers (xs @ ys) acts
+    = (artifacts_have_producers xs acts && artifacts_have_producers ys acts)
+  [@@by induct ()] [@@rw]
+
+  lemma producers_grow_left (arts : trace) (xs : action list) (ys : action list) =
+    artifacts_have_producers arts xs ==> artifacts_have_producers arts (xs @ ys)
+  [@@by induct ()]
+
+  lemma producers_grow_right (arts : trace) (xs : action list) (ys : action list) =
+    artifacts_have_producers arts ys ==> artifacts_have_producers arts (xs @ ys)
+  [@@by induct ()]
+
+  (* supersede changes no id and no producer, so the link is untouched *)
+  lemma producers_supersede (arts : trace) (acts : action list) (tgt : int) =
+    artifacts_have_producers (supersede arts tgt) acts = artifacts_have_producers arts acts
+  [@@by induct ()] [@@rw]
+
+  (* Action id facts, the counterparts of the artifact id facts in Trace
+     ------------------------------------------------------------------- *)
+
+  lemma aids_above_append (lo : int) (xs : action list) (ys : action list) =
+    aids_above lo (xs @ ys) = (aids_above lo xs && aids_above (atop lo xs) ys)
+  [@@by induct ()] [@@rw]
+
+  lemma atop_le_max_aid (lo : int) (acts : action list) =
+    acts <> [] ==> atop lo acts <= max_aid acts
+  [@@by induct ()]
+
+  lemma atop0_le_max_aid (acts : action list) =
+    atop 0 acts <= max_aid acts
+  [@@by [%use atop_le_max_aid 0 acts] @> auto]
+
+  lemma max_aid_nonneg (acts : action list) =
+    0 <= max_aid acts
+  [@@by induct ()]
+
+  lemma aids_above_mono (lo : int) (lo2 : int) (acts : action list) =
+    aids_above lo acts && lo2 <= lo ==> aids_above lo2 acts
+  [@@by induct ()]
+
+  (* on an increasing log the last id is the largest id *)
+  lemma atop_ge_max_aid (lo : int) (acts : action list) =
+    0 <= lo && aids_above lo acts ==> max_aid acts <= atop lo acts && lo <= atop lo acts
+  [@@by induct ()]
+
+  (* State-level safety: every transition preserves wf_state
+     ------------------------------------------------------- *)
+
+  theorem wf_state_empty =
+    wf_state empty_state
+  [@@by auto]
+
+  (* extend_state: recording an action and the admissible artifact it produces keeps the
+     artifact DAG well-formed, and the new artifact is listed by the just-recorded action. *)
+  theorem extend_state_preserves_wf (s : state) (act0 : action) (a : artifact) =
+    wf_state s && admissible_state s act0 a ==> wf_state (extend_state s act0 a)
+  [@@by [%use extend_preserves_wf s.artifacts a]
+     @> [%use producers_grow_left s.artifacts s.actions [act0]]
+     @> [%use lists_self_append s.actions act0 a.id]
+     @> [%use atop_le_max_aid 0 s.actions]
+     @> auto]
+
+  theorem supersede_state_preserves_wf (s : state) (tgt : int) =
+    wf_state s ==> wf_state (supersede_state s tgt)
+  [@@by [%use supersede_preserves_wf s.artifacts tgt] @> auto]
+
+  (* the append-only view of the state transitions (I1): extend keeps the prior
+     artifacts as a prefix and appends to the log; supersede leaves the log alone *)
+  theorem extend_state_is_prefix (s : state) (act0 : action) (a : artifact) =
+    is_prefix s.artifacts (extend_state s act0 a).artifacts
+    && (extend_state s act0 a).actions = s.actions @ [act0]
+  [@@by [%use extend_is_prefix s.artifacts a] @> auto]
+
+  theorem supersede_state_keeps_log (s : state) (tgt : int) =
+    (supersede_state s tgt).actions = s.actions
+  [@@by auto]
+end

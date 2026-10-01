@@ -9,6 +9,44 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+## [1.17.1] — 2026-09-30
+
+Evidence freshness follows what a result rests on, as TRACE_SPEC §10.4a says: more model admitted after
+a proof no longer makes it stale, a changed type does, and results from `CodeLogicianOracle` can read as
+fresh. The scorecard's reproducibility counts what can actually be run again.
+
+### Fixed
+- **Evidence no longer goes stale when more model is admitted after it.** A definition's text ran on
+  to the next top-level `let`, so a comment above the next definition, the blank lines between them,
+  or a `verify`/`type` after it counted as part of it: a session that admitted anything more (a
+  contract, a lemma) made every earlier proof and decomposition read as stale. Definitions now end
+  at the next top-level item, and the checksum ignores comments and formatting - as TRACE_SPEC §10.4a
+  already required.
+- **A change to a type now makes what uses it stale.** `type` declarations were never part of a
+  definition's dependency closure: adding a constructor under a function left its proofs fresh.
+- **Results from `CodeLogicianOracle` could never read as fresh.** It stamped the runner's hash of
+  the whole model text as `task_checksum`, which freshness compares with the closure checksum. It now
+  stamps the closure checksum of the symbol it verified; a stored checksum that is not a closure
+  checksum is set aside and the closure recomputed.
+- **Reproducibility no longer counts a commit as a command to re-run.** `GitCommit` was in the
+  denominator of replayable actions, though a commit is reproduced by binding the trace to it (the
+  axis's other term) and `git commit` is never replayed - so any trace that committed fell short of
+  full marks however much it recorded.
+- **A command the replayer will not run counts half.** The axis counted any recorded command in full
+  while `trace reproduce` replayed none of them ("2 reproducible command(s); 0 safe to replay"); its
+  note now says how many are safe to replay.
+- **JavaScript and TypeScript test runners replay.** `node --test`, `vitest`, `jest`, `npm run test`,
+  `pnpm test`, `yarn test`, `bun test` and `deno test` join `pytest`, `go test` and `cargo test` as
+  safe to replay.
+- **Region-test runs count as test runs.** A `ConformanceCheck` (the model's region tests run against
+  the code) is re-runnable like `RunTests`; a record whose only tests were its region tests scored as
+  having nothing to re-run. A command on any other step is no longer counted toward the runs.
+- **More runners replay:** `python -m unittest`, `mvn test`, `gradle test` / `./gradlew test`,
+  `dotnet test`, `swift test`.
+- **The flagship sample says how it is re-run.** `stripe_v1_1.json` records the command of its test run
+  and what of it is reproducible; it stays unbound - its source is illustrative, not in a repository.
+  Reproducibility 30% to 75%, grade B (84) to A (92).
+
 ## [1.17.0] — 2026-09-29
 
 What an edit says it changed now counts toward naming it, and `ponens push` works with a hub that

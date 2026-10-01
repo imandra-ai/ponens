@@ -655,14 +655,72 @@ def faithfulness_of(goal, high_stakes=False):
 _MODEL_TYPES = ("FormalModel", "IMLModel")
 
 
-def _top_level_defs(src):
-    """Map each top-level `let NAME ... = ...` to its full definition text, from IML source."""
-    defs = {}
-    for chunk in re.split(r"(?m)^(?=let\b)", src or ""):
-        m = re.match(r"let\s+(?:rec\s+)?([A-Za-z_][A-Za-z0-9_']*)", chunk)
+def _strip_comments(src):
+    """IML source without its comments - `(* ... *)`, nested as OCaml nests them - leaving string
+    literals (which may contain `(*`) untouched."""
+    out, i, depth, n = [], 0, 0, len(src)
+    while i < n:
+        if depth == 0 and src[i] == '"':
+            j = i + 1
+            while j < n and src[j] != '"':
+                j += 2 if src[j] == "\\" else 1
+            out.append(src[i:j + 1])
+            i = j + 1
+        elif src.startswith("(*", i):
+            depth, i = depth + 1, i + 2
+        elif depth and src.startswith("*)", i):
+            depth, i = depth - 1, i + 2
+        else:
+            if not depth:
+                out.append(src[i])
+            i += 1
+    return "".join(out)
+
+
+# A top-level item starts at column 0 with one of these: a definition, a type, or a statement
+# (`verify`, `instance`, `lemma`, a directive...) - which ends whatever definition came before it.
+_TOP_ITEM = re.compile(r"(?m)^(?=(?:let|type|and|verify|instance|lemma|theorem|axiom|module|open|include|eval|#|\[@@))")
+_TYPE_NAME = re.compile(r"(?:type(?:\s+nonrec)?|and)\s+(?:'[A-Za-z_]\w*\s+|\([^)]*\)\s+)?([a-z_][A-Za-z0-9_']*)")
+
+
+def _items(src):
+    """Each top-level item of IML source as (kind, name, text): `let` definitions and `type`
+    declarations named, everything else unnamed. Comments are dropped (and whitespace, when it is hashed)
+    so a comment or a reformat never reads as a change (TRACE_SPEC §10.4a: the checksum is of the task,
+    not the source text), and nothing after a definition is counted as part of it."""
+    out, kind = [], None
+    for chunk in _TOP_ITEM.split(_strip_comments(src or "")):
+        # Its lines kept (rename matching compares definitions line by line), blank ones and trailing space dropped.
+        text = "\n".join(line.rstrip() for line in chunk.split("\n") if line.strip())
+        if not text:
+            continue
+        m = re.match(r"let\s+(?:rec\s+)?([A-Za-z_][A-Za-z0-9_']*)", text) or (kind == "let" and re.match(r"and\s+([A-Za-z_][A-Za-z0-9_']*)", text))
         if m:
-            defs[m.group(1)] = chunk
-    return defs
+            kind = "let"
+            out.append(("let", m.group(1), text))
+            continue
+        t = _TYPE_NAME.match(text) if text.startswith("type") or (text.startswith("and") and kind == "type") else None
+        if t:
+            kind = "type"
+            out.append(("type", t.group(1), text))
+            continue
+        kind = None if not text.startswith("and") else kind
+        out.append(("other", None, text))
+    return out
+
+
+def _top_level_defs(src):
+    """Map each top-level `let NAME ... = ...` to its definition text (normalized, see `_items`)."""
+    return {name: text for kind, name, text in _items(src) if kind == "let"}
+
+
+def _closure_defs(src):
+    """What a definition can depend on: the top-level `let`s and the `type` declarations (a type
+    changed under a function is a change to what its results rest on). A type named like a `let` keeps
+    to the `let`'s name only - the value is what a symbol names."""
+    lets = _top_level_defs(src)
+    types = {name: text for kind, name, text in _items(src) if kind == "type" and name not in lets}
+    return {**types, **lets}
 
 
 def _symbol_closure(sym, defs):
@@ -680,12 +738,21 @@ def _symbol_closure(sym, defs):
 
 
 def _closure_checksum(src, sym):
-    """Checksum of `sym`'s definition + its full dependency closure, or None if `sym` isn't defined."""
-    defs = _top_level_defs(src)
-    if sym not in defs:
+    """Checksum of `sym`'s definition + its full dependency closure (definitions and types), or None if
+    `sym` isn't defined."""
+    if sym not in _top_level_defs(src):
         return None
-    blob = "\n".join(defs[n] for n in sorted(_symbol_closure(sym, defs)))
+    defs = _closure_defs(src)
+    # Whitespace collapsed: a reformat is not a change to the task.
+    blob = "\n".join(" ".join(defs[n].split()) for n in sorted(_symbol_closure(sym, defs)))
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _is_closure_checksum(ck):
+    """A stored `task_checksum` this module can compare: one it computes (`sha256:` + 64 hex). Anything
+    else - a producer's hash of the whole model text, a truncated digest - is a different fingerprint,
+    and comparing it with a closure checksum would read every result as stale."""
+    return isinstance(ck, str) and ck.startswith("sha256:")
 
 
 def _model_src(a):
@@ -734,8 +801,8 @@ def _freshness_verdict(vr, sym, proved_at, arts):
     if dropped:
         return "detached"
     stored_ck = (_payload(vr).get("fingerprint") or {}).get("task_checksum")
-    if stored_ck is None:
-        # No producer fingerprint: reconstruct the checksum against the DEFINING model current AT proof
+    if not _is_closure_checksum(stored_ck):
+        # No producer fingerprint we can compare: reconstruct the checksum against the DEFINING model current AT proof
         # time (fall back to the earliest defining model if the proof predates them all).
         prior = [m for m in defining if step(m) <= proved_at] or defining
         stored_ck = _closure_checksum(_model_src(max(prior, key=step)), sym)
@@ -758,7 +825,7 @@ def _freshness_verdict_renamed(vr, old_sym, new_sym, proved_at, arts):
     if not old_defs or not new_defs:
         return None
     stored_ck = (_payload(vr).get("fingerprint") or {}).get("task_checksum")
-    if stored_ck is None:
+    if not _is_closure_checksum(stored_ck):
         prior = [m for m in old_defs if step(m) <= proved_at] or old_defs
         stored_ck = _closure_checksum(_model_src(max(prior, key=step)), old_sym)
     cur_model = max(new_defs, key=step)

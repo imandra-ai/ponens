@@ -126,3 +126,46 @@ def test_an_error_severity_violation_still_blocks():
          "policies": [pol("blocks", "data_flow_integrity", "error")]}
     c = grade_trace(t)["compliance"]
     assert c["blocking"] == ["blocks"] and c["advisory"] == []
+
+
+def _run(aid, typ, cmd=None):
+    a = {"id": aid, "type": typ, "rationale": "r" * 40}
+    if cmd:
+        a["reproducibility"] = {"status": "reproducible", "reproduction_kind": "tool_reexecution",
+                                "procedure": {"kind": "command", "command": cmd}}
+    return a
+
+
+def test_reproducibility_a_commit_is_reproduced_by_binding_not_by_running_it_again():
+    # Every run recorded, a commit made: full marks once bound - the commit is not a command to replay.
+    t = {"trace_id": "t", "commit_sha": "abc123", "reproducibility": {"status": "partially_reproducible"},
+         "actions": [_run(1, "RunTests", "pytest -q"), _run(2, "GitCommit")]}
+    assert _dim(grade_trace(t), "Reproducibility")["score"] == 1.0
+    # Unbound, the same trace loses exactly the binding.
+    del t["commit_sha"]
+    assert _dim(grade_trace(t), "Reproducibility")["score"] == 0.75
+
+
+def test_reproducibility_counts_a_command_the_replayer_will_not_run_as_half():
+    # Recorded but not re-checkable here (an unknown runner): half the credit of one it will replay.
+    t = {"trace_id": "t", "commit_sha": "abc123", "reproducibility": {"status": "partially_reproducible"},
+         "actions": [_run(1, "RunTests", "pytest -q"), _run(2, "RunTests", "./run-my-suite.sh")]}
+    d = _dim(grade_trace(t), "Reproducibility")
+    assert d["score"] == 0.5 * 0.75 + 0.5
+    assert "1 safe to replay" in d["note"]
+
+
+def test_stripe_is_reproducible_as_far_as_an_unbound_sample_can_be():
+    stripe = json.load(open(os.path.join(REPO, "examples", "stripe_v1_1.json")))
+    d = _dim(grade_trace(stripe), "Reproducibility")
+    assert d["score"] == 0.75 and "not bound to a commit" in d["note"]
+
+
+def test_reproducibility_region_tests_are_test_runs():
+    # A record whose only test run is its region tests (a ConformanceCheck) has something to re-run.
+    t = {"trace_id": "t", "commit_sha": "abc123", "reproducibility": {"status": "partially_reproducible"},
+         "actions": [_run(1, "ConformanceCheck", "node --test region.test.mjs")]}
+    assert _dim(grade_trace(t), "Reproducibility")["score"] == 1.0
+    # A command on a step that is not a run is not counted as one.
+    t["actions"] = [_run(1, "RunTests", "pytest -q"), _run(2, "Analyze", "pytest -q")]
+    assert "1 replayable action(s)" in _dim(grade_trace(t), "Reproducibility")["note"]

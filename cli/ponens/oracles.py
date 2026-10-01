@@ -486,7 +486,13 @@ class CodeLogicianOracle(Oracle):
         # hashed, until a closure checksum is available), in both the generic and the reasoner names.
         if res.get("reasoning_fingerprint"):
             fp = make_fingerprint(res["reasoning_fingerprint"], subject_ref=symbol, oracle=self)
-            fp["task_checksum"] = res["reasoning_fingerprint"]
+            # The task checksum is the one freshness compares (TRACE_SPEC §10.4a): the symbol's dependency
+            # closure in the model. The runner's hash of the whole model text is a different fingerprint -
+            # stamped as the task's, it would never match and every result would read as stale.
+            from .goals import _closure_checksum
+            closure = _closure_checksum(target.get("iml_code") or "", symbol) if symbol and isinstance(target, dict) else None
+            if closure:
+                fp["task_checksum"] = closure
             fp["engine"] = payload["engine"]
             if symbol:
                 fp["target_symbol"] = symbol

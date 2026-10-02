@@ -2419,6 +2419,14 @@ function renderDAGView() {
     return;
   }
 
+  // Top bar: filter chips take the left and wrap within their own space; the controls (Graph/List +
+  // layout toggles) sit at the right in their own column, so the two can never overlap. Mounted before
+  // the layout so it can measure how much of the pane the bar covers.
+  const topbar = `<div class="dag-topbar">${catBar}<div class="dag-toprow">${_dagModeToggle()}${_dagGraphToolbar()}</div></div>`;
+  el.innerHTML = topbar;
+  const pane = el.getBoundingClientRect();
+  const fitH = _dagFitArea(pane).h;
+
   // Inject reference models as pseudo-artifacts
   const refModels = traceData?.reference_models || [];
   const allArtifacts = [...artifacts];
@@ -2506,28 +2514,41 @@ function renderDAGView() {
   }
 
   const maxLevel = Math.max(...Object.keys(byLevel).map(Number), 0);
-  const nodeW = 150, nodeH = 70, gapX = 30, gapY = 80, padX = 60, padY = 60;
+  const nodeW = 150, nodeH = 70, gapX = 30, gapY = 80, padX = 60, padY = 60, rowGapY = 24;
+
+  // Wrap each level onto rows of at most `cols` nodes, with the `cols` that lets fit-to-view draw the
+  // graph LARGEST in this pane. One row per level made a 150-artifact trace a ~9000px-wide sliver that
+  // a side pane shrank to unreadable dots. A pane with no size yet (hidden) is assumed 4:3.
+  const counts = [];
+  for (let lv = 0; lv <= maxLevel; lv++) counts.push((byLevel[lv] || []).length);
+  const graphSize = (c) => ({
+    w: Math.max(800, c * (nodeW + gapX) + padX * 2),
+    h: padY * 2 + maxLevel * gapY
+      + counts.reduce((s, n) => { const r = Math.max(1, Math.ceil(n / c)); return s + r * nodeH + (r - 1) * rowGapY; }, 0),
+  });
+  const paneW = pane.width || 4, paneH = fitH || 3;
+  let cols = 1, best = 0;
+  for (let c = 1; c <= Math.max(1, ...counts); c++) {
+    const { w, h } = graphSize(c), s = Math.min(paneW / w, paneH / h);
+    if (s > best) { best = s; cols = c; }
+  }
 
   // Compute positions
   const positions = {};
-  let maxCols = 0;
+  let { w: graphW, h: graphH } = graphSize(cols);
+  let rowTop = padY;
   for (let lv = 0; lv <= maxLevel; lv++) {
     const arts = byLevel[lv] || [];
-    maxCols = Math.max(maxCols, arts.length);
-  }
-  let graphW = Math.max(800, maxCols * (nodeW + gapX) + padX * 2);
-  let graphH = (maxLevel + 1) * (nodeH + gapY) + padY * 2;
-
-  for (let lv = 0; lv <= maxLevel; lv++) {
-    const arts = byLevel[lv] || [];
-    const totalW = arts.length * nodeW + (arts.length - 1) * gapX;
-    const startX = (graphW - totalW) / 2;
     arts.forEach((a, i) => {
+      const r = Math.floor(i / cols), k = i % cols, inRow = Math.min(cols, arts.length - r * cols);
+      const startX = (graphW - (inRow * nodeW + (inRow - 1) * gapX)) / 2;
       positions[a.artifact_id] = {
-        x: startX + i * (nodeW + gapX) + nodeW / 2,
-        y: padY + lv * (nodeH + gapY) + nodeH / 2
+        x: startX + k * (nodeW + gapX) + nodeW / 2,
+        y: rowTop + r * (nodeH + rowGapY) + nodeH / 2
       };
     });
+    const r = Math.max(1, Math.ceil(arts.length / cols));
+    rowTop += r * nodeH + (r - 1) * rowGapY + gapY;
   }
 
   // "Group residuals": collapse every Residual node into a single group container to the right of the
@@ -2655,22 +2676,16 @@ function renderDAGView() {
     <button onclick="dagFit()" title="Fit to view">\u2922</button>
   </div>`;
 
-  // Legend
-  const usedTypes = [...new Set(artifacts.map(a => a.artifact_type))];
+  // Legend: only the edge style. The type chips in the top bar already key every node colour (with
+  // counts); repeating them here, in a narrow pane, stacked into a column of type boxes over the
+  // middle of the graph that read as the graph itself.
   html += `<div class="dag-legend">`;
-  for (const t of usedTypes) {
-    const col = dagTypeColor(t);
-    html += `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${col.bg};border:1px solid ${col.border};color:${col.text};">${esc(dagTypeLabel(t))}</span>`;
-  }
   const supColor = isLightTheme() ? '#a08010' : '#c09830';
   const supBg = isLightTheme() ? '#faf6e8' : '#1e1c14';
   html += `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${supBg};border:1px dashed ${supColor};color:${supColor};">--- supersedes</span>`;
   html += `</div>`;
 
   html += `</div>`; // dag-canvas-wrap
-  // Top bar: filter chips take the left and wrap within their own space; the controls (Graph/List +
-  // layout toggles) sit at the right in their own column, so the two can never overlap.
-  const topbar = `<div class="dag-topbar">${catBar}<div class="dag-toprow">${_dagModeToggle()}${_dagGraphToolbar()}</div></div>`;
   el.innerHTML = topbar + html;
 
   // Initialize pan/zoom. If the user has an active zoom/pan (set via a gesture), RESTORE it so a live
@@ -2869,12 +2884,28 @@ function dagFit() {
   if (!wrap) return;
   const rect = wrap.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
+  const { top, h } = _dagFitArea(rect);
   const scaleX = rect.width / _dagState.graphW;
-  const scaleY = rect.height / _dagState.graphH;
+  const scaleY = h / _dagState.graphH;
   _dagState.scale = Math.min(scaleX, scaleY) * 0.9;
   _dagState.panX = (rect.width - _dagState.graphW * _dagState.scale) / 2;
-  _dagState.panY = (rect.height - _dagState.graphH * _dagState.scale) / 2;
+  _dagState.panY = top + (h - _dagState.graphH * _dagState.scale) / 2;
   dagApplyTransform();
+}
+
+// The part of the canvas a fit fills: below the overlaid chip bar (a third of a narrow pane) and above
+// the zoom controls — never less than half the pane, however tall the bar wraps.
+function _dagFitArea(rect) {
+  const bar = document.querySelector('#view-dag .dag-topbar');
+  const top = bar ? bar.offsetTop + bar.offsetHeight : 0;
+  return { top, h: Math.max(rect.height - top - 56, rect.height / 2) };
+}
+
+// Refit when the pane changes size (a side pane dragged wider, or shown after rendering hidden) — the
+// fit was only ever taken once, at render. A view the user zoomed or panned is theirs and stays put.
+if (window.ResizeObserver && document.getElementById('view-dag')) {
+  new ResizeObserver(() => { if (_dagViewMode === 'graph' && !_dagUserView) dagFit(); })
+    .observe(document.getElementById('view-dag'));
 }
 
 function initDAGPanZoom() {

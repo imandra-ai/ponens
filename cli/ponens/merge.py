@@ -68,6 +68,18 @@ def _symbol_checksum(trace, sym):
     return _closure_checksum(_concat_src(trace), sym)
 
 
+def _model_symbols_of(result_id, trace):
+    """The model symbols a result's goal says it is about (`model_symbols` on its VerificationGoal) - a subject's
+    interface, mapped to the model. Empty when its goal names none."""
+    arts = trace.get("artifacts", []) or []
+    vr = next((a for a in arts if a.get("artifact_id") == result_id), None)
+    if vr is None:
+        return []
+    goal = next((a for a in arts if a.get("artifact_id") == _payload(vr).get("goal_artifact_id")), None)
+    names = _payload(goal).get("model_symbols") if goal else None
+    return [n for n in (names or []) if isinstance(n, str)]
+
+
 def _symbols(trace):
     """The set of top-level def names defined in the trace's model source."""
     return set(_trace_defs(trace).keys())
@@ -320,8 +332,16 @@ def merge(ours, theirs, base=None):
     for r in standing:
         rid, sym = r["result_id"], r["symbol"]
         closure = _symbol_closure(sym, defs)  # includes sym itself when defined
-        # A symbol OURS proved about but that isn't in OURS's own model source has an empty closure;
-        # fall back to the bare symbol so a direct touch of it is still caught.
+        # A result about something that is not one definition of the model - a SUBJECT ("the payments service",
+        # a module, a protocol) - rests on the model as a whole, or on the parts its interface maps to. Its closure
+        # is theirs: the closures of the model symbols its goal names (`model_symbols`), else every definition of
+        # the model. Never the bare name alone - that is in no delta, and the result would be carried forward as
+        # untouched when the model it is about changed (falsely fresh).
+        about_subject = not closure and bool(defs)
+        if about_subject:
+            mapped = [m for m in _model_symbols_of(rid, ours) if m in defs]
+            closure = set().union(*(_symbol_closure(m, defs) for m in mapped)) if mapped else set(defs)
+        # No model source in OURS at all: fall back to the bare symbol so a direct touch of it is still caught.
         if not closure:
             closure = {sym}
         touched = sorted(closure & delta_syms)
@@ -358,7 +378,8 @@ def merge(ours, theirs, base=None):
             assumptions = _assumptions_in_question(rid, ours)
             cause = "closure-changed"
             statement = (f"Standing result `{rid}` about `{sym}` needs re-reasoning: the merge touched "
-                         f"{', '.join('`%s`' % t for t in touched)} in its dependency closure.")
+                         f"{', '.join('`%s`' % t for t in touched)} in its dependency closure"
+                         + (" - it is about the model as a whole, not one definition." if about_subject else "."))
             if assumptions:
                 statement += (f" It also stands on open assumption(s) "
                               f"{', '.join('`%s`' % a for a in assumptions)}, now in question.")

@@ -9,6 +9,12 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+## [1.17.2] — 2026-10-04
+
+A merge and the freshness fallback no longer read a result as current when it is not: a result about a subject
+takes the closure of the model it is about, and an edit counts against the declaration it names, not against every
+symbol whose name appears in its path.
+
 ### Fixed
 - **A merge no longer carries a result about a subject forward as untouched when its model changed.** A result
   whose target is not one definition of the model - a subject: a service, a module, a protocol - had an empty

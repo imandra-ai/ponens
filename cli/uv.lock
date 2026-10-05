@@ -4,8 +4,11 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "ponens"
-version = "1.9.1"
+version = "1.17.2"
 source = { editable = "." }
+dependencies = [
+    { name = "pyyaml" },
+]
 
 [package.optional-dependencies]
 yaml = [
@@ -13,7 +16,10 @@ yaml = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6" }]
+requires-dist = [
+    { name = "pyyaml", specifier = ">=6" },
+    { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6" },
+]
 provides-extras = ["yaml"]
 
 [[package]]

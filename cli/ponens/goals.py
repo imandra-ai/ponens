@@ -775,6 +775,17 @@ def _same_model_line(m1, m2):
     return bool(d1 & d2)
 
 
+def _names_symbol(change, sym):
+    """Does a later change name `sym` - for the legacy freshness heuristic? A Diff that says which declaration it
+    changed (`target_symbol`) names that one only: an edit to `refund_fee` in `src/refunds/fees.py` does not name a
+    result about `refunds` or `fees` because the words appear in its path. A change that names no declaration keeps
+    the conservative match on its name - better stale than falsely fresh."""
+    ts = _payload(change).get("target_symbol") or change.get("target_symbol")
+    if change.get("artifact_type") == "Diff" and ts:
+        return _lc(ts) == _lc(sym)
+    return _lc(sym) in _lc(change.get("summary") or change.get("name"))
+
+
 def _freshness_verdict(vr, sym, proved_at, arts):
     """Return "fresh" | "stale" | "detached" for a result `vr` of symbol `sym`, or None when it can't
     be decided from the trace (the caller then applies the legacy heuristic). Never returns a false
@@ -959,7 +970,7 @@ def stale_evidence(trace):
             continue
         # verdict is None -> legacy heuristic: a Diff/IMLModel naming the symbol at a later step.
         changes = [c for c in arts if c.get("artifact_type") in ("Diff", "IMLModel")
-                   and _lc(sym) in _lc(c.get("summary") or c.get("name"))
+                   and _names_symbol(c, sym)
                    and (c.get("producer_action_id") or 0) > at]
         if not changes:
             continue

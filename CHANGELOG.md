@@ -9,6 +9,17 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+### Fixed
+- **A merge no longer carries a result about a subject forward as untouched when its model changed.** A result
+  whose target is not one definition of the model - a subject: a service, a module, a protocol - had an empty
+  closure, fell back to its bare name, and that name is in no delta: it was always carried, falsely fresh. Its
+  closure is now the model's: the closures of the model symbols its goal maps it to (`model_symbols` on its
+  VerificationGoal), else every definition of the model. A result about a definition is unchanged.
+- **The legacy freshness heuristic reads a Diff's `target_symbol`, not words in its name.** An edit to
+  `refund_fee` in `src/refunds/fees.py` made a result about `refunds` (or `fees`) stale because the word appeared
+  in the path. A Diff that says which declaration it changed now names that one only; a change naming no
+  declaration keeps the conservative match on its name.
+
 ## [1.17.1] — 2026-09-30
 
 Evidence freshness follows what a result rests on, as TRACE_SPEC §10.4a says: more model admitted after

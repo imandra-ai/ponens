@@ -9,6 +9,11 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+## [1.18.0] — 2026-10-05
+
+A criterion can now say exactly what it needs: a statement the evidence must be, words it must say, and evidence a
+person linked. A substring no longer lets a weaker claim answer a stronger one - for criteria that ask.
+
 ### Added
 - **Exact criteria.** A typed criterion may carry `statement`: it is met only by evidence whose payload
   reports that very statement (whitespace aside, case kept) - never by words, never by a substring ("P" is

@@ -7,6 +7,10 @@
 **Format:** Canonical typed specification with JSON/Pydantic projection notes  
 **Positioning:** Reasoner-agnostic trace specification, with IML / ImandraX as one concrete instantiation
 
+> **Also in 1.14 (additive):** a `VerificationGoal` may carry `model_symbols` (§10.3), from which a merge takes the
+> closure of a result about a subject (§15.3); and the 1.7 freshness fallback reads a `Diff`'s `target_symbol`
+> (§18.3).
+>
 > **Changes in 1.14 (additive, backward-compatible).** Makes closing a gap **append-only**, like
 > everything else in a trace. §13.3a adds a **`ResidualResolution`** artifact: the decision that moved a
 > residual to `Acknowledged`, `Addressed` or `Waived`, recording who decided, on what grounds, against
@@ -737,6 +741,10 @@ type verification_goal_payload =
   ; src : string
   ; target_artifact_id : string
   ; target_symbol : string option
+  ; model_symbols : string list option   (* when the target is a SUBJECT - a named scope of code (a service,
+                                            a module, a protocol), not one definition of the model - the model
+                                            definitions its interface maps to; a merge takes the result's closure
+                                            from them (§15.3). Absent: the whole model. *)
   ; properties : property_item list
   }
 ```
@@ -1747,6 +1755,11 @@ gains an unproven component yields a `CoverageRegression`. The soundness obligat
 completeness**: a skip is only as sound as the closure is complete, so an omitted or ambiguously-matched
 dependency is conservatively treated as changed (re-reasoned), never silently carried.
 
+A result about a **subject** - a target that is not one definition of the model, such as a service, a module or a
+protocol - takes its closure from the model: the closures of the definitions its goal names in `model_symbols`
+(§10.3), or every definition of the model when it names none. Never the bare target alone: no change set contains a
+subject's name, so it would always be carried as `ClosureDisjoint`, even when the model it is about changed.
+
 ### Totality
 
 For every reasoning result carried from a parent trace, the merged trace contains **exactly one** of: a
@@ -1994,7 +2007,7 @@ type freshness =
 
 Computation, for a reasoning result `r` (against its target/goal):
 
-1. If `r.fingerprint` is absent → fall back to the **1.7 heuristic**: `Stale` iff the symbol the result is about was edited at a *later* action than the result; else `Fresh`. (No `Detached` under the fallback.)
+1. If `r.fingerprint` is absent → fall back to the **1.7 heuristic**: `Stale` iff the symbol the result is about was edited at a *later* action than the result; else `Fresh`. (No `Detached` under the fallback.) "Edited" is read from the edit's own fields: a `Diff` that names its declaration (`target_symbol`) edited that declaration only - not every symbol whose name appears in its file's path; a change naming no declaration is matched on its name, conservatively.
 2. Else recompute the current fingerprint for `r`'s target from the current `FormalModel`:
    - target symbol **absent** from the current model → **`Detached`**;
    - current `task_checksum` **equals** stored → **`Fresh`**;

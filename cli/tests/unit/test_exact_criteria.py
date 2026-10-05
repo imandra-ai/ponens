@@ -74,3 +74,20 @@ def test_the_overview_says_a_person_decides_and_lists_the_candidates():
     assert req["state"] == "open"
     assert req["reason"] == "no evidence yet - 1 result worded otherwise; a person decides whether it meets it"
     assert req["candidates"][0]["artifact_id"] == "vr1"
+
+
+def test_exact_words_said_of_the_criterions_own_subject_are_the_same_words():
+    # "fee is never negative" says "never negative" of fee - the subject named, not a weaker claim.
+    for said in ("fee is never negative", "fee never negative", "FEE is  never negative"):
+        t = _trace((said, "proved", {}))
+        assert resolve_item(_item(property="never negative", property_match="exact"), t)["status"] == "done", said
+    t = _trace(("fee stays within the ceiling", "proved", {}))
+    assert resolve_item(_item(property="within the ceiling", property_match="exact"), t)["status"] == "done"
+
+
+def test_a_qualifier_is_never_stripped_and_another_subject_is_not_this_one():
+    for said in ("fee is never negative unless refunded", "for positive amounts, fee is never negative",
+                 "refund is never negative"):
+        t = _trace((said, "proved", {}))
+        r = resolve_item(_item(property="never negative", property_match="exact"), t)
+        assert r["status"] == "todo", said

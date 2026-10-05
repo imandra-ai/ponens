@@ -118,7 +118,21 @@ def _ws(s):
     return " ".join(str(s if s is not None else "").split())
 
 
-def _asserts_property(art, prop, trace, exact=False):
+def _without_subject(text, subjects):
+    """The words with a leading mention of the criterion's own subject taken off: "fee_for is never negative" says
+    "never negative" of fee_for. Only the subject's name, and the verb after it - never a qualifier, which is
+    exactly what an exact match keeps out ("for positive amounts, ...", "... unless refunded")."""
+    t = " ".join(str(text or "").lower().split())
+    for name in sorted({str(x).lower() for x in subjects if x}, key=len, reverse=True):
+        m = re.match(r"%s\s+(?:(?:is|are|stays|remains|returns|has|never|always)\s+)?" % re.escape(name), t)
+        if m:
+            # The verb belongs to the claim when the criterion says it too ("never negative"): keep it then.
+            rest = t[len(name):].strip()
+            return rest if rest.split(" ", 1)[0] in ("never", "always") else t[m.end():]
+    return t
+
+
+def _asserts_property(art, prop, trace, exact=False, subjects=()):
     """Is this evidence about the named property? Matched against the goal the verdict came from (its
     `description`) and against the properties the verdict itself reports. Case-insensitive. By default a
     substring: a criterion is authored by a person quoting the property, not by pasting an identifier.
@@ -146,7 +160,8 @@ def _asserts_property(art, prop, trace, exact=False):
     hay += [p.get("description") or "", p.get("property") or ""]
     hay += [str(x) for x in (p.get("properties") or []) if isinstance(x, str)]
     if exact:
-        return any(want == " ".join(str(h).lower().split()) for h in hay if h)
+        want = _without_subject(want, subjects)
+        return any(want == _without_subject(h, subjects) for h in hay if h)
     return any(want in " ".join(str(h).lower().split()) for h in hay if h)
 
 
@@ -326,7 +341,7 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     if prop:
         exact = item.get("property_match") == "exact"
         bearing = lambda a: _canon_art_type(art_type) in _PROPERTY_BEARING or _states_property(a, trace)
-        narrowed = [a for a in matches if not bearing(a) or _asserts_property(a, prop, trace, exact=exact)]
+        narrowed = [a for a in matches if not bearing(a) or _asserts_property(a, prop, trace, exact=exact, subjects=symbols)]
         if exact:
             candidates = [{"artifact_id": a.get("artifact_id"), "property": _property_text(a, trace)}
                           for a in matches if bearing(a) and a not in narrowed and _overlaps(a, prop, trace)]

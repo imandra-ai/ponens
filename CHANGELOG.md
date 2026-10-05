@@ -18,6 +18,8 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
   aside - not a substring, which lets a weaker claim ("never negative unless refunded") answer a stronger
   criterion ("never negative"). Evidence worded alike becomes `candidates` (artifact and its wording) on the
   item and on the overview's requirement, whose reason says a person decides.
+  The criterion's own subject named in front is the same words - "fee_for is never negative" meets "never
+  negative" of fee_for; a qualifier never is.
 - `linked_evidence` on a criterion: artifacts a person linked to it answer it whatever their wording - still
   of the required type, about the component, and judged by their own verdict.
 

@@ -113,10 +113,34 @@ def _states_property(art, trace):
     return any(isinstance(res.get(k), dict) and res[k].get("properties") for k in ("proved", "refuted", "unknown"))
 
 
-def _asserts_property(art, prop, trace):
+def _ws(s):
+    """Whitespace collapsed - case kept: an exact statement is compared as written (Lean is case-sensitive)."""
+    return " ".join(str(s if s is not None else "").split())
+
+
+def _without_subject(text, subjects):
+    """The words with a leading mention of the criterion's own subject taken off: "fee_for is never negative" says
+    "never negative" of fee_for. Only the subject's name, and the verb after it - never a qualifier, which is
+    exactly what an exact match keeps out ("for positive amounts, ...", "... unless refunded")."""
+    t = " ".join(str(text or "").lower().split())
+    for name in sorted({str(x).lower() for x in subjects if x}, key=len, reverse=True):
+        m = re.match(r"%s\s+(?:(?:is|are|stays|remains|returns|has|never|always)\s+)?" % re.escape(name), t)
+        if m:
+            # The verb belongs to the claim when the criterion says it too ("never negative"): keep it then.
+            rest = t[len(name):].strip()
+            return rest if rest.split(" ", 1)[0] in ("never", "always") else t[m.end():]
+    return t
+
+
+def _asserts_property(art, prop, trace, exact=False, subjects=()):
     """Is this evidence about the named property? Matched against the goal the verdict came from (its
-    `description`) and against the properties the verdict itself reports. Substring, case-insensitive:
-    a criterion is authored by a person quoting the property, not by pasting an identifier."""
+    `description`) and against the properties the verdict itself reports. Case-insensitive. By default a
+    substring: a criterion is authored by a person quoting the property, not by pasting an identifier.
+
+    `exact` (a criterion's `property_match: "exact"`): the property must BE one of them, case and spacing
+    aside. A substring lets a weaker claim answer a stronger criterion - "never negative" is a substring
+    of "never negative unless refunded" - so a producer that can tell its agent the property's exact
+    words asks for this, and leaves overlapping wording to a person (`candidates`, `linked_evidence`)."""
     want = " ".join(str(prop).lower().split())
     if not want:
         return True
@@ -135,7 +159,39 @@ def _asserts_property(art, prop, trace):
             hay += [str(x) for x in (v.get("properties") or [])]
     hay += [p.get("description") or "", p.get("property") or ""]
     hay += [str(x) for x in (p.get("properties") or []) if isinstance(x, str)]
+    if exact:
+        want = _without_subject(want, subjects)
+        return any(want == _without_subject(h, subjects) for h in hay if h)
     return any(want in " ".join(str(h).lower().split()) for h in hay if h)
+
+
+def _property_text(art, trace):
+    """What property this evidence says it checked, in its own words - for a person deciding whether it
+    answers a criterion worded otherwise."""
+    p = _payload(art)
+    gid = p.get("goal_artifact_id")
+    g = next((a for a in trace.get("artifacts", []) if a.get("artifact_id") == gid), None) if gid else None
+    for t in [_payload(g).get("description") if g else None, p.get("description"), p.get("property"),
+              *[x for x in (p.get("properties") or []) if isinstance(x, str)]]:
+        if t:
+            return str(t)
+    return ""
+
+
+def _overlaps(art, prop, trace):
+    """Worded alike, not the same: one of the evidence's properties contains the criterion's words, or is
+    contained in them. A candidate for a person to link - never met on its own."""
+    want = " ".join(str(prop).lower().split())
+    p = _payload(art)
+    gid = p.get("goal_artifact_id")
+    g = next((a for a in trace.get("artifacts", []) if a.get("artifact_id") == gid), None) if gid else None
+    hay = [_payload(g).get("description") if g else None, p.get("description"), p.get("property"),
+           *[x for x in (p.get("properties") or []) if isinstance(x, str)]]
+    for h in hay:
+        h = " ".join(str(h or "").lower().split())
+        if h and (want in h or h in want):
+            return True
+    return False
 
 
 # What a criterion can be ABOUT. A function (or the symbol a formalization gave it) is the original case,
@@ -246,6 +302,20 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     # The join is already in the trace: a VerificationResult names its `goal_artifact_id`, and the goal
     # carries the property text as its `description`. Same shape as the `reference` narrowing above.
     prop = item.get("property")
+    # A person LINKED evidence to this criterion (`linked_evidence`): it answers it whatever its wording -
+    # still of the required type, about the component, and judged by its own verdict below. Kept aside
+    # before any narrowing by wording or statement.
+    linked = set(item.get("linked_evidence") or [])
+    linked_matches = [a for a in matches if a.get("artifact_id") in linked]
+    candidates = []
+    # An EXACT STATEMENT (statement integrity): the criterion is met only by evidence that reports the very
+    # statement - the producer puts it there only when the checker accepted the result as proving exactly
+    # it (Lean's kernel: `example : <statement> := @theorem`). Compared whitespace aside, case kept; never a
+    # substring: "P" is part of "P -> Q", which is a different statement. Words are not consulted.
+    statement = item.get("statement")
+    if statement:
+        matches = [a for a in matches if _ws(_payload(a).get("statement")) == _ws(statement)]
+        prop = None
     # ONLY for evidence that can assert a property. A VerificationResult names the goal it discharged,
     # so narrowing by property is exactly right there - it is what makes a two-property goal statable at
     # all. A DECOMPOSITION asserts nothing: it enumerates the cases a function has, and there is one per
@@ -269,11 +339,16 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
     # function "is never negative". Evidence that names none (a decomposition, a diff) is about its
     # subject, and matches whatever property is asked of that subject.
     if prop:
-        matches = [a for a in matches
-                   if not (_canon_art_type(art_type) in _PROPERTY_BEARING or _states_property(a, trace))
-                   or _asserts_property(a, prop, trace)]
+        exact = item.get("property_match") == "exact"
+        bearing = lambda a: _canon_art_type(art_type) in _PROPERTY_BEARING or _states_property(a, trace)
+        narrowed = [a for a in matches if not bearing(a) or _asserts_property(a, prop, trace, exact=exact, subjects=symbols)]
+        if exact:
+            candidates = [{"artifact_id": a.get("artifact_id"), "property": _property_text(a, trace)}
+                          for a in matches if bearing(a) and a not in narrowed and _overlaps(a, prop, trace)]
+        matches = narrowed
+    matches = matches + [a for a in linked_matches if a not in matches]
     if not matches:
-        return keep
+        return {**keep, **({"candidates": candidates} if candidates else {})}
     a = max(matches, key=lambda x: x.get("producer_action_id") or 0)  # the latest such artifact
     aid = a.get("artifact_id")
     # Counter-evidence (§13 Defeater / §18.2): an OPEN defeater contesting the evidence (or the provenance
@@ -1514,6 +1589,9 @@ def enrich(trace):
             it = dict(item)
             it["status"] = r["status"]
             it["from_trace"] = r["from_trace"]
+            # Evidence worded like the criterion but not as it (`property_match: "exact"`): for a person.
+            if r.get("candidates"):
+                it["candidates"] = r["candidates"]
             # A typed criterion keeps its {artifact} spec in `evidence`; the resolved artifact id goes
             # to `evidence_ref`. Legacy items (no dict spec) keep `evidence` = the resolved id.
             if isinstance(item.get("evidence"), dict):

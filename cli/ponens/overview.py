@@ -334,6 +334,10 @@ def _goal_requirements(enriched):
                 state, why = "open", "in progress"
             else:
                 state, why = "open", "no evidence yet"
+            cands = it.get("candidates") or []
+            if state == "open" and cands:
+                why = ("no evidence yet - %d result%s worded otherwise; a person decides whether %s it"
+                       % (len(cands), "" if len(cands) == 1 else "s", "it meets" if len(cands) == 1 else "one meets"))
             want = it.get("min_strength") or (it.get("evidence") or {}).get("strength") if isinstance(it.get("evidence"), dict) else it.get("min_strength")
             ev = None
             if it.get("evidence_ref"):
@@ -345,6 +349,7 @@ def _goal_requirements(enriched):
                 "required": it.get("required", True) is not False,
                 "state": state, "reason": why, "evidence": ev, "symbols": [],
                 "reading": {"state": "not_needed", "chosen": None, "approved_by": None}, "open_findings": [], "invariants": [],
+                **({"candidates": cands} if cands and state == "open" else {}),
             })
     return out
 

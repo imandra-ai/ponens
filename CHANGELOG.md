@@ -9,6 +9,22 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+### Added
+- **Exact criteria.** A typed criterion may carry `statement`: it is met only by evidence whose payload
+  reports that very statement (whitespace aside, case kept) - never by words, never by a substring ("P" is
+  part of "P -> Q"). A producer puts the statement on a result only when its checker accepted the result as
+  proving exactly it.
+- `property_match: "exact"` on a criterion: its property must be one the evidence states, case and spacing
+  aside - not a substring, which lets a weaker claim ("never negative unless refunded") answer a stronger
+  criterion ("never negative"). Evidence worded alike becomes `candidates` (artifact and its wording) on the
+  item and on the overview's requirement, whose reason says a person decides.
+- `linked_evidence` on a criterion: artifacts a person linked to it answer it whatever their wording - still
+  of the required type, about the component, and judged by their own verdict.
+
+### Unchanged
+- Criteria without `statement` or `property_match` match by substring, as before: records already written
+  read the same.
+
 ## [1.17.2] — 2026-10-04
 
 A merge and the freshness fallback no longer read a result as current when it is not: a result about a subject

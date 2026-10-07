@@ -132,6 +132,38 @@ def test_finally_finds_action():
     assert evaluate_policy(policy("p", "F(GitCommit)"), t) == ("passed", None)
 
 
+# Under G, F looks from the current action onward (POLICY_LANGUAGE §2.8: j ≥ i) - "after the edit" means after it.
+TESTED_AFTER = policy("p", "G(EditFile → F(RunTests))")
+
+
+def test_finally_under_globally_is_not_met_by_an_earlier_action():
+    t = trace([action(1, "RunTests"), action(2, "EditFile")])
+    assert evaluate_policy(TESTED_AFTER, t)[0] == "failed"
+
+
+def test_finally_under_globally_is_met_by_a_later_action():
+    t = trace([action(1, "EditFile"), action(2, "RunTests")])
+    assert evaluate_policy(TESTED_AFTER, t) == ("passed", None)
+
+
+def test_finally_under_globally_holds_for_every_edit():
+    # Tests after the first edit, none after the second: the second breaks it.
+    t = trace([action(1, "EditFile"), action(2, "RunTests"), action(3, "EditFile")])
+    assert evaluate_policy(TESTED_AFTER, t)[0] == "failed"
+
+
+def test_finally_includes_the_current_action():
+    t = trace([action(1, "EditFile"), action(2, "ReadFile")])
+    assert evaluate_policy(policy("p", "G(EditFile → F(EditFile))"), t) == ("passed", None)
+
+
+def test_globally_under_globally_looks_onward():
+    # After a deploy, no further edit: an edit before the deploy is not after it.
+    p = policy("p", "G(Deploy → G(¬EditFile))")
+    assert evaluate_policy(p, trace([action(1, "EditFile"), action(2, "Deploy")])) == ("passed", None)
+    assert evaluate_policy(p, trace([action(1, "Deploy"), action(2, "EditFile")]))[0] == "failed"
+
+
 def test_globally_negation_no_delete_passes():
     t = trace([action(1, "ReadFile"), action(2, "EditFile")])
     assert evaluate_policy(policy("p", "G(¬ DeleteFile)"), t) == ("passed", None)
@@ -180,3 +212,12 @@ def test_stripe_tests_before_commit_passes():
 def test_stripe_all_actions_have_rationale_passes():
     t = _stripe()
     assert evaluate_policy(_find_policy(t, "all_actions_have_rationale"), t) == ("passed", None)
+
+
+def test_compiled_iml_anchors_nested_finally_and_globally():
+    from ponens.policy_compiler import compile_policy
+    nested = compile_policy({"name": "p", "formula": "G(EditFile → F(RunTests))"})[2]
+    assert "finally_from (fun a t -> a.action_type = RunTests) a t" in nested
+    assert "globally (fun a t ->" in nested                       # the top-level G still ranges over the trace
+    assert "finally_ (fun a t ->" in compile_policy({"name": "p", "formula": "F(GitCommit)"})[2]
+    assert "globally_from (fun a t ->" in compile_policy({"name": "p", "formula": "G(Deploy → G(¬EditFile))"})[2]

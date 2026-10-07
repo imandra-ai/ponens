@@ -9,6 +9,16 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+### Fixed
+- **`F` and `G` under another operator look forward from the current action**, as the policy language defines
+  them (POLICY_LANGUAGE §2.8: `(τ, i) ⊨ F φ` iff some `j ≥ i`), and as the browser evaluator and the formal model
+  already read them. `ponens trace check` read a nested `F` as "anywhere in the trace", so
+  `G(EditFile → F(RunTests))` passed on tests run *before* the edit, and on an edit with no test after it so long
+  as one ran after an earlier edit; a nested `G` likewise looked back. Top-level `F φ` and `G φ` are unchanged.
+  Policies whose verdict this changes: those with `F` or `G` inside `G(… → …)` - "after the edit" now means after it.
+- The IML compiler emits `finally_from` / `globally_from` (defined in the generated file) for a nested `F` / `G`.
+- Parity corpus: cases for `F` and `G` under `G`, which the two evaluators had disagreed on unseen.
+
 ## [1.18.0] — 2026-10-05
 
 A criterion can now say exactly what it needs: a statement the evidence must be, words it must say, and evidence a

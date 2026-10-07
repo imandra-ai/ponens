@@ -294,6 +294,36 @@
       "formula": "¬∃ r ∈ residuals . r.severity = Critical",
       "unsupported": true,
       "trace": [{"type": "ReadFile"}]
+    },
+    {
+      "name": "F under G / earlier action does not count",
+      "formula": "G(EditFile → F(RunTests))",
+      "expect": false,
+      "trace": [{"type": "RunTests"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "F under G / later action counts",
+      "formula": "G(EditFile → F(RunTests))",
+      "expect": true,
+      "trace": [{"type": "EditFile"}, {"type": "RunTests"}]
+    },
+    {
+      "name": "F under G / every edit needs one after it",
+      "formula": "G(EditFile → F(RunTests))",
+      "expect": false,
+      "trace": [{"type": "EditFile"}, {"type": "RunTests"}, {"type": "EditFile"}]
+    },
+    {
+      "name": "G under G / onward only",
+      "formula": "G(Deploy → G(¬EditFile))",
+      "expect": true,
+      "trace": [{"type": "EditFile"}, {"type": "Deploy"}]
+    },
+    {
+      "name": "G under G / an edit after the deploy",
+      "formula": "G(Deploy → G(¬EditFile))",
+      "expect": false,
+      "trace": [{"type": "Deploy"}, {"type": "EditFile"}]
     }
   ]
 }

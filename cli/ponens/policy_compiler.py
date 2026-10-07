@@ -838,13 +838,19 @@ def gen_iml(node: Formula, var: str = 'a') -> str:
     var = current action variable name ('a' at top level, 'b' inside temporal operators).
     """
     match node:
+        # At the top of a formula (var 'trace') G / F range over the whole trace; under another operator they look from
+        # the current action onward (POLICY_LANGUAGE §2.8: j ≥ i) - `G(EditFile → F(RunTests))` wants tests AFTER the edit.
         case Globally(body):
             inner = gen_iml(body, 'a')
-            return f"globally (fun a t ->\n    {inner}\n  ) t"
+            if var == 'trace':
+                return f"globally (fun a t ->\n    {inner}\n  ) t"
+            return f"globally_from (fun a t -> {inner}) {var} t"
 
         case Finally(body):
             inner = gen_iml(body, 'a')
-            return f"finally_ (fun a t ->\n    {inner}\n  ) t"
+            if var == 'trace':
+                return f"finally_ (fun a t ->\n    {inner}\n  ) t"
+            return f"finally_from (fun a t -> {inner}) {var} t"
 
         case Previously(body):
             inner = gen_iml(body, 'b')
@@ -1381,6 +1387,13 @@ def generate_iml_file(policies: list[dict]) -> str:
     lines.append('   ================================================================ *)')
     lines.append('')
     lines.append('open Policy_combinators')
+    lines.append('')
+    lines.append('(* G / F under another operator: from the current action onward (POLICY_LANGUAGE §2.8: j >= i). *)')
+    lines.append('let globally_from (phi : action -> trace -> bool) (a : action) (t : trace) : bool =')
+    lines.append('  List.for_all (fun b -> b.id < a.id || phi b t) t.actions')
+    lines.append('')
+    lines.append('let finally_from (phi : action -> trace -> bool) (a : action) (t : trace) : bool =')
+    lines.append('  List.exists (fun b -> b.id >= a.id && phi b t) t.actions')
     lines.append('')
 
     # Group by classification

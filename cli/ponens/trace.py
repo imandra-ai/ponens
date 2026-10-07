@@ -417,6 +417,16 @@ def _edited_symbols(action, trace):
     return syms
 
 
+def _from_here(trace, ctx):
+    """The actions at and after the current one, in order - every action when there is no current one (the top of a
+    formula). Positions are by id, as P and H read them."""
+    actions = sorted(trace.get('actions', []), key=lambda a: a['id'])
+    if not ctx or 'action' not in ctx:
+        return actions
+    here = ctx['action']['id']
+    return [a for a in actions if a['id'] >= here]
+
+
 def evaluate_formula(node, trace, ctx=None):
     if isinstance(node, (ForAll, Exists, ExistsUnique)):
         if node.set_name in DERIVED_COLLECTIONS and node.set_name not in trace:
@@ -445,11 +455,15 @@ def evaluate_formula(node, trace, ctx=None):
         obj = (ctx or {}).get(node.var)
         return bool(obj.get(node.field)) if isinstance(obj, dict) else False
 
+    # G / F at a position look from it onward (POLICY_LANGUAGE §2.8: j ≥ i) - so a rule's "after the edit" means after
+    # it: `G(EditFile → F(RunTests))` is not met by tests run before the edit. At the top of a formula (no position yet)
+    # they range over the whole trace, as they always did. The browser evaluator (website/src/lib/ltl.mjs) and the
+    # formal model (formal/trace-policy-model/06_trace_policy_eval.iml) read them so; this one read F anywhere.
     if isinstance(node, Globally):
-        return all(evaluate_formula(node.body, trace, {'action': a}) for a in trace['actions'])
+        return all(evaluate_formula(node.body, trace, {**(ctx or {}), 'action': a}) for a in _from_here(trace, ctx))
 
     if isinstance(node, Finally):
-        return any(evaluate_formula(node.body, trace, {'action': a}) for a in trace['actions'])
+        return any(evaluate_formula(node.body, trace, {**(ctx or {}), 'action': a}) for a in _from_here(trace, ctx))
 
     if isinstance(node, Previously):
         if not ctx:

@@ -9,6 +9,12 @@ notes, and the website's **/whats-new** page renders this file directly. Keep a
 
 ## [Unreleased]
 
+## [1.19.0] — 2026-10-07
+
+"After the edit" now means after it: a nested `F` or `G` looks forward from the current action, as the policy
+language defines. Verdicts change for policies with `F` or `G` inside `G(… → …)` - work whose tests, scans or
+approvals came before its last edit now fails them.
+
 ### Fixed
 - **`F` and `G` under another operator look forward from the current action**, as the policy language defines
   them (POLICY_LANGUAGE §2.8: `(τ, i) ⊨ F φ` iff some `j ≥ i`), and as the browser evaluator and the formal model

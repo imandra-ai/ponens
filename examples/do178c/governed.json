@@ -1,6 +1,6 @@
 {
   "trace_id": "do178c-governed-001",
-  "spec_version": "1.14",
+  "spec_version": "1.15",
   "assistant": "do178c-lifecycle",
   "model": "demo",
   "trigger": {

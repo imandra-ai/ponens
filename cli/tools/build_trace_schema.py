@@ -1,6 +1,9 @@
-"""Build the trace WIRE schema (JSON Schema 2020-12) for Trace Spec 1.14: `ponens/schema/trace.v1_14.json`.
+"""Build the trace WIRE schema (JSON Schema 2020-12) for the newest Trace Spec, 1.15: `ponens/schema/trace.v1_15.json`.
 
-The interchange projection of TRACE_SPEC_v1_14 (§16): what a trace looks like on the wire, as ponens
+`trace.v1_14.json` beside it is the 1.14 projection, frozen when 1.15 was drafted; 1.15 only adds (every valid
+1.14 trace is a valid 1.15 one), so traces of either version are checked against this one.
+
+The interchange projection of TRACE_SPEC_v1_15 (§16): what a trace looks like on the wire, as ponens
 reads and writes it - not the canonical OCaml model. Where the spec's prose and ponens' code disagree on a
 spelling, the code wins, because it is what every consumer reads; each such place says so in its
 description. The rules applied:
@@ -25,7 +28,7 @@ import json
 import pathlib
 import sys
 
-OUT = pathlib.Path(__file__).resolve().parent.parent / "ponens" / "schema" / "trace.v1_14.json"
+OUT = pathlib.Path(__file__).resolve().parent.parent / "ponens" / "schema" / "trace.v1_15.json"
 
 
 # ---- helpers -----------------------------------------------------------------------------------
@@ -99,10 +102,11 @@ DEFEATER_KINDS = ("rebuts", "undermines", "undercuts")
 SEVERITIES = ("info", "low", "medium", "high", "critical")
 RESIDUAL_STATUSES = ("open", "acknowledged", "addressed", "waived")
 RESIDUAL_SOURCES = ("agent_declared", "policy_derived", "tool_inferred", "reviewer_added", "binding")
-TARGET_TYPES = ("trace", "action", "artifact", "policy", "policy_evaluation", "reference_artifact")
+# 1.15: a residual may be about code, not only about the trace - a declaration, a file, or a declared subject.
+TARGET_TYPES = ("trace", "action", "artifact", "policy", "policy_evaluation", "reference_artifact", "symbol", "file", "subject")
 META_STATUSES = ("completed", "partial", "abandoned")
 META_SOURCES = ("plan_declared", "turn_segmented", "intent_inferred", "curated")
-VR_STATUSES = ("proved", "refuted", "sat", "unknown")
+VR_STATUSES = ("proved", "refuted", "sat", "unknown", "bounded")                    # bounded: 1.15
 PROPERTY_STATUSES = ("pending", "proved", "refuted", "unknown")
 VG_KINDS = ("verify", "instance", "theorem", "lemma", "axiom")
 CONFORMANCE_STATUSES = ("passed", "failed", "partial", "unknown")
@@ -117,7 +121,7 @@ REVIEW_STATUSES = ("open", "acknowledged", "resolved", "waived")
 RELATIONSHIPS = ("supersedes", "reruns", "derived_from", "same_task", "same_pr", "policy_recheck_of",
                  "conformance_recheck_of", "forked_from", "related_to")
 CHAIN_STATUSES = ("active", "superseded", "archived")
-GOAL_STATUSES = ("scratch", "active", "done", "abandoned")
+GOAL_STATUSES = ("scratch", "active", "done", "abandoned", "superseded")            # superseded: 1.15
 ACCEPTANCE_KINDS = ("change", "property", "obligation", "gap")
 ACCEPTANCE_STATUSES = ("todo", "doing", "done", "blocked")
 POLICY_VERDICTS = ("passed", "failed", "warning", "not_applicable")                  # transitions.py
@@ -137,7 +141,10 @@ D = {}
 
 D["target_ref"] = O({"target_type": E(TARGET_TYPES, "§14.1 - what is targeted"),
                      "target_id": {"type": ["string", "integer"],
-                                   "description": "the id of the targeted object - an action's is its integer id (absent for the trace itself)"}},
+                                   "description": "the id of the targeted object - an action's is its integer id (absent for the trace itself); "
+                                                  "a symbol's is the declaration's name, a file's its path, a subject's its name (1.15)"},
+                     "path": S("symbol (1.15): the file that declares it"),
+                     "subject_kind": S("subject (1.15): what kind of thing it is - protocol, service, table, endpoint, ...")},
                     required=("target_type",), desc="§14.1 - a reference to a trace object.")
 
 D["oracle_attribution"] = O({
@@ -157,6 +164,10 @@ D["fingerprint"] = O({
 }, desc="§10.4a - the freshness anchor: a reasoning_fingerprint (task_*) or an evidence_fingerprint (subject_*).")
 
 D["region"] = O({"constraints": STRS, "invariant": S(), "model": ANY, "model_eval": S(),
+                 # 1.15: whether the invariant was checked to hold over the region, and a point in it with the model's output there
+                 "invariant_checked": B("1.15 - the invariant was checked to hold over the whole region"),
+                 "sample": {"type": "object", "description": "1.15 - a point in the region: argument -> value"},
+                 "sample_output": S("1.15 - the model's output at the sample"),
                  # as ponens' demos write a region (pre-1.4 decomposition shape)
                  "id": INT_OR_STR, "constraint": S(), "count": I(), "function": S(), "regions": L(ANY)},
                 desc="§10.5 - one region of a state-space analysis.")
@@ -187,7 +198,11 @@ def payload(props, required=(), desc=None, base=True):
 
 D["formalization_payload"] = payload({"status": E(FORMALIZATION_STATUSES), "src_lang": S(), "src_code": S(), "formal_code": S(),
                                       "model_language": S()}, desc="§10.1")
+WITNESSED_BY = S("1.15 - who ran the reasoner and recorded what it answered: a platform (e.g. grounds) or the producer itself; "
+                 "absent when the producer reports a result it did not witness")
 D["formal_model_payload"] = payload({"model_language": S("the modelling language, e.g. iml"), "formal_code": S(), "scope": S(),
+                                     "declarations": L(O({"name": S(), "type": S()}, required=("name",)), "1.15 - the declarations the reasoner admitted, with their types"),
+                                     "engine": S("1.15 - the reasoner that admitted the model"), "witnessed_by": WITNESSED_BY,
                                      "checksum": S("the model's content checksum (§11.2)"),
                                      # IMLModel, the pre-1.4 name FormalModel aliases (TYPE_SYNONYMS), as ponens' demos still write it
                                      "iml_code": S("IMLModel (legacy): the IML"), "src_code": S(), "src_lang": S(),
@@ -196,22 +211,31 @@ D["formal_model_payload"] = payload({"model_language": S("the modelling language
 D["verification_goal_payload"] = payload({
     "goal_id": INT_OR_STR, "goal_revision": I(), "kind": E(VG_KINDS), "src": S(), "formula": S(),
     "target_artifact_id": S(), "property_name": S(), "model_symbols": L(S(), "§10.3 (1.14) - for a result about a SUBJECT, the model definitions its interface maps to"),
+    "statement": S("1.15 - the property in plain language, as the goal's author stated it"),
+    "within_subject": S("1.15 - the declared subject this goal is about, when it is about one"),
 }, desc="§10.3")
 D["verification_result_variant"] = O({
     "proved": O({"proof_pp": S(), "properties": L(ref("property_item"))}),
     "refuted": O({"counterexample": S()}),
     "sat": O({"model": O({"m_type": E(("instance_model", "counterexample_model")), "src": S()})}),
     "unknown": O({"note": S()}),
+    "bounded": O({"bounds": STRS, "note": S()}),
 }, desc="§10.4 - the verdict's detail, tagged by its status.")
 D["verification_result_payload"] = payload({
     "goal_id": INT_OR_STR, "goal_artifact_id": S("the VerificationGoal artifact this result answers"),
-    "status": E(VR_STATUSES, "§10.4 - proved | refuted | sat | unknown"), "engine": S(), "engine_version": S(), "completed_at": S(),
+    "status": E(VR_STATUSES, "§10.4 - proved | refuted | sat | unknown | bounded (1.15: holds within the stated bounds - never a proof)"),
+    "engine": S(), "engine_version": S(), "completed_at": S(),
     "result": ref("verification_result_variant"), "counterexample": S(), "kind": S(),
+    "bounds": L(S(), "1.15 - for a bounded result: the bounds it holds within, in words (e.g. runs of length up to 10)"),
+    "witnessed_by": WITNESSED_BY, "model_checksum": S("1.15 - the checksum of the model the result is about (§11.2)"),
+    "verification_id": S("1.15 - the producer's id for the recorded result, so it can be cited"),
+    "formula": S("1.15 - the formula as the reasoner checked it"), "job_ref": S("1.15 - the reasoner's own reference for the run"),
 }, desc="§10.4")
 D["state_space_analysis_result_payload"] = payload({
     "target_artifact_id": S(), "analysis_kind": S("e.g. region_decomposition"), "analysis_revision": I(), "complete": B(),
     "regions": L(ref("region")), "coverage_summary": S(), "notes": S(), "engine": S(), "engine_version": S(),
     "target_function": S("Decomposition (legacy): the model function decomposed"), "region_count": I(),
+    "verification_id": S("1.15 - the producer's id for the recorded analysis, so it can be cited"),
 }, desc="§10.5 - also the payload of a `Decomposition` (the legacy name; TYPE_SYNONYMS).")
 D["conformance_result_payload"] = payload({
     "reference_artifact_id": ID, "target_artifact_id": ID,
@@ -219,6 +243,9 @@ D["conformance_result_payload"] = payload({
     # §11.2 (1.13) - conformance against a reference
     "entry_symbol": S("the reference-model symbol"), "conformance_kind": E(CONFORMANCE_KINDS),
     "reference_version": S(), "reference_checksum": S(),
+    # 1.15 - the run itself, and whether the model takes what the code takes
+    "command": S("1.15 - the command that ran the tests against the code"), "passed": I("1.15"), "failed": I("1.15"),
+    "interface": O({"match": B("null: it could not be checked"), "reason": S()}, desc="1.15 - the model's interface read against the code's"),
 }, required=("reference_artifact_id", "target_artifact_id", "status"), desc="§10.6, §11.2")
 D["cosimulation_result_payload"] = payload({
     "target_artifact_id": ID, "input_artifact_ids": STRS, "status": E(COSIM_STATUSES), "engine": S(),
@@ -241,6 +268,7 @@ D["carried_forward_payload"] = payload({
     "strength": E(EVIDENCE_STRENGTH), "preferred_result_id": S(), "theirs_strength": E(EVIDENCE_STRENGTH),
 }, required=("result_id", "basis"), desc="§15.3")
 RESIDUAL_PROPS = {
+    "residual_id": S("1.15 - the residual's own id, stable across revisions of its artifact (a resolution names it, §13.3a)"),
     "kind": E(RESIDUAL_KINDS), "defeater_kind": E(DEFEATER_KINDS, "set iff kind = defeater"),
     "statement": S("the gap (or, for a defeater, the challenge), in plain language"), "severity": E(SEVERITIES),
     "target": ref("target_ref"), "related_artifact_ids": STRS, "rationale": S(), "suggested_check": S(),
@@ -264,9 +292,34 @@ D["command_result_payload"] = payload({"command": S(), "status": S(), "exit_code
                                        "findings": ANY, "tool": S(), "kind": S()}, desc="§10.9 - open; refined by implementations.")
 # Common-only artifacts (§7.1: no payload in the canonical model) - on the wire their payload, when present, carries
 # what ponens reads to root them (a Diff's `target_symbol`, §18.3 1.14) and is otherwise open.
-D["component_payload"] = payload({"signature_changed": B(), "language": S()},
-                                 desc="the payload of an artifact with none in the canonical model (Diff, SourceCode, …) - "
+COMPONENT_PROPS = {"signature_changed": B(), "language": S()}
+D["component_payload"] = payload(COMPONENT_PROPS,
+                                 desc="the payload of an artifact with none in the canonical model (Diff, AnalysisNote, …) - "
                                       "what ponens reads to root it, otherwise open")
+# 1.15 §10.13 - what a formal model is made from: a SourceCode, Documentation or UserInstruction artifact may say it is a
+# model's input, read and fingerprinted at a commit, so a change to it can be found and the model looked at again.
+MODEL_INPUT_PROPS = {
+    "input_id": S("1.15 §10.13 - the input's own id"), "input_of": S("1.15 §10.13 - what it is an input of, e.g. formalization"),
+    "kind": E(("code", "document", "requirement", "package", "model"), "1.15 §10.13 - what kind of input"),
+    "grain": S("1.15 §10.13 - how much of it was read and fingerprinted: declaration | file | text | section | unread"),
+    "checksum": S("1.15 §10.13 - its fingerprint when read (absent: it could not be read)"),
+    "read_at": S("1.15 §10.13 - the commit it was read at"), "commit": S("the commit the artifact is of"),
+    "why": S("1.15 §10.13 - what of it the model encodes"), "note": S("1.15 §10.13 - what the reader could not do, in words"),
+    "ref": S("1.15 §10.13 - a requirement: the goal, criterion or ticket it is"), "section": S("1.15 §10.13 - a document: the section meant"),
+    "package": S("1.15 §10.13 - a package: its name"), "version": S("1.15 §10.13 - a package: the version assumed"),
+    "ecosystem": S("1.15 §10.13 - a package: npm, pypi, go, cargo, ..."),
+}
+D["source_payload"] = payload(merge(COMPONENT_PROPS, MODEL_INPUT_PROPS),
+                              desc="SourceCode, Documentation, UserInstruction: what ponens reads to root it, and - when it is a model's input - "
+                                   "the input's fingerprint (1.15 §10.13); otherwise open")
+D["search_results_payload"] = payload(merge(COMPONENT_PROPS, {
+    "query": S("1.15 - what was searched for"), "scope": L(S(), "1.15 - the paths searched (none: the whole repository)"),
+    "commit": S("1.15 - the commit searched"), "matches": I("1.15 - how many matches"),
+    "hits": L(O({"path": S(), "line": I(), "text": S()}), "1.15 - the matches, or the first of them"),
+}), desc="SearchResults (1.15): the search, where and at which commit, and what it found")
+D["plan_payload"] = payload(merge(COMPONENT_PROPS, {
+    "approach": S("1.15 - how the work will be done, in words"), "intended_files": L(S(), "1.15 - the files the plan means to touch"),
+}), desc="Plan (1.15): the approach and the files it means to touch")
 
 TYPED_ARTIFACTS = {
     "Formalization": "formalization_payload",
@@ -284,8 +337,9 @@ TYPED_ARTIFACTS = {
     "Residual": "residual_payload",
     "ResidualResolution": "residual_resolution_payload",
     "GoalAmendment": "goal_amendment_payload",
-    **{t: "component_payload" for t in ("UserInstruction", "SourceCode", "Documentation", "SearchResults", "AnalysisNote",
-                                        "Plan", "Diff", "UserApproval", "Commit")},
+    **{t: "source_payload" for t in ("UserInstruction", "SourceCode", "Documentation")},
+    "SearchResults": "search_results_payload", "Plan": "plan_payload",
+    **{t: "component_payload" for t in ("AnalysisNote", "Diff", "UserApproval", "Commit")},
 }
 
 KNOWN_ARTIFACT_TYPES = sorted(set(TYPED_ARTIFACTS))
@@ -347,6 +401,7 @@ D["action"] = O({
     "result": {"type": "object", "description": "§8.2 - implementation-specific result (open)"},
     "result_summary": S(), "timestamp": S(),
     "agent": S("in a multi-agent trace, the agent that took the step"),
+    "created": B("1.15 - an EditFile that created the file (a CreateFile shown as the edit it is)"),
     "vg_result": O({"status": S()}, desc="a Verify action's verdict, as the reasoner reported it"),
     # gateway payload (§8.1), flattened onto the action as ponens writes it
     "decision_basis": S(), "supporting_inputs": STRS, "options": L(ref("decision_option")),
@@ -434,11 +489,14 @@ D["acceptance_item"] = O({
     "status": E(ACCEPTANCE_STATUSES, "authored fallback, or the derived status of a resolved item"),
     # derived by `trace enrich` (§18.3), and the criterion's provenance
     "evidence_ref": S(), "author": S("who drafted the criterion"), "property_match": S(), "from_trace": B(),
+    "key": S("1.15 - a short stable name for the criterion, unchanged when its wording is"),
 }, desc="§18.1 / GOAL_CONTRACT v0.2 §3 - one acceptance criterion.")
 D["goal"] = O({
     "id": S("the goal's id (GOAL_CONTRACT; `goal_id` in §18.1)"), "goal_id": S(),
     "intent": S("the change and why, in plain language"), "intent_author": S("human | agent - who stated the intent"),
     "scope": STRS, "acceptance": L(ref("acceptance_item")), "status": E(GOAL_STATUSES), "meta_action_id": S(),
+    "superseded_by": S("1.15 - for a superseded goal: the id of the goal that replaced it"),
+    "ticket": S("1.15 - the issue or ticket the goal is for"),
     "policies": O({"packs": L(ANY), "policies": L(ANY), "disabled": STRS},
                   desc="GOAL_CONTRACT §5 - packs/policies governing the goal (ids, or as resolved by enrich)"),
     "intent_clauses": STRS,
@@ -453,7 +511,7 @@ D["legacy_residual"] = O(merge({"residual_id": ID}, RESIDUAL_PROPS), required=("
                          desc="§13.7 - deprecated (1.8): a residual in the legacy top-level list")
 
 D["trace"] = O({
-    "trace_id": ID, "spec_version": S("the trace spec version, e.g. 1.14", pattern=r"^\d+(\.\d+)*$"),
+    "trace_id": ID, "spec_version": S("the trace spec version, e.g. 1.15", pattern=r"^\d+(\.\d+)*$"),
     "assistant": S(), "model": S(), "timestamp": S(), "title": S(),
     "trigger": ref("event"), "outcome": ref("event"),
     "actions": L(ref("action")), "meta_actions": L(ref("meta_action")),
@@ -482,10 +540,10 @@ D["trace"] = O({
 
 SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://ponens.dev/schema/trace.v1_14.json",
-    "title": "Ponens trace (Trace Spec 1.14, wire format)",
-    "description": "The interchange projection of TRACE_SPEC_v1_14 (§16) as ponens reads and writes it. Generated by "
-                   "cli/tools/build_trace_schema.py - edit that, not this file.",
+    "$id": "https://ponens.dev/schema/trace.v1_15.json",
+    "title": "Ponens trace (Trace Spec 1.15, wire format)",
+    "description": "The interchange projection of TRACE_SPEC_v1_15 (§16) as ponens reads and writes it - every valid 1.14 trace "
+                   "is a valid 1.15 one. Generated by cli/tools/build_trace_schema.py - edit that, not this file.",
     "$ref": "#/$defs/trace",
     "$defs": D,
 }

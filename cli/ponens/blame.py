@@ -28,7 +28,8 @@ _RESULT_TYPES = ("VerificationResult", "StateSpaceAnalysisResult", "ConformanceR
                  "CoSimulationResult", "Observation", "TestResult", "CommandResult", "UserApproval")
 
 # Statuses that mean the result ESTABLISHED something (a refutation establishes a counterexample).
-_ESTABLISHED = {"proved", "sat", "refuted", "completed", "passed", "observed", "matched", "approved", "done"}
+# `bounded` (1.15) established that it holds within its bounds - its strength, never "proof", says how much.
+_ESTABLISHED = {"proved", "sat", "refuted", "completed", "passed", "observed", "matched", "approved", "done", "bounded"}
 
 
 def _payload(a):

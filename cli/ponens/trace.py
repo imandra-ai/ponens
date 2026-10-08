@@ -1375,7 +1375,8 @@ def validate_trace(trace):
     return errors, warnings
 
 
-_VALID_VERDICTS = {'proved', 'refuted', 'unknown'}
+# 1.15: `bounded` - holds within stated bounds (a bounded model check); never a proof.
+_VALID_VERDICTS = {'proved', 'refuted', 'unknown', 'bounded'}
 # Producing/reasoning actions the exporter groups into phase meta-actions (§8.4).
 _GROUPED_ACTION_TYPES = {
     'Verify', 'EditFile', 'GenerateTests', 'StateSpaceAnalysis', 'ConformanceCheck', 'Decompose',
@@ -1499,7 +1500,7 @@ def soundness_errors(trace, strict=False):
 # The newest TRACE_SPEC this ponens reads. A record declaring a later `spec_version` was written by a
 # newer producer: its new fields are invisible here, so a consumer must not treat this ponens's silence
 # about them as a pass. `ponens version --json` publishes it for exactly that check.
-TRACE_SPEC_VERSION = "1.14"
+TRACE_SPEC_VERSION = "1.15"
 
 
 def parse_spec_version(v) -> tuple[int, ...]:
@@ -1582,7 +1583,7 @@ def cmd_validate(args):
 
 
 def cmd_schema(args):
-    """The trace wire schema - Trace Spec 1.14 as JSON Schema (ponens/schema/trace.v1_14.json)."""
+    """The trace wire schema - Trace Spec 1.15 as JSON Schema (ponens/schema/trace.v1_15.json); 1.14 traces validate against it too."""
     from . import schema as _schema
     print(_schema.SCHEMA_PATH if getattr(args, 'path', False) else _schema.SCHEMA_PATH.read_text(), end="\n" if args.path else "")
     return 0

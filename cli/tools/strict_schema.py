@@ -14,7 +14,7 @@ import json
 import pathlib
 import sys
 
-WIRE = pathlib.Path(__file__).resolve().parent.parent / "ponens" / "schema" / "trace.v1_14.json"
+WIRE = pathlib.Path(__file__).resolve().parent.parent / "ponens" / "schema" / "trace.v1_15.json"
 
 
 def strict(schema):

@@ -362,7 +362,7 @@ def _verdict_of(vg_res) -> str:
     if vg_res.get("proved"):
         return "proved"
     if vg_res.get("verified_upto"):
-        return "sat"          # bounded - verified up to a depth, not a full proof
+        return "bounded"      # verified up to a depth, not a full proof (1.15; it was reported as `sat`)
     return "unknown"
 
 
@@ -381,6 +381,9 @@ def _aggregate(verdicts) -> str:
         return "refuted"
     if all(v == "proved" for v in verdicts):
         return "proved"
+    # Proved, and the rest within bounds: as a whole it holds within bounds - never "proved".
+    if all(v in ("proved", "bounded") for v in verdicts):
+        return "bounded"
     if all(v in ("proved", "sat") for v in verdicts):
         return "sat"
     return "unknown"
@@ -436,7 +439,8 @@ def _codelogician_lite_runner(target, context=None):
 
 # Status -> the honest strength of the established evidence (None when nothing was established,
 # so an `unknown`/error result never masquerades as graded evidence).
-_STATUS_STRENGTH = {"proved": "proof", "refuted": "proof", "sat": "sat"}
+# A bounded check keeps the strength it had when it was reported as `sat` (before 1.15); its status now says what it is.
+_STATUS_STRENGTH = {"proved": "proof", "refuted": "proof", "sat": "sat", "bounded": "sat"}
 
 
 class CodeLogicianOracle(Oracle):

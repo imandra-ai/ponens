@@ -16,7 +16,7 @@ message can be improved without touching what is enforced.
 
 import re
 
-SPEC = "TRACE_SPEC v1.14"
+SPEC = "TRACE_SPEC v1.15"
 
 
 def _vocab():

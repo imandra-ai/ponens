@@ -59,7 +59,8 @@ TRANSITIONS = [
       note="A re-run is a NEW VerificationResult artifact, never an edit to the old verdict. The "
            "history of what was believed and when is the sequence of results."),
     T("a verification result", "verification_result_status",
-      ("proved", "refuted", "sat", "unknown"), DERIVED, "the reasoner, at the moment it runs"),
+      ("proved", "refuted", "sat", "unknown", "bounded"), DERIVED, "the reasoner, at the moment it runs",
+      note="`bounded` (1.15): holds within the bounds stated on the result - a bounded model check. Never a proof."),
     T("a conformance check", "conformance_status",
       ("passed", "failed", "partial", "unknown"), DERIVED, "the oracle, at the moment it runs"),
     T("a co-simulation", "cosimulation_status",
@@ -114,10 +115,11 @@ TRANSITIONS = [
            "ground truth: rewriting a title cannot change what was done, only how it is told. "
            "`trace meta drop` leaves the actions in place, ungrouped."),
     T("a goal's own status", "goal_status",
-      ("scratch", "active", "done", "abandoned"), APPLIED,
+      ("scratch", "active", "done", "abandoned", "superseded"), APPLIED,
       "`trace goal set`",
       note="Set at declaration and not otherwise moved by the CLI; `done` is read from progress, not "
-           "asserted. Worth an amendment record if it ever becomes settable."),
+           "asserted. Worth an amendment record if it ever becomes settable. `superseded` (1.15) is a "
+           "producer's: the goal was replaced, and `superseded_by` names the one that replaced it."),
     T("the trace title and outcome summary", None, ("as written",), APPLIED,
       "`trace retitle`",
       note="Prose about the trace, not a claim within it. A rewritten summary cannot make an "

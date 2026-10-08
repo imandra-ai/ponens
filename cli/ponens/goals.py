@@ -386,7 +386,8 @@ def _resolve_typed(item, trace, gate_defeater=True, gate_fresh=False):
 # never read as "a review exists, so the criterion is met".
 _POSITIVE_VERDICTS = {"proved", "sat", "passed", "matched", "approved", "accepted"}
 _NEGATIVE_VERDICTS = {"refuted", "failed", "mismatched", "rejected", "changes_requested", "denied"}
-_INCONCLUSIVE_VERDICTS = {"unknown", "partial", "pending", "error"}
+# `bounded` (1.15): it holds within stated bounds - neither meets a criterion nor blocks one.
+_INCONCLUSIVE_VERDICTS = {"unknown", "partial", "pending", "error", "bounded"}
 
 
 def _evidence_verdict(a):

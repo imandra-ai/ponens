@@ -7,6 +7,19 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [1.21.0] — 2026-10-08
+
+Requirement results say why they stand where they do in a form a program can read. Every requirement and every row
+of `trace requirements` / `trace overview --json` carries `reason_code` beside `reason`: the reason is written for a
+person and may be reworded, the code is for a program - a consumer should never match the reason's words. Additive:
+every `reason` reads as before. The trace format is unchanged (Trace Spec stays 1.15).
+
+### Added
+- `reason_code` on requirements and their rows (RECORD_OVERVIEW, "Reason codes"): a closed set that only grows -
+  `symbol_not_found`, `not_declared`, `no_evidence`, `worded_otherwise`, `unranked`, `weaker_than_required`,
+  `in_progress`, `reading_not_chosen`, `failed`, `contested`, `out_of_date`, `freshness_unknown`, `model_revised` -
+  null exactly when the requirement is met. `overview.REASON_CODES` lists them; a test holds the spec's table to it.
+
 ## [1.20.0] — 2026-10-08
 
 Trace Spec **1.15**, and the trace's wire format as a JSON Schema that `trace validate` checks. 1.15 only adds:

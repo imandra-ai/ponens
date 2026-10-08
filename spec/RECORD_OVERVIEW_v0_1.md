@@ -42,11 +42,12 @@ The requirements file is the agent's `bindings.yaml` (YAML or JSON; schema below
       "required_grade": "tested",
       "state": "met",
       "reason": null,
+      "reason_code": null,
       "evidence": {"artifact_id": "fr8-conformance", "grade": "tested", "status": "passed", "freshness": "fresh"},
       "symbols": [
         {"file": "payments.py", "symbol": "refundable_amount", "entry_symbol": "refundable_amount",
          "scope": "symbol", "bound": true, "declared": true, "state": "met", "reason": null,
-         "evidence": {...}, "other_evidence": null}
+         "reason_code": null, "evidence": {...}, "other_evidence": null}
       ],
       "reading": {"state": "recorded", "chosen": "...", "approved_by": "..."},
       "open_findings": [], "invariants": []
@@ -71,20 +72,21 @@ and whose `entry_symbol` / `target_symbol` match when stamped. Its freshness: `o
 derived `stale-ref-`/`detached-ref-` residual targets it or the reasoner freshness marks it stale/gone;
 `fresh` when the reasoner marks it fresh; else `unknown` (never assumed fresh).
 
-Row state, first rule that applies:
+Row state, first rule that applies (reason code in brackets):
 
-1. `bound == false` → `open`, reason `symbol not found in <file>`
-2. not declared → `open`, reason `not yet in the record`
-3. no evidence → `open`, reason `no evidence yet`
-4. evidence status `failed`/`refuted` → `failed`, reason the counterexample or the failure line
-5. freshness `out_of_date` or `unknown` → `out_of_date`, reason `the code or the model changed since` / `freshness unknown`
-6. grade below `required_grade` → `open`, reason `<grade>, needs <required_grade>`
-7. → `met`
+1. `bound == false` → `open`, reason `symbol not found in <file>` [`symbol_not_found`]
+2. not declared → `open`, reason `not yet in the record` [`not_declared`]
+3. no evidence → `open`, reason `no evidence yet` [`no_evidence`]
+4. evidence status `failed`/`refuted` → `failed`, reason the counterexample or the failure line [`failed`]
+5. freshness `out_of_date` or `unknown` → `out_of_date`, reason `the code or the model changed since` / `freshness unknown` [`out_of_date` / `freshness_unknown`]
+6. grade below `required_grade` → `open`, reason `<grade>, needs <required_grade>` [`weaker_than_required`]
+7. → `met` (reason and code null)
 
 Requirement state = the worst of its rows (`failed` > `out_of_date` > `open` > `met`), except:
 `model.status == "revised"` (file version ≠ `reference_artifacts[..].version`) → `out_of_date`, reason
-`the model was revised: <old> → <new>`; `reading.state == "missing"` (open findings on the model and no
-reading chosen) → `open`, reason `reading not chosen`. `model.status` is `unknown` when either version is
+`the model was revised: <old> → <new>` [`model_revised`]; `reading.state == "missing"` (open findings on the model and no
+reading chosen) → `open`, reason `reading not chosen` [`reading_not_chosen`]. Otherwise the requirement's reason and
+code are those of its first row in the worst state. `model.status` is `unknown` when either version is
 absent. `reading.state`: `recorded` when the file chooses one and the trace carries residual
 `interpretation:<id>`; `chosen` when the file chooses one but the trace does not carry it yet;
 `missing` when the model has open findings and nothing is chosen; `not_needed` otherwise.
@@ -98,10 +100,34 @@ Every acceptance item of a goal in the trace whose id does not start with `bindi
 too, listed after the file-derived ones: `id` = `<goal id>/<item id>`, `label` = the item's label,
 `model` = null, `kind` = the item's kind, `required_grade` from the item's `min_strength` /
 `evidence.strength` when present else null, `required` from the item, `symbols` = []. Its state comes
-from the resolved item: done → `met` (`out_of_date` when its evidence is stale per `stale_evidence`),
-blocked → `failed`, doing → `open` ("in progress"), todo → `open` ("no evidence yet"). Every
+from the resolved item: done → `met` (`out_of_date` [`out_of_date`] when its evidence is stale per `stale_evidence`;
+`open` [`unranked`] when the evidence that resolved it has no strength), blocked → `failed` [`contested`], doing →
+`open` ("in progress") [`in_progress`], todo → `open` ("no evidence yet") [`no_evidence`] - or, when results worded
+otherwise are candidates for it, "no evidence yet - N results worded otherwise…" [`worded_otherwise`]. Every
 requirement carries a `label` (file-derived: the model's `name`, else the entry). `trace overview` lists
 these even with no file; the summary counts include them.
+
+### Reason codes (ponens 1.21)
+
+Every requirement and every row carries `reason_code` beside `reason`. `reason` is written for a person and may be
+reworded; `reason_code` is for a program and is one of a closed set - it only grows, and a consumer that meets a
+code it does not know treats the requirement by its `state`. Null exactly when the state is `met`.
+
+| code | state | meaning |
+|---|---|---|
+| `symbol_not_found` | open | the requirement names a symbol the code does not declare |
+| `not_declared` | open | nothing in the record declares the requirement yet |
+| `no_evidence` | open | nothing cited for it |
+| `worded_otherwise` | open | no evidence for its exact words; results worded otherwise are candidates a person decides on |
+| `unranked` | open | the evidence that resolved it has no strength - an unknown or errored result settles nothing |
+| `weaker_than_required` | open | evidence of a lower grade than `required_grade` |
+| `in_progress` | open | work on it is under way |
+| `reading_not_chosen` | open | the model admits more than one reading and none was chosen |
+| `failed` | failed | the last check failed |
+| `contested` | failed | evidence exists but is contested - a failed check or an open defeater |
+| `out_of_date` | out_of_date | the code, the model or the evidence changed since |
+| `freshness_unknown` | out_of_date | whether the evidence is current cannot be told |
+| `model_revised` | out_of_date | the model the requirement pins was revised |
 
 ### Requirements file schema (the agent's `bindings.yaml`)
 

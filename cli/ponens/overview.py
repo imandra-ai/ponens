@@ -277,24 +277,43 @@ def _model_index(trace):
 
 # ── requirements ──────────────────────────────────────────────────────────────────────────────────
 
+# Why a requirement is where it is, for a program to read (RECORD_OVERVIEW §requirements, `reason_code`) - the
+# `reason` beside it is for a person and may be reworded; this set is closed and only grows. None when met.
+REASON_CODES = (
+    "symbol_not_found",      # the requirement names a symbol the code does not declare
+    "not_declared",          # nothing in the record declares the requirement yet
+    "no_evidence",           # nothing cited for it
+    "worded_otherwise",      # no evidence for its exact words; results worded otherwise are candidates for a person
+    "unranked",              # the evidence that resolved it has no strength - an unknown or errored result
+    "weaker_than_required",  # evidence of a lower grade than the requirement asks
+    "failed",                # the last check failed (a counterexample, when there is one, is the reason)
+    "contested",             # evidence exists but is contested - a failed check or an open defeater
+    "in_progress",           # work on it is under way
+    "out_of_date",           # the code, the model or the evidence changed since
+    "freshness_unknown",     # whether the evidence is current cannot be told
+    "model_revised",         # the model it pins was revised
+    "reading_not_chosen",    # the model's text admits more than one reading and none was chosen
+)
+
+
 def _row_state(bound, declared, ev, required_grade, file=None):
-    """The seven rules, first that applies → (state, reason)."""
+    """The seven rules, first that applies → (state, reason, reason_code)."""
     if bound is False:
-        return "open", "symbol not found in %s" % file
+        return "open", "symbol not found in %s" % file, "symbol_not_found"
     if not declared:
-        return "open", "not yet in the record"
+        return "open", "not yet in the record", "not_declared"
     if ev is None:
-        return "open", "no evidence yet"
+        return "open", "no evidence yet", "no_evidence"
     if ev.get("status") in _FAILED:
         cex = ev.get("counterexample")
-        return "failed", (str(cex) if cex else "the last check failed")
+        return "failed", (str(cex) if cex else "the last check failed"), "failed"
     if ev.get("freshness") == "out_of_date":
-        return "out_of_date", "the code or the model changed since"
+        return "out_of_date", "the code or the model changed since", "out_of_date"
     if ev.get("freshness") == "unknown":
-        return "out_of_date", "freshness unknown"
+        return "out_of_date", "freshness unknown", "freshness_unknown"
     if not grade_at_least(ev.get("grade"), required_grade):
-        return "open", "%s, needs %s" % (ev.get("grade"), required_grade)
-    return "met", None
+        return "open", "%s, needs %s" % (ev.get("grade"), required_grade), "weaker_than_required"
+    return "met", None, None
 
 
 def _goal_requirements(enriched):
@@ -321,23 +340,24 @@ def _goal_requirements(enriched):
                 # gate that accepts it is worse than no gate, because it looks like a check.
                 grade = grade_of(it.get("evidence_strength"))
                 if fresh in ("stale", "detached", "gone"):
-                    state, why = "out_of_date", "the evidence is out of date"
+                    state, why, code = "out_of_date", "the evidence is out of date", "out_of_date"
                 elif grade == "unranked":
                     # Wording matters: this reason is rendered inside the agent's own panes, where a
                     # vocabulary lint retires "established". Say what a reader needs either way.
-                    state, why = "open", "the evidence that resolved it is unranked - it settles nothing"
+                    state, why, code = "open", "the evidence that resolved it is unranked - it settles nothing", "unranked"
                 else:
-                    state, why = "met", None
+                    state, why, code = "met", None, None
             elif st == "blocked":
-                state, why = "failed", "evidence exists but is contested (a failed check or an open defeater)"
+                state, why, code = "failed", "evidence exists but is contested (a failed check or an open defeater)", "contested"
             elif st == "doing":
-                state, why = "open", "in progress"
+                state, why, code = "open", "in progress", "in_progress"
             else:
-                state, why = "open", "no evidence yet"
+                state, why, code = "open", "no evidence yet", "no_evidence"
             cands = it.get("candidates") or []
             if state == "open" and cands:
                 why = ("no evidence yet - %d result%s worded otherwise; a person decides whether %s it"
                        % (len(cands), "" if len(cands) == 1 else "s", "it meets" if len(cands) == 1 else "one meets"))
+                code = "worded_otherwise"
             want = it.get("min_strength") or (it.get("evidence") or {}).get("strength") if isinstance(it.get("evidence"), dict) else it.get("min_strength")
             ev = None
             if it.get("evidence_ref"):
@@ -347,7 +367,7 @@ def _goal_requirements(enriched):
                 "id": "%s/%s" % (gid, it["id"]), "label": it.get("label") or str(it["id"]), "goal": gid, "item": it["id"],
                 "model": None, "kind": it.get("kind"), "required_grade": grade_of(want) if want in oracles.EVIDENCE_STRENGTH else None,
                 "required": it.get("required", True) is not False,
-                "state": state, "reason": why, "evidence": ev, "symbols": [],
+                "state": state, "reason": why, "reason_code": code, "evidence": ev, "symbols": [],
                 "reading": {"state": "not_needed", "chosen": None, "approved_by": None}, "open_findings": [], "invariants": [],
                 **({"candidates": cands} if cands and state == "open" else {}),
             })
@@ -383,10 +403,10 @@ def requirements(trace, reqs, cwd=None, enriched=None, blame_out=None):
         pairs = _pairs(r)
         if not pairs:
             ev = look(ref)
-            st, why = _row_state(None, item_id(r) in declared, ev, required_grade)
+            st, why, code = _row_state(None, item_id(r) in declared, ev, required_grade)
             rows.append({"scope": "project", "file": ", ".join(c["file"] for c in r["code"]), "symbol": None,
                          "entry_symbol": r["entry"], "bound": None, "declared": item_id(r) in declared,
-                         "state": st, "reason": why, "evidence": ev, "other_evidence": None})
+                         "state": st, "reason": why, "reason_code": code, "evidence": ev, "other_evidence": None})
         for file, sym, esym in pairs:
             bound = _bound(file, sym, cwd, trace_syms)
             ev = look(ref, esym, sym)
@@ -395,9 +415,9 @@ def requirements(trace, reqs, cwd=None, enriched=None, blame_out=None):
             if other and (ev is None or other.get("artifact_id") != ev.get("artifact_id")):
                 other_rec = {"artifact_id": other.get("artifact_id"), "grade": grade_of(other.get("strength")),
                              "status": other.get("status"), "freshness": freshness_word(other.get("freshness"))}
-            st, why = _row_state(bound, item_id(r, sym) in declared, ev, required_grade, file)
+            st, why, code = _row_state(bound, item_id(r, sym) in declared, ev, required_grade, file)
             rows.append({"scope": "symbol", "file": file, "symbol": sym, "entry_symbol": esym, "bound": bound,
-                         "declared": item_id(r, sym) in declared, "state": st, "reason": why,
+                         "declared": item_id(r, sym) in declared, "state": st, "reason": why, "reason_code": code,
                          "evidence": ev, "other_evidence": other_rec})
 
         # The model: pinned version vs the version the trace last saw of it.
@@ -418,11 +438,12 @@ def requirements(trace, reqs, cwd=None, enriched=None, blame_out=None):
                    "approved_by": interp.get("approved_by") if interp else None}
 
         state = _worst([x["state"] for x in rows])
-        reason = next((x["reason"] for x in rows if x["state"] == state and x["reason"]), None)
+        worst = next((x for x in rows if x["state"] == state and x["reason"]), None)
+        reason, code = (worst["reason"], worst["reason_code"]) if worst else (None, None)
         if model_status == "revised":
-            state, reason = "out_of_date", "the model was revised: %s → %s" % (r["version"], now_version)
+            state, reason, code = "out_of_date", "the model was revised: %s → %s" % (r["version"], now_version), "model_revised"
         elif reading_state == "missing" and state == "met":
-            state, reason = "open", "reading not chosen"
+            state, reason, code = "open", "reading not chosen", "reading_not_chosen"
         evidence = rows[0]["evidence"] if len(rows) == 1 else None
         if evidence is None and rows and all(x["evidence"] for x in rows):
             # several symbols: the weakest evidence stands for the requirement
@@ -432,7 +453,7 @@ def requirements(trace, reqs, cwd=None, enriched=None, blame_out=None):
             "model": {"entry": r["entry"], "name": (model or {}).get("name") or r["entry"], "version": r.get("version"),
                       "current_version": now_version, "status": model_status, "reference": ref},
             "kind": r["kind"], "required_grade": required_grade,
-            "state": state, "reason": reason, "evidence": evidence,
+            "state": state, "reason": reason, "reason_code": code, "evidence": evidence,
             "symbols": rows, "reading": reading, "open_findings": findings, "invariants": r["invariants"],
         })
     out.extend(_goal_requirements(enriched))

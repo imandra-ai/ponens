@@ -1375,7 +1375,8 @@ def validate_trace(trace):
     return errors, warnings
 
 
-_VALID_VERDICTS = {'proved', 'refuted', 'unknown'}
+# 1.15: `bounded` - holds within stated bounds (a bounded model check); never a proof.
+_VALID_VERDICTS = {'proved', 'refuted', 'unknown', 'bounded'}
 # Producing/reasoning actions the exporter groups into phase meta-actions (§8.4).
 _GROUPED_ACTION_TYPES = {
     'Verify', 'EditFile', 'GenerateTests', 'StateSpaceAnalysis', 'ConformanceCheck', 'Decompose',
@@ -1499,7 +1500,7 @@ def soundness_errors(trace, strict=False):
 # The newest TRACE_SPEC this ponens reads. A record declaring a later `spec_version` was written by a
 # newer producer: its new fields are invisible here, so a consumer must not treat this ponens's silence
 # about them as a pass. `ponens version --json` publishes it for exactly that check.
-TRACE_SPEC_VERSION = "1.14"
+TRACE_SPEC_VERSION = "1.15"
 
 
 def parse_spec_version(v) -> tuple[int, ...]:
@@ -1557,6 +1558,15 @@ def cmd_validate(args):
     errors, warnings = validate_trace(trace)
     if getattr(args, 'strict', False):
         errors = errors + soundness_errors(trace, strict=True)
+    # The wire check (ponens/schema): the trace as the spec's interchange projection says it must look.
+    # Skipped, and said so, when jsonschema is not installed - never silently passed.
+    if not getattr(args, 'no_schema', False):
+        from . import schema as _schema
+        wire = _schema.schema_errors(trace)
+        if wire is None:
+            warnings.append("not checked against the wire schema: install `ponens[schema]` (jsonschema)")
+        else:
+            errors = errors + wire
     for w in warnings:
         print(f"  warning: {w}")
     # Errors are grouped by the RULE they break and the rule is stated once, with the section of the
@@ -1569,6 +1579,13 @@ def cmd_validate(args):
         print(f"\nInvalid trace: {len(errors)} error(s), {len(warnings)} warning(s).")
         return 1
     print(f"Valid trace ({len(warnings)} warning(s)).")
+    return 0
+
+
+def cmd_schema(args):
+    """The trace wire schema - Trace Spec 1.15 as JSON Schema (ponens/schema/trace.v1_15.json); 1.14 traces validate against it too."""
+    from . import schema as _schema
+    print(_schema.SCHEMA_PATH if getattr(args, 'path', False) else _schema.SCHEMA_PATH.read_text(), end="\n" if args.path else "")
     return 0
 
 
@@ -3416,7 +3433,14 @@ def register(subparsers):
     p.add_argument("--all", action="store_true",
                    help="list every error, rather than summarising the ones that break a rule "
                         "already shown")
+    p.add_argument("--no-schema", action="store_true",
+                   help="skip the wire-schema check (ponens/schema/trace.v1_14.json)")
     p.set_defaults(func=cmd_validate)
+
+    # schema
+    p = trace_sub.add_parser("schema", help="Print the trace wire schema (JSON Schema), or its path")
+    p.add_argument("--path", action="store_true", help="print only where the schema file is")
+    p.set_defaults(func=cmd_schema)
 
     # fmt
     p = trace_sub.add_parser("fmt", help="Convert a trace between JSON and YAML")

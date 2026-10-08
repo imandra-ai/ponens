@@ -71,10 +71,12 @@ def test_check_vg_json_parsing_against_the_real_schema():
     assert oc._eval_ok({"success": False}) is False
     assert oc._verdict_of({"proved": {"proof_pp": "..."}, "refuted": None}) == "proved"
     assert oc._verdict_of({"refuted": {"model_str": "x=0"}, "proved": None}) == "refuted"
-    assert oc._verdict_of({"verified_upto": {"depth": 5}}) == "sat"
+    assert oc._verdict_of({"verified_upto": {"depth": 5}}) == "bounded"   # 1.15: within bounds, never a proof
     assert oc._verdict_of({"unknown": None, "proved": None}) == "unknown"
     assert oc._aggregate(["proved", "proved"]) == "proved"
     assert oc._aggregate(["proved", "refuted"]) == "refuted"
     assert oc._aggregate(["proved", "sat"]) == "sat"
+    assert oc._aggregate(["proved", "bounded"]) == "bounded"
+    assert oc._aggregate(["proved", "bounded", "sat"]) == "unknown"
     assert oc._aggregate([]) == "unknown"
     assert oc._counterexample({"refuted": {"model_str": "x = 0"}}) == "x = 0"

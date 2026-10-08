@@ -23,8 +23,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install the CLI
-        run: pip install -e ./cli
+      - name: Install the CLI (with the wire-schema check)
+        run: pip install -e "./cli[schema]"
 
       - name: Validate + check every sample
         run: |

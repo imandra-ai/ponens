@@ -13,6 +13,8 @@ dependencies = ["pyyaml>=6"]
 
 [project.optional-dependencies]
 yaml = ["pyyaml>=6"]
+# `trace validate` checks a trace against the wire schema (ponens/schema/trace.v1_14.json) when installed
+schema = ["jsonschema>=4.18"]
 
 [project.scripts]
 ponens = "ponens.cli:main"
@@ -25,4 +27,4 @@ build-backend = "setuptools.build_meta"
 include = ["ponens*"]
 
 [tool.setuptools.package-data]
-ponens = ["visualizer.html", "demos/*.json"]
+ponens = ["visualizer.html", "demos/*.json", "schema/*.json"]

@@ -38,6 +38,15 @@ def _vocab():
 # Order matters only for readability: the first rule whose pattern matches an error claims it.
 RULES = [
     {
+        "id": "wire-schema",
+        "match": r"^schema: ",
+        "rule": "On the wire a trace is the interchange projection of the spec (§16): its discriminators are "
+                "lowercase snake_case, its closed vocabularies take only their listed values, and each known "
+                "artifact type has a typed payload. The schema is ponens/schema/trace.v1_14.json "
+                "(`ponens trace schema`).",
+        "cite": "§16.1 General rule",
+    },
+    {
         "id": "meta-action-membership",
         "match": r"is in two meta-actions",
         "rule": "An action belongs to at most one meta-action. Nesting is expressed by `parent_id` "

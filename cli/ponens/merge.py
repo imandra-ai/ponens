@@ -544,10 +544,14 @@ def combine(ours, theirs, base=None):
     for c in report["carried_forward"]:
         rid = c["result_id"]
         payload = {
+            # §15.3: the carried-over result, by id - required, so a reader need not infer it from derived_from
+            "result_id": rid,
             "basis": c.get("basis"),
             "symbol": c.get("symbol"),
             "closure": c.get("closure"),
         }
+        if c.get("via_assumptions"):
+            payload["via_assumptions"] = c["via_assumptions"]
         if c.get("strength"):
             payload["strength"] = c["strength"]
         derived = [rid]

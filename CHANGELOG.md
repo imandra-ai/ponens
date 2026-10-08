@@ -15,7 +15,7 @@ person and may be reworded, the code is for a program - a consumer should never 
 every `reason` reads as before. The trace format is unchanged (Trace Spec stays 1.15).
 
 ### Added
-- `reason_code` on requirements and their rows (RECORD_OVERVIEW, "Reason codes"): a closed set that only grows -
+- **Requirement reason codes**: `reason_code` on requirements and their rows (RECORD_OVERVIEW, "Reason codes"), a closed set that only grows -
   `symbol_not_found`, `not_declared`, `no_evidence`, `worded_otherwise`, `unranked`, `weaker_than_required`,
   `in_progress`, `reading_not_chosen`, `failed`, `contested`, `out_of_date`, `freshness_unknown`, `model_revised` -
   null exactly when the requirement is met. `overview.REASON_CODES` lists them; a test holds the spec's table to it.

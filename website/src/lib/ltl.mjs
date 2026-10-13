@@ -123,7 +123,7 @@ function parse(src) {
 // Path patterns that mark an action as touching a high-stakes area. Kept in
 // sync with the CLI (cli/ponens/trace.py).
 const HIGH_STAKES = ["payments/", "risk/", "stripe_payment_flow"];
-const HUB_FACTS = new Set(["current", "ci_confirmed"]);
+const HUB_FACTS = new Set(["current", "ci_confirmed", "established", "evidence_current", "evidence_ci_confirmed", "established_as"]);
 const START_TRIGGERS = new Set(["TaskReceived", "TriggeredByEvent"]);
 const END_OUTCOMES = new Set(["ProcessCompleted", "ProcessAborted", "ProcessInterrupted"]);
 

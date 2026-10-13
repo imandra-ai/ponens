@@ -714,6 +714,8 @@ def evaluate_formula(node, trace, ctx=None):
             if vals and all(v is False for v in vals):
                 return False
             return None
+        if name in ('established', 'evidence_current', 'evidence_ci_confirmed'):
+            return _symbol_fact(name, None, a, trace)
         if name == 'ci_confirmed':
             # Evidence the project's CI ran again and confirmed: payload `ci: "confirmed"` (a hub reads CI's
             # runs at the commit). Anything else - contradicted, not run, not recorded - is not confirmed.
@@ -836,6 +838,8 @@ def evaluate_formula(node, trace, ctx=None):
                     if rid and (rid == arg or ('@' not in arg and (rid == arg or rid.startswith(arg + '@')))):
                         return True
             return False
+        if node.func == 'established_as':
+            return _symbol_fact('established_as', node.arg, a, trace)
         if node.func == 'ref_model':
             ref_id = node.arg
             req = a.get('request', {})
@@ -850,6 +854,73 @@ def evaluate_formula(node, trace, ctx=None):
         return keyword in text
 
     return True
+
+
+def _criteria_naming(a, trace):
+    """The acceptance criteria of the record's active goals that name what this edit changed - its symbols, or a file
+    it changed (a file criterion) - each with its goal. None: the edit could not be attributed to a symbol, and no
+    file criterion names its file - which criteria are about it is unknown."""
+    syms = _edited_symbols(a, trace)
+    files = _edited_files(a, trace)
+    out = []
+    for g in trace.get('goals') or []:
+        if not isinstance(g, dict) or g.get('status') == 'superseded':
+            continue
+        for c in g.get('acceptance') or []:
+            comp = c.get('component') if isinstance(c, dict) and isinstance(c.get('component'), dict) else {}
+            sym = comp.get('function') or comp.get('symbol')
+            f = comp.get('file') or comp.get('path')
+            if (sym and sym in syms) or (f and any(_file_named(x, {f}) for x in files)):
+                out.append((g, c))
+    if a.get('attributed') is False and not out:
+        return None
+    return out
+
+
+def _symbol_fact(name, arg, a, trace):
+    """What the record establishes about the code an edit changed (POLICY_LANGUAGE §2.6, "About the changed code"),
+    by the goal contract's own resolution of each criterion that names it:
+      established              some criterion naming it is met
+      established_as(v)        ... met by evidence whose verdict is v (proved, bounded, refuted) or, for `tested`, by tests
+      evidence_current         the evidence meeting them is stamped current (unknown when not judged)
+      evidence_ci_confirmed    the evidence meeting them is stamped ci: confirmed
+    Unknown when which criteria name the edit is unknown (an unattributed edit)."""
+    from . import goals as _goals
+    named = _criteria_naming(a, trace)
+    if named is None:
+        return None
+    arts = {x.get('artifact_id'): x for x in trace.get('artifacts', []) or []}
+    resolved = []
+    for g, c in named:
+        r = _goals.resolve_item(c, trace, goal=g)
+        ev = r.get('evidence')
+        resolved.append((r.get('status'), arts.get(ev) if isinstance(ev, str) else None))
+    met = [art for st, art in resolved if st == 'done']
+    if name == 'established':
+        return bool(met)
+    if name == 'established_as':
+        # proved / tested: the criterion is met, by evidence that is that. bounded / refuted: the evidence the criterion
+        # resolved to is that - neither meets a criterion (Trace Spec 1.15), but a policy may accept a bounded result.
+        want = (arg or '').strip().lower()
+        def verdict(art):
+            if not art:
+                return False
+            pay = art.get('payload') or {}
+            if want == 'tested':
+                return _canon_type(art.get('artifact_type')) in ('TestResult', 'CommandResult') or pay.get('evidence_strength') == 'tests'
+            return str(pay.get('status') or '').lower() == want
+        pool = met if want in ('proved', 'tested', 'sat') else [art for _st, art in resolved]
+        return any(verdict(x) for x in pool)
+    pays = [(x.get('payload') or {}) for x in met if x]
+    if name == 'evidence_ci_confirmed':
+        return any(p.get('ci') == 'confirmed' for p in pays)
+    # evidence_current
+    vals = [p.get('current') for p in pays]
+    if any(v is False for v in vals):
+        return False
+    if vals and all(v is True for v in vals):
+        return True
+    return None
 
 
 def _action_output_artifacts(a, trace):

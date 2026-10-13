@@ -82,3 +82,51 @@ def test_a_record_with_no_unknown_facts_is_judged_as_before():
     r, t = run(2)
     assert check("G(EditFile → F(RunTests))", record([e, r], [d, t])) == "passed"
     assert check("G(EditFile → P(RunTests))", record([e, r], [d, t])) == "failed"
+
+
+# --- About the code an edit changed (POLICY_LANGUAGE §2.6): by the goal contract's own resolution ---------------
+
+def contract(proof_status="proved", current=True, ci=None, attributed=True, edited="settle"):
+    vr = {"status": proof_status, "goal_id": "g1", "goal_artifact_id": "vg1"}
+    if current is not None or current is None:
+        vr["current"] = current
+    if ci:
+        vr["ci"] = ci
+    edit_action = {"id": 10, "type": "EditFile", "outputs": ["d10"]}
+    if not attributed:
+        edit_action["attributed"] = False
+    return {
+        "actions": [{"id": i} for i in range(1, 10)] + [edit_action],
+        "artifacts": [
+            {"artifact_id": "src", "artifact_type": "SourceCode", "derived_from": None, "producer_action_id": 1},
+            {"artifact_id": "model", "artifact_type": "IMLModel", "derived_from": ["src"], "producer_action_id": 2, "payload": {"symbols": ["settle"]}},
+            {"artifact_id": "vg1", "artifact_type": "VerificationGoal", "derived_from": ["model"], "producer_action_id": 3,
+             "payload": {"goal_id": "g1", "target_symbol": "settle", "property_name": "money_conserved"}},
+            {"artifact_id": "vr1", "artifact_type": "VerificationResult", "derived_from": ["vg1"], "producer_action_id": 4, "payload": vr},
+            {"artifact_id": "d10", "artifact_type": "Diff", "producer_action_id": 10,
+             "payload": {"file": "payments/settle.py", **({"target_symbol": edited} if attributed else {})}},
+        ],
+        "goals": [{"id": "g", "intent": "Settle", "status": "active", "scope": [],
+                   "acceptance": [{"id": "c1", "component": {"function": "settle"}, "evidence": {"artifact": "VerificationResult"}}]}],
+    }
+
+
+def test_established_reads_the_criteria_that_name_the_edited_symbol():
+    assert check("G(EditFile → named_by_goal ∧ established)", contract()) == "passed"
+    assert check("G(EditFile → established_as(proved))", contract()) == "passed"
+    assert check("G(EditFile → established_as(proved) ∨ established_as(bounded))", contract(proof_status="bounded")) == "passed"
+    assert check("G(EditFile → established_as(proved))", contract(proof_status="bounded")) == "failed"
+    assert check("G(EditFile → established)", contract(edited="other")) == "failed", "a symbol no criterion names"
+
+
+def test_evidence_current_and_ci_read_the_evidence_that_meets_them():
+    f = "G(EditFile ∧ established → evidence_current)"
+    assert check(f, contract(current=True)) == "passed"
+    assert check(f, contract(current=False)) == "failed"
+    assert check(f, contract(current=None)) == "undetermined"
+    assert check("G(EditFile ∧ established → evidence_ci_confirmed)", contract(ci="confirmed")) == "passed"
+    assert check("G(EditFile ∧ established → evidence_ci_confirmed)", contract()) == "failed"
+
+
+def test_an_unattributed_edit_leaves_what_it_changed_unknown():
+    assert check("G(EditFile → established)", contract(attributed=False)) == "undetermined"

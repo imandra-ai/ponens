@@ -18,6 +18,10 @@ no unknown fact is judged exactly as before.
   `undetermined`, with `undetermined_action_ids` / `undetermined_artifact_ids` in `trace check --json`.
 - **`current`** and **`ci_confirmed`**: predicates over facts a hub stamps on evidence - still true of the code as it
   is now (unknown when not judged), and confirmed by the project's CI. The playground abstains on them.
+- **Predicates about the changed code**: `established`, `established_as(v)`, `evidence_current`,
+  `evidence_ci_confirmed` - at an edit, what the goal contract establishes about the criteria that name what it
+  changed. A rule such as "changed high-stakes code is established, by evidence still current" is one formula:
+  `G(EditFile ∧ high_stakes_path → named_by_goal ∧ established ∧ evidence_current)`.
 - **`named_by_goal` is unknown for an unattributed edit** (`attributed: false` on the action), unless a file
   criterion names its file.
 

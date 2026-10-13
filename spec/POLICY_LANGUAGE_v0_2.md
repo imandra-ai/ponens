@@ -145,6 +145,13 @@ require a richer evaluation engine.
   when none is stamped, or a stamp is `null`), `ci_confirmed` (some evidence is stamped `ci: "confirmed"` - the
   project's CI ran it again and it held; otherwise false). `named_by_goal` is **unknown** for an edit stamped
   `attributed: false` (its producer could not tell which symbol it changed), unless a file criterion names its file.
+- **About the changed code** (§5.1) — at an edit, read from the record's goals by the goal contract's own resolution of
+  each acceptance criterion that names what it changed (its symbols, or a file a file criterion names): `established`
+  (some such criterion is met), `established_as(v)` (`proved` / `tested`: met by evidence that is a proof / a test
+  result; `bounded` / `refuted`: the evidence the criterion resolved to is that - neither meets a criterion, but a
+  policy may accept a bounded result), `evidence_current` (the evidence meeting them is stamped current; false if any
+  is stamped `false`; unknown otherwise), `evidence_ci_confirmed` (some of it is stamped `ci: "confirmed"`). All four
+  are unknown at an edit stamped `attributed: false` that no file criterion names.
 - **Lineage** — `ancestors(derived_from)`, the transitive closure of `derived_from` over the artifact DAG
 - **Reference integrity** — `target_artifact_id ∈ {a.id | a.type = T}`
 - **Set operations** — `inputs(a)`, `outputs(b)`, `target(a)`, and set comprehensions `{… | …}`

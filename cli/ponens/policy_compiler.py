@@ -283,7 +283,12 @@ PREDICATES = {
     # what the evidence rests on has not changed since (unknown when not judged); `ci_confirmed` - the
     # project's CI ran it again and it held.
     'current', 'ci_confirmed',
+    # About the code an edit changed, by the goal contract (§2.6): a criterion naming it is met; the evidence meeting
+    # it is current, CI-confirmed. `established_as(v)` takes a verdict.
+    'established', 'evidence_current', 'evidence_ci_confirmed',
 }
+# Predicates over the code an edit changed that take one argument: `established_as(proved)`.
+SYMBOL_PREDICATES = {'established_as'}
 FIELDS = {
     'rationale', 'target_artifact_id', 'files_modified',
     'inputs', 'outputs', 'target', 'ancestors', 'derived_from',
@@ -722,7 +727,7 @@ class Parser:
 
         # evidence predicate: strength_at_least(proof) / oracle_type(monitor) / produced_by(some-id).
         # The argument runs to the closing paren (an oracle id may contain '-' or '.').
-        if self.at('LPAREN') and (name in EVIDENCE_PREDICATES or name in LABEL_PREDICATES):
+        if self.at('LPAREN') and (name in EVIDENCE_PREDICATES or name in LABEL_PREDICATES or name in SYMBOL_PREDICATES):
             self.advance()
             parts = []
             while not self.at('RPAREN') and not self.at('EOF'):
@@ -1041,7 +1046,7 @@ class CheckWarning:
     path: str
 
 
-VALID_ATOMS = ACTION_TYPES | ARTIFACT_TYPES | PREDICATES | FIELDS | EVIDENCE_PREDICATES | LABEL_PREDICATES | {
+VALID_ATOMS = ACTION_TYPES | ARTIFACT_TYPES | PREDICATES | FIELDS | EVIDENCE_PREDICATES | LABEL_PREDICATES | SYMBOL_PREDICATES | {
     'action', 'gateway', 'reasoning', 'activity',
     'start_event', 'end_event', 'high_stakes_path',
     'completed', 'failed', 'proved', 'refuted', 'sat', 'unknown',

@@ -139,6 +139,19 @@ require a richer evaluation engine.
 - **Artifact types** — `VerificationGoal`, `VerificationResult`, `IMLModel`, `Decomposition`, `GeneratedTests`, `UserApproval`, `Observation` (a monitor's evidence, Trace Spec 1.12 §10.11)
 - **Result status** — `proved`, `refuted`, `sat`, `unknown`
 - **Evidence attribution** (ORACLE_SPEC v0.2 §6) — read from the attribution block of the artifacts an action produced: `strength_at_least(s)` (the result's honest `evidence_strength` is at least `s`; false when unranked), `oracle_type(t)` (the producing oracle's mechanism is `t`, or specializes it), `produced_by(id)` (the producing oracle's id), `conforms_to(ref)` (the action produced conformance evidence judged against the reference artifact `ref` — TRACE_SPEC §11.2; the argument is taken verbatim up to the closing paren, and an unversioned id such as `ref:atlas:mifir-rts22-art4` matches any version). Oracle invocations are also atoms by their typed action: `Verify`, `Test`, `Analyze`, `Observe`, `Judge`, `Attest`.
+- **Facts a hub judges** (§5.1) — read from the payloads of the artifacts an action produced, as stamped by whoever
+  judged them against the code as it is now (a hub, from the code host and CI): `current` (some evidence it produced
+  is stamped `current: true` - what it rests on has not changed since; `false` when every stamp is false; **unknown**
+  when none is stamped, or a stamp is `null`), `ci_confirmed` (some evidence is stamped `ci: "confirmed"` - the
+  project's CI ran it again and it held; otherwise false). `named_by_goal` is **unknown** for an edit stamped
+  `attributed: false` (its producer could not tell which symbol it changed), unless a file criterion names its file.
+- **About the changed code** (§5.1) — at an edit, read from the record's goals by the goal contract's own resolution of
+  each acceptance criterion that names what it changed (its symbols, or a file a file criterion names): `established`
+  (some such criterion is met), `established_as(v)` (`proved` / `tested`: met by evidence that is a proof / a test
+  result; `bounded` / `refuted`: the evidence the criterion resolved to is that - neither meets a criterion, but a
+  policy may accept a bounded result), `evidence_current` (the evidence meeting them is stamped current; false if any
+  is stamped `false`; unknown otherwise), `evidence_ci_confirmed` (some of it is stamped `ci: "confirmed"`). All four
+  are unknown at an edit stamped `attributed: false` that no file criterion names.
 - **Lineage** — `ancestors(derived_from)`, the transitive closure of `derived_from` over the artifact DAG
 - **Reference integrity** — `target_artifact_id ∈ {a.id | a.type = T}`
 - **Set operations** — `inputs(a)`, `outputs(b)`, `target(a)`, and set comprehensions `{… | …}`
@@ -227,11 +240,22 @@ The trace cannot ship with an unresolved critical gap on its residual surface.
 
 ## 5. Evaluation semantics
 
-Evaluating a policy against a trace yields one of three results:
+Evaluating a policy against a trace yields one of four results:
 
 - **`pass`** — the formula holds over the trace.
 - **`fail`** — the formula is violated; the evaluator reports the witnessing position(s).
+- **`undetermined`** — whether it holds turns on a fact the trace does not record (§5.1); the evaluator reports the
+  positions where (`undetermined_action_ids`). Never a pass, never a failure.
 - **`not_applicable`** — the policy's trigger never occurs (e.g. a commit policy on a trace with no commit). N/A results are excluded when a grade renormalizes compliance.
+
+### 5.1 Unknown facts
+
+Some predicates read facts that can be unknown (§2.6, "Facts a hub judges"): which symbol an edit changed, whether
+evidence is still true of the code. The evaluator is three-valued - true, false, unknown - by strong Kleene logic:
+false decides a conjunction and true a disjunction whatever else is unknown; `¬unknown` is unknown; `G` is the
+conjunction of its positions, `F`, `P`, `P_chain` and `P_target` the disjunction, `H` the conjunction; `count(φ) op n`
+is unknown only when the unknown positions could change the answer. A formula over a trace with no unknown fact gives
+exactly the two-valued answer. A formula whose value is unknown is `undetermined`.
 
 Evaluation may occur:
 

@@ -2803,7 +2803,8 @@ def cmd_check(args):
             continue
         status, note, ev_actions, vi_actions, ev_arts, vi_arts = evaluate_policy_full(p, trace)
         record_eval(pid, status, note, ev_actions, vi_actions, ev_arts, vi_arts)
-        if status == 'undetermined':
+        # Where it cannot be told - also when it fails elsewhere: a failing rule may still be undecided at an edit.
+        if status in ('undetermined', 'failed', 'passed'):
             un = undetermined_actions(p, trace)
             if un:
                 evaluations[-1]['undetermined_action_ids'] = un

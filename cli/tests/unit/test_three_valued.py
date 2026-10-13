@@ -130,3 +130,15 @@ def test_evidence_current_and_ci_read_the_evidence_that_meets_them():
 
 def test_an_unattributed_edit_leaves_what_it_changed_unknown():
     assert check("G(EditFile → established)", contract(attributed=False)) == "undetermined"
+
+
+def test_a_failing_policy_still_says_where_it_is_undetermined():
+    from ponens.trace import undetermined_actions
+    named, d1 = edit(1, "fees.py", "refund_fee")
+    loose, d2 = edit(2, "fees.py", attributed=False)
+    other, d3 = edit(3, "fees.py", "charge_fee")
+    goals = [{"intent": "Refunds", "acceptance": [{"component": {"function": "refund_fee"}}]}]
+    rec = record([named, loose, other], [d1, d2, d3], goals)
+    pol = {"name": "p", "formula": "G(EditFile → named_by_goal)"}
+    assert check(pol["formula"], rec) == "failed"
+    assert undetermined_actions(pol, rec) == [2]

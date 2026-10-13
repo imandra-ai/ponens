@@ -7,7 +7,7 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
-## [Unreleased]
+## [1.22.0] — 2026-10-13
 
 A policy can be **undetermined**: when whether it holds turns on a fact the trace does not record, `trace check` says
 so - with the actions where - instead of passing or failing it. The trace format is unchanged; a trace that records
@@ -22,6 +22,8 @@ no unknown fact is judged exactly as before.
   `evidence_ci_confirmed` - at an edit, what the goal contract establishes about the criteria that name what it
   changed. A rule such as "changed high-stakes code is established, by evidence still current" is one formula:
   `G(EditFile ∧ high_stakes_path → named_by_goal ∧ established ∧ evidence_current)`.
+- **A proof of the model only is not a proof of the code**: `established_as(proved)` does not count a proof a hub
+  stamped `of_code: false`.
 - **`named_by_goal` is unknown for an unattributed edit** (`attributed: false` on the action), unless a file
   criterion names its file.
 

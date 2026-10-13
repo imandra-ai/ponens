@@ -123,6 +123,7 @@ function parse(src) {
 // Path patterns that mark an action as touching a high-stakes area. Kept in
 // sync with the CLI (cli/ponens/trace.py).
 const HIGH_STAKES = ["payments/", "risk/", "stripe_payment_flow"];
+const HUB_FACTS = new Set(["current", "ci_confirmed"]);
 const START_TRIGGERS = new Set(["TaskReceived", "TriggeredByEvent"]);
 const END_OUTCOMES = new Set(["ProcessCompleted", "ProcessAborted", "ProcessInterrupted"]);
 
@@ -145,6 +146,8 @@ function atomHolds(name, i, trace, meta) {
   if (STATUS.has(name)) return a.status === name;
   if (CATS.has(name)) return a.category === name;
   if (name === "high_stakes_path") return HIGH_STAKES.some((p) => (a.target || "").includes(p));
+  // Facts a hub stamps on evidence (current, ci_confirmed) - three-valued in the CLI (POLICY_LANGUAGE §5.1): never guessed.
+  if (HUB_FACTS.has(name)) throw { unsupported: true, reason: `${name} reads facts a hub stamps on evidence - try \`ponens trace check\`` };
   if (/^[A-Z]/.test(name)) return a.type === name; // CamelCase → exact action/artifact type
   // lowercase custom predicate → substring keyword match against the action text
   return searchText(a).includes(name.replace(/_/g, " ").toLowerCase());

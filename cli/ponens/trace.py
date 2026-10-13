@@ -427,6 +427,50 @@ def _from_here(trace, ctx):
     return [a for a in actions if a['id'] >= here]
 
 
+# Three values (POLICY_LANGUAGE §5.1): True, False, and None - unknown, when a fact the formula reads was not recorded
+# (an edit no symbol could be attributed to; evidence whose currency could not be judged). Strong Kleene logic: False
+# decides an AND, True decides an OR, and unknown is never read as either. A formula over a record with no unknown
+# facts gives exactly the two-valued answer it always gave.
+def k_not(x):
+    return None if x is None else not x
+
+
+def k_and(x, y):
+    if x is False or y is False:
+        return False
+    if x is None or y is None:
+        return None
+    return True
+
+
+def k_or(x, y):
+    if x is True or y is True:
+        return True
+    if x is None or y is None:
+        return None
+    return False
+
+
+def k_all(xs):
+    out = True
+    for x in xs:
+        if x is False:
+            return False
+        if x is None:
+            out = None
+    return out
+
+
+def k_any(xs):
+    out = False
+    for x in xs:
+        if x is True:
+            return True
+        if x is None:
+            out = None
+    return out
+
+
 def evaluate_formula(node, trace, ctx=None):
     if isinstance(node, (ForAll, Exists, ExistsUnique)):
         if node.set_name in DERIVED_COLLECTIONS and node.set_name not in trace:
@@ -436,17 +480,22 @@ def evaluate_formula(node, trace, ctx=None):
         base = dict(ctx) if ctx else {}
         results = [evaluate_formula(node.body, trace, {**base, node.var: item}) for item in coll]
         if isinstance(node, ForAll):
-            return all(results)
+            return k_all(results)
         if isinstance(node, ExistsUnique):
-            return sum(1 for r in results if r) == 1
-        return any(results)
+            t, u = sum(1 for r in results if r is True), sum(1 for r in results if r is None)
+            if t > 1:
+                return False
+            if u == 0:
+                return t == 1
+            return None
+        return k_any(results)
 
     if isinstance(node, Count):
-        c = sum(1 for a in trace.get('actions', [])
-                if evaluate_formula(node.body, trace, {'action': a}))
+        vals = [evaluate_formula(node.body, trace, {'action': a}) for a in trace.get('actions', [])]
+        lo, hi = sum(1 for v in vals if v is True), sum(1 for v in vals if v is not False)
         n, op = node.n, node.op
-        return {'>=': c >= n, '<=': c <= n, '>': c > n, '<': c < n,
-                '=': c == n, '!=': c != n}[op]
+        held = {({'>=': c >= n, '<=': c <= n, '>': c > n, '<': c < n, '=': c == n, '!=': c != n}[op]) for c in range(lo, hi + 1)}
+        return held.pop() if len(held) == 1 else None
 
     if isinstance(node, Compare):
         return _eval_compare(node, ctx)
@@ -460,16 +509,16 @@ def evaluate_formula(node, trace, ctx=None):
     # they range over the whole trace, as they always did. The browser evaluator (website/src/lib/ltl.mjs) and the
     # formal model (formal/trace-policy-model/06_trace_policy_eval.iml) read them so; this one read F anywhere.
     if isinstance(node, Globally):
-        return all(evaluate_formula(node.body, trace, {**(ctx or {}), 'action': a}) for a in _from_here(trace, ctx))
+        return k_all(evaluate_formula(node.body, trace, {**(ctx or {}), 'action': a}) for a in _from_here(trace, ctx))
 
     if isinstance(node, Finally):
-        return any(evaluate_formula(node.body, trace, {**(ctx or {}), 'action': a}) for a in _from_here(trace, ctx))
+        return k_any(evaluate_formula(node.body, trace, {**(ctx or {}), 'action': a}) for a in _from_here(trace, ctx))
 
     if isinstance(node, Previously):
         if not ctx:
             return False
         current = ctx['action']
-        return any(
+        return k_any(
             evaluate_formula(node.body, trace, {'action': b})
             for b in trace['actions'] if b['id'] < current['id']
         )
@@ -478,7 +527,7 @@ def evaluate_formula(node, trace, ctx=None):
         if not ctx:
             return True
         current = ctx['action']
-        return all(
+        return k_all(
             evaluate_formula(node.body, trace, {'action': b})
             for b in trace['actions'] if b['id'] < current['id']
         )
@@ -490,7 +539,7 @@ def evaluate_formula(node, trace, ctx=None):
         current_targets = get_target_lineage(current, trace)
         if not current_targets:
             return False
-        return any(
+        return k_any(
             evaluate_formula(node.body, trace, {'action': b})
             for b in trace['actions']
             if b['id'] < current['id'] and (
@@ -503,7 +552,7 @@ def evaluate_formula(node, trace, ctx=None):
         if not ctx:
             return False
         current = ctx['action']
-        return any(
+        return k_any(
             evaluate_formula(node.body, trace, {'action': b})
             for b in trace['actions']
             if b['id'] < current['id'] and in_dependency_chain(b, current, trace)
@@ -537,12 +586,16 @@ def evaluate_formula(node, trace, ctx=None):
         start = 0 if not ctx else next((i for i, a in enumerate(seq) if a['id'] == ctx['action']['id']), None)
         if start is None:
             return False
+        out = False
         for k in range(start, len(seq)):
-            if evaluate_formula(node.right, trace, {**(ctx or {}), 'action': seq[k]}):
-                if all(evaluate_formula(node.left, trace, {**(ctx or {}), 'action': seq[j]})
-                       for j in range(start, k)):
-                    return True
-        return False
+            right = evaluate_formula(node.right, trace, {**(ctx or {}), 'action': seq[k]})
+            if right is False:
+                continue
+            out = k_or(out, k_and(right, k_all(evaluate_formula(node.left, trace, {**(ctx or {}), 'action': seq[j]})
+                                               for j in range(start, k))))
+            if out is True:
+                return True
+        return out
 
     if isinstance(node, Since):
         # φ S ψ: ψ held at some position k ≤ here, and φ held at every position from k+1 to here
@@ -550,27 +603,37 @@ def evaluate_formula(node, trace, ctx=None):
         end = (len(seq) - 1) if not ctx else next((i for i, a in enumerate(seq) if a['id'] == ctx['action']['id']), None)
         if end is None or end < 0:
             return False
+        out = False
         for k in range(end, -1, -1):
-            if evaluate_formula(node.right, trace, {**(ctx or {}), 'action': seq[k]}):
-                if all(evaluate_formula(node.left, trace, {**(ctx or {}), 'action': seq[j]})
-                       for j in range(k + 1, end + 1)):
-                    return True
-        return False
+            right = evaluate_formula(node.right, trace, {**(ctx or {}), 'action': seq[k]})
+            if right is False:
+                continue
+            out = k_or(out, k_and(right, k_all(evaluate_formula(node.left, trace, {**(ctx or {}), 'action': seq[j]})
+                                               for j in range(k + 1, end + 1))))
+            if out is True:
+                return True
+        return out
 
     if isinstance(node, Implies):
         left = evaluate_formula(node.left, trace, ctx)
-        if not left:
+        if left is False:
             return True
-        return evaluate_formula(node.right, trace, ctx)
+        return k_or(k_not(left), evaluate_formula(node.right, trace, ctx))
 
     if isinstance(node, And):
-        return evaluate_formula(node.left, trace, ctx) and evaluate_formula(node.right, trace, ctx)
+        left = evaluate_formula(node.left, trace, ctx)
+        if left is False:
+            return False
+        return k_and(left, evaluate_formula(node.right, trace, ctx))
 
     if isinstance(node, Or):
-        return evaluate_formula(node.left, trace, ctx) or evaluate_formula(node.right, trace, ctx)
+        left = evaluate_formula(node.left, trace, ctx)
+        if left is True:
+            return True
+        return k_or(left, evaluate_formula(node.right, trace, ctx))
 
     if isinstance(node, Not):
-        return not evaluate_formula(node.body, trace, ctx)
+        return k_not(evaluate_formula(node.body, trace, ctx))
 
     if isinstance(node, Atom):
         if not ctx:
@@ -622,6 +685,12 @@ def evaluate_formula(node, trace, ctx=None):
             return any(isinstance(g, dict) and str(g.get('intent') or '').strip()
                        for g in trace.get('goals') or [])
         if name == 'named_by_goal':
+            # An edit its producer could not attribute to a symbol (`attributed: false` - a hunk outside any
+            # declaration it can read): named only if a file criterion names its file; otherwise unknown, never
+            # "not named" - which symbol it changed is not known.
+            if a.get('attributed') is False:
+                files, named = _edited_files(a, trace), _named_files(trace)
+                return True if (files and named and all(_file_named(f, named) for f in files)) else None
             # Every symbol this action changes is some criterion's component. An action that names no
             # symbol (or subject) cannot be shown to be named, so it is not.
             syms = _edited_symbols(a, trace)
@@ -635,6 +704,20 @@ def evaluate_formula(node, trace, ctx=None):
             files = _edited_files(a, trace)
             named = _named_files(trace)
             return bool(files) and bool(named) and all(_file_named(f, named) for f in files)
+        if name == 'current':
+            # Evidence still true of the code as it is now: some evidence this action produced is stamped
+            # `current: true` by whoever judged it against the head (a hub). `false`: what it rests on changed
+            # since. Not stamped, or stamped null: unknown (TRACE_SPEC: payload `current`).
+            vals = [p.get('current') for _art, p in _output_payloads(a, trace)]
+            if any(v is True for v in vals):
+                return True
+            if vals and all(v is False for v in vals):
+                return False
+            return None
+        if name == 'ci_confirmed':
+            # Evidence the project's CI ran again and confirmed: payload `ci: "confirmed"` (a hub reads CI's
+            # runs at the commit). Anything else - contradicted, not run, not recorded - is not confirmed.
+            return any(p.get('ci') == 'confirmed' for _art, p in _output_payloads(a, trace))
         if name == 'signature_change':
             return any(p.get('signature_changed') is True for _a, p in _output_payloads(a, trace))
         if name == 'search_confirmed':
@@ -883,25 +966,38 @@ def _temporal_witnesses(ast, trace):
       - G(¬x): actions where x holds are violating;
       - G(x): actions split by whether x holds.
     Returns (evidence_action_ids, violating_action_ids). Empty for shapes we don't decompose."""
-    ev, vi = [], []
+    ev, vi, _un = _temporal_witnesses3(ast, trace)
+    return ev, vi
+
+
+def _temporal_witnesses3(ast, trace):
+    """As `_temporal_witnesses`, with a third list: the actions where it is unknown whether the policy holds."""
+    ev, vi, un = [], [], []
     if not isinstance(ast, Globally):
-        return ev, vi
+        return ev, vi, un
     body = ast.body
     for a in sorted(trace.get('actions', []), key=lambda x: x['id']):
         ctx = {'action': a}
         try:
+            v = evaluate_formula(body, trace, ctx)
             if isinstance(body, Implies):
-                if not evaluate_formula(body.left, trace, ctx):
+                trigger = evaluate_formula(body.left, trace, ctx)
+                if trigger is False:
                     continue  # trigger did not fire here — not relevant
-                (ev if evaluate_formula(body.right, trace, ctx) else vi).append(a['id'])
-            elif isinstance(body, Not):
-                if evaluate_formula(body.body, trace, ctx):
-                    vi.append(a['id'])
-            else:
-                (ev if evaluate_formula(body, trace, ctx) else vi).append(a['id'])
+            elif isinstance(body, Not) and v is True:
+                continue  # G(¬x): only where x held (or may have) is a witness
+            (ev if v is True else vi if v is False else un).append(a['id'])
         except Exception:
             continue
-    return ev, vi
+    return ev, vi, un
+
+
+def undetermined_actions(policy, trace):
+    """The actions at which it is unknown whether a `G(...)` policy holds (an `undetermined` result's where)."""
+    try:
+        return _temporal_witnesses3(Parser(tokenize(effective_formula(policy)), effective_formula(policy), policy.get('name', '')).parse(), trace)[2]
+    except Exception:
+        return []
 
 
 def _structural_witnesses(name, trace):
@@ -999,6 +1095,8 @@ def evaluate_policy_full(policy, trace):
     try:
         result = evaluate_formula(ast, trace)
         ev, vi = _temporal_witnesses(ast, trace)
+        if result is None:
+            return 'undetermined', 'It cannot be told whether it holds: a fact it reads was not recorded.', ev, vi, [], []
         return ('passed' if result else 'failed'), None, ev, vi, [], []
     except Exception as e:
         return 'unknown', f'Evaluation error: {e}', [], [], [], []
@@ -2634,6 +2732,13 @@ def cmd_check(args):
             continue
         status, note, ev_actions, vi_actions, ev_arts, vi_arts = evaluate_policy_full(p, trace)
         record_eval(pid, status, note, ev_actions, vi_actions, ev_arts, vi_arts)
+        if status == 'undetermined':
+            un = undetermined_actions(p, trace)
+            if un:
+                evaluations[-1]['undetermined_action_ids'] = un
+                un_arts = _arts_of(un)
+                if un_arts:
+                    evaluations[-1]['undetermined_artifact_ids'] = un_arts
         applicable = policy_applicability(p, trace) if status == 'passed' else True
         meta[pid] = (name, severity, applicable)
         if status == 'passed':
@@ -2652,6 +2757,9 @@ def cmd_check(args):
                 warnings += 1
             else:
                 advisory += 1
+        elif status == 'undetermined':
+            not_evaluated += 1
+            emit(f"  ?       {name} — undetermined: {note}")
         else:
             not_evaluated += 1
             emit(f"  SKIP    {name} — {note or 'could not evaluate'}")

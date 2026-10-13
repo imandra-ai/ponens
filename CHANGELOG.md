@@ -7,6 +7,20 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
+## [Unreleased]
+
+A policy can be **undetermined**: when whether it holds turns on a fact the trace does not record, `trace check` says
+so - with the actions where - instead of passing or failing it. The trace format is unchanged; a trace that records
+no unknown fact is judged exactly as before.
+
+### Added
+- **Three-valued evaluation** (POLICY_LANGUAGE §5.1): strong Kleene logic over true, false and unknown; the result
+  `undetermined`, with `undetermined_action_ids` / `undetermined_artifact_ids` in `trace check --json`.
+- **`current`** and **`ci_confirmed`**: predicates over facts a hub stamps on evidence - still true of the code as it
+  is now (unknown when not judged), and confirmed by the project's CI. The playground abstains on them.
+- **`named_by_goal` is unknown for an unattributed edit** (`attributed: false` on the action), unless a file
+  criterion names its file.
+
 ## [1.21.0] — 2026-10-08
 
 Requirement results say why they stand where they do in a form a program can read. Every requirement and every row

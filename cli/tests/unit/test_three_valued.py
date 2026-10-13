@@ -1,0 +1,84 @@
+"""Three-valued policy evaluation (POLICY_LANGUAGE §5.1): a fact a formula reads may be unknown - an edit no symbol
+could be attributed to, evidence whose currency was not judged. Strong Kleene logic decides what it can, and a policy
+whose answer turns on an unknown fact is `undetermined`, with the actions where - never passed, never failed."""
+
+from ponens.trace import evaluate_policy_full, undetermined_actions, k_and, k_or, k_not, k_all, k_any
+
+
+def record(actions, artifacts=(), goals=()):
+    return {"actions": actions, "artifacts": list(artifacts), "goals": list(goals)}
+
+
+def edit(i, file, symbol=None, attributed=True):
+    a = {"id": i, "type": "EditFile", "target": file, "outputs": [f"d{i}"]}
+    if not attributed:
+        a["attributed"] = False
+    return a, {"artifact_id": f"d{i}", "artifact_type": "Diff", "payload": {"file": file, **({"target_symbol": symbol} if symbol else {})}}
+
+
+def run(i, **payload):
+    return {"id": i, "type": "RunTests", "outputs": [f"r{i}"]}, {"artifact_id": f"r{i}", "artifact_type": "TestResult",
+                                                                   "payload": {"evidence_strength": "tests", **payload}}
+
+
+def check(formula, rec):
+    return evaluate_policy_full({"name": "p", "formula": formula}, rec)[0]
+
+
+def test_kleene_connectives():
+    assert k_and(False, None) is False and k_and(True, None) is None and k_and(True, True) is True
+    assert k_or(True, None) is True and k_or(False, None) is None and k_or(False, False) is False
+    assert k_not(None) is None and k_not(True) is False
+    assert k_all([True, None]) is None and k_all([None, False]) is False
+    assert k_any([False, None]) is None and k_any([None, True]) is True
+
+
+def test_current_is_read_from_the_stamp_and_unknown_without_one():
+    f = "G(EditFile → F(RunTests ∧ current))"
+    e, d = edit(1, "fees.py", "refund_fee")
+    for stamp, want in ((True, "passed"), (False, "failed"), (None, "undetermined")):
+        r, t = run(2, current=stamp)
+        assert check(f, record([e, r], [d, t])) == want, stamp
+    r, t = run(2)  # not stamped at all
+    assert check(f, record([e, r], [d, t])) == "undetermined"
+
+
+def test_a_known_answer_wins_over_an_unknown_one():
+    e, d = edit(1, "fees.py", "refund_fee")
+    r1, t1 = run(2, current=None)
+    r2, t2 = run(3, current=True)
+    assert check("G(EditFile → F(RunTests ∧ current))", record([e, r1, r2], [d, t1, t2])) == "passed", "one current run is enough"
+    # A failure elsewhere decides it, whatever is unknown.
+    e2, d2 = edit(4, "clamp.py", "clamp")
+    assert check("G(EditFile → F(RunTests ∧ current))", record([e, r1, e2], [d, t1, d2])) == "failed"
+
+
+def test_an_unattributed_edit_is_undetermined_where_a_policy_asks_which_symbol():
+    named, d1 = edit(1, "fees.py", "refund_fee")
+    loose, d2 = edit(2, "fees.py", attributed=False)
+    goals = [{"intent": "Refunds", "acceptance": [{"component": {"function": "refund_fee"}}]}]
+    rec = record([named, loose], [d1, d2], goals)
+    assert check("G(EditFile → named_by_goal)", rec) == "undetermined"
+    assert undetermined_actions({"name": "p", "formula": "G(EditFile → named_by_goal)"}, rec) == [2]
+    # A file criterion names every edit in its file - attributed or not.
+    file_goal = [{"intent": "Refunds", "acceptance": [{"component": {"file": "fees.py"}}]}]
+    assert check("G(EditFile → named_by_goal)", record([named, loose], [d1, d2], file_goal)) == "passed"
+    # A policy that does not ask which symbol - the file is known - is decided as before.
+    assert check("G(EditFile → ¬labeled(generated))", {**rec, "path_labels": {"generated": ["gen/"]}}) == "passed"
+
+
+def test_ci_confirmed_is_two_valued():
+    e, d = edit(1, "fees.py", "refund_fee")
+    r, t = run(2, ci="confirmed")
+    assert check("G(EditFile → F(RunTests ∧ ci_confirmed))", record([e, r], [d, t])) == "passed"
+    r, t = run(2, ci="contradicted")
+    assert check("G(EditFile → F(RunTests ∧ ci_confirmed))", record([e, r], [d, t])) == "failed"
+    r, t = run(2)
+    assert check("G(EditFile → F(RunTests ∧ ci_confirmed))", record([e, r], [d, t])) == "failed", "not run by CI: not confirmed"
+
+
+def test_a_record_with_no_unknown_facts_is_judged_as_before():
+    e, d = edit(1, "fees.py", "refund_fee")
+    r, t = run(2)
+    assert check("G(EditFile → F(RunTests))", record([e, r], [d, t])) == "passed"
+    assert check("G(EditFile → P(RunTests))", record([e, r], [d, t])) == "failed"

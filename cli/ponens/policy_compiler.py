@@ -279,6 +279,10 @@ PREDICATES = {
     # is named by it. `signature_change` is stamped on a Diff by whoever computed it (the hub, from the
     # code host); `search_confirmed` on a SearchResults artifact that was re-run and matched.
     'goal_declared', 'named_by_goal', 'signature_change', 'search_confirmed',
+    # Stamped by a hub that judges evidence against the code as it is now (POLICY_LANGUAGE §5.1): `current` -
+    # what the evidence rests on has not changed since (unknown when not judged); `ci_confirmed` - the
+    # project's CI ran it again and it held.
+    'current', 'ci_confirmed',
 }
 FIELDS = {
     'rationale', 'target_artifact_id', 'files_modified',

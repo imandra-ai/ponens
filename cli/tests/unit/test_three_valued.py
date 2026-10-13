@@ -142,3 +142,10 @@ def test_a_failing_policy_still_says_where_it_is_undetermined():
     pol = {"name": "p", "formula": "G(EditFile → named_by_goal)"}
     assert check(pol["formula"], rec) == "failed"
     assert undetermined_actions(pol, rec) == [2]
+
+
+def test_a_proof_of_the_model_only_is_not_a_proof_of_the_changed_code():
+    rec = contract()
+    next(a for a in rec["artifacts"] if a["artifact_id"] == "vr1")["payload"]["of_code"] = False
+    assert check("G(EditFile → established_as(proved))", rec) == "failed"
+    assert check("G(EditFile → established)", rec) == "passed", "the criterion is still met - by a proof of the model"

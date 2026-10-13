@@ -148,7 +148,7 @@ require a richer evaluation engine.
 - **About the changed code** (§5.1) — at an edit, read from the record's goals by the goal contract's own resolution of
   each acceptance criterion that names what it changed (its symbols, or a file a file criterion names): `established`
   (some such criterion is met), `established_as(v)` (`proved` / `tested`: met by evidence that is a proof / a test
-  result; `bounded` / `refuted`: the evidence the criterion resolved to is that - neither meets a criterion, but a
+  result - a proof stamped `of_code: false`, its model not shown to be the code, is not; `bounded` / `refuted`: the evidence the criterion resolved to is that - neither meets a criterion, but a
   policy may accept a bounded result), `evidence_current` (the evidence meeting them is stamped current; false if any
   is stamped `false`; unknown otherwise), `evidence_ci_confirmed` (some of it is stamped `ci: "confirmed"`). All four
   are unknown at an edit stamped `attributed: false` that no file criterion names.

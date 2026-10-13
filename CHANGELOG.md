@@ -22,6 +22,8 @@ no unknown fact is judged exactly as before.
   `evidence_ci_confirmed` - at an edit, what the goal contract establishes about the criteria that name what it
   changed. A rule such as "changed high-stakes code is established, by evidence still current" is one formula:
   `G(EditFile ∧ high_stakes_path → named_by_goal ∧ established ∧ evidence_current)`.
+- **A proof of the model only is not a proof of the code**: `established_as(proved)` does not count a proof a hub
+  stamped `of_code: false`.
 - **`named_by_goal` is unknown for an unattributed edit** (`attributed: false` on the action), unless a file
   criterion names its file.
 

@@ -908,6 +908,10 @@ def _symbol_fact(name, arg, a, trace):
             pay = art.get('payload') or {}
             if want == 'tested':
                 return _canon_type(art.get('artifact_type')) in ('TestResult', 'CommandResult') or pay.get('evidence_strength') == 'tests'
+            # A proof a hub judged to be of its model only (`of_code: false` - the model is not shown to be the code) is
+            # not a proof of the changed code.
+            if want == 'proved' and pay.get('of_code') is False:
+                return False
             return str(pay.get('status') or '').lower() == want
         pool = met if want in ('proved', 'tested', 'sat') else [art for _st, art in resolved]
         return any(verdict(x) for x in pool)

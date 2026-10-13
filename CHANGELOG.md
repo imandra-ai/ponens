@@ -7,7 +7,7 @@ This file is the single source for release news: the matching section becomes th
 notes, and the website's **/whats-new** page renders this file directly. Keep a
 `## [x.y.z]` heading per version, with `### Added` / `### Changed` / `### Fixed` subsections.
 
-## [Unreleased]
+## [1.22.0] — 2026-10-13
 
 A policy can be **undetermined**: when whether it holds turns on a fact the trace does not record, `trace check` says
 so - with the actions where - instead of passing or failing it. The trace format is unchanged; a trace that records

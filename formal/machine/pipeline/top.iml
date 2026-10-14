@@ -1,0 +1,9 @@
+(** Models of the procedures that produce artifacts 
+    (identity, rename, the verify ladder, verdicts). 
+    
+    They do not read or write the state.  *)
+
+[@@@import Identity, "identity.iml"]
+[@@@import Rename, "rename.iml"]
+[@@@import Escalation, "escalation.iml"]
+[@@@import Verdict, "verdict.iml"]

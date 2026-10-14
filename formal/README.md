@@ -1,62 +1,97 @@
-# `formal/` — Ponens's own logic, proved in IML
+# `formal/`: Ponens's own logic, proved in IML
 
-The Ponens reasoning framework modelled **specification-first in IML** and proved by **ImandraX** — the
-system verifying its own logic. The whole framework is now a **single state-transition machine in which the
-trace is the state**; every invariant a silent bug would break is a theorem over that one state.
+The Ponens reasoning framework is modelled specification-first in IML and proved by
+ImandraX, so the system verifies its own logic. The framework is a single state machine
+whose state is the trace. Each invariant that a silent bug would break is a theorem over
+that state.
 
-Re-verify (the regression gate):
+## Re-verify
+
+`check.sh` is the regression gate. It reads `manifest.toml`, runs
+`codelogician-lite check --json` on every model file, and compares the proof obligation
+(PO) counts with the manifest:
 
 ```
-IMANDRAX_API_KEY=$IMANDRA_UNI_KEY ./check.sh        # reads manifest.toml
+IMANDRAX_ENV=prod ./check.sh
 ```
 
-or directly: `imandrax-cli check formal/machine/trace_machine.iml` (its header states the `RECHECK` line).
+It needs `codelogician-lite` (`uv tool install codelogician`) and `jq` on `PATH`, and
+`IMANDRA_UNI_KEY` or `IMANDRAX_API_KEY` in the environment. It sets
+`CODELOGICIAN_TIMEOUT=600` unless you set it yourself. Set `VERBOSE=1` to print the full
+output of a failing file.
 
-## The state machine — the trace IS the state (`machine/trace_machine.iml`)
+To check one file, run it from its own directory so that `[@@@import ...]` paths resolve:
 
-Ponens as a state-transition machine. The state is `{ actions; artifacts }` — the ordered action log **and**
-the artifact lineage DAG (events are first-class; every artifact is produced by a recorded action). The
-transitions are `extend` (record an action + the artifact it produces), `supersede` (retire a target's
-current revision), and `combine` (a two-parent merge). Over this one state, in a single file — **195 POs, 0
-failures** — it proves the entire evidence logic:
+```
+cd machine && codelogician-lite check goals.iml
+```
 
-| Concern | In the machine |
-|---|---|
-| **state** (actions + artifacts) | `wf_state` = artifact DAG well-formed **and** every artifact grounded in a recorded action; preserved by `extend_state`/`supersede_state`/`combine_state` |
-| **I1** append-only | `extend` grows the state; `supersede` only flips flags |
-| **I2** lineage-ordered / acyclic | `lineage_ordered` preserved by `extend`; no self-reference |
-| **I3** evidence-grounded | `grounded` preserved by `extend` |
-| **`wf` = I1∧I2∧I3** | an *inductive invariant*: `wf []`, preserved by every transition |
-| **I4** freshness | `freshness_of` query, recomputed vs the current model; `fresh_is_sound`, `no_false_fresh` |
-| **I5** reuse | `plan_reuse` reads the state; never-reuse-stale; conditional growth; preserves `wf` |
-| **goals** (met axis) | `met` = all-done; `at_risk_never_demotes`; `progress ∈ [0,1]`; done-not-at-risk ⇒ fresh |
-| **policies** (governed axis) | LTLf `G`/`F` over the timeline; **`governed ⊥ met`** |
-| **merge** (composition) | `classify` totality / no-false-fresh / never-guess; `combine_preserves_wf` |
-| **component identity** | `resolve_component`: **never-conflate**; append-only alias equivalence |
-| **verify escalation** | the ordered ladder: always decides; a verdict has a witness; first-decider-wins |
-| **rename ambiguity** | `find_rename`: never guess when ambiguous; every accepted rename is justified |
-| **verdict totality** | every terminal verdict lands somewhere (a defect ⇒ a residual) |
+Checking a file also checks the files it imports, and a failure in an import fails the
+file. `check.sh` counts only a file's own POs (a PO from an import is named after the
+import alias, such as `Core.Trace.wf_empty`), so the per-file counts add up to the total.
 
-`manifest.toml` is the single source of truth and drives `check.sh`. (Some secondary properties of the
-former standalone models were intentionally simplified away when unifying — the freshness rescue/worst-wins
-lattice, store revision-numbering, lineage no-islands presence, and the opaque-contract taxonomy; the machine
-keeps the load-bearing invariants.)
+## The state machine (`machine/`)
 
-## The trace + policy reference model (`trace-policy-model/`)
+The state is `{ actions; artifacts }`: the ordered action log and the artifact lineage
+DAG. Every artifact is produced by a recorded action. The transitions are `extend`
+(record an action and the artifact it produces), `supersede` (retire a target's current
+revision) and `merge` (join two branches of a shared base). `core.iml` defines the state
+in three modules: `Artifact` (ids, kinds, the artifact record), `Trace` (the artifact DAG
+and its transitions) and `State` (actions and artifacts together). The other files are
+queries over the state, the theorem that two of them are independent, and the two
+operations that combine a query with a transition. `top.iml` gathers the state, its
+transitions and the invariant in one `Machine` module. Start with `top.iml` for the
+interface and `core.iml` for the definitions; `examples.iml` evaluates each part on a
+small trace.
 
-A layered, executable IML model of the trace and policy vocabulary itself — types, accessors, binding,
-runtime, evaluation, a policy library, and worked examples (read `01_trace_policy_types` →
+| File | POs | What it proves |
+|---|---|---|
+| `core.iml` | 81 | `wf` (I2 lineage-ordered, I3 grounded, increasing ids, closed lineage) holds of `[]` and is preserved by `extend` and `supersede`; I1 append-only; ids are unique; the dependency closure; `wf_state` (every artifact listed by its producer action, increasing action ids) is preserved by `extend_state` and `supersede_state` |
+| `freshness.iml` | 9 | I4: `fresh_is_sound`, `no_false_fresh`, and no-false-fresh over the dependency closure |
+| `goals.iml` | 20 | the met axis: met is all-done, at_risk never demotes, progress is in [0,1], done and not at risk means fresh |
+| `policy.iml` | 6 | the governed axis: LTLf `G` and `F` over the action timeline |
+| `axes.iml` | 2 | governed and met are independent |
+| `reuse.iml` | 7 | I5: never reuse stale evidence; the trace grows by at most one; the reuse step preserves `wf` on the trace and `wf_state` on the full state |
+| `merge.iml` | 58 | `classify` totality, no-false-fresh and never-guess; `merge_preserves_wf`; a result of ours keeps its closure through the merge, and one carried forward with nothing touched is still fresh against the merged trace; `merge_state` renumbers theirs' artifact and action ids and preserves `wf_state` |
+| `top.iml` | 11 | the `Machine` interface: `wf_state` holds of `empty` and is preserved by `extend`, `supersede`, `merge` and `reuse`; every run of steps from `empty` is well-formed (`reachable_wf`); a reuse is an `Extend` step or no step |
+
+The paper names a third axis, `certified` (the definition of done was reviewed by
+someone other than the doer). It is not modelled yet.
+
+## The pipeline (`machine/pipeline/`)
+
+Models of the procedures that produce what goes into the state. They do not read or
+write the state, and no file here imports `core.iml`.
+
+| File | POs | What it proves |
+|---|---|---|
+| `identity.iml` | 31 | `resolve_component` never conflates two components; append-only alias equivalence |
+| `rename.iml` | 6 | `find_rename` never guesses when ambiguous; every accepted rename is justified |
+| `escalation.iml` | 9 | the verify ladder always decides, a verdict has a witness, the first decider wins |
+| `verdict.iml` | 6 | every terminal verdict lands somewhere; a defect always carries a residual |
+
+The two directories hold 246 POs in total, all proved.
+
+`manifest.toml` is the single source of truth and drives `check.sh`.
+
+## The trace and policy reference model (`trace-policy-model/`)
+
+A layered, executable IML model of the trace and policy vocabulary itself: types, accessors, binding,
+runtime, evaluation, a policy library, and worked examples (read `01_trace_policy_types` to
 `09_trace_policy_examples`; each `[@@@import]`s the earlier layers). This is the concrete vocabulary the
 Trace and Policy specs project to a wire format.
 
 ## Notes for authoring more models (ImandraX build specifics)
 
+If the `codelogician` skill is available, prefer checking it first; it covers IML and
+ImandraX usage in more depth than these notes.
+
 - `theorem`s with `[@@by …]` are discharged at admission time (`check`); no separate open VGs.
 - List-recursion theorems need `[@@by induct ()]`; predicate-distributes-over-append/concat lemmas tagged
-  `[@@rw]`. Prefer append/concat *rewrite* lemmas over accumulator inductions — a fold `f (extend acc x) r`
+  `[@@rw]`. Prefer append/concat *rewrite* lemmas over accumulator inductions: a fold `f (extend acc x) r`
   will not generalize the accumulator under `induct ()`; exploit per-node-self-contained invariants so the
   predicate distributes over `@` (see `lineage_ordered_concat` / `grounded_concat`).
 - Multi-hint form is `[@@by [%use lemma args] @> auto]` (chain with `@>`), **not** `[@@by [l1; l2]]`.
 - Real division bounds: abstract the quotient and use the cancellation identity
-  (`y <> 0. ==> y *. (x /. y) = x`), reducing to an RCF-decidable polynomial — see `real_ratio_bounded` /
-  `g_progress_bounded`.
+  (`y <> 0. ==> y *. (x /. y) = x`), reducing to an RCF-decidable polynomial (see `real_ratio_bounded` /
+  `g_progress_bounded`).

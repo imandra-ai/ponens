@@ -1,0 +1,115 @@
+(* Verdict totality: every terminal state lands somewhere
+   ======================================================
+
+   emitVerdict maps every rich verdict status to a landing (a result, a residual, or
+   both). Totality means no terminal state maps to nothing, and every defect is carried
+   in the residual surface. *)
+
+type status =
+  | Proved
+  | Refuted
+  | Unknown
+  | Instance
+  | NoInstance
+  | Bounded
+
+(* What emitVerdict actually lands on the trace for a status.
+   `has_result`   : a VerificationResult artifact is always pushed (every status).
+   `has_residual` : an open residual is also pushed for the defect/limitation
+                    branches (unknown / refuted / bounded).
+   Modelling both bools captures the code's "result + residual" cases (bounded is
+   a proof that also carries a `limitation` residual, see GAP-7). *)
+type landing = {
+  has_result   : bool;
+  has_residual : bool;
+}
+
+(* WIRE_VERDICT (export.ts): rich internal verdict -> ponens-valid wire verdict.
+   Only {proved, refuted, unknown} are wire-valid; the richer statuses collapse. *)
+type wire = WProved | WRefuted | WUnknown
+
+let wire_verdict (s : status) : wire =
+  match s with
+  | Proved     -> WProved
+  | Bounded    -> WProved   (* a proof, just bounded to a depth *)
+  | Instance   -> WProved   (* definite, non-refuting engine result *)
+  | NoInstance -> WProved
+  | Refuted    -> WRefuted
+  | Unknown    -> WUnknown
+
+(* emit : status -> landing.  Faithful to emitVerdict:
+     * a VerificationResult is pushed for every status         => has_result = true
+     * a residual is pushed in exactly three branches:
+         status = Unknown  -> `unverified`   residual   (engine-checked genuine gap)
+         status = Refuted  -> `open_question` residual   (a confirmed defect)
+         status = Bounded  -> `limitation`   residual   (holds only up to a bound)
+       Proved / Instance / NoInstance produce no residual (a positive verdict is
+       carried as evidence, not a gap). *)
+let emit (s : status) : landing =
+  match s with
+  | Proved     -> { has_result = true; has_residual = false }
+  | Instance   -> { has_result = true; has_residual = false }
+  | NoInstance -> { has_result = true; has_residual = false }
+  | Unknown    -> { has_result = true; has_residual = true  }
+  | Refuted    -> { has_result = true; has_residual = true  }
+  | Bounded    -> { has_result = true; has_residual = true  }
+
+(* "Lands somewhere" = at least one of the two surfaces carries the verdict. *)
+let lands_somewhere (l : landing) : bool =
+  l.has_result || l.has_residual
+
+(* A "positive" verdict: the engine gave a definite, non-defect outcome. These are
+   exactly the WProved wire verdicts (proved / bounded / instance / no-instance).
+   Note: `bounded` is positive (a proof) yet also carries a limitation residual. *)
+let is_positive (s : status) : bool =
+  wire_verdict s = WProved
+
+(* A "defect/gap" verdict: not a clean universal proof. Its gap must be carried in
+   the residual surface (the honesty property). This is every branch of emitVerdict
+   that pushes a residual: Refuted / Unknown / Bounded. *)
+let is_defect (s : status) : bool =
+  match s with
+  | Refuted | Unknown | Bounded -> true
+  | Proved | Instance | NoInstance -> false
+
+(* Invariants (spec ch-11: every terminal state lands somewhere)
+   ------------------------------------------------------------- *)
+
+(* T1, totality (the ch-11 no-dead-end claim): for every status, `emit` produces at
+   least one landing. No terminal state maps to "nothing". Because `status` is a finite
+   enum this is a coverage theorem over all constructors. *)
+theorem totality (s : status) =
+  lands_somewhere (emit s)
+
+
+(* T1b, the stronger form that holds of the code: every status yields a result
+   (a VerificationResult is unconditionally pushed by emitVerdict). *)
+theorem always_has_result (s : status) =
+  (emit s).has_result
+
+
+(* T2, proved_is_result: a positive verdict lands as evidence (a Result), not merely
+   as a gap. Covers proved / bounded / instance / no-instance. *)
+theorem proved_is_result (s : status) =
+  is_positive s ==> (emit s).has_result
+
+
+(* T3, defect_has_residual (the honesty property): every non-positive or limitation
+   status carries an open residual in the negative space, so a gap is never dropped. *)
+theorem defect_has_residual (s : status) =
+  is_defect s ==> (emit s).has_residual
+
+
+(* T3b, the completeness partner: a clean positive verdict that is not a defect
+   carries no residual (proved / instance / no-instance are pure
+   evidence). This pins down that the residual surface is exactly the defect set. *)
+theorem clean_positive_no_residual (s : status) =
+  (is_positive s && not (is_defect s)) ==> not (emit s).has_residual
+
+
+(* T4, exhaustive cover: the residual surface equals the defect set. A status carries
+   a residual iff it is a defect, so nothing is over- or under-carried. Combined with
+   ImandraX's exhaustiveness check on the `emit` match, this certifies full coverage
+   of the finite enum. *)
+theorem residual_iff_defect (s : status) =
+  (emit s).has_residual = is_defect s
